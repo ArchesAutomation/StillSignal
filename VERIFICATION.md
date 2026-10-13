@@ -35,4 +35,8 @@ Physical WHOOP, Apple Health, Oura and Garmin connectors and large concurrent-us
 
 Production uses https://trade-pulse-ebon.vercel.app and the public GitHub repository https://github.com/ArchesAutomation/TraderPulse. Releases are built directly from GitHub source in Vercel `yul1`; automatic future Git-push deployments remain unverified. Supabase's optional GitHub App has not been installed and is not required for runtime connectivity. SMTP/Resend remains deferred, with operator-created private-beta accounts.
 
-The previous 0.2 release was READY and passed health/auth checks. The 0.3 production deployment and final proxy checks are recorded below after publishing.
+The 0.3 production deployment `dpl_BJtqmtfng8v3UoU5mj163EjiQpzW` is READY, built from GitHub commit `47e5bbd928d565582f27433457e11becd3b3d649` in `yul1`. The stable alias returns HTTP 200 and health reports `version:0.3.0`, `cloudConfigured:true`, `authenticationRequired:true`, `exampleData:false`. The public CSV template returns the exact header-only contract.
+
+A second two-account verification run through the deployed Vercel `/api/data` proxy passed the full connection/journal/CSV/rotation/isolation sequence. Direct webhook receipt during that run took 837 ms; retry took 1,000 ms. Both disposable accounts and their records were removed again. The temporary administrative bootstrap was overwritten by its retired handler with gateway JWT verification enabled.
+
+The live public browser shows the updated sign-in page: an empty journal, TradingView/CSV and optional wearable text. Authenticated interactive UI flows were verified in DOM tests plus real hosted API/database probes; a fully signed-in browser walkthrough and an actual provider-triggered TradingView alert remain unverified.
