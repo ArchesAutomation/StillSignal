@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "regions": [
+    "yul1"
+  ],
+  "functions": {
+    "src/app/api/**/route.ts": {
+      "maxDuration": 10
+    }
+  }
+}

@@ -1,0 +1,79 @@
+import "fake-indexeddb/auto";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { JSDOM } from "jsdom";
+import { createElement, act } from "react";
+import { createRoot } from "react-dom/client";
+import Dashboard from "../src/components/dashboard";
+import AuthGate from "../src/components/auth-gate";
+function domSetup() {
+  const dom = new JSDOM('<div id="root"></div>', {
+    url: "https://trade-pulse.test",
+  });
+  for (const [key, value] of Object.entries({
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    localStorage: dom.window.localStorage,
+    FormData: dom.window.FormData,
+  }))
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+  (
+    globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+  dom.window.HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  globalThis.fetch = async () => Response.json({ cloudConfigured: false });
+  return dom;
+}
+test("signed-out visitors see sign-in, no sample dashboard or personal session data", async () => {
+  const dom = domSetup();
+  const root = createRoot(document.getElementById("root")!);
+  await act(async () => root.render(createElement(AuthGate)));
+  assert.match(document.body.textContent!, /Welcome to Trade Pulse/);
+  assert.ok(document.querySelector("input[type=password]"));
+  assert.equal(
+    document.querySelector(
+      'svg[aria-label="Heart rate and trading events on a synchronized timeline"]',
+    ),
+    null,
+  );
+  assert.doesNotMatch(
+    document.body.textContent!,
+    /EXAMPLE SESSION|21452|410\.00/,
+  );
+  await act(async () => root.unmount());
+  dom.window.close();
+});
+test("new authenticated workspace is empty and requires a real session before adding events", async () => {
+  const dom = domSetup();
+  const root = createRoot(document.getElementById("root")!);
+  await act(async () =>
+    root.render(
+      createElement(Dashboard, {
+        user: {
+          id: "11111111-1111-4111-8111-111111111111",
+          email: "tester@example.test",
+        },
+      }),
+    ),
+  );
+  assert.match(document.body.textContent!, /No active session/);
+  assert.match(document.body.textContent!, /No recorded samples/);
+  assert.doesNotMatch(
+    document.body.textContent!,
+    /EXAMPLE SESSION|\bNQ\b|\bES\b/,
+  );
+  const button = (label: string) =>
+    [...document.querySelectorAll("button")].find(
+      (b) => b.textContent?.trim() === label,
+    )!;
+  assert.equal(button("Add event").disabled, true);
+  await act(async () => button("Journal").click());
+  assert.match(document.body.textContent!, /A moment worth remembering/);
+  await act(async () => button("Settings").click());
+  assert.match(document.body.textContent!, /tester@example.test/);
+  await act(async () => root.unmount());
+  dom.window.close();
+});

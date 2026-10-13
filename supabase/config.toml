@@ -1,0 +1,7 @@
+project_id = "TraderPulse"
+
+[functions.pulse-data]
+verify_jwt = false
+
+[functions.pulse-tradingview]
+verify_jwt = false
