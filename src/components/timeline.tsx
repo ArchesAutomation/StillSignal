@@ -94,25 +94,26 @@ export function Timeline({
             <stop offset="100%" stopColor="#fb8354" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0, 1, 2, 3, 4].map((i) => {
-          const v = min + ((max - min) * i) / 4;
-          return (
-            <g key={i}>
-              <line
-                x1={L}
-                x2={W - R}
-                y1={y(v)}
-                y2={y(v)}
-                stroke="#ffffff"
-                strokeOpacity=".055"
-                strokeDasharray="3 5"
-              />
-              <text x={L - 12} y={y(v) + 4} textAnchor="end" className="axis">
-                {Math.round(v)}
-              </text>
-            </g>
-          );
-        })}
+        {points.length > 0 &&
+          [0, 1, 2, 3, 4].map((i) => {
+            const v = min + ((max - min) * i) / 4;
+            return (
+              <g key={i}>
+                <line
+                  x1={L}
+                  x2={W - R}
+                  y1={y(v)}
+                  y2={y(v)}
+                  stroke="#ffffff"
+                  strokeOpacity=".055"
+                  strokeDasharray="3 5"
+                />
+                <text x={L - 12} y={y(v) + 4} textAnchor="end" className="axis">
+                  {Math.round(v)}
+                </text>
+              </g>
+            );
+          })}
         {baseline !== null && (
           <g>
             <line
@@ -268,9 +269,23 @@ export function Timeline({
           in your export.
         </p>
       )}
-      {!points.length && (
+      {journal.filter((j) => j.t >= start && j.t <= end).slice(-100).length >
+        0 && (
+        <div className="timeline-journal-list">
+          {journal
+            .filter((j) => j.t >= start && j.t <= end)
+            .slice(-5)
+            .map((j) => (
+              <span key={j.id} title={j.text}>
+                {clock(j.t)} · {j.label}
+              </span>
+            ))}
+        </div>
+      )}
+      {!points.length && !events.length && !journal.length && (
         <div className="chart-empty">
-          Your heart-rate timeline starts with your first sample.
+          Add a trade or reflection to start your timeline. A wearable is
+          optional.
         </div>
       )}
     </div>

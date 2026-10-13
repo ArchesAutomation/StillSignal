@@ -6,7 +6,7 @@ export function emptyWorkspace(owner: string): Session {
     owner,
     name: "Your workspace",
     startedAt: Date.now(),
-    source: "whoop",
+    source: "journal",
     events: [],
     journal: [],
     sampleCount: 0,

@@ -1,34 +1,38 @@
-# Verification — empty private beta
+# Verification — Trade Pulse 0.3
 
-## Local checks
+## Local release checks
 
-18 automated tests pass for the current release. They cover empty workspaces, local ownership, simulated BLE lifecycle, CSV validation, analytics, bounded requests, Postgres RLS, idempotency, journal merging and deletion tombstones. Type checking and the production build pass after migration-file and beta-access UI changes.
+24 automated tests pass, plus TypeScript checking and an optimized Next.js production build. Tests cover empty authenticated workspaces, source-independent journaling/reflections/reopen, CSV file picker and actual drop events, preview-before-write, identical imports, native TradingView strategy exports, timezone/DST validation, USD P&L rules, trade-only timelines, supported alert templates, strategy partial exits/reversals, daily journal IDs and DST boundaries, simulated BLE lifecycle, sample gaps, analytics, body limits, local ownership/outbox durability, Postgres RLS, retries, tombstones and server-only RPCs. React review checked hook cleanup, semantic labels, optional physiology rendering and lazy integration loading.
 
-## Hosted Supabase checks
+## Hosted checks on 2026-10-13
 
-Passed against TraderPulse (`ipfurgwqqjkybhadzutj`):
+Passed against Supabase TraderPulse (`ipfurgwqqjkybhadzutj`) using two disposable, confirmed password accounts, with no email delivery and no physical sensor:
 
-- Two admin-created confirmed accounts sign in by password, without email delivery.
-- Account B cannot list, read, delete, append samples to or create hooks for account A’s session.
-- Wrong owner and cross-tenant session-ID reassignment are rejected.
-- Direct Data API RLS restricts reads; direct client writes and privileged RPC calls return 403.
-- Identical sample retries deduplicate; conflicting payloads fail; replay returns exactly the original samples.
-- TradingView invalid tokens are rejected; duplicate valid events are stored once; revoked tokens are rejected.
-- Deleted sessions cannot be recreated from stale uploads.
-- Temporary verification account removed; demo remains empty. Remote counts: 0 sessions, 0 sample chunks, 0 events, 0 tombstones.
-- Setup-only bootstrap function replaced with a 410 handler, with gateway JWT verification enabled and no administrative code.
+- Empty account signs in; creates an account-wide connection without an active session or wearable. The second account cannot see its connection or journals.
+- Public direct webhook accepts JSON with no API key/bearer header after validating the narrow token. First durable receipt: **1,135 ms**; identical retry: **849 ms**, with zero duplicate insertion.
+- Invalid tokens fail; conflicting data under the same event ID is rejected. Database/API/ownership checks prevent cross-tenant reads, deletion and hook creation.
+- Strategy reversal atomically records a long exit and short entry. No P&L or physiological values are invented.
+- An existing open manual journal receives incoming alerts and retains reflections with zero samples. Without one, alerts create/reuse the tenant's daily journal.
+- CSV parser output persists to a historical CSV journal; repeated saves preserve exactly two events and zero samples.
+- Legacy session hooks remain functional; rotation and Disconnect invalidate old keys; future timestamps are rejected.
+- All disposable auth users and their cascaded journal/event/connection records were removed. After cleanup: 0 sessions, 0 chunks, 0 events, 0 connections, 0 temporary users. Demo and Caleb accounts were not populated.
 
-Security advisor reports INFO notices for three deliberately inaccessible internal tables with RLS and no client policies. It also flags disabled leaked-password protection, which requires Supabase Pro or above; no paid upgrade was authorized. See [password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) and [internal-table RLS notice](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Foreign-key covering indexes were added. Unused-index INFO is expected on a new, empty database.
+The three schema migrations match the remote ledger: `20261013082052`, `20261013091657`, `20261013093620`. Updated runtime Edge Functions are active. The setup-only bootstrap is retired after verification, contains only a 410 handler, and uses gateway JWT verification.
 
-## Remaining practical limits
+Earlier hosted checks also established forbidden direct client mutations/RPCs, cross-tenant session-ID reassignment rejection, sample batch deduplication/conflict rejection and deletion tombstone behavior.
 
-Physical WHOOP hardware, Safari/phone Bluetooth recording support (not available), large concurrent-user capacity and third-party TradingView delivery latency are not established by these checks. Use the staging load harness before raising beta limits. Free-plan quotas are not a production capacity guarantee.
+## Advisor findings
 
-## Production release checks
+Performance advisor reports no findings after the new schema. Security advisor reports INFO for four deliberately inaccessible internal tables with RLS/no client policies. Leaked-password protection remains a WARN because that feature requires a paid Supabase plan; no upgrade was authorized. See [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) and [internal-table RLS notice](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Privileged keys are confined to Supabase; no privileged Vercel/browser environment variable was added.
 
-Vercel deployment `dpl_38e6eHWDYWCAGchYR6MFd9jfvdd4` is READY, built from GitHub commit `7d281ba0b39bba80a0b857b9dc8957aba59b520a`. The stable alias returns HTTP 200 with `cloudConfigured:true`, `authenticationRequired:true`, and `exampleData:false`. A confirmed beta account successfully signs in and lists zero sessions through the deployed Vercel `/api/data` proxy; anonymous access returns 401. The live browser shows enabled email/password sign-in, private beta text, and no sample data or signup/reset links. Physical WHOOP and signed-in browser interactions remain unverified.
+## External and capacity boundaries
 
-The migration baseline is recorded remotely as `20261013082052`; all three foreign-key indexes are present. Production Auth Site URL and the exact redirect allowlist are saved. Resend/SMTP remains deferred; testers use operator-provisioned accounts.
+HTTP probes verify the real deployed intake/auth/database contract. They do not establish that a user's actual TradingView alert condition has fired; the user must create the alert using generated setup in their TradingView account. No user strategy or broker credentials were invented. The provider's three-second deadline was met by the recorded direct requests, but broad p95 latency and provider-origin delivery reliability require sustained testing.
 
-Automatic future Vercel Git-push deployment is not verified; its scoped link-discovery action returned 403. Current production deployment fetched its source directly from GitHub successfully. Supabase's GitHub App installation is prepared for only TraderPulse and awaits the user's action-time permission approval. No paid branching is enabled.
+Physical WHOOP, Apple Health, Oura and Garmin connectors and large concurrent-user capacity are not verified. WHOOP Bluetooth is implemented and simulated in tests; the other providers are planned. Journaling and TradingView/CSV do not depend on any of them. The current Free plan is a limited-beta starting point; run multi-account staging load tests before a larger launch.
 
+## Release hosting
+
+Production uses https://trade-pulse-ebon.vercel.app and the public GitHub repository https://github.com/ArchesAutomation/TraderPulse. Releases are built directly from GitHub source in Vercel `yul1`; automatic future Git-push deployments remain unverified. Supabase's optional GitHub App has not been installed and is not required for runtime connectivity. SMTP/Resend remains deferred, with operator-created private-beta accounts.
+
+The previous 0.2 release was READY and passed health/auth checks. The 0.3 production deployment and final proxy checks are recorded below after publishing.

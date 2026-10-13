@@ -7,6 +7,70 @@ export async function POST(request: Request) {
     const { db, user } = await authenticated(request);
     await rate(db, "user:" + user.id);
     const p = actionSchema.parse(await boundedJson(request));
+    if (p.action === "connection-status") {
+      const { data, error } = await db
+        .from("pulse_connections")
+        .select("timezone,expires_at,last_received_at,event_count")
+        .eq("user_id", user.id)
+        .eq("provider", "tradingview")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      checked(error);
+      return Response.json(
+        {
+          connection: data
+            ? {
+                timezone: data.timezone,
+                expiresAt: data.expires_at,
+                lastReceivedAt: data.last_received_at,
+                eventCount: data.event_count,
+              }
+            : null,
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (p.action === "disconnect") {
+      const { error } = await db
+        .from("pulse_connections")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("provider", "tradingview");
+      checked(error);
+      return Response.json({ ok: true });
+    }
+    if (p.action === "connection") {
+      const token = randomBytes(32).toString("hex"),
+        hash = createHash("sha256").update(token).digest("hex"),
+        expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+      const { error } = await db
+        .from("pulse_connections")
+        .upsert(
+          {
+            user_id: user.id,
+            provider: "tradingview",
+            token_hash: hash,
+            timezone: p.timezone,
+            expires_at: expiresAt,
+            last_received_at: null,
+            event_count: 0,
+          },
+          { onConflict: "user_id,provider" },
+        );
+      checked(error);
+      return Response.json(
+        {
+          token,
+          connection: {
+            timezone: p.timezone,
+            expiresAt,
+            lastReceivedAt: null,
+            eventCount: 0,
+          },
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (p.action === "list") {
       const { data, error } = await db
         .from("pulse_sessions")

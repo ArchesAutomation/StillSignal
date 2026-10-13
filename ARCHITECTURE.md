@@ -1,79 +1,69 @@
 # Architecture and scale envelope
 
-## Data path
+## Independent data sources
 
-WHOOP BLE → browser recorder → IndexedDB raw samples + atomic retry outbox → authenticated bounded HTTP batches → stateless Vercel Functions → Supabase Postgres.
+The journal owns trades and reflections. Wearables contribute optional samples; they do not control access to sessions, imports, notes or replay. `Session.source` records journal/CSV/TradingView origin, while `Session.wearable` and sample provider metadata describe physiology independently. WHOOP is implemented; Apple/Oura/Garmin authorization and ingestion remain future work.
 
-TradingView → validated session-scoped webhook → durable deduplicated Postgres event → active browser polls every 15 seconds → shared event/heart-rate timeline.
+| Source | Durable path | Requires an open app? |
+| --- | --- | --- |
+| Manual trades/reflections | Browser → tenant IndexedDB → authenticated Vercel proxy → Supabase Edge → Postgres | For entry only |
+| CSV | Local parse/mapping/preview → explicit import → same journal sync path | For import only |
+| TradingView | Direct Supabase webhook → token lookup/rate limit → transactional Postgres RPC | No |
+| WHOOP Bluetooth | Sensor → local raw samples + retry outbox → completed cloud batches | Yes, for recording |
 
-Browser reads and interactive analytics run locally. A sensor notification does not trigger a server call. Recording, rendering, insight refreshes, and cloud synchronization are independent clocks:
+Server-only keys stay inside Supabase. Vercel and browser configuration contain only the public URL/publishable key. Vercel runs in `yul1`, near the Canada Central database. Direct webhook intake removes the Vercel forwarding hop from TradingView's three-second deadline; `/api/tradingview` remains a bounded compatibility proxy.
 
-| Work                        | Cadence                                  |
-| --------------------------- | ---------------------------------------- |
-| Raw sample persistence      | Every valid received BLE notification    |
-| Dashboard refresh           | 1 second                                 |
-| Descriptive insight refresh | User choice: 15s to 60m                  |
-| Cloud batch upload          | Completed 30-second windows              |
-| TradingView event poll      | 15 seconds while signed in and recording |
-| Chart output                | At most 600 peak-preserving points       |
+## Tenant isolation
 
-## Backend choices
+Each Supabase Auth user is one MVP tenant. User APIs verify bearer tokens with `auth.getUser()` and explicitly scope every database query by that identity. Editable user metadata never controls authorization. Composite session/user foreign keys protect children. RLS permits authenticated reads of owned sessions, samples and events; client mutations and RPC execution are revoked.
 
-- **Stateless Next.js API routes:** no process-local user state or in-memory rate-limit correctness. Vercel can horizontally scale handlers.
-- **Postgres through Supabase HTTP:** no per-request application TCP connection pool explosion. Deploy functions in the same region as the database.
-- **Chunked time series:** up to 120 JSON samples per insert, indexed by tenant/session/sequence. Typical 1 Hz sessions produce one chunk per 30 seconds instead of one row or API call per heartbeat.
-- **Idempotency:** stable batch IDs + uniqueness + content conflict detection. TradingView event IDs are unique within the session. A successful retry does not add another event/sample chunk.
-- **Pagination:** sample reads return at most 100 chunks per request. Cloud history returns the newest 100 sessions. More extensive archive browsing is a later feature.
-- **No premature distributed system:** simple ingestion commits before acknowledgement. Introduce a durable queue when measured traffic or added downstream jobs require it, not an in-memory background promise.
+Connections, hook hashes, rate counters and deletion tombstones have RLS and no client policies. Only the server can access them. Database functions use `SECURITY INVOKER`, fixed search paths and service-only execution grants. AuthGate remounts the dashboard on identity changes. IndexedDB/preferences, sample buffers and outboxes are account-scoped. Local storage is not encrypted; use separate browser profiles on shared computers.
 
-## Isolation and deletion
+The demo login is one empty tenant. Sharing its password also shares its workspace. Private testers need separate accounts.
 
-Supabase email/password Auth authenticates the client. Every user API request re-verifies its bearer token. Server-side reads/writes explicitly scope by verified user ID. Composite session/user foreign keys prevent cross-tenant child rows. Browser client keys can only read their own rows through RLS; table mutations and privileged functions are revoked from client roles.
+## TradingView consistency
 
-A database-backed atomic counter limits each authenticated user and valid hook to 120 requests/minute, independent of the number of function instances. This is a protective ceiling, not a throughput promise. Configure WAF/IP rate limits for unauthorized traffic at the platform edge. Rate-limit rows reuse a single key per user/hook; expired hook and unused rate-limit keys need periodic maintenance at scale.
+A random 32-byte token is stored as a SHA-256 hash in `pulse_connections`, unique per account/provider and expiring after 30 days. Rotation replaces the hash; Disconnect deletes it. This capability can only append journal events and cannot read account data or place trades.
 
-Session deletion cascades samples, events, and hooks. A minimal ID/user tombstone prevents stale clients from recreating deleted sessions. Account deletion should also delete tombstones through the auth-user cascade. A stale device may retain its own local/exported copies; server deletion cannot erase offline devices. Server rejects attempted resurrection, so a stale sync will surface as paused until that local copy is removed.
+The handler validates at most 8 KB, normalizes explicit events or strategy position transitions, applies a database rate limit and routes to the latest owned open journal started within 12 hours. Otherwise it derives a stable account/day UUID and timezone-aware day bounds. The RPC locks the connection and journal, verifies ownership/revocation/tombstones, deduplicates identical IDs, rejects conflicting IDs, inserts one or two events, updates journal metadata and receipt count atomically, then returns 202. No acknowledgment precedes durable commit. Per-journal cap: 5,000 events.
 
-Metadata updates merge append-only events and notes by ID. They preserve a recorded end time and original start time. Note editing/deletion and conflict-resolution UI are out of MVP scope. Only one recording session per browser tab should be active; cloud accounts can have multiple distinct sessions. The service-role key must never be exposed to client code.
+Calendar journals have fixed day bounds; ending a sensor recording does not close webhook intake for that day. Wearable samples align with alert timestamps without making their existence mandatory. UTC fire-time placeholders prevent historical bar timestamps from silently determining receipt-day alignment. Generated IDs have second precision; high-frequency identical fills require custom unique Pine IDs.
 
-## Client resilience
+## CSV consistency
 
-Raw sample and outbox updates occur in one IndexedDB transaction. Completed buckets upload oldest first in groups of up to 20 per sync run. Outages keep data locally. A failed upload does not remove the retry record. A storage write error stops recording and tells the user. An interrupted tab leaves a recoverable local session; it does not pretend to capture while closed. Exports remain available.
+Client parsing is bounded to 2 MB and 5,000 rows. Preview is deferred during changes, and Import remains disabled until the current validated preview is ready. Local timestamps require explicit timezone confirmation; ambiguous DST values are rejected. Stable normalized event fingerprints and a tenant/event-set journal UUID make identical-file retries idempotent. Imported journals contain real user-selected rows and no generated samples. Distinct overlapping file sets are separate journals unless explicitly consolidated into the current journal. Automatic broker reconciliation is outside the MVP.
 
-There is no generated demo data. The empty demo login has its own tenant. Local data is scoped by account ID, but it is not encrypted: use separate browser profiles on shared devices. Sign-in is required to open a workspace.
+## Bounded work
 
-BLE timestamps use the receiving computer's clock, not the wearable's internal timestamp. TradingView timestamp semantics depend on the alert template. Clock drift and alert delivery latency affect alignment; verify device clock synchronization. Sample gaps remain gaps, not interpolated physiological facts. Insights do not classify emotion or predict returns.
+| Work | Cadence / limit |
+| --- | --- |
+| Raw sample persistence | Each valid BLE notification, atomic sample/outbox transaction |
+| Cloud sample upload | Completed 30-second buckets, up to 120 samples per request, 20 pending buckets per sync |
+| Dashboard display | 1 second |
+| Insight computation | User-selected 15 seconds to 60 minutes |
+| Selected journal event poll | 15 seconds, independent of wearable status |
+| Cloud journal history refresh | 30 seconds |
+| Connection receipt status | 15 seconds while Connections is mounted |
+| Chart output | At most 600 peak-preserving points |
+| History / sample reads | Newest 100 journals / 100 chunks per paginated request |
+| User / valid webhook rate | 120 requests/minute per database-backed key |
 
-## Capacity estimates — not tested guarantees
+The Vercel and Supabase handlers are stateless and use Supabase HTTP rather than opening application TCP pools per request. Correctness does not rely on a process-local lock or background promise. CSV/connection UI and its parsing/timezone dependencies load on demand. Server and client body/data limits bound individual work; a rate ceiling is not a throughput guarantee.
 
-At 1 notification/second and a 6.5-hour session:
+## Resilience and deletion
 
-- 23,400 raw samples per trader per trading day.
-- About 780 chunks per trader at a 30-second upload cadence.
-- 10,000 simultaneous traders imply roughly 333 batch uploads/second, up to 333 changed-session saves/second, and about 667 poll requests/second. Authentication checks and multiple database operations amplify database traffic beyond these HTTP counts.
-- 10,000 daily traders imply 7.8 million chunks/day and 234 million samples/day before indexes/backups. Payload storage alone can reach many GB/day. Default/free database tiers are not an appropriate assumption for that load.
+IndexedDB sample/outbox updates are atomic. Uploads retain failed retry records. Local notes/trades remain usable during an outage; cloud refresh merges append-only events and notes by ID. A storage failure or BLE disconnect stops physiology capture while leaving journaling available. Raw recording has a 100,000-sample/12-hour sensor span limit. A closed/suspended tab cannot claim to capture wearable data.
 
-Current architecture provides a path to scale, not evidence that the initial database provision will handle these levels. Establish SLOs in staging (for example p95 read/write under 500 ms, webhook response under 2 seconds, error rate below 1%, zero accepted-data loss). Use representative multi-account traffic and several hours of backlog/retry pressure.
+Session deletion cascades children and creates a minimal tombstone to prevent stale uploads from resurrecting it. Auth-user deletion cascades sessions, connections and tombstones. Offline local/exported copies cannot be erased remotely. Note editing/deletion and multi-device conflict-resolution UI are later work. When multiple journals are open on different devices, webhook routing selects the newest eligible journal; there is no multi-tab exclusive session lock.
 
-Growth path after measurements:
+Expired connections and orphaned rate keys need scheduled maintenance as account volume grows. Invalid public webhook traffic should be limited at the platform edge before it reaches database lookup. Add measured WAF/IP controls and observability before widening the beta; no protection setting is disabled by this release.
 
-1. Add observability, alerting, database sizing and workload budgets. Profile actual ingest/poll traffic.
-2. Add retention/archive policy and monthly partitions for chunks. Cold raw data can move to private object storage, keeping indexed aggregates in Postgres.
-3. Build incremental minute/session aggregates for long-range cross-session analysis; avoid loading entire account histories into a client.
-4. Replace frequent polling with an appropriately scaled realtime/notification channel if it is the bottleneck.
-5. Add a durable queue ahead of heavier webhook processing; commit intake before returning 202, use idempotent workers and dead-letter handling.
-6. Isolate high-volume ingestion from interactive reads as measured load warrants. Evaluate Redis-based rate limiting if Postgres counters become material overhead.
+## Capacity and growth
 
-## Deliberate MVP boundaries
+At one notification/second for 6.5 hours, a wearable trader produces 23,400 samples and roughly 780 chunks/day. At 10,000 simultaneous wearable traders that implies about 333 batch uploads/second, as well as metadata saves, authentication checks and multiple database operations per request. Selected-journal polling alone adds about 667 requests/second; history and connection polling add more. 10,000 such daily users produce 7.8 million chunks/day and 234 million samples/day before indexes/backups.
 
-No order execution, broker API integration, WHOOP cloud API, sleep/recovery/HRV claims, Apple/Oura, Wi-Fi sensing, AI advice, subscription billing, teams, or automatic emotion labeling. No external TradingView chart widget is included: trading synchronization uses configured alerts and imported/manual events on the same physiological timeline.
+Those figures are sizing estimates, not a tested capacity. The Free tier is suitable for a limited beta, not an assumption of unlimited concurrency. The journal-only workload removes sensor ingestion but still requires measured auth/read/write capacity. Run representative multi-account staging load tests, including retries, simultaneous alerts, file imports and sustained backlog. Establish response/error/data-loss SLOs, and validate webhook p95 comfortably below three seconds rather than relying on a single successful request.
 
-## Version 0.2 tenancy update
+Growth after measurements: size Postgres and connection/auth budgets; add monitoring and account quotas; implement retention/partitioning and private object archives for raw samples; build incremental aggregates; replace polling if measured as a bottleneck; introduce a durable intake queue before expensive downstream processing; separate ingestion and reads if warranted. Do not add an in-memory queue or claim fire-and-forget work is durable.
 
-The dashboard is now gated by Supabase email/password sign-in and contains no generated samples. Each account is one tenant. The UI remounts when the user ID changes, and local buffers/preferences are scoped by that ID. Existing guest data is not automatically reassigned to an account.
-
-Data and webhook operations now run in Supabase Edge Functions behind bounded Vercel proxies. Privileged keys stay in Supabase; only the public project URL/key are configured on Vercel. The functions derive tenant identity from verified JWTs, not editable user metadata or request-body ownership. Database functions are `SECURITY INVOKER`, restricted to the server role, with fixed search paths. RLS provides defense for direct client reads and direct client writes remain revoked.
-
-An empty shared demo login is a separate tenant. Sharing that login does not create privacy between people who use it; private beta testers must have their own accounts. No fake data is seeded into either their accounts or the demo account.
-
-TraderPulse is provisioned in Canada Central. Vercel proxies run in yul1, near the database. Hosted two-account isolation, direct RLS, retry safety, webhook tokens, and deletion tests passed. The temporary verification account and all probe records were removed. Production capacity still requires representative staging load measurements.
+No order execution, broker OAuth/API, wearable cloud integrations, automatic emotion inference, AI advice, billing or team membership is implemented. The architecture separates those future capabilities from journal access.

@@ -27,8 +27,11 @@ export default function Privacy() {
       <p>
         Bluetooth pairing reads broadcast heart rate from the selected sensor
         without accessing your WHOOP account. TradingView only sends alerts you
-        configure. Its ingestion token is scoped to one session, expires after
-        24 hours, and can be revoked. No broker passwords or order-execution
+        configure. Its account connection can only append trading events to
+        daily journals, expires after 30 days, and can be rotated or revoked.
+        Existing session-scoped 24-hour keys remain supported. CSV files are
+        parsed in your browser; only the events you confirm are stored. The
+        original file is not uploaded. No broker passwords or order-execution
         permissions are collected.
       </p>
       <h2>Controls</h2>

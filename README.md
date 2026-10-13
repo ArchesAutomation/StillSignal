@@ -1,57 +1,49 @@
-# Trade Pulse 0.2
+# Trade Pulse 0.3
 
-A Next.js/React/TypeScript app for WHOOP Bluetooth heart rate, synchronized trading events, descriptive statistics, replay, and journaling. Every account starts empty. There are no preloaded heart-rate samples, trades, journal entries, or generated demo sessions.
+A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 
-## Current status
+- Live app: https://trade-pulse-ebon.vercel.app
+- Source: https://github.com/ArchesAutomation/TraderPulse
+- Backend: Supabase **TraderPulse** (`ipfurgwqqjkybhadzutj`), Canada Central.
+- Each authenticated user is one tenant. Shared credentials share a workspace; give each tester their own account.
+- Empty beta accounts: `demo@traderpulse.test` and `caleb@traderpulse.test`. Passwords are supplied privately and never committed.
+- Signup/reset links are hidden during the private beta. SMTP/Resend remains deferred. Operators can create confirmed password accounts in Supabase Auth without sending invitations.
 
-- Source repository: https://github.com/ArchesAutomation/TraderPulse.
-- Supabase **TraderPulse** (`ipfurgwqqjkybhadzutj`) in ArchesAutomation is healthy in Canada Central; AA CRM is untouched.
-- Six RLS-protected tables and the two runtime Edge Functions are deployed. Production Vercel has the public project URL and publishable key.
-- Hosted checks passed for two-account authentication, API and Data API isolation, forbidden client mutations/RPCs, ingestion deduplication, deletion tombstones, TradingView event deduplication, and hook revocation. The temporary test account was removed. Sessions, samples, events and tombstones are all empty.
-- Empty demo account: `demo@traderpulse.test`. Its password is supplied privately and never committed. Each tester needs a separate account for private data.
-- Public signup and reset links are hidden during the private beta. Resend/SMTP is deferred. An operator can create confirmed password accounts in Supabase Auth for testers; do not use email invitations until delivery is configured.
-- Production URL: https://trade-pulse-ebon.vercel.app. Vercel deployment `dpl_38e6eHWDYWCAGchYR6MFd9jfvdd4` is READY, built directly from GitHub commit `7d281ba0b39bba80a0b857b9dc8957aba59b520a`, in `yul1`.
-- Optional Supabase GitHub automation awaits approval of the GitHub App scoped to TraderPulse. Automatic future Vercel push deployments have not been verified: its scoped Git-link operation returned 403, while direct Git-source deployment succeeded.
-- See `VERIFICATION.md` for the actual release checks and limitations.
+## Start journaling
+
+Sign in and start a journal, add a manual trade or save a reflection. None of those actions requests Bluetooth. In **Connections**, generate TradingView webhook setup or drop a CSV. Incoming alerts create daily journals when there is no recent open journal. Trades, notes and replay work with zero heart-rate samples.
+
+CSV accepts the downloadable header-only template and TradingView Strategy Report **List of Trades** exports. Other broker exports can be imported by mapping their columns and explicitly supplying missing context. Preview validation happens before saving. See [INTEGRATIONS.md](INTEGRATIONS.md) for formats, timezone rules and TradingView setup.
+
+WHOOP Heart Rate Broadcast can be attached to a journal in a supported Web Bluetooth browser. It requires no WHOOP account login and works only while the tab/device remain awake. Disconnecting the wearable leaves the journal running. Apple Health, Oura and Garmin connectors are planned; provider metadata is extensible, but those integrations are not implemented.
 
 ## Architecture
 
-Browser → Vercel bounded API proxy → Supabase Edge Function → Supabase Postgres.
+Browser → bounded Vercel API proxy → authenticated Supabase Edge Function → Postgres. TradingView uses a direct Supabase webhook to avoid an extra network hop within its three-second response deadline.
 
-Auth uses Supabase email/password accounts. Sign-in gates the dashboard. Each user ID is a tenant for this MVP. A single shared demo account is one shared workspace; testers need individual accounts for private recordings.
+User APIs verify JWTs with `auth.getUser()`, then scope all operations by the verified user ID. Direct reads have tenant RLS; direct client mutations and privileged RPCs are revoked. Composite owner/session foreign keys protect child rows. Account webhook tokens are random, hashed at rest, expire after 30 days, and can be rotated or disconnected. They permit ingestion only.
 
-The Supabase functions verify each user JWT with `auth.getUser()` and derive ownership from that verified identity. All server reads/writes scope by that identity. RLS protects direct reads. Direct client writes and privileged RPC execution are revoked. Composite foreign keys prevent cross-account child records. Server-only keys stay in Supabase Edge environment variables; **Vercel and browsers only receive the project URL and publishable key**.
+Samples persist locally in IndexedDB with an atomic retry outbox and 30-second cloud batches. Journal metadata and notes remain locally available during an outage. Alerts commit durably before acknowledgment. Unique event IDs reject conflicting alert retries and deduplicate identical retries. Chart output is bounded and integration UI is loaded on demand. See [ARCHITECTURE.md](ARCHITECTURE.md) for limits and growth paths.
 
-Sample ingestion is local-first, batched in durable 30-second buckets with idempotent retries. IndexedDB reads, writes, deletion, and session metadata updates also check account ownership. AuthGate remounts the dashboard by user ID on account changes. Cloud refresh merges unsent local notes instead of overwriting them.
-
-## Run and verify
+## Development and operations
 
 ```sh
 npm ci
-npm run typecheck
-npm test
-npm run build
+npm run check
 npm run bench
+npm run prepare:edge
 ```
 
-Without configured Supabase variables, the public page shows sign-in with an account-setup status. It never opens a guest dashboard or generates a sample session.
+Production Vercel needs only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the browser may receive these public values. Privileged keys stay in Supabase's Edge environment. Never set a service-role/secret key under `NEXT_PUBLIC_*` or commit it.
 
-## Supabase operations
+All three applied migrations are tracked under `supabase/migrations` and match the remote migration ledger. Do not rerun the initial migration on the provisioned database. Generate new migration files with the Supabase CLI, test them, apply once, and verify the remote ledger. `npm run prepare:edge` generates deployable copies of the runtime handlers and dependencies.
 
-The initial schema is tracked in `supabase/migrations/20261013082052_initial_trade_pulse_tenants.sql`. It was applied through the signed-in Supabase SQL editor after native migration requests failed with an expired request-state error. The live schema includes all three parent/owner indexes. Do not rerun the initial SQL on the provisioned database. Migration version `20261013082052` is recorded in the remote ledger, verified through Supabase migration discovery. Runtime connectivity does not depend on the optional GitHub integration.
+`pulse-data` verifies user JWTs internally. `pulse-tradingview` verifies a narrow hashed webhook token. Both use gateway `verify_jwt=false` for their custom authentication; do not remove the checks in their handlers. `pulse-bootstrap` is retired and contains no administrative setup code.
 
-Run `npm run prepare:edge` before deploying Edge Functions. `pulse-data` verifies each user JWT, and `pulse-tradingview` verifies a revocable session token. Gateway `verify_jwt=false` is required for this custom authentication and modern API keys; do not remove the checks inside the handlers. Supabase supplies server-only credentials to the functions, never to Vercel/browser code.
+Production Auth Site URL and the exact redirect allowlist use the live app URL above. For a public launch, configure SMTP and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Preview deployments should use separate Supabase projects. The optional Supabase GitHub App is not required for runtime connectivity and has not been installed. Production releases currently deploy directly from GitHub source; automatic future push deployments have not been verified.
 
-The production Auth Site URL and exact redirect allowlist point to `https://trade-pulse-ebon.vercel.app`. For the final launch, configure SMTP and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Email verification stays enabled. Preview environments should use a separate database; do not give untrusted previews production access.
+## Verification and capacity
 
-## WHOOP and TradingView
+24 tests, type checking and the optimized build pass. Hosted two-account tests verify webhook receipt, retries, isolation, CSV persistence, reflections, rotation and revocation without any wearable. See [VERIFICATION.md](VERIFICATION.md) for evidence and remaining boundaries.
 
-WHOOP Heart Rate Broadcast is Bluetooth-only; there is no WHOOP cloud OAuth or API. Pair using a supported browser, keep the recording tab open and the device awake. Safari/iPhone browsers cannot use this Web Bluetooth recorder; review works across devices after cloud setup.
-
-TradingView events are configured alerts, not confirmed broker fills. Cloud setup is required. Generate a session-scoped 24-hour ingestion token in Connections and use the provided JSON alert message at `https://trade-pulse-ebon.vercel.app/api/tradingview`. Token rotation/revocation is supported. Each event needs a stable unique ID, explicit timestamp, symbol, kind, side, price, and quantity. P&L is optional and user-provided. TradingView requires an eligible plan and 2FA for webhooks. Verify hosted latency below its 3-second cancellation limit.
-
-CSV templates contain only the column headers; they do not ship sample trades. Imports must use explicit timezone offsets and match a recorded session.
-
-## Capacity
-
-See `ARCHITECTURE.md`. Scalable design and local isolation tests do not establish a production capacity guarantee. Run the included staging load harness with a distinct account for each virtual user after the new cloud project is live. The Free plan is a beta/testing starting point, not an assumption of unlimited simultaneous users.
+The architecture can scale horizontally, but the current Free-tier database is a beta starting point. No unlimited-user guarantee or measured production concurrency claim is made. Run representative multi-account staging load tests and size the database before broad rollout.

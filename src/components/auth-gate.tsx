@@ -39,7 +39,7 @@ export default function AuthGate() {
         }
       });
     const listener = client.auth.onAuthStateChange((event, session) => {
-      if(event==="SIGNED_OUT")clearSyncCache();
+      if (event === "SIGNED_OUT") clearSyncCache();
       setUser(session?.user || null);
       setReady(true);
       if (event === "PASSWORD_RECOVERY") setMode("new-password");
@@ -159,8 +159,8 @@ export default function AuthGate() {
             </span>
           </div>
           <p className="auth-footnote">
-            Start with an empty workspace. Pair WHOOP and record your first
-            session when you’re ready.
+            Start with an empty journal. Add trades, import CSV, or connect
+            TradingView. A wearable is optional.
           </p>
         </div>
         <div className="glass auth-card">
@@ -239,7 +239,11 @@ export default function AuthGate() {
               <ArrowUpRight size={15} />
             </button>
           </form>
-          {!openSignup && <p className="auth-footnote">Private beta. Use the account provided to you.</p>}
+          {!openSignup && (
+            <p className="auth-footnote">
+              Private beta. Use the account provided to you.
+            </p>
+          )}
           <div className="auth-links">
             {mode === "signin" && openSignup ? (
               <>

@@ -29,7 +29,7 @@ export async function connectHeartRate(
 ) {
   if (!bluetoothSupported())
     throw new Error(
-      "Pair WHOOP using Chrome or Edge on a supported desktop, or Chrome on Android. Safari and iPhone browsers do not support this Bluetooth recorder. You can still review sessions here.",
+      "Pair WHOOP using Chrome or Edge on a supported desktop, or Chrome on Android. Safari and iPhone browsers do not support Bluetooth recording. Your journal, TradingView alerts, and CSV imports still work here.",
     );
   const device = await (
     navigator as unknown as { bluetooth: Bluetooth }

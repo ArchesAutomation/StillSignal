@@ -46,7 +46,7 @@ test("signed-out visitors see sign-in, no sample dashboard or personal session d
   await act(async () => root.unmount());
   dom.window.close();
 });
-test("new authenticated workspace is empty and requires a real session before adding events", async () => {
+test("new authenticated workspace is empty and journaling does not require a wearable", async () => {
   const dom = domSetup();
   const root = createRoot(document.getElementById("root")!);
   await act(async () =>
@@ -69,7 +69,7 @@ test("new authenticated workspace is empty and requires a real session before ad
     [...document.querySelectorAll("button")].find(
       (b) => b.textContent?.trim() === label,
     )!;
-  assert.equal(button("Add event").disabled, true);
+  assert.equal(button("Add event").disabled, false);
   await act(async () => button("Journal").click());
   assert.match(document.body.textContent!, /A moment worth remembering/);
   await act(async () => button("Settings").click());

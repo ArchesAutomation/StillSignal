@@ -68,8 +68,14 @@ test("recorder flow: authenticated empty workspace â†’ Bluetooth notifications â
   await act(async () => {
     await state!.start();
   });
+  assert.equal(state!.active, true);
+  assert.equal(state!.recording, false);
+  await act(async () => {
+    await state!.attachWhoop();
+  });
   assert.equal(state!.recording, true);
-  assert.equal(state!.session?.source, "whoop");
+  assert.equal(state!.session?.source, "journal");
+  assert.equal(state!.session?.wearable?.provider, "whoop");
   const sessionId = state!.session!.id;
   characteristic.value = new DataView(Uint8Array.from([0, 88]).buffer);
   await act(async () => {

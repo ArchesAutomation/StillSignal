@@ -1,6 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { emptyWorkspace, type WorkspaceUser } from "@/lib/workspace";
+import {
+  emptyWorkspace,
+  mergeSessions,
+  type WorkspaceUser,
+} from "@/lib/workspace";
 import {
   defaults,
   type Session,
@@ -21,7 +25,8 @@ export function usePulse(user: WorkspaceUser) {
     ),
     [samples, setSamples] = useState<Sample[]>([]),
     [history, setHistory] = useState<Session[]>([]);
-  const [recording, setRecording] = useState(false),
+  const [active, setActive] = useState(false),
+    [recording, setRecording] = useState(false),
     [device, setDevice] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -40,7 +45,14 @@ export function usePulse(user: WorkspaceUser) {
   const save = useCallback(async (s: Session) => {
     current.current = s;
     setSession(s);
-    if (s.id !== "workspace") await storage.saveSession(s);
+    if (s.id !== "workspace") {
+      await storage.saveSession(s);
+      setHistory((h) =>
+        [s, ...h.filter((x) => x.id !== s.id)].sort(
+          (a, b) => b.startedAt - a.startedAt,
+        ),
+      );
+    }
   }, []);
   const refreshHistory = useCallback(
     async () => setHistory(await storage.listSessions(owner)),
@@ -64,13 +76,26 @@ export function usePulse(user: WorkspaceUser) {
   }, [owner, resetWorkspace]);
   useEffect(() => {
     let alive = true;
-    pullSessions(owner)
-      .then(() => {
-        if (alive) void refreshHistory();
-      })
-      .catch(() => {});
+    const refresh = async () => {
+      try {
+        const sessions = await pullSessions(owner);
+        if (!alive) return;
+        await refreshHistory();
+        if (current.current?.id === "workspace" && !rec.current) {
+          const latest = sessions.find(
+            (s) => s.events.length || s.journal.length,
+          );
+          if (latest) await openSession(latest);
+        }
+      } catch {}
+    };
+    void refresh();
+    const timer = setInterval(() => {
+      if (navigator.onLine) void refresh();
+    }, 30000);
     return () => {
       alive = false;
+      clearInterval(timer);
     };
   }, [owner, refreshHistory]);
   useEffect(() => {
@@ -137,6 +162,7 @@ export function usePulse(user: WorkspaceUser) {
   }
   async function stop() {
     rec.current = false;
+    setActive(false);
     setRecording(false);
     connection.current?.disconnect();
     connection.current = null;
@@ -146,7 +172,7 @@ export function usePulse(user: WorkspaceUser) {
     if (s && s.id !== "workspace") {
       await save({
         ...s,
-        endedAt: Date.now(),
+        endedAt: s.source === "tradingview" ? s.endedAt : Date.now(),
         sampleCount: raw.current.length,
       });
       setSamples([...raw.current]);
@@ -154,91 +180,177 @@ export function usePulse(user: WorkspaceUser) {
       setInsightTime(Date.now());
     }
   }
-  async function start() {
-    setError("");
+  async function start(name?: string, startedAt = Date.now()) {
     if (rec.current) return;
-    const previous = current.current;
-    try {
-      const s: Session = {
-        id: crypto.randomUUID(),
-        name:
-          new Date().toLocaleDateString([], {
-            month: "short",
-            day: "numeric",
-          }) + " · Trading session",
-        startedAt: Date.now(),
-        source: "whoop",
-        events: [],
-        journal: [],
-        owner,
-        sampleCount: 0,
-      };
-      // Persist initial metadata before connecting. No sample is accepted until recording starts.
-      await storage.saveSession(s);
-      let c: Awaited<ReturnType<typeof connectHeartRate>>;
-      try {
-        c = await connectHeartRate(
-          (p) => {
-            if (!rec.current) return;
-            const active = current.current;
-            if (!active) return;
-            if (
-              raw.current.length >= 100000 ||
-              p.t - active.startedAt > 43200000
-            ) {
-              void stop();
-              setNotice(
-                "Session limit reached. Start a new session to continue.",
-              );
-              return;
-            }
-            raw.current.push(p);
-            writing.current = writing.current
-              .then(async () => {
-                await storage.appendSamples(active.id, [p], active.owner);
-                const latest = current.current;
-                if (latest?.id === active.id)
-                  await storage.saveSession({
-                    ...latest,
-                    sampleCount: raw.current.length,
-                  });
-              })
-              .catch(() => {
-                rec.current = false;
-                setRecording(false);
-                connection.current?.disconnect();
-                setError(
-                  "Recording stopped: browser storage could not save a sample. Export the available session before continuing.",
-                );
-              });
-          },
-          () => {
-            void stop();
-            setNotice(
-              "Sensor disconnected. The session has been saved. Reconnect to start a new session.",
-            );
-          },
-        );
-      } catch (e) {
-        await storage.removeSession(s.id, owner);
-        throw e;
-      }
-      connection.current = c;
-      current.current = s;
-      raw.current = [];
-      setSession(s);
-      setSamples([]);
+    const selected = current.current;
+    if (
+      selected?.source === "tradingview" &&
+      selected.startedAt <= Date.now() &&
+      (selected.endedAt || 0) > Date.now()
+    ) {
       rec.current = true;
-      setRecording(true);
-      setDevice(c.name);
-      insightLast.current = Date.now();
-      setInsightTime(Date.now());
-      await refreshHistory();
-      setNotice("Recording. Keep this tab open and your device awake.");
-    } catch (e) {
-      current.current = previous;
-      setError(e instanceof Error ? e.message : "Could not start recording.");
+      setActive(true);
+      setNotice("Daily journal opened. A wearable is optional.");
+      return;
     }
+    const s: Session = {
+      id: crypto.randomUUID(),
+      name:
+        name || new Date(startedAt).toLocaleDateString() + " · Trading journal",
+      startedAt,
+      source: "journal",
+      owner,
+      events: [],
+      journal: [],
+      sampleCount: 0,
+    };
+    await save(s);
+    raw.current = [];
+    setSamples([]);
+    rec.current = true;
+    setActive(true);
+    setError("");
+    setDevice("");
+    setInsightTime(Date.now());
+    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    setNotice("Journal session started. A wearable is optional.");
+  }
+  async function attachWhoop() {
+    if (connection.current) return;
+    if (!rec.current) await start();
+    setError("");
+    const c = await connectHeartRate(
+      (p) => {
+        const currentSession = current.current;
+        if (!rec.current || !currentSession) return;
+        if (
+          raw.current.length >= 100000 ||
+          p.t - (raw.current[0]?.t ?? p.t) > 43200000
+        ) {
+          void stop();
+          setNotice("Session limit reached. Start a new session to continue.");
+          return;
+        }
+        const sample = { ...p, provider: "whoop" as const };
+        raw.current.push(sample);
+        writing.current = writing.current
+          .then(async () => {
+            await storage.appendSamples(currentSession.id, [sample], owner);
+            const latest = current.current;
+            if (latest?.id === currentSession.id)
+              await storage.saveSession({
+                ...latest,
+                sampleCount: raw.current.length,
+              });
+          })
+          .catch(() => {
+            connection.current?.disconnect();
+            connection.current = null;
+            setRecording(false);
+            setDevice("");
+            setError(
+              "Heart-rate recording stopped because browser storage could not save a sample. Your journal remains available.",
+            );
+          });
+      },
+      () => {
+        connection.current = null;
+        setRecording(false);
+        setDevice("");
+        setNotice(
+          "Wearable disconnected. Your journal and TradingView connection continue.",
+        );
+      },
+    );
+    connection.current = c;
+    setDevice(c.name);
+    setRecording(true);
+    const currentSession = current.current!;
+    await save({
+      ...currentSession,
+      wearable: { provider: "whoop", connection: "bluetooth" },
+    });
+    setNotice(
+      "WHOOP attached. Keep this tab open and your device awake for heart-rate recording.",
+    );
+  }
+  async function detachWearable() {
+    connection.current?.disconnect();
+    connection.current = null;
+    setRecording(false);
+    setDevice("");
+    await writing.current;
+    setSamples([...raw.current]);
+    setNotice("Wearable disconnected. Your journal session continues.");
+  }
+  async function importEvents(
+    events: TradeEvent[],
+    name: string,
+    destination: "new" | "current" = "new",
+  ) {
+    if (!events.length) throw new Error("There are no trade rows to import.");
+    events.forEach((e) => eventSchema.parse(e));
+    if (events.some((e) => e.t > Date.now() + 300000))
+      throw new Error(
+        "CSV timestamps cannot be more than five minutes in the future. Check the timezone.",
+      );
+    if (destination === "current" && current.current?.id !== "workspace")
+      return addEvents(events);
+    if (rec.current)
+      throw new Error(
+        "End the current session or import into it before creating another journal.",
+      );
+    const sorted = [...events].sort((a, b) => a.t - b.t);
+    const hash = Array.from(
+      new Uint8Array(
+        await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(
+            owner +
+              ":" +
+              sorted
+                .map((e) => e.id)
+                .sort()
+                .join("|"),
+          ),
+        ),
+      ),
+      (b) => b.toString(16).padStart(2, "0"),
+    ).join("");
+    const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+    const existing = (await storage.listSessions(owner)).find(
+      (x) => x.id === id,
+    );
+    const imported: Session = {
+      id,
+      owner,
+      name: name.slice(0, 120) || "Imported trades",
+      source: "csv",
+      startedAt: sorted[0].t,
+      endedAt: sorted.at(-1)!.t,
+      sampleCount: 0,
+      events: sorted,
+      journal: [],
+    };
+    if (existing)
+      for (const event of sorted) {
+        const old = existing.events.find((e) => e.id === event.id);
+        if (old && old.pnl !== event.pnl)
+          throw new Error(
+            "This execution already exists with different P&L. Keep its original values or supply a different execution ID.",
+          );
+      }
+    await save(mergeSessions(existing, imported));
+    raw.current = [];
+    setSamples([]);
+    setInsightTime(Date.now());
+    try {
+      await sync(owner);
+      setSyncState("Cloud connected");
+    } catch {
+      setSyncState("Sync paused · saved locally");
+    }
+    return sorted.length;
   }
   async function openSession(s: Session) {
     if (s.owner !== owner)
@@ -254,6 +366,8 @@ export function usePulse(user: WorkspaceUser) {
       if (navigator.onLine) {
         try {
           const cloud = await pullSession(s.id);
+          if (cloud.session.owner !== owner)
+            throw new Error("Workspace identity mismatch.");
           const map = new Map([...pts, ...cloud.samples].map((p) => [p.t, p]));
           pts = [...map.values()].sort((a, b) => a.t - b.t);
           loaded = {
@@ -284,9 +398,10 @@ export function usePulse(user: WorkspaceUser) {
   }
   async function addEvents(events: TradeEvent[]) {
     events.forEach((e) => eventSchema.parse(e));
+    if (current.current?.id === "workspace")
+      await start(undefined, Math.min(Date.now(), ...events.map((e) => e.t)));
     const s = current.current;
-    if (!s || s.id === "workspace")
-      throw new Error("Start or open a session before adding trade events.");
+    if (!s) throw new Error("Open a journal before adding events.");
     if (s.owner !== owner) throw new Error("Workspace identity mismatch.");
     const outOfRange = events.some(
       (e) =>
@@ -304,16 +419,19 @@ export function usePulse(user: WorkspaceUser) {
     if (merged.length > 5000)
       throw new Error("This session supports up to 5,000 events.");
     await save({ ...s, events: merged });
+    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
   }
   async function addNote(note: JournalEntry) {
+    if (current.current?.id === "workspace")
+      await start(undefined, Math.min(Date.now(), note.t));
     const s = current.current;
-    if (!s || s.id === "workspace")
-      throw new Error("Start or open a session before adding a reflection.");
+    if (!s) throw new Error("Open a journal before adding a reflection.");
     if (s.owner !== owner) throw new Error("Workspace identity mismatch.");
     if (s) {
       if (s.journal.length >= 1000)
         throw new Error("This session supports up to 1,000 journal entries.");
       await save({ ...s, journal: [...s.journal, note] });
+      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
     }
   }
   async function deleteSession() {
@@ -325,12 +443,12 @@ export function usePulse(user: WorkspaceUser) {
     resetWorkspace();
   }
   useEffect(() => {
-    if (!recording) return;
+    if (!session || session.id === "workspace") return;
     const t = setInterval(async () => {
       const s = current.current;
       if (!s) return;
       try {
-        const d = await api<{ events: TradeEvent[] }>({
+        const d = await api<{ events: TradeEvent[]; session: Session }>({
           action: "get",
           sessionId: s.id,
           cursor: "9223372036854775807",
@@ -342,18 +460,19 @@ export function usePulse(user: WorkspaceUser) {
             [...latest.events, ...d.events].map((e) => [e.id, e]),
           ).values(),
         ].sort((a, b) => a.t - b.t);
-        if (merged.length !== latest.events.length)
-          await save({ ...latest, events: merged });
+        const next = { ...mergeSessions(latest, d.session), events: merged };
+        if (JSON.stringify(next) !== JSON.stringify(latest)) await save(next);
       } catch {}
     }, 15000);
     return () => clearInterval(t);
-  }, [owner, recording, save]);
+  }, [owner, session?.id, save]);
   return {
     session,
     samples,
     history,
     owner,
     email,
+    active,
     recording,
     device,
     error,
@@ -366,6 +485,9 @@ export function usePulse(user: WorkspaceUser) {
     now,
     insightTime,
     start,
+    attachWhoop,
+    detachWearable,
+    importEvents,
     stop,
     resetWorkspace,
     openSession,

@@ -22,7 +22,17 @@ for (const [name, source] of [
   await mkdir(directory, { recursive: true });
   const handler = (await readFile(`src/lib/handlers/${source}.ts`, "utf8"))
     .replace('"@/lib/validation"', '"./validation.ts"')
-    .replace('"@/lib/server"', '"./server.ts"');
+    .replace('"@/lib/server"', '"./server.ts"')
+    .replace('"@/lib/tradingview"', '"./tradingview.ts"');
+  const tradingview = (await readFile("src/lib/tradingview.ts", "utf8"))
+    .replace('"@js-temporal/polyfill"', '"npm:@js-temporal/polyfill@0.5.1"')
+    .replace('"./model"', '"./model.ts"')
+    .replace('"./validation"', '"./validation.ts"');
+  await writeFile(`${directory}/tradingview.ts`, tradingview);
+  await writeFile(
+    `${directory}/model.ts`,
+    await readFile("src/lib/model.ts", "utf8"),
+  );
   await writeFile(`${directory}/handler.ts`, handler);
   await writeFile(`${directory}/server.ts`, edgeServer);
   await writeFile(`${directory}/validation.ts`, validation);

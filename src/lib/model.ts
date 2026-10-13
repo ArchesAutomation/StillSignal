@@ -1,4 +1,5 @@
-export type Sample = { t: number; bpm: number };
+export type WearableProvider = "whoop" | "apple" | "oura" | "garmin";
+export type Sample = { t: number; bpm: number; provider?: WearableProvider };
 export type TradeEvent = {
   id: string;
   t: number;
@@ -9,6 +10,7 @@ export type TradeEvent = {
   quantity: number;
   pnl?: number;
   source: "manual" | "csv" | "tradingview";
+  provenance?: "alert" | "strategy" | "backtest";
 };
 export type JournalEntry = {
   id: string;
@@ -21,7 +23,11 @@ export type Session = {
   name: string;
   startedAt: number;
   endedAt?: number;
-  source: "whoop";
+  source: "whoop" | "journal" | "csv" | "tradingview";
+  wearable?: {
+    provider: WearableProvider;
+    connection: "bluetooth" | "cloud" | "import";
+  };
   events: TradeEvent[];
   journal: JournalEntry[];
   owner: string;

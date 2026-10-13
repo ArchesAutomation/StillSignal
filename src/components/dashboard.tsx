@@ -37,14 +37,10 @@ import { usePulse } from "./use-pulse";
 import { Timeline } from "./timeline";
 import { summary, eventWindow, nearest, downsample } from "@/lib/analytics";
 import { cadenceOptions, clock, money, type TradeEvent } from "@/lib/model";
-import { parseTrades, csvTemplate } from "@/lib/csv";
-import {
-  authClient,
-  cloudConfigured,
-  api,
-  pullSessions,
-  sync,
-} from "@/lib/cloud";
+import dynamic from "next/dynamic";
+const CsvImporter = dynamic(() => import("./csv-importer"));
+const TradingViewConnection = dynamic(() => import("./tradingview-connection"));
+import { authClient, cloudConfigured, pullSessions, sync } from "@/lib/cloud";
 type Tab = "Overview" | "Sessions" | "Journal" | "Connections" | "Settings";
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -138,18 +134,27 @@ export default function Dashboard({
 }) {
   const p = usePulse(user);
   const [tab, setTab] = useState<Tab>("Overview"),
-    [modal, setModal] = useState<"trade" | "note" | "delete" | null>(null),
+    [modal, setModal] = useState<"trade" | "note" | "delete" | "csv" | null>(
+      null,
+    ),
     [selected, setSelected] = useState<TradeEvent | null>(null),
     [range, setRange] = useState(0),
     [replay, setReplay] = useState(false),
     [replayPosition, setReplayPosition] = useState(100),
     [busy, setBusy] = useState(false),
-    [hook, setHook] = useState(""),
     [journalFilter, setJournalFilter] = useState("All entries");
   const s = p.session,
     isWorkspace = s?.id === "workspace";
-  const fullEnd =
-    s?.endedAt || (p.recording ? p.now : p.samples.at(-1)?.t) || p.now;
+  const fullEnd = s?.endedAt
+    ? Math.min(s.endedAt, p.now)
+    : p.active
+      ? p.now
+      : Math.max(
+          s?.startedAt || p.now,
+          p.samples.at(-1)?.t || 0,
+          s?.events.at(-1)?.t || 0,
+          s?.journal.at(-1)?.t || 0,
+        );
   const viewEnd =
     replayPosition < 100 && s
       ? s.startedAt + ((fullEnd - s.startedAt) * replayPosition) / 100
@@ -162,7 +167,12 @@ export default function Dashboard({
     [p.samples, viewEnd],
   );
   const stats = useMemo(
-    () => summary(shown, s?.startedAt || 0, p.settings.baselineSeconds),
+    () =>
+      summary(
+        shown,
+        p.samples[0]?.t || s?.startedAt || 0,
+        p.settings.baselineSeconds,
+      ),
     [shown, s?.startedAt, p.settings.baselineSeconds],
   );
   const insightSamples = useMemo(
@@ -171,7 +181,11 @@ export default function Dashboard({
   );
   const insight = useMemo(
     () =>
-      summary(insightSamples, s?.startedAt || 0, p.settings.baselineSeconds),
+      summary(
+        insightSamples,
+        p.samples[0]?.t || s?.startedAt || 0,
+        p.settings.baselineSeconds,
+      ),
     [insightSamples, s?.startedAt, p.settings.baselineSeconds],
   );
   const latest = shown.at(-1);
@@ -207,7 +221,6 @@ export default function Dashboard({
     setReplay(false);
     setReplayPosition(100);
     setSelected(null);
-    setHook("");
   }, [s?.id]);
   async function act(task: () => Promise<unknown>) {
     setBusy(true);
@@ -236,17 +249,10 @@ export default function Dashboard({
       );
   }
   function toggleReplay() {
-    if (p.recording) return;
+    if (p.active) return;
     if (!replay && replayPosition === 100) setReplayPosition(0);
     setReplay(!replay);
   }
-  const [cloudHealth, setCloudHealth] = useState(false);
-  useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((d) => setCloudHealth(d.cloudConfigured))
-      .catch(() => {});
-  }, []);
   if (!s)
     return (
       <div className="loading">
@@ -300,13 +306,13 @@ export default function Dashboard({
         </nav>
         <div className="sidebar-bottom">
           <div className="device-mini">
-            <span className={"status-dot " + (p.recording ? "green" : "")} />
+            <span className={"status-dot " + (p.active ? "green" : "")} />
             <div>
-              {p.recording ? "WHOOP connected" : "Make the connection"}
+              {p.recording ? "Wearable connected" : "Journal ready"}
               <small>
                 {p.recording
                   ? "Recording heart-rate samples"
-                  : "Bring your physiology into focus"}
+                  : "Wearables are optional"}
               </small>
             </div>
             <Bluetooth size={16} />
@@ -372,17 +378,17 @@ export default function Dashboard({
                     : tab === "Journal"
                       ? "Your labels. Your observations. A little more understanding each session."
                       : tab === "Connections"
-                        ? "Pair your WHOOP and bring TradingView alerts onto one timeline."
+                        ? "Bring TradingView alerts, CSV trades, and optional wearables into your journal."
                         : "Choose the rhythm that fits the way you trade."}
               </p>
             </div>
             <button
-              className={p.recording ? "button stop" : "button primary"}
+              className={p.active ? "button stop" : "button primary"}
               disabled={busy}
-              onClick={() => act(p.recording ? p.stop : p.start)}
+              onClick={() => act(p.active ? p.stop : p.start)}
             >
-              {p.recording ? <Square size={14} /> : <Radio size={16} />}{" "}
-              {p.recording ? "End session" : "Start session"}
+              {p.active ? <Square size={14} /> : <Radio size={16} />}{" "}
+              {p.active ? "End session" : "Start session"}
             </button>
           </div>
           {p.error && (
@@ -423,11 +429,9 @@ export default function Dashboard({
             <>
               <div className="session-bar">
                 <div>
-                  <span
-                    className={"status-dot " + (p.recording ? "green" : "")}
-                  />
+                  <span className={"status-dot " + (p.active ? "green" : "")} />
                   <strong>
-                    {p.recording
+                    {p.active
                       ? "Session in progress"
                       : isWorkspace
                         ? "No active session"
@@ -458,55 +462,84 @@ export default function Dashboard({
                 </button>
               </div>
               <div className="stats-grid">
-                <Stat
-                  label={
-                    p.recording ? "Current heart rate" : "Latest heart rate"
-                  }
-                  value={stale ? "—" : (latest?.bpm ?? "—")}
-                  unit="BPM"
-                  detail={
-                    <>
-                      <span
-                        className={
-                          delta !== null && delta > 0 ? "orange" : "mint"
-                        }
+                {p.samples.length > 0 || p.recording ? (
+                  <>
+                    <Stat
+                      label={
+                        p.recording ? "Current heart rate" : "Latest heart rate"
+                      }
+                      value={stale ? "—" : (latest?.bpm ?? "—")}
+                      unit="BPM"
+                      detail={
+                        <>
+                          <span
+                            className={
+                              delta !== null && delta > 0 ? "orange" : "mint"
+                            }
+                          >
+                            {delta === null
+                              ? "Awaiting signal"
+                              : `${delta >= 0 ? "+" : ""}${delta} BPM`}
+                          </span>{" "}
+                          {delta === null ? "" : "from session baseline"}
+                        </>
+                      }
+                      icon={<Heart size={17} className="orange" />}
+                    >
+                      <svg
+                        className="spark"
+                        viewBox="0 0 120 42"
+                        aria-hidden="true"
                       >
-                        {delta === null
-                          ? "Awaiting signal"
-                          : `${delta >= 0 ? "+" : ""}${delta} BPM`}
-                      </span>{" "}
-                      {delta === null ? "" : "from session baseline"}
-                    </>
-                  }
-                  icon={<Heart size={17} className="orange" />}
-                >
-                  <svg
-                    className="spark"
-                    viewBox="0 0 120 42"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d={downsample(shown.slice(-100), 40)
-                        .map(
-                          (q, i, a) =>
-                            `${i ? "L" : "M"}${(i * 120) / Math.max(1, a.length - 1)},${39 - (q.bpm - 45) * 0.36}`,
-                        )
-                        .join(" ")}
-                      fill="none"
-                      stroke="#f78d65"
-                      strokeWidth="1.7"
+                        <path
+                          d={downsample(shown.slice(-100), 40)
+                            .map(
+                              (q, i, a) =>
+                                `${i ? "L" : "M"}${(i * 120) / Math.max(1, a.length - 1)},${39 - (q.bpm - 45) * 0.36}`,
+                            )
+                            .join(" ")}
+                          fill="none"
+                          stroke="#f78d65"
+                          strokeWidth="1.7"
+                        />
+                      </svg>
+                    </Stat>
+                    <Stat
+                      label="Session baseline"
+                      value={
+                        stats.baseline === null
+                          ? "—"
+                          : Math.round(stats.baseline)
+                      }
+                      unit="BPM"
+                      detail={`First ${p.settings.baselineSeconds / 60} minutes · ${shown.length && shown.at(-1)!.t < s.startedAt + p.settings.baselineSeconds * 1000 ? "building" : "sample average"}`}
+                      icon={<Target size={17} />}
                     />
-                  </svg>
-                </Stat>
-                <Stat
-                  label="Session baseline"
-                  value={
-                    stats.baseline === null ? "—" : Math.round(stats.baseline)
-                  }
-                  unit="BPM"
-                  detail={`First ${p.settings.baselineSeconds / 60} minutes · ${shown.length && shown.at(-1)!.t < s.startedAt + p.settings.baselineSeconds * 1000 ? "building" : "sample average"}`}
-                  icon={<Target size={17} />}
-                />
+                  </>
+                ) : (
+                  <>
+                    <Stat
+                      label="Reflections"
+                      value={s.journal.length}
+                      detail="Your notes and observations"
+                      icon={<BookOpen size={17} />}
+                    />
+                    <Stat
+                      label="Journal source"
+                      value={
+                        isWorkspace
+                          ? "Ready"
+                          : s.source === "csv"
+                            ? "CSV"
+                            : s.source === "tradingview"
+                              ? "TradingView"
+                              : "Journal"
+                      }
+                      detail="A wearable is optional"
+                      icon={<BookOpen size={17} />}
+                    />
+                  </>
+                )}
                 <Stat
                   label="Recorded P&L"
                   value={
@@ -543,9 +576,9 @@ export default function Dashboard({
                     <h2>
                       Your session, in sync{" "}
                       <span
-                        className={p.recording ? "live-badge" : "subtle-badge"}
+                        className={p.active ? "live-badge" : "subtle-badge"}
                       >
-                        {p.recording
+                        {p.active
                           ? stale
                             ? "NO SIGNAL"
                             : "LIVE"
@@ -555,7 +588,8 @@ export default function Dashboard({
                       </span>
                     </h2>
                     <p>
-                      Heart rate meets every entry, exit, and moment in between.
+                      Trades, reflections, and any heart-rate data share one
+                      timeline.
                     </p>
                   </div>
                   <div className="segmented">
@@ -576,10 +610,12 @@ export default function Dashboard({
                   </div>
                 </div>
                 <div className="chart-legend">
-                  <span>
-                    <i className="line orange-bg" />
-                    Heart rate
-                  </span>
+                  {p.samples.length > 0 && (
+                    <span>
+                      <i className="line orange-bg" />
+                      Heart rate
+                    </span>
+                  )}
                   <span>
                     <i className="circle mint-bg" />
                     Entry
@@ -588,12 +624,15 @@ export default function Dashboard({
                     <i className="circle purple-bg" />
                     Exit
                   </span>
-                  <span>
-                    <i className="dashed" />
-                    Baseline
-                  </span>
+                  {stats.baseline !== null && (
+                    <span>
+                      <i className="dashed" />
+                      Baseline
+                    </span>
+                  )}
                   <span className="legend-unit">
-                    BPM · {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                    {p.samples.length > 0 ? "BPM · " : ""}
+                    {Intl.DateTimeFormat().resolvedOptions().timeZone}
                   </span>
                 </div>
                 <Timeline
@@ -616,7 +655,6 @@ export default function Dashboard({
                   <div>
                     <button
                       className="text-button"
-                      disabled={isWorkspace}
                       onClick={() => setModal("note")}
                     >
                       <Plus size={14} />
@@ -626,7 +664,12 @@ export default function Dashboard({
                     <button
                       className="text-button"
                       onClick={toggleReplay}
-                      disabled={p.recording || !p.samples.length}
+                      disabled={
+                        p.active ||
+                        (!p.samples.length &&
+                          !s.events.length &&
+                          !s.journal.length)
+                      }
                     >
                       {replay ? <Pause size={14} /> : <Play size={14} />}Replay
                       session
@@ -670,34 +713,16 @@ export default function Dashboard({
                       <p>The decisions behind the timeline.</p>
                     </div>
                     <div className="inline-actions">
-                      <label
-                        className="icon-button upload-button"
+                      <button
+                        className="icon-button"
                         title="Import CSV"
+                        aria-label="Import trade CSV"
+                        onClick={() => setModal("csv")}
                       >
                         <Upload size={16} />
-                        <input
-                          aria-label="Import trade CSV"
-                          type="file"
-                          disabled={isWorkspace}
-                          accept=".csv,text/csv"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f)
-                              void act(async () => {
-                                if (f.size > 2000000)
-                                  throw new Error(
-                                    "Choose a CSV smaller than 2 MB.",
-                                  );
-                                await p.addEvents(parseTrades(await f.text()));
-                                p.setNotice("Trade events imported.");
-                              });
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
+                      </button>
                       <button
                         className="button small-button"
-                        disabled={isWorkspace}
                         onClick={() => setModal("trade")}
                       >
                         <Plus size={14} />
@@ -712,7 +737,9 @@ export default function Dashboard({
                           <th>Instrument</th>
                           <th>Event</th>
                           <th>Time</th>
-                          <th>Heart rate</th>
+                          {(shown.length > 0 || p.recording) && (
+                            <th>Heart rate</th>
+                          )}
                           <th>P&L</th>
                         </tr>
                       </thead>
@@ -753,14 +780,27 @@ export default function Dashboard({
                                   )}{" "}
                                   {e.kind}
                                 </span>
+                                <small className="event-origin">
+                                  {e.provenance === "backtest"
+                                    ? "CSV · Backtest"
+                                    : e.source === "tradingview"
+                                      ? e.provenance === "strategy"
+                                        ? "TradingView · Strategy"
+                                        : "TradingView · Alert"
+                                      : e.source === "csv"
+                                        ? "CSV"
+                                        : "Manual"}
+                                </small>
                               </td>
                               <td className="tabular">
                                 {clock(e.t).replace(/\s?(AM|PM)$/, "")}
                               </td>
-                              <td className="tabular">
-                                {nearest(shown, e.t)?.bpm ?? "—"}
-                                <small className="inline-muted"> BPM</small>
-                              </td>
+                              {(shown.length > 0 || p.recording) && (
+                                <td className="tabular">
+                                  {nearest(shown, e.t)?.bpm ?? "—"}
+                                  <small className="inline-muted"> BPM</small>
+                                </td>
+                              )}
                               <td
                                 className={
                                   (e.pnl ?? 0) >= 0
@@ -816,12 +856,12 @@ export default function Dashboard({
                     <div>
                       <h3>
                         {insight.peak === null
-                          ? "A baseline starts with you"
+                          ? "Your journal works on its own"
                           : `Your session peaked at ${insight.peak} BPM`}
                       </h3>
                       <p>
                         {insight.baseline === null
-                          ? "Connect your WHOOP and start a session to build your own timeline."
+                          ? "Add trades and reflections now. Attach a wearable whenever you want heart-rate context."
                           : `${Math.round((insight.peak || 0) - insight.baseline)} BPM above your opening baseline. Context is yours to add.`}
                       </p>
                     </div>
@@ -843,7 +883,6 @@ export default function Dashboard({
                       </p>
                       <button
                         className="text-button orange"
-                        disabled={isWorkspace}
                         onClick={() => setModal("note")}
                       >
                         Add a reflection <ArrowUpRight size={13} />
@@ -869,11 +908,7 @@ export default function Dashboard({
                     A quick reflection today becomes a clearer picture tomorrow.
                   </p>
                 </div>
-                <button
-                  className="button"
-                  disabled={isWorkspace}
-                  onClick={() => setModal("note")}
-                >
+                <button className="button" onClick={() => setModal("note")}>
                   Open your journal <ArrowUpRight size={14} />
                 </button>
               </section>
@@ -909,8 +944,8 @@ export default function Dashboard({
                   <History size={32} />
                   <h3>Your trading story starts here.</h3>
                   <p>
-                    Enable WHOOP Heart Rate Broadcast, then start your first
-                    session.
+                    Start a journal, drop a CSV, or connect TradingView. No
+                    wearable needed.
                   </p>
                   <button
                     className="button primary"
@@ -928,7 +963,7 @@ export default function Dashboard({
                       onClick={() =>
                         act(async () => {
                           await p.openSession(item);
-                          if (!p.recording) setTab("Overview");
+                          if (!p.active) setTab("Overview");
                         })
                       }
                     >
@@ -962,7 +997,6 @@ export default function Dashboard({
                 </div>
                 <button
                   className="button primary"
-                  disabled={isWorkspace}
                   onClick={() => setModal("note")}
                 >
                   <Plus size={15} />
@@ -1002,8 +1036,9 @@ export default function Dashboard({
                       </div>
                       <p>{j.text || "A moment marked for reflection."}</p>
                       <small>
-                        {nearest(p.samples, j.t)?.bpm ?? "—"} BPM at this moment
-                        · Self-reported
+                        {nearest(p.samples, j.t)
+                          ? `${nearest(p.samples, j.t)!.bpm} BPM at this moment · Self-reported`
+                          : "Self-reported reflection"}
                       </small>
                     </article>
                   ))}
@@ -1032,7 +1067,7 @@ export default function Dashboard({
                       <Bluetooth size={26} />
                     </span>
                     <span className="tag">
-                      {p.recording ? "Connected" : "Bluetooth"}
+                      {p.recording ? "Connected" : "Optional Bluetooth"}
                     </span>
                   </div>
                   <h2>WHOOP</h2>
@@ -1049,7 +1084,10 @@ export default function Dashboard({
                       Use Chrome or Edge on a supported desktop, or Chrome on
                       Android.
                     </li>
-                    <li>Start a session and choose your sensor.</li>
+                    <li>
+                      Attach WHOOP and choose your sensor. Journaling works
+                      without it.
+                    </li>
                   </ol>
                   <div className="connection-note">
                     Keep this tab open and your device awake. Bluetooth
@@ -1059,146 +1097,50 @@ export default function Dashboard({
                   <button
                     className="button primary"
                     disabled={busy || p.recording}
-                    onClick={() => act(p.start)}
+                    onClick={() => act(p.attachWhoop)}
                   >
                     <Bluetooth size={16} />
                     {p.recording
                       ? "Recording with " + p.device
-                      : "Pair WHOOP & start"}
+                      : "Attach WHOOP to journal"}
                   </button>
-                </section>
-                <section className="glass connection-card">
-                  <div className="connection-top">
-                    <span className="connection-logo tv">
-                      T<span>V</span>
-                    </span>
-                    <span className="tag">Alerts webhook</span>
-                  </div>
-                  <h2>TradingView</h2>
-                  <p>
-                    Bring configured entry and exit alerts into your active
-                    session. Alerts are recorded as user-defined events, not
-                    verified broker executions.
-                  </p>
-                  <ol>
-                    <li>Sign in and start a real session.</li>
-                    <li>Create a session-scoped ingestion token below.</li>
-                    <li>In TradingView, set your alert webhook URL.</li>
-                    <li>Paste the JSON message and enable the alert.</li>
-                  </ol>
-                  {!cloudHealth ? (
-                    <div className="connection-note">
-                      Connections will be available once your account setup is
-                      complete.
-                    </div>
-                  ) : !p.email ? (
+                  {p.recording && (
                     <button
-                      className="button"
-                      onClick={() => setTab("Settings")}
+                      className="text-button"
+                      onClick={() => act(p.detachWearable)}
                     >
-                      Sign in to connect
-                    </button>
-                  ) : isWorkspace ? (
-                    <div className="connection-note">
-                      Start a real session to connect your alerts.
-                    </div>
-                  ) : (
-                    <button
-                      className="button"
-                      disabled={busy}
-                      onClick={() =>
-                        act(async () => {
-                          await sync(p.owner);
-                          await api({ action: "save", session: s });
-                          const result = await api<{ token: string }>({
-                            action: "hook",
-                            sessionId: s.id,
-                          });
-                          setHook(result.token);
-                        })
-                      }
-                    >
-                      <Link2 size={16} />
-                      {hook
-                        ? "Rotate ingestion token"
-                        : "Generate webhook setup"}
+                      Disconnect wearable
                     </button>
                   )}
-                  {hook && (
-                    <div className="hook-config">
-                      <label>
-                        Webhook URL
-                        <input
-                          readOnly
-                          value={`${window.location.origin}/api/tradingview`}
-                        />
-                      </label>
-                      <label>
-                        Alert message
-                        <textarea
-                          rows={9}
-                          readOnly
-                          value={JSON.stringify(
-                            {
-                              token: hook,
-                              event: {
-                                id: "{{ticker}}-{{timenow}}-entry",
-                                timestamp: "{{timenow}}",
-                                symbol: "{{ticker}}",
-                                kind: "entry",
-                                side: "long",
-                                price: "{{close}}",
-                                quantity: 1,
-                              },
-                            },
-                            null,
-                            2,
-                          )}
-                        />
-                      </label>
-                      <p>
-                        Use a different ID and kind for exits. Token expires
-                        after 24 hours and can only ingest events into this
-                        session. Keep it private. TradingView requires 2FA and a
-                        webhook-capable plan.
-                      </p>
-                      <button
-                        className="text-button rose"
-                        onClick={() =>
-                          act(async () => {
-                            await api({ action: "revoke", sessionId: s.id });
-                            setHook("");
-                            p.setNotice("Ingestion token revoked.");
-                          })
-                        }
-                      >
-                        Revoke token
-                      </button>
-                    </div>
-                  )}
                 </section>
-              </div>
-              <section className="glass import-card">
-                <Upload size={22} />
-                <div>
-                  <h3>Already have your trade history?</h3>
-                  <p>
-                    Import timestamped entries and exits from a CSV. Use
-                    explicit timezone offsets and select the matching session.
-                  </p>
-                </div>
-                <button
-                  className="button"
-                  onClick={() =>
-                    download(
-                      "trade-pulse-import-template.csv",
-                      csvTemplate,
-                      "text/csv",
-                    )
+                <TradingViewConnection
+                  onChanged={() =>
+                    p.setNotice("TradingView connection updated.")
                   }
-                >
-                  Download CSV template <Download size={14} />
-                </button>
+                />
+              </div>
+              <section className="glass import-card csv-import-panel">
+                <h2>CSV trade history</h2>
+                <CsvImporter
+                  active={p.active}
+                  hasSession={!isWorkspace}
+                  onImport={async (events, name, destination) => {
+                    await p.importEvents(events, name, destination);
+                    p.setNotice(
+                      `${events.length} events imported. Re-importing identical executions does not duplicate them.`,
+                    );
+                    setTab("Overview");
+                  }}
+                />
+              </section>
+              <section className="glass connection-note">
+                <h3>Optional wearable context</h3>
+                <p>
+                  Your journal and trading integrations work without a sensor.
+                  WHOOP Bluetooth is available now. Apple Health, Oura, and
+                  Garmin are planned connectors; they are not connected or
+                  simulated in this release.
+                </p>
               </section>
             </>
           )}
@@ -1334,7 +1276,7 @@ export default function Dashboard({
                   </button>
                   <button
                     className="button"
-                    disabled={p.recording}
+                    disabled={p.active}
                     onClick={() =>
                       p.email
                         ? act(async () => {
@@ -1349,7 +1291,7 @@ export default function Dashboard({
                   </button>
                   <button
                     className="button danger"
-                    disabled={isWorkspace || p.recording}
+                    disabled={isWorkspace || p.active}
                     onClick={() => setModal("delete")}
                   >
                     <Trash2 size={15} />
@@ -1372,6 +1314,20 @@ export default function Dashboard({
           </footer>
         </main>
       </div>
+      {modal === "csv" && (
+        <Modal title="Import trade CSV" onClose={() => setModal(null)}>
+          <CsvImporter
+            active={p.active}
+            hasSession={!isWorkspace}
+            onImport={async (events, name, destination) => {
+              await p.importEvents(events, name, destination);
+              p.setNotice(`${events.length} events imported.`);
+              setTab("Overview");
+            }}
+            onDone={() => setModal(null)}
+          />
+        </Modal>
+      )}
       {modal === "trade" && (
         <Modal
           error={p.error}
@@ -1494,8 +1450,10 @@ export default function Dashboard({
           >
             <p className="form-intro">
               {clock(selected?.t || viewEnd)} ·{" "}
-              {nearest(p.samples, selected?.t || viewEnd)?.bpm ?? "—"} BPM. How
-              would you describe your experience?
+              {nearest(p.samples, selected?.t || viewEnd)
+                ? `${nearest(p.samples, selected?.t || viewEnd)!.bpm} BPM · `
+                : ""}
+              How would you describe your experience?
             </p>
             <label>
               Your label
@@ -1601,7 +1559,6 @@ export default function Dashboard({
                 </p>
                 <button
                   className="button primary full"
-                  disabled={isWorkspace}
                   onClick={() => setModal("note")}
                 >
                   Add context to this event <BookOpen size={15} />

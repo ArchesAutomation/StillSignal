@@ -3,6 +3,7 @@ const ts = z.number().int().min(0).max(8640000000000000);
 export const sampleSchema = z.object({
   t: ts,
   bpm: z.number().int().min(25).max(240),
+  provider: z.enum(["whoop", "apple", "oura", "garmin"]).optional(),
 });
 export const eventSchema = z.object({
   id: z.string().min(1).max(160),
@@ -14,13 +15,20 @@ export const eventSchema = z.object({
   quantity: z.number().finite().positive().max(1e12),
   pnl: z.number().finite().min(-1e15).max(1e15).optional(),
   source: z.enum(["manual", "csv", "tradingview"]),
+  provenance: z.enum(["alert", "strategy", "backtest"]).optional(),
 });
 export const sessionSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1).max(120),
   startedAt: ts,
   endedAt: ts.optional(),
-  source: z.literal("whoop"),
+  source: z.enum(["whoop", "journal", "csv", "tradingview"]),
+  wearable: z
+    .object({
+      provider: z.enum(["whoop", "apple", "oura", "garmin"]),
+      connection: z.enum(["bluetooth", "cloud", "import"]),
+    })
+    .optional(),
   owner: z.uuid(),
   sampleCount: z.number().int().min(0),
   events: z.array(eventSchema).max(5000),
@@ -36,6 +44,23 @@ export const sessionSchema = z.object({
     .max(1000),
 });
 export const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("connection-status") }),
+  z.object({ action: z.literal("disconnect") }),
+  z.object({
+    action: z.literal("connection"),
+    timezone: z
+      .string()
+      .min(1)
+      .max(80)
+      .refine((t) => {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: t });
+          return true;
+        } catch {
+          return false;
+        }
+      }, "Choose a valid IANA timezone."),
+  }),
   z.object({ action: z.literal("list") }),
   z.object({ action: z.literal("save"), session: sessionSchema }),
   z.object({
@@ -53,7 +78,7 @@ export const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("hook"), sessionId: z.uuid() }),
   z.object({ action: z.literal("revoke"), sessionId: z.uuid() }),
 ]);
-export const webhookSchema = z.object({
+const eventWebhook = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/),
   event: z.object({
     id: z.string().min(1).max(160),
@@ -66,6 +91,24 @@ export const webhookSchema = z.object({
     pnl: z.coerce.number().finite().min(-1e15).max(1e15).optional(),
   }),
 });
+export const webhookSchema = z.union([
+  eventWebhook,
+  z.object({
+    token: z.string().regex(/^[a-f0-9]{64}$/),
+    strategy: z.object({
+      id: z.string().min(1).max(140),
+      timestamp: z.iso.datetime({ offset: true }),
+      symbol: z.string().min(1).max(32),
+      action: z.enum(["buy", "sell"]),
+      price: z.coerce.number().finite().min(0).max(1e12),
+      quantity: z.coerce.number().finite().positive().max(1e12),
+      previous_position: z.enum(["long", "short", "flat"]),
+      previous_size: z.coerce.number().finite().min(0).max(1e12),
+      position: z.enum(["long", "short", "flat"]),
+      size: z.coerce.number().finite().min(0).max(1e12),
+    }),
+  }),
+]);
 export async function boundedJson(request: Request, limit = 3000000) {
   const reader = request.body?.getReader();
   if (!reader) throw new Error("BODY");

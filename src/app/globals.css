@@ -1908,3 +1908,7 @@ textarea::placeholder {
     width: 100%;
   }
 }
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.csv-import-panel{display:block;margin-top:24px;padding:24px}
+.csv-importer{width:100%}.csv-dropzone{border:1px dashed #ffffff30;border-radius:14px;padding:28px;text-align:center;display:flex;align-items:center;flex-direction:column;gap:12px;margin:18px 0}.csv-dropzone.dragging{border-color:#fb8354;background:#fb835410}.csv-preview{display:grid;gap:16px}.csv-preview details>summary{cursor:pointer;padding:12px 0}.csv-preview .form-grid{margin:12px 0}.checkbox-label{display:flex;align-items:center;gap:10px}.checkbox-label input{width:auto}.event-origin{display:block;color:var(--muted);font-size:10px;margin-top:5px}.timeline-journal-list{display:flex;gap:14px;flex-wrap:wrap;padding:8px 20px;color:#b3a5e8;font-size:12px}.connection-card .form-grid{margin:16px 0}.connection-card .form-grid input,.connection-card .form-grid select{min-width:0}
