@@ -62,4 +62,3 @@ The 0.3 production deployment `dpl_BJtqmtfng8v3UoU5mj163EjiQpzW` is READY, built
 A second two-account verification run through the deployed Vercel `/api/data` proxy passed the full connection/journal/CSV/rotation/isolation sequence. Direct webhook receipt during that run took 837 ms; retry took 1,000 ms. Both disposable accounts and their records were removed again. The temporary administrative bootstrap was overwritten by its retired handler with gateway JWT verification enabled.
 
 The live public browser shows the updated sign-in page: an empty journal, TradingView/CSV and optional wearable text. Authenticated interactive UI flows were verified in DOM tests plus real hosted API/database probes; a fully signed-in browser walkthrough and an actual provider-triggered TradingView alert remain unverified.
-
