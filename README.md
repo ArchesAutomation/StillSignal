@@ -1,4 +1,4 @@
-# Trade Pulse 0.4
+# Trade Pulse 0.4.1
 
 A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 
@@ -55,6 +55,6 @@ Production Auth Site URL and the exact redirect allowlist use the live app URL a
 
 ## Verification and capacity
 
-32 tests, type checking and the optimized build pass. Hosted two-account tests verify webhook receipt, retries, isolation, CSV persistence, reflections, rotation and revocation without any wearable. See [VERIFICATION.md](VERIFICATION.md) for evidence and remaining boundaries.
+33 tests, type checking and the optimized build pass. Hosted two-account tests verify webhook receipt, retries, isolation, CSV persistence, reflections, rotation and revocation without any wearable. See [VERIFICATION.md](VERIFICATION.md) for evidence and remaining boundaries.
 
 The architecture can scale horizontally, but the current Free-tier database is a beta starting point. No unlimited-user guarantee or measured production concurrency claim is made. Run representative multi-account staging load tests and size the database before broad rollout.

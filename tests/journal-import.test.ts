@@ -9,7 +9,52 @@ import CsvImporter from "../src/components/csv-importer";
 import { Timeline } from "../src/components/timeline";
 import { parseTrades } from "../src/lib/csv";
 import { listSessions, getSamples } from "../src/lib/storage";
+import { saveSession } from "../src/lib/storage";
 const owner = "77777777-7777-4777-8777-777777777777";
+test("starting a journal supersedes an older asynchronous history load", async (t) => {
+  const dom = setup(),
+    root = createRoot(document.getElementById("root")!);
+  t.after(async () => {
+    await act(async () => root.unmount());
+    dom.window.close();
+  });
+  let pulse: ReturnType<typeof usePulse> | undefined;
+  function Harness() {
+    pulse = usePulse({ id: owner });
+    return createElement("div", null, pulse.session?.name);
+  }
+  await act(async () => root.render(createElement(Harness)));
+  const old = {
+    id: crypto.randomUUID(),
+    owner,
+    name: "Older journal",
+    source: "journal" as const,
+    startedAt: Date.now() - 60000,
+    events: [],
+    journal: [],
+    sampleCount: 0,
+  };
+  await act(async () => {
+    await saveSession(old);
+  });
+  await act(async () => {
+    const pending = pulse!.openSession(old);
+    await pulse!.start("New live journal");
+    await pending;
+  });
+  assert.equal(pulse!.active, true);
+  assert.equal(pulse!.session!.name, "New live journal");
+  await act(async () =>
+    pulse!.addNote({
+      id: crypto.randomUUID(),
+      t: Date.now(),
+      label: "FOMO",
+      text: "A current check-in",
+    }),
+  );
+  assert.equal(pulse!.session!.journal.length, 1);
+  assert.equal(pulse!.session!.name, "New live journal");
+});
 function setup() {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://trade-pulse.test",

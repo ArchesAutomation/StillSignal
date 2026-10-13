@@ -44,6 +44,7 @@ export function usePulse(user: WorkspaceUser) {
     ),
     writing = useRef(Promise.resolve()),
     insightLast = useRef(0);
+  const sessionLoad = useRef(0);
   const save = useCallback(async (s: Session) => {
     current.current = s;
     setSession(s);
@@ -62,6 +63,7 @@ export function usePulse(user: WorkspaceUser) {
   );
   const resetWorkspace = useCallback(() => {
     if (rec.current) return;
+    sessionLoad.current++;
     const s = emptyWorkspace(owner);
     current.current = s;
     raw.current = [];
@@ -153,6 +155,7 @@ export function usePulse(user: WorkspaceUser) {
     };
     window.addEventListener("beforeunload", warn);
     return () => {
+      sessionLoad.current++;
       connection.current?.disconnect();
       window.removeEventListener("beforeunload", warn);
     };
@@ -184,6 +187,7 @@ export function usePulse(user: WorkspaceUser) {
   }
   async function start(name?: string, startedAt = Date.now()) {
     if (rec.current) return;
+    sessionLoad.current++;
     const selected = current.current;
     if (
       selected?.source === "tradingview" &&
@@ -361,6 +365,8 @@ export function usePulse(user: WorkspaceUser) {
       setError("End your active session before opening another one.");
       return;
     }
+    const request = ++sessionLoad.current;
+    const selectedId = current.current?.id;
     setError("");
     try {
       let pts = await storage.getSamples(s.id, owner);
@@ -385,6 +391,14 @@ export function usePulse(user: WorkspaceUser) {
           /* Local sessions remain usable during a cloud outage. */
         }
       }
+      // A delayed history load must never replace a session started or selected
+      // after this request began. This also discards older overlapping opens.
+      if (
+        request !== sessionLoad.current ||
+        rec.current ||
+        current.current?.id !== selectedId
+      )
+        return;
       current.current = loaded;
       raw.current = pts;
       setSession(loaded);

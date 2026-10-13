@@ -1,14 +1,16 @@
-# Verification - Trade Pulse 0.4
+# Verification - Trade Pulse 0.4.1
 
 ## Release checks on 2026-10-13
 
-32 tests pass, including the existing suite plus HR episodes/baseline/gaps, personal record isolation, corrections/deletions, broker partial fills/reversals, Postgres tombstone merge, Storage RLS, shortcut lifecycle, transcript review, simulated beep/spoken question and snooze. Type checking and the production build pass.
+33 tests pass, including the existing suite plus HR episodes/baseline/gaps, personal record isolation, corrections/deletions, broker partial fills/reversals, Postgres tombstone merge, Storage RLS, shortcut lifecycle, transcript review, simulated beep/spoken question and snooze. Type checking and the production build pass.
 
 Production-mode headless Chrome checks passed against the local production build with real Supabase authentication: sign-in, shortcut dictation with simulated speech, private screenshot upload/display, reflection edit/delete, arbitrary HR-window inspection, custom shortcut, sound preferences, and mobile layout without horizontal overflow. No page errors were recorded. Physical microphone recognition and WHOOP hardware remain unverified; their browser/device APIs are simulated in tests.
 
 Real two-account hosted probes through `/api/data` passed note persistence, edits/deletions surviving stale uploads, private screenshot upload/signed display/removal, cross-account read/upload/delete isolation, screenshot metadata ownership validation and journal deletion. Disposable confirmed accounts were provisioned without sending mail. All their test records must be removed after the final production checks.
 
 Migration `20261013202920_smart_journal_screenshots` is applied and tracked. `pulse-data` version 4 is active, retaining custom JWT authentication. Performance advisor reports no findings; security findings remain the previously documented inaccessible internal-table notices and Free-plan leaked-password protection limitation. Multimodal chart interpretation and generative conversation are not implemented in this release.
+
+A live walkthrough exposed an existing asynchronous history-load race: an older pending journal could replace a just-started live session. Version 0.4.1 invalidates superseded loads, checks the selection identity before committing, and includes a regression test.
 
 ## Earlier release evidence
 
