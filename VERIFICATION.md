@@ -18,7 +18,7 @@ Passed against TraderPulse (`ipfurgwqqjkybhadzutj`):
 - Temporary verification account removed; demo remains empty. Remote counts: 0 sessions, 0 sample chunks, 0 events, 0 tombstones.
 - Setup-only bootstrap function replaced with a 410 handler, with gateway JWT verification enabled and no administrative code.
 
-Security advisor reports only INFO notices for three deliberately inaccessible internal tables with RLS and no client policies. Foreign-key covering indexes were added. Unused-index INFO is expected on a new, empty database.
+Security advisor reports INFO notices for three deliberately inaccessible internal tables with RLS and no client policies. It also flags disabled leaked-password protection, which requires Supabase Pro or above; no paid upgrade was authorized. See [password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) and [internal-table RLS notice](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Foreign-key covering indexes were added. Unused-index INFO is expected on a new, empty database.
 
 ## Remaining practical limits
 
