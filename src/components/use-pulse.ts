@@ -17,6 +17,8 @@ import * as storage from "@/lib/storage";
 import { api, sync, pullSession, pullSessions } from "@/lib/cloud";
 import { eventSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
+import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
+import { removeSessionScreenshots } from "@/lib/screenshots";
 export function usePulse(user: WorkspaceUser) {
   const owner = user.id,
     email = user.email || "";
@@ -372,11 +374,7 @@ export function usePulse(user: WorkspaceUser) {
           pts = [...map.values()].sort((a, b) => a.t - b.t);
           loaded = {
             ...s,
-            journal: [
-              ...new Map(
-                [...s.journal, ...cloud.session.journal].map((j) => [j.id, j]),
-              ).values(),
-            ].sort((a, b) => a.t - b.t),
+            journal: mergeNotes(s.journal, cloud.session.journal),
             events: [
               ...new Map(
                 [...s.events, ...cloud.events].map((e) => [e.id, e]),
@@ -428,16 +426,60 @@ export function usePulse(user: WorkspaceUser) {
     if (!s) throw new Error("Open a journal before adding a reflection.");
     if (s.owner !== owner) throw new Error("Workspace identity mismatch.");
     if (s) {
-      if (s.journal.length >= 1000)
+      if (s.journal.length >= 1000 && !s.journal.some((j) => j.id === note.id))
         throw new Error("This session supports up to 1,000 journal entries.");
-      await save({ ...s, journal: [...s.journal, note] });
+      const old = s.journal.find((j) => j.id === note.id);
+      if (
+        note.t < s.startedAt ||
+        (s.endedAt && note.t > s.endedAt) ||
+        note.t > Date.now() + 300000
+      )
+        throw new Error("Choose a moment inside this journal's time range.");
+      const updated = {
+        ...note,
+        context: note.deletedAt
+          ? undefined
+          : {
+              ...(old?.context ||
+                reflectionContext(raw.current, note.t, settings, s.events)),
+              ...note.context,
+            },
+        updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
+      };
+      await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
       void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
     }
+  }
+  async function removeNote(id: string) {
+    const s = current.current,
+      old = s?.journal.find((j) => j.id === id);
+    if (!s || !old || old.deletedAt) return;
+    const revision = Math.max(Date.now(), (old.updatedAt || old.t) + 1);
+    await addNote({
+      id: old.id,
+      t: old.t,
+      label: "Other",
+      text: "",
+      updatedAt: revision,
+      deletedAt: revision,
+    });
+  }
+  async function prepareScreenshot(t: number) {
+    if (current.current?.id === "workspace")
+      await start(undefined, Math.min(Date.now(), t));
+    const s = current.current!;
+    await api({ action: "save", session: s });
+    return s.id;
   }
   async function deleteSession() {
     const s = current.current;
     if (!s || s.id === "workspace" || rec.current) return;
     await api({ action: "delete", sessionId: s.id });
+    await removeSessionScreenshots(owner, s.id).catch(() =>
+      setNotice(
+        "Journal deleted. Some screenshot files could not be removed; reconnect and retry cleanup.",
+      ),
+    );
     await storage.removeSession(s.id, owner);
     await refreshHistory();
     resetWorkspace();
@@ -493,6 +535,8 @@ export function usePulse(user: WorkspaceUser) {
     openSession,
     addEvents,
     addNote,
+    removeNote,
+    prepareScreenshot,
     deleteSession,
     refreshHistory,
   };

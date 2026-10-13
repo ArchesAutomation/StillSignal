@@ -22,6 +22,7 @@ export type CsvOptions = {
   symbol?: string;
   kind?: "entry" | "exit";
   side?: "long" | "short";
+  fillsStartFlat?: boolean;
 };
 const normalize = (s: string) =>
   s
@@ -59,26 +60,39 @@ export function inspectCsv(csv: string) {
     !!find(/^trade #$/) && !!find(/^type$/) && !!find(/^date\/time$/);
   const mapping: CsvMapping = {
     timestamp: find(
-      /^(timestamp|date\/time|datetime|date time|filled time|fill time)$/,
+      /^(timestamp|date\/time|datetime|date time|filled time|fill time|filltime|execution time|time)$/,
     ),
-    symbol: find(/^(symbol|instrument|ticker)$/),
+    symbol: find(/^(symbol|instrument|ticker|contract)$/),
     kind: find(/^(kind|event|entry\/exit)$/) || (native ? find(/^type$/) : ""),
     side: find(/^(side|direction|position)$/) || (native ? find(/^type$/) : ""),
-    price: find(/^(price|fill price|execution price)(\s+[^%]+)?$/),
-    quantity: find(/^(quantity|qty|contracts|position size \(qty\))$/),
+    price: find(
+      /^(price|fill price|fillprice|avg fill price|average fill price|execution price)(\s+[^%]+)?$/,
+    ),
+    quantity: find(
+      /^(fill qty|fill quantity|filled qty|filled quantity|filledqty|quantity|qty|contracts|position size \(qty\))$/,
+    ),
     pnl: find(/^(pnl|p&l|net p&l|net profit|profit)(\s+[^%]+)?$/),
     execution_id: find(
-      /^(execution_id|execution id|trade #|order id|trade id)$/,
+      /^(execution_id|execution id|fill id|fillid|trade #|order id|orderid|trade id)$/,
     ),
   };
+  const actionColumn = find(/^(action|b\/s|buy\/sell|buy or sell|side)$/);
+  const statusColumn = find(/^(status|order status|ordstatus)$/);
+  const fills = !native && !mapping.kind && !!actionColumn;
   return {
     headers,
     rows: result.data,
     mapping,
     format: native
       ? "TradingView Strategy Report — List of Trades"
-      : "Trade event CSV",
+      : fills
+        ? "Broker executions / filled orders"
+        : "Trade event CSV",
     backtest: native,
+    fills,
+    actionColumn,
+    statusColumn,
+    accountColumn: find(/^(account|account id|account name)$/),
   };
 }
 function number(value: string, row: number, label: string) {
@@ -112,6 +126,7 @@ export function parseTrades(
 ): TradeEvent[] {
   const input = inspectCsv(csv),
     map = options.mapping || input.mapping;
+  if (input.fills && !map.kind) return parseFills(input, map, options);
   if (map.pnl?.includes("%"))
     throw new Error("P&L needs a monetary amount, not a percentage column.");
   const currency = map.pnl?.match(/(?: |\()([A-Z]{3,8})\)?$/)?.[1];
@@ -206,4 +221,167 @@ export function parseTrades(
     unique.set(e.id, e);
   }
   return [...unique.values()].sort((a, b) => a.t - b.t);
+}
+
+function parseFills(
+  input: ReturnType<typeof inspectCsv>,
+  map: CsvMapping,
+  options: CsvOptions,
+): TradeEvent[] {
+  if (!options.fillsStartFlat)
+    throw new Error(
+      "Confirm that the export includes every fill and starts with a flat position, so entries and exits can be reconstructed.",
+    );
+  if (map.pnl?.includes("%"))
+    throw new Error("P&L needs a monetary amount, not a percentage column.");
+  const currency = map.pnl?.match(/(?: |\()([A-Z]{3,8})\)?$/)?.[1];
+  if (currency && currency !== "USD")
+    throw new Error(
+      "Convert P&L to USD or choose Not included for that column.",
+    );
+  const positions = new Map<string, number>(),
+    executions = new Map<string, string>(),
+    events: TradeEvent[] = [];
+  const rows = input.rows
+    .flatMap((row, i) => {
+      const status = (row[input.statusColumn] || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[ _-]/g, "");
+      if (
+        input.statusColumn &&
+        /^(cancelled|canceled|rejected|expired|working|pending|open|new)$/.test(
+          status,
+        )
+      )
+        return [];
+      if (
+        input.statusColumn &&
+        !/^(filled|fill|partiallyfilled|partialfill|executed|complete|completed)$/.test(
+          status,
+        )
+      )
+        throw new Error(
+          `Row ${i + 2}: unknown order status. Use a filled-executions export.`,
+        );
+      const get = (field: CsvField) => String(row[map[field]] || "").trim();
+      let t: number;
+      try {
+        const value = get("timestamp");
+        if (/(Z|[+-]\d\d:\d\d)$/i.test(value))
+          t = Temporal.Instant.from(value).epochMilliseconds;
+        else if (options.timezone)
+          t = Temporal.PlainDateTime.from(
+            value.replace(" ", "T"),
+          ).toZonedDateTime(options.timezone, {
+            disambiguation: "reject",
+          }).epochMilliseconds;
+        else throw new Error("timezone");
+      } catch {
+        throw new Error(
+          `Row ${i + 2}: choose the export timezone and use an unambiguous timestamp.`,
+        );
+      }
+      const action = (row[input.actionColumn] || "").trim().toLowerCase();
+      if (!/^(buy|sell|b|s)$/.test(action))
+        throw new Error(`Row ${i + 2}: choose a Buy/Sell action column.`);
+      const symbol = (get("symbol") || options.symbol || "").toUpperCase(),
+        price = number(get("price"), i + 2, "fill price"),
+        quantity = number(get("quantity"), i + 2, "filled quantity");
+      if (!symbol || quantity <= 0)
+        throw new Error(
+          `Row ${i + 2}: provide a symbol and positive filled quantity.`,
+        );
+      const account = input.accountColumn
+        ? String(row[input.accountColumn] || "").trim()
+        : "";
+      const ref = get("execution_id"),
+        pnlText = get("pnl");
+      const payload = JSON.stringify([
+        t,
+        account,
+        symbol,
+        action,
+        price,
+        quantity,
+        pnlText,
+      ]);
+    if (!ref && executions.has(`anonymous:${payload}`))
+      throw new Error(`Row ${i + 2}: identical fills need unique fill IDs so neither execution is lost.`);
+    if (!ref) executions.set(`anonymous:${payload}`, payload);
+      if (ref) {
+        const key = `${account}:${ref}`,
+          old = executions.get(key);
+        if (old && old !== payload)
+          throw new Error(
+            `Row ${i + 2}: repeated execution/order ID has different data. Export individual fills with unique fill IDs instead of cumulative order snapshots.`,
+          );
+        if (old) return [];
+        executions.set(key, payload);
+      }
+      return [
+        {
+          t,
+          symbol,
+          price,
+          quantity,
+          action,
+          account,
+          ref,
+          row: i + 2,
+          pnlText,
+        },
+      ];
+    })
+    .sort((a, b) => a.t - b.t || a.row - b.row);
+  for (const row of rows) {
+    const key = `${row.account}:${row.symbol}`,
+      before = positions.get(key) || 0;
+    const signed = /^(buy|b)$/.test(row.action) ? row.quantity : -row.quantity;
+    const after = before + signed;
+    const add = (
+      kind: "entry" | "exit",
+      side: "long" | "short",
+      quantity: number,
+    ) => {
+      const id = `csv-${fingerprint(JSON.stringify([row.t, row.account, row.symbol, row.action, row.price, row.quantity, row.ref, kind]))}-${row.t}`;
+      const event = eventSchema.safeParse({
+        id,
+        t: row.t,
+        symbol: row.symbol,
+        price: row.price,
+        quantity,
+        kind,
+        side,
+        source: "csv",
+        provenance: "execution",
+        ...(row.account ? { account: row.account } : {}),
+        ...(kind === "exit" && row.pnlText
+          ? { pnl: number(row.pnlText, row.row, "P&L") }
+          : {}),
+      });
+      if (!event.success)
+        throw new Error(
+          `Row ${row.row}: execution values are outside the supported range.`,
+        );
+      events.push(event.data);
+    };
+    if (before && Math.sign(before) !== Math.sign(signed)) {
+      add(
+        "exit",
+        before > 0 ? "long" : "short",
+        Math.min(Math.abs(before), row.quantity),
+      );
+      if (Math.abs(signed) > Math.abs(before) + 1e-8)
+        add("entry", after > 0 ? "long" : "short", Math.abs(after));
+    } else add("entry", signed > 0 ? "long" : "short", row.quantity);
+    positions.set(key, Math.abs(after) < 1e-8 ? 0 : after);
+  }
+  if (!events.length)
+    throw new Error("This file has no filled executions to import.");
+  if (events.length > 5000)
+    throw new Error(
+      "This export produces more than 5,000 events. Import a smaller complete period.",
+    );
+  return [...new Map(events.map((e) => [e.id, e])).values()];
 }

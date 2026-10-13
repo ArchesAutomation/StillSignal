@@ -157,6 +157,26 @@ export default function CsvImporter({
               export, not Performance Summary or chart prices.
             </p>
           )}
+          {inspection.fills && (
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={!!options.fillsStartFlat}
+                onChange={(e) =>
+                  setOptions((o) => ({
+                    ...o,
+                    fillsStartFlat: e.target.checked,
+                  }))
+                }
+              />{" "}
+              This export starts flat and includes every fill for each
+              instrument and account.
+              <small>
+                Cancelled and unfilled orders are skipped. Use unique fill IDs
+                for partial executions.
+              </small>
+            </label>
+          )}
           <details>
             <summary>Review or change column mapping</summary>
             <div className="form-grid">
@@ -196,7 +216,7 @@ export default function CsvImporter({
                 />
               </label>
             )}
-            {!options.mapping?.kind && (
+            {!options.mapping?.kind && !inspection.fills && (
               <label>
                 Event type for every row
                 <select
@@ -214,7 +234,7 @@ export default function CsvImporter({
                 </select>
               </label>
             )}
-            {!options.mapping?.side && (
+            {!options.mapping?.side && !inspection.fills && (
               <label>
                 Direction for every row
                 <select

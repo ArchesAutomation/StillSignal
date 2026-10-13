@@ -32,6 +32,8 @@ import {
   Upload,
   X,
   Zap,
+  Mic,
+  Pencil,
 } from "lucide-react";
 import { usePulse } from "./use-pulse";
 import { Timeline } from "./timeline";
@@ -41,6 +43,19 @@ import dynamic from "next/dynamic";
 const CsvImporter = dynamic(() => import("./csv-importer"));
 const TradingViewConnection = dynamic(() => import("./tradingview-connection"));
 import { authClient, cloudConfigured, pullSessions, sync } from "@/lib/cloud";
+import {
+  detectHrMoments,
+  liveNotes,
+  personalProfile,
+  personalQuestion,
+} from "@/lib/smart-journal";
+import ReflectionEditor, {
+  Screenshot,
+  type ReflectionDraft,
+} from "./reflection-editor";
+import SmartCheckins from "./smart-checkins";
+import JournalInsights from "./journal-insights";
+import { removeScreenshot } from "@/lib/screenshots";
 type Tab = "Overview" | "Sessions" | "Journal" | "Connections" | "Settings";
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -134,21 +149,24 @@ export default function Dashboard({
 }) {
   const p = usePulse(user);
   const [tab, setTab] = useState<Tab>("Overview"),
-    [modal, setModal] = useState<"trade" | "note" | "delete" | "csv" | null>(
-      null,
-    ),
+    [modal, setModal] = useState<
+      "trade" | "note" | "delete" | "csv" | "moment" | null
+    >(null),
     [selected, setSelected] = useState<TradeEvent | null>(null),
     [range, setRange] = useState(0),
     [replay, setReplay] = useState(false),
     [replayPosition, setReplayPosition] = useState(100),
     [busy, setBusy] = useState(false),
-    [journalFilter, setJournalFilter] = useState("All entries");
+    [journalFilter, setJournalFilter] = useState("All entries"),
+    [tradePair, setTradePair] = useState(false);
+  const [noteDraft, setNoteDraft] = useState<ReflectionDraft | null>(null),
+    [momentTime, setMomentTime] = useState(0);
   const s = p.session,
     isWorkspace = s?.id === "workspace";
   const fullEnd = s?.endedAt
     ? Math.min(s.endedAt, p.now)
     : p.active
-      ? p.now
+      ? Math.max(p.now, s?.startedAt || 0)
       : Math.max(
           s?.startedAt || p.now,
           p.samples.at(-1)?.t || 0,
@@ -195,13 +213,53 @@ export default function Dashboard({
       : null;
   const visibleEvents = s?.events.filter((e) => e.t <= viewEnd) || [];
   const pnl = visibleEvents.reduce(
-      (v, e) => v + (e.kind === "exit" ? (e.pnl ?? 0) : 0),
+      (v, e) =>
+        v + (e.kind === "exit" && e.provenance !== "alert" ? (e.pnl ?? 0) : 0),
       0,
     ),
-    closed = visibleEvents.filter((e) => e.kind === "exit"),
+    closed = visibleEvents.filter(
+      (e) => e.kind === "exit" && e.provenance !== "alert",
+    ),
     wins = closed.filter((e) => (e.pnl ?? 0) > 0).length;
   const hasPnl = closed.some((e) => e.pnl !== undefined);
   const stale = p.recording && (!latest || p.now - latest.t > 10000);
+  const profile = useMemo(
+    () =>
+      personalProfile(
+        s && !isWorkspace
+          ? [s, ...p.history.filter((h) => h.id !== s.id)]
+          : p.history,
+        p.owner,
+      ),
+    [s, p.history, p.owner, isWorkspace],
+  );
+  const threshold = p.settings.personalize
+    ? (profile.suggestedThreshold ?? p.settings.threshold)
+    : p.settings.threshold;
+  const moments = useMemo(
+    () =>
+      detectHrMoments(p.samples, {
+        baselineSeconds: p.settings.baselineSeconds,
+        threshold,
+      }),
+    [p.samples, p.settings.baselineSeconds, threshold],
+  );
+  function openReflection(draft: ReflectionDraft) {
+    setNoteDraft(draft);
+    setModal("note");
+  }
+  async function openLiveReflection(draft: ReflectionDraft) {
+    if (!p.active && !isWorkspace) await p.start();
+    openReflection(draft);
+  }
+  function inspectMoment(t: number) {
+    if (!s || t < s.startedAt || t > (p.active ? Date.now() : fullEnd)) {
+      p.setError("Choose a moment inside this journal's time range.");
+      return;
+    }
+    setMomentTime(t);
+    setModal("moment");
+  }
   useEffect(() => {
     if (!replay) return;
     const timer = setInterval(
@@ -275,7 +333,7 @@ export default function Dashboard({
         <div className="workspace">
           <span className="workspace-icon">TP</span>
           <div>
-            Personal workspace<small>MVP · Personal analytics</small>
+            Personal workspace<small>0.4 · Smart journal</small>
           </div>
           <ChevronDown size={14} />
         </div>
@@ -425,6 +483,57 @@ export default function Dashboard({
               </button>
             </div>
           )}
+          <SmartCheckins
+            owner={p.owner}
+            sessionId={s.id}
+            settings={p.settings}
+            recording={p.recording}
+            now={p.now}
+            latestSampleTime={p.samples.at(-1)?.t}
+            moments={moments}
+            blocked={!!modal || !!selected}
+            onOpen={(draft) => void act(() => openLiveReflection(draft))}
+          />
+          {(tab === "Overview" || tab === "Journal") && (
+            <div className="smart-journal-toolbar">
+              <button
+                className="button"
+                onClick={() =>
+                  void act(() =>
+                    openLiveReflection({
+                      t: Date.now(),
+                      source: "voice",
+                      autoListen: true,
+                    }),
+                  )
+                }
+              >
+                <Mic size={16} /> Voice check-in{" "}
+                <kbd>Alt + {p.settings.shortcutKey.toUpperCase()}</kbd>
+              </button>
+              <span>Your words. Your patterns.</span>
+            </div>
+          )}
+          {(tab === "Overview" || tab === "Journal") && (
+            <JournalInsights
+              session={s}
+              moments={moments.filter((m) => m.t <= viewEnd)}
+              profile={profile}
+              hasSamples={p.samples.length > 0}
+              onMoment={(t, hrEventId) =>
+                openReflection({ t, source: "hr-checkin", hrEventId })
+              }
+              onEvidence={(id) => {
+                const target = p.history.find((h) => h.id === id);
+                if (id === s.id) setTab("Journal");
+                else if (target)
+                  void act(async () => {
+                    await p.openSession(target);
+                    setTab("Journal");
+                  });
+              }}
+            />
+          )}
           {tab === "Overview" && (
             <>
               <div className="session-bar">
@@ -520,7 +629,7 @@ export default function Dashboard({
                   <>
                     <Stat
                       label="Reflections"
-                      value={s.journal.length}
+                      value={liveNotes(s.journal).length}
                       detail="Your notes and observations"
                       icon={<BookOpen size={17} />}
                     />
@@ -556,11 +665,19 @@ export default function Dashboard({
                 />
                 <Stat
                   label="Trade events"
-                  value={visibleEvents.length.toString().padStart(2, "0")}
+                  value={visibleEvents
+                    .filter((e) => e.provenance !== "alert")
+                    .length.toString()
+                    .padStart(2, "0")}
                   detail={
                     <>
                       <span className="mint">
-                        {visibleEvents.filter((e) => e.kind === "entry").length}{" "}
+                        {
+                          visibleEvents.filter(
+                            (e) =>
+                              e.kind === "entry" && e.provenance !== "alert",
+                          ).length
+                        }{" "}
                         entries
                       </span>
                       <span className="dot-separator">·</span>
@@ -643,6 +760,8 @@ export default function Dashboard({
                   start={viewStart}
                   end={Math.max(viewEnd, viewStart + 60000)}
                   onSelect={setSelected}
+                  onMoment={inspectMoment}
+                  moments={moments.filter((m) => m.t <= viewEnd)}
                 />
                 <div className="timeline-bottom">
                   <span>
@@ -655,7 +774,9 @@ export default function Dashboard({
                   <div>
                     <button
                       className="text-button"
-                      onClick={() => setModal("note")}
+                      onClick={() =>
+                        openReflection({ t: selected?.t || viewEnd })
+                      }
                     >
                       <Plus size={14} />
                       Add moment
@@ -668,7 +789,7 @@ export default function Dashboard({
                         p.active ||
                         (!p.samples.length &&
                           !s.events.length &&
-                          !s.journal.length)
+                          !liveNotes(s.journal).length)
                       }
                     >
                       {replay ? <Pause size={14} /> : <Play size={14} />}Replay
@@ -773,12 +894,16 @@ export default function Dashboard({
                               </td>
                               <td>
                                 <span className={"event-tag " + e.kind}>
-                                  {e.kind === "entry" ? (
+                                  {e.provenance === "alert" ? (
+                                    <Radio size={12} />
+                                  ) : e.kind === "entry" ? (
                                     <ArrowUpRight size={12} />
                                   ) : (
                                     <ArrowDownLeft size={12} />
                                   )}{" "}
-                                  {e.kind}
+                                  {e.provenance === "alert"
+                                    ? "Price alert"
+                                    : e.kind}
                                 </span>
                                 <small className="event-origin">
                                   {e.provenance === "backtest"
@@ -872,18 +997,20 @@ export default function Dashboard({
                     </span>
                     <div>
                       <h3>
-                        {s.journal.length
-                          ? `${s.journal.length} moments with personal context`
+                        {liveNotes(s.journal).length
+                          ? `${liveNotes(s.journal).length} moments with personal context`
                           : "Numbers tell part of the story"}
                       </h3>
                       <p>
-                        {s.journal.length
+                        {liveNotes(s.journal).length
                           ? "Your journal adds what a sensor cannot: what you were thinking and feeling."
                           : "Add a moment to describe what this session felt like to you."}
                       </p>
                       <button
                         className="text-button orange"
-                        onClick={() => setModal("note")}
+                        onClick={() =>
+                          openReflection({ t: selected?.t || viewEnd })
+                        }
                       >
                         Add a reflection <ArrowUpRight size={13} />
                       </button>
@@ -908,7 +1035,10 @@ export default function Dashboard({
                     A quick reflection today becomes a clearer picture tomorrow.
                   </p>
                 </div>
-                <button className="button" onClick={() => setModal("note")}>
+                <button
+                  className="button"
+                  onClick={() => openReflection({ t: selected?.t || viewEnd })}
+                >
                   Open your journal <ArrowUpRight size={14} />
                 </button>
               </section>
@@ -997,7 +1127,7 @@ export default function Dashboard({
                 </div>
                 <button
                   className="button primary"
-                  onClick={() => setModal("note")}
+                  onClick={() => openReflection({ t: selected?.t || viewEnd })}
                 >
                   <Plus size={15} />
                   Add reflection
@@ -1022,7 +1152,7 @@ export default function Dashboard({
                 ))}
               </div>
               <div className="journal-grid">
-                {s.journal
+                {liveNotes(s.journal)
                   .filter(
                     (j) =>
                       journalFilter === "All entries" ||
@@ -1040,10 +1170,34 @@ export default function Dashboard({
                           ? `${nearest(p.samples, j.t)!.bpm} BPM at this moment · Self-reported`
                           : "Self-reported reflection"}
                       </small>
+                      {j.screenshot && <Screenshot {...j.screenshot} />}
+                      <div className="inline-actions">
+                        <button
+                          className="text-button"
+                          onClick={() => openReflection({ t: j.t, entry: j })}
+                        >
+                          <Pencil size={13} /> Edit
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            void act(async () => {
+                              await p.removeNote(j.id);
+                              if (j.screenshot)
+                                await removeScreenshot(j.screenshot.path);
+                              p.setNotice(
+                                "Reflection removed from your journal and personal insights.",
+                              );
+                            })
+                          }
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
                     </article>
                   ))}
               </div>
-              {s.journal.filter(
+              {liveNotes(s.journal).filter(
                 (j) =>
                   journalFilter === "All entries" || j.label === journalFilter,
               ).length === 0 && (
@@ -1222,7 +1376,7 @@ export default function Dashboard({
                       })
                     }
                   >
-                    <option value="on">On · display a quiet banner</option>
+                    <option value="on">On · offer a check-in</option>
                     <option value="off">Off</option>
                   </select>
                 </label>
@@ -1243,6 +1397,102 @@ export default function Dashboard({
                   <small>
                     A descriptive change threshold, not a medical or trading
                     signal.
+                  </small>
+                </label>
+                <label>
+                  Check-in beep
+                  <select
+                    aria-label="Check-in beep"
+                    value={p.settings.sound ? "on" : "off"}
+                    onChange={(e) =>
+                      p.configure({
+                        ...p.settings,
+                        sound: e.target.value === "on",
+                      })
+                    }
+                  >
+                    <option value="off">Off</option>
+                    <option value="on">On · short beep</option>
+                  </select>
+                </label>
+                <label>
+                  Spoken check-in question
+                  <select
+                    aria-label="Spoken check-in question"
+                    value={p.settings.spokenPrompt ? "on" : "off"}
+                    onChange={(e) =>
+                      p.configure({
+                        ...p.settings,
+                        spokenPrompt: e.target.value === "on",
+                      })
+                    }
+                  >
+                    <option value="off">Off</option>
+                    <option value="on">On · ask what I am feeling</option>
+                  </select>
+                </label>
+                <label>
+                  Check-in cooldown
+                  <select
+                    aria-label="Check-in cooldown"
+                    value={p.settings.cooldownSeconds}
+                    onChange={(e) =>
+                      p.configure({
+                        ...p.settings,
+                        cooldownSeconds: +e.target.value,
+                      })
+                    }
+                  >
+                    {[60, 120, 300, 600].map((n) => (
+                      <option key={n} value={n}>
+                        {n / 60} minutes
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Dictation shortcut
+                  <select
+                    aria-label="Dictation shortcut"
+                    value={p.settings.shortcutKey}
+                    onChange={(e) =>
+                      p.configure({
+                        ...p.settings,
+                        shortcutKey: e.target.value,
+                      })
+                    }
+                  >
+                    {["j", "k", "m"].map((k) => (
+                      <option key={k} value={k}>
+                        Alt + {k.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    Works while Trade Pulse is focused. Dictation requests
+                    microphone permission.
+                  </small>
+                </label>
+                <label>
+                  Learned sensitivity
+                  <select
+                    aria-label="Learned sensitivity"
+                    value={p.settings.personalize ? "on" : "off"}
+                    onChange={(e) =>
+                      p.configure({
+                        ...p.settings,
+                        personalize: e.target.value === "on",
+                      })
+                    }
+                  >
+                    <option value="on">
+                      On · use my confirmed HR-linked check-ins
+                    </option>
+                    <option value="off">Off · use my chosen threshold</option>
+                  </select>
+                  <small>
+                    Current threshold: +{threshold} BPM. Uses your chosen
+                    threshold until enough personal evidence exists.
                   </small>
                 </label>
                 <p className="saved-preferences">
@@ -1341,18 +1591,40 @@ export default function Dashboard({
               void act(async () => {
                 const t = new Date(String(f.get("time"))).getTime();
                 const pnlText = String(f.get("pnl"));
+                if (
+                  tradePair &&
+                  new Date(String(f.get("exitTime"))).getTime() < t
+                )
+                  throw new Error("Exit time must be at or after entry time.");
                 await p.addEvents([
                   {
                     id: crypto.randomUUID(),
                     t,
                     symbol: String(f.get("symbol")).toUpperCase(),
-                    kind: f.get("kind") as "entry" | "exit",
+                    kind: tradePair
+                      ? "entry"
+                      : (f.get("kind") as "entry" | "exit"),
                     side: f.get("side") as "long" | "short",
                     price: Number(f.get("price")),
                     quantity: Number(f.get("quantity")),
-                    ...(pnlText ? { pnl: Number(pnlText) } : {}),
+                    ...(!tradePair && pnlText ? { pnl: Number(pnlText) } : {}),
                     source: "manual",
                   },
+                  ...(tradePair
+                    ? [
+                        {
+                          id: crypto.randomUUID(),
+                          t: new Date(String(f.get("exitTime"))).getTime(),
+                          symbol: String(f.get("symbol")).toUpperCase(),
+                          kind: "exit" as const,
+                          side: f.get("side") as "long" | "short",
+                          price: Number(f.get("exitPrice")),
+                          quantity: Number(f.get("quantity")),
+                          ...(pnlText ? { pnl: Number(pnlText) } : {}),
+                          source: "manual" as const,
+                        },
+                      ]
+                    : []),
                 ]);
                 setModal(null);
               });
@@ -1374,7 +1646,11 @@ export default function Dashboard({
               </label>
               <label>
                 Event
-                <select name="kind">
+                <select
+                  name="kind"
+                  onChange={() => setTradePair(false)}
+                  disabled={tradePair}
+                >
                   <option value="entry">Entry</option>
                   <option value="exit">Exit</option>
                 </select>
@@ -1420,6 +1696,37 @@ export default function Dashboard({
                 required
               />
             </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={tradePair}
+                onChange={(e) => setTradePair(e.target.checked)}
+              />{" "}
+              Record the matching exit too
+            </label>
+            {tradePair && (
+              <div className="form-grid">
+                <label>
+                  Exit time · your local timezone
+                  <input
+                    name="exitTime"
+                    type="datetime-local"
+                    step="1"
+                    required
+                  />
+                </label>
+                <label>
+                  Exit price
+                  <input
+                    name="exitPrice"
+                    type="number"
+                    min="0"
+                    step="any"
+                    required
+                  />
+                </label>
+              </div>
+            )}
             <button className="button primary full" disabled={busy}>
               Save event
             </button>
@@ -1428,68 +1735,89 @@ export default function Dashboard({
       )}
       {modal === "note" && (
         <Modal
-          error={p.error}
-          title="Give this moment some context"
-          onClose={() => setModal(null)}
+          title={
+            noteDraft?.entry
+              ? "Edit your reflection"
+              : "Give this moment some context"
+          }
+          onClose={() => {
+            setModal(null);
+            setNoteDraft(null);
+          }}
         >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              void act(async () => {
-                await p.addNote({
-                  id: crypto.randomUUID(),
-                  t: selected?.t || viewEnd,
-                  label: String(f.get("label")),
-                  text: String(f.get("text")),
-                });
-                setModal(null);
-                p.setNotice("Reflection saved.");
-              });
+          <ReflectionEditor
+            draft={noteDraft || { t: selected?.t || viewEnd }}
+            owner={p.owner}
+            prepareScreenshot={p.prepareScreenshot}
+            question={
+              p.settings.personalize
+                ? personalQuestion(
+                    profile,
+                    s.events,
+                    noteDraft?.t || selected?.t || viewEnd,
+                  )
+                : "What is happening? What are you feeling?"
+            }
+            onSave={p.addNote}
+            onDone={() => {
+              setModal(null);
+              setNoteDraft(null);
+              p.setNotice(
+                "Reflection saved. Your personal insights have been updated.",
+              );
             }}
+          />
+        </Modal>
+      )}
+      {modal === "moment" && (
+        <Modal title="Investigate this moment" onClose={() => setModal(null)}>
+          <p>
+            {clock(momentTime)} · {p.settings.windowSeconds} seconds before and
+            after
+          </p>
+          {(() => {
+            const w = eventWindow(
+              p.samples,
+              { t: momentTime },
+              p.settings.windowSeconds,
+            );
+            return (
+              <div className="form-grid">
+                <div>
+                  Before
+                  <strong className="moment-stat">
+                    {w.before === null
+                      ? "No HR data"
+                      : `${Math.round(w.before)} BPM`}
+                  </strong>
+                </div>
+                <div>
+                  At this moment
+                  <strong className="moment-stat">
+                    {w.at === null ? "No HR data" : `${w.at} BPM`}
+                  </strong>
+                </div>
+                <div>
+                  After
+                  <strong className="moment-stat">
+                    {w.after === null
+                      ? "No HR data"
+                      : `${Math.round(w.after)} BPM`}
+                  </strong>
+                </div>
+              </div>
+            );
+          })()}
+          <p className="form-intro">
+            No trade is required. Add a reflection and an optional chart
+            screenshot to explain the market context.
+          </p>
+          <button
+            className="button primary full"
+            onClick={() => openReflection({ t: momentTime })}
           >
-            <p className="form-intro">
-              {clock(selected?.t || viewEnd)} ·{" "}
-              {nearest(p.samples, selected?.t || viewEnd)
-                ? `${nearest(p.samples, selected?.t || viewEnd)!.bpm} BPM · `
-                : ""}
-              How would you describe your experience?
-            </p>
-            <label>
-              Your label
-              <select name="label">
-                {[
-                  "Focused",
-                  "Calm",
-                  "Confident",
-                  "Impatient",
-                  "FOMO",
-                  "Hesitant",
-                  "Frustrated",
-                  "Other",
-                ].map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Reflection
-              <textarea
-                name="text"
-                placeholder="What was happening? What were you thinking?"
-                rows={5}
-                maxLength={2000}
-                autoFocus
-              />
-            </label>
-            <p className="form-intro">
-              This is your own label. Trade Pulse does not infer emotions from
-              heart rate.
-            </p>
-            <button className="button primary full" disabled={busy}>
-              Save reflection
-            </button>
-          </form>
+            Add reflection and screenshot
+          </button>
         </Modal>
       )}
       {modal === "delete" && (
@@ -1559,7 +1887,7 @@ export default function Dashboard({
                 </p>
                 <button
                   className="button primary full"
-                  onClick={() => setModal("note")}
+                  onClick={() => openReflection({ t: selected?.t || viewEnd })}
                 >
                   Add context to this event <BookOpen size={15} />
                 </button>

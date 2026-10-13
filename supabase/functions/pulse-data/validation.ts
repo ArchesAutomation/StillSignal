@@ -13,9 +13,10 @@ export const eventSchema = z.object({
   side: z.enum(["long", "short"]),
   price: z.number().finite().min(0).max(1e12),
   quantity: z.number().finite().positive().max(1e12),
+  account: z.string().max(80).optional(),
   pnl: z.number().finite().min(-1e15).max(1e15).optional(),
   source: z.enum(["manual", "csv", "tradingview"]),
-  provenance: z.enum(["alert", "strategy", "backtest"]).optional(),
+  provenance: z.enum(["alert", "strategy", "backtest", "execution"]).optional(),
 });
 export const sessionSchema = z.object({
   id: z.uuid(),
@@ -39,6 +40,28 @@ export const sessionSchema = z.object({
         t: ts,
         label: z.string().max(40),
         text: z.string().max(2000),
+        updatedAt: ts.optional(),
+        deletedAt: ts.optional(),
+        source: z.enum(["typed", "voice", "hr-checkin"]).optional(),
+        context: z
+          .object({
+            bpm: z.number().finite().min(25).max(240).optional(),
+            baseline: z.number().finite().min(25).max(240).optional(),
+            delta: z.number().finite().min(-215).max(215).optional(),
+            eventId: z.string().max(160).optional(),
+            hrEventId: z.string().max(160).optional(),
+          })
+          .optional(),
+        screenshot: z
+          .object({
+            path: z
+              .string()
+              .regex(
+                /^[a-f0-9-]{36}\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(png|jpg|webp)$/,
+              ),
+            name: z.string().max(160),
+          })
+          .optional(),
       }),
     )
     .max(1000),

@@ -67,7 +67,7 @@ export function nearest(
 }
 export function eventWindow(
   samples: Sample[],
-  event: TradeEvent,
+  event: Pick<TradeEvent, "t">,
   seconds: number,
 ) {
   const before = samples.filter(

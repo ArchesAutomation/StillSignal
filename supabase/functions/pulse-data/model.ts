@@ -8,15 +8,27 @@ export type TradeEvent = {
   side: "long" | "short";
   price: number;
   quantity: number;
+  account?: string;
   pnl?: number;
   source: "manual" | "csv" | "tradingview";
-  provenance?: "alert" | "strategy" | "backtest";
+  provenance?: "alert" | "strategy" | "backtest" | "execution";
 };
 export type JournalEntry = {
   id: string;
   t: number;
   label: string;
   text: string;
+  updatedAt?: number;
+  deletedAt?: number;
+  source?: "typed" | "voice" | "hr-checkin";
+  context?: {
+    bpm?: number;
+    baseline?: number;
+    delta?: number;
+    eventId?: string;
+    hrEventId?: string;
+  };
+  screenshot?: { path: string; name: string };
 };
 export type Session = {
   id: string;
@@ -39,6 +51,11 @@ export type Settings = {
   windowSeconds: number;
   threshold: number;
   alerts: boolean;
+  sound: boolean;
+  spokenPrompt: boolean;
+  cooldownSeconds: number;
+  shortcutKey: string;
+  personalize: boolean;
 };
 export const defaults: Settings = {
   cadence: 30,
@@ -46,6 +63,11 @@ export const defaults: Settings = {
   windowSeconds: 60,
   threshold: 20,
   alerts: true,
+  sound: false,
+  spokenPrompt: false,
+  cooldownSeconds: 120,
+  shortcutKey: "j",
+  personalize: true,
 };
 export const cadenceOptions = [15, 30, 60, 300, 600, 1200, 3600];
 export function money(n: number) {
