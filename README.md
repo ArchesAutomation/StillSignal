@@ -10,7 +10,9 @@ A Next.js/React/TypeScript app for WHOOP Bluetooth heart rate, synchronized trad
 - Hosted checks passed for two-account authentication, API and Data API isolation, forbidden client mutations/RPCs, ingestion deduplication, deletion tombstones, TradingView event deduplication, and hook revocation. The temporary test account was removed. Sessions, samples, events and tombstones are all empty.
 - Empty demo account: `demo@traderpulse.test`. Its password is supplied privately and never committed. Each tester needs a separate account for private data.
 - Public signup and reset links are hidden during the private beta. Resend/SMTP is deferred. An operator can create confirmed password accounts in Supabase Auth for testers; do not use email invitations until delivery is configured.
-- Production URL: https://trade-pulse-ebon.vercel.app. See `VERIFICATION.md` for the actual release checks and limitations.
+- Production URL: https://trade-pulse-ebon.vercel.app. Vercel deployment `dpl_38e6eHWDYWCAGchYR6MFd9jfvdd4` is READY, built directly from GitHub commit `7d281ba0b39bba80a0b857b9dc8957aba59b520a`, in `yul1`.
+- Optional Supabase GitHub automation awaits approval of the GitHub App scoped to TraderPulse. Automatic future Vercel push deployments have not been verified: its scoped Git-link operation returned 403, while direct Git-source deployment succeeded.
+- See `VERIFICATION.md` for the actual release checks and limitations.
 
 ## Architecture
 
@@ -36,11 +38,11 @@ Without configured Supabase variables, the public page shows sign-in with an acc
 
 ## Supabase operations
 
-The initial schema is tracked in `supabase/migrations/20261013082052_initial_trade_pulse_tenants.sql`. It was applied through the signed-in Supabase SQL editor after native migration requests failed with an expired request-state error. The live schema includes all three parent/owner indexes. Do not rerun the initial SQL on the provisioned database. Reconcile migration history before a future CLI `db push`; runtime connectivity does not depend on Supabase's optional GitHub branching integration.
+The initial schema is tracked in `supabase/migrations/20261013082052_initial_trade_pulse_tenants.sql`. It was applied through the signed-in Supabase SQL editor after native migration requests failed with an expired request-state error. The live schema includes all three parent/owner indexes. Do not rerun the initial SQL on the provisioned database. Migration version `20261013082052` is recorded in the remote ledger, verified through Supabase migration discovery. Runtime connectivity does not depend on the optional GitHub integration.
 
 Run `npm run prepare:edge` before deploying Edge Functions. `pulse-data` verifies each user JWT, and `pulse-tradingview` verifies a revocable session token. Gateway `verify_jwt=false` is required for this custom authentication and modern API keys; do not remove the checks inside the handlers. Supabase supplies server-only credentials to the functions, never to Vercel/browser code.
 
-For the final launch, configure SMTP, confirm the production Auth Site URL/redirects, and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Email verification stays enabled. Preview environments should use a separate database; do not give untrusted previews production access.
+The production Auth Site URL and exact redirect allowlist point to `https://trade-pulse-ebon.vercel.app`. For the final launch, configure SMTP and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Email verification stays enabled. Preview environments should use a separate database; do not give untrusted previews production access.
 
 ## WHOOP and TradingView
 

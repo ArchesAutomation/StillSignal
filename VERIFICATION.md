@@ -24,4 +24,11 @@ Security advisor reports only INFO notices for three deliberately inaccessible i
 
 Physical WHOOP hardware, Safari/phone Bluetooth recording support (not available), large concurrent-user capacity and third-party TradingView delivery latency are not established by these checks. Use the staging load harness before raising beta limits. Free-plan quotas are not a production capacity guarantee.
 
-Production browser/API release checks are recorded after the final deployment. Resend/SMTP remains deferred; testers use operator-provisioned accounts.
+## Production release checks
+
+Vercel deployment `dpl_38e6eHWDYWCAGchYR6MFd9jfvdd4` is READY, built from GitHub commit `7d281ba0b39bba80a0b857b9dc8957aba59b520a`. The stable alias returns HTTP 200 with `cloudConfigured:true`, `authenticationRequired:true`, and `exampleData:false`. A confirmed beta account successfully signs in and lists zero sessions through the deployed Vercel `/api/data` proxy; anonymous access returns 401. The live browser shows enabled email/password sign-in, private beta text, and no sample data or signup/reset links. Physical WHOOP and signed-in browser interactions remain unverified.
+
+The migration baseline is recorded remotely as `20261013082052`; all three foreign-key indexes are present. Production Auth Site URL and the exact redirect allowlist are saved. Resend/SMTP remains deferred; testers use operator-provisioned accounts.
+
+Automatic future Vercel Git-push deployment is not verified; its scoped link-discovery action returned 403. Current production deployment fetched its source directly from GitHub successfully. Supabase's GitHub App installation is prepared for only TraderPulse and awaits the user's action-time permission approval. No paid branching is enabled.
+
