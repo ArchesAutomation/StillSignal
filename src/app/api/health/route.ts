@@ -2,7 +2,7 @@ export async function GET() {
   return Response.json(
     {
       status: "ok",
-      version: "0.4.0",
+      version: "0.4.1",
       cloudConfigured: !!(
         process.env.NEXT_PUBLIC_SUPABASE_URL &&
         (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
