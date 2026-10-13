@@ -77,7 +77,7 @@ export default function TradingViewConnection({
       <p>
         Use your trading journal without a wearable. Alerts join an open journal
         or create daily journals automatically, even when this app is closed.
-        Sessions and notes stay private to your account.
+        Sessions and notes stay private to your account. Price alerts are observations, not executions, and are excluded from trade statistics. CSV and manual entry work without webhooks.
       </p>
       <ol>
         <li>Generate your connection below.</li>

@@ -36,6 +36,21 @@ export default function Privacy() {
       </p>
       <h2>Controls</h2>
       <p>
+        Voice dictation starts only when you use the shortcut or choose to
+        answer a check-in. Your browser's speech service may process audio
+        remotely; Trade Pulse stores the reviewed transcript, not an audio
+        recording. Screenshots are stored in a private account-owned bucket and
+        displayed using short-lived links. Screenshot contents are not sent for
+        AI interpretation.
+      </p>
+      <p>
+        Personal insights count your confirmed labels, HR context and proximity
+        to recorded losses across your available journal history. Follow-up
+        questions use these observations. Learned sensitivity is based on your
+        own HR-linked check-ins after enough records exist; it can be disabled
+        in Settings. No separate generative AI model is trained on your records.
+      </p>
+      <p>
         Export the selected session as JSON from Settings. Deleting it removes
         its cloud records and its local records on this device. Copies on other
         offline devices and prior exports must be removed separately. Sign-out

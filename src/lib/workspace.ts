@@ -1,4 +1,5 @@
 import type { Session } from "./model";
+import { mergeNotes } from "./smart-journal";
 export type WorkspaceUser = { id: string; email?: string };
 export function emptyWorkspace(owner: string): Session {
   return {
@@ -28,10 +29,6 @@ export function mergeSessions(
         [...remote.events, ...local.events].map((e) => [e.id, e]),
       ).values(),
     ].sort((a, b) => a.t - b.t),
-    journal: [
-      ...new Map(
-        [...remote.journal, ...local.journal].map((j) => [j.id, j]),
-      ).values(),
-    ].sort((a, b) => a.t - b.t),
+    journal: mergeNotes(remote.journal, local.journal),
   };
 }

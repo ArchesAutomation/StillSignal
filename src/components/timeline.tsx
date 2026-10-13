@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { downsample, nearest } from "@/lib/analytics";
+import { liveNotes, type HrMoment } from "@/lib/smart-journal";
 import {
   clock,
   type Sample,
@@ -15,6 +16,8 @@ export function Timeline({
   start,
   end,
   onSelect,
+  onMoment,
+  moments = [],
 }: {
   samples: Sample[];
   events: TradeEvent[];
@@ -23,6 +26,8 @@ export function Timeline({
   start: number;
   end: number;
   onSelect: (e: TradeEvent) => void;
+  onMoment?: (t: number) => void;
+  moments?: HrMoment[];
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const W = 1100,
@@ -74,6 +79,18 @@ export function Timeline({
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="Heart rate and trading events on a synchronized timeline"
+        onClick={(e) => {
+          if (!onMoment) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          const fraction = Math.max(
+            0,
+            Math.min(
+              1,
+              (((e.clientX - r.left) / r.width) * W - L) / (W - L - R),
+            ),
+          );
+          onMoment(Math.round(start + fraction * (end - start)));
+        }}
         onMouseMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           setHover(
@@ -148,7 +165,7 @@ export function Timeline({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        {journal
+        {liveNotes(journal)
           .filter((j) => j.t >= start && j.t <= end)
           .slice(-100)
           .map((j) => (
@@ -157,6 +174,40 @@ export function Timeline({
               <title>
                 {j.label}: {j.text}
               </title>
+            </g>
+          ))}
+        {moments
+          .filter((m) => m.t >= start && m.t <= end)
+          .slice(-100)
+          .map((m) => (
+            <g
+              key={m.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`HR moment at ${clock(m.t)}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoment?.(m.t);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onMoment?.(m.t);
+                }
+              }}
+            >
+              <line
+                x1={x(m.t)}
+                x2={x(m.t)}
+                y1={T}
+                y2={H - B}
+                stroke="#fb895c"
+                strokeOpacity=".25"
+                strokeDasharray="3 4"
+              />
+              <circle cx={x(m.t)} cy={y(m.peak)} r="6" fill="#fb895c" />
+              <title>HR moment · +{Math.round(m.delta)} BPM</title>
             </g>
           ))}
         {events
@@ -177,7 +228,10 @@ export function Timeline({
                     onSelect(e);
                   }
                 }}
-                onClick={() => onSelect(e)}
+                onClick={(k) => {
+                  k.stopPropagation();
+                  onSelect(e);
+                }}
                 className="trade-marker"
               >
                 <line
@@ -269,10 +323,11 @@ export function Timeline({
           in your export.
         </p>
       )}
-      {journal.filter((j) => j.t >= start && j.t <= end).slice(-100).length >
-        0 && (
+      {liveNotes(journal)
+        .filter((j) => j.t >= start && j.t <= end)
+        .slice(-100).length > 0 && (
         <div className="timeline-journal-list">
-          {journal
+          {liveNotes(journal)
             .filter((j) => j.t >= start && j.t <= end)
             .slice(-5)
             .map((j) => (
@@ -282,11 +337,26 @@ export function Timeline({
             ))}
         </div>
       )}
-      {!points.length && !events.length && !journal.length && (
+      {!points.length && !events.length && !liveNotes(journal).length && (
         <div className="chart-empty">
           Add a trade or reflection to start your timeline. A wearable is
           optional.
         </div>
+      )}
+      {onMoment && (
+        <label className="timeline-moment-picker">
+          Investigate any moment
+          <input
+            aria-label="Investigate moment time"
+            type="datetime-local"
+            step="1"
+            onChange={(e) => {
+              const t = new Date(e.target.value).getTime();
+              if (Number.isFinite(t)) onMoment(t);
+            }}
+          />
+          <small>Or click the timeline to inspect HR and add context.</small>
+        </label>
       )}
     </div>
   );

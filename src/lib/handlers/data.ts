@@ -83,6 +83,7 @@ export async function POST(request: Request) {
     }
     if (p.action === "save") {
       if (p.session.owner !== user.id) throw new Error("UNAUTHORIZED");
+      if (p.session.journal.some(n => n.screenshot && !n.screenshot.path.startsWith(`${user.id}/${p.session.id}/`))) throw new Error("UNAUTHORIZED");
       // A globally unique session ID must never be reassigned across tenants.
       const { error } = await db.rpc("pulse_save_session", {
         p_user: user.id,
