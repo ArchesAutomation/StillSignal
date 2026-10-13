@@ -6,11 +6,17 @@
 
 Production-mode headless Chrome checks passed against the local production build with real Supabase authentication: sign-in, shortcut dictation with simulated speech, private screenshot upload/display, reflection edit/delete, arbitrary HR-window inspection, custom shortcut, sound preferences, and mobile layout without horizontal overflow. No page errors were recorded. Physical microphone recognition and WHOOP hardware remain unverified; their browser/device APIs are simulated in tests.
 
-Real two-account hosted probes through `/api/data` passed note persistence, edits/deletions surviving stale uploads, private screenshot upload/signed display/removal, cross-account read/upload/delete isolation, screenshot metadata ownership validation and journal deletion. Disposable confirmed accounts were provisioned without sending mail. All their test records must be removed after the final production checks.
+Real two-account hosted probes through `/api/data` passed note persistence, edits/deletions surviving stale uploads, private screenshot upload/signed display/removal, cross-account read/upload/delete isolation, screenshot metadata ownership validation and journal deletion. Disposable confirmed accounts were provisioned without sending mail. All disposable accounts, their sessions/reflections, test screenshots, and temporary rate-limit keys were removed after the final production checks. Cleanup confirmed zero temporary users, sessions and screenshot objects.
 
 Migration `20261013202920_smart_journal_screenshots` is applied and tracked. `pulse-data` version 4 is active, retaining custom JWT authentication. Performance advisor reports no findings; security findings remain the previously documented inaccessible internal-table notices and Free-plan leaked-password protection limitation. Multimodal chart interpretation and generative conversation are not implemented in this release.
 
 A live walkthrough exposed an existing asynchronous history-load race: an older pending journal could replace a just-started live session. Version 0.4.1 invalidates superseded loads, checks the selection identity before committing, and includes a regression test.
+
+## Production release
+
+Version **0.4.1** is live at https://trade-pulse-ebon.vercel.app. Deployment `dpl_FU5XDMvYcJskxjxoUuDvhUWCEnFa` is READY from commit `6dfa27a728eaf6fd9a1af905bf7395678df1a4cb` in `yul1`, with the stable alias assigned. Health returns HTTP 200, version 0.4.1, cloudConfigured true, authenticationRequired true and exampleData false. The response permits microphone access for the same-origin app, and the CSV template remains the exact header-only contract.
+
+The real production two-account API/storage probes passed. The final signed-in production desktop/mobile browser walkthrough passed shortcut dictation with simulated speech, real private screenshot display, edits/deletion, historical HR windows, custom shortcut and sound preferences, with zero page errors. GitHub validation passed for both the feature release and the history-race patch. Physical speech recognition and wearable hardware remain outside this verification.
 
 ## Earlier release evidence
 
@@ -56,3 +62,4 @@ The 0.3 production deployment `dpl_BJtqmtfng8v3UoU5mj163EjiQpzW` is READY, built
 A second two-account verification run through the deployed Vercel `/api/data` proxy passed the full connection/journal/CSV/rotation/isolation sequence. Direct webhook receipt during that run took 837 ms; retry took 1,000 ms. Both disposable accounts and their records were removed again. The temporary administrative bootstrap was overwritten by its retired handler with gateway JWT verification enabled.
 
 The live public browser shows the updated sign-in page: an empty journal, TradingView/CSV and optional wearable text. Authenticated interactive UI flows were verified in DOM tests plus real hosted API/database probes; a fully signed-in browser walkthrough and an actual provider-triggered TradingView alert remain unverified.
+
