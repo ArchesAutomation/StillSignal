@@ -100,13 +100,13 @@ export async function POST(request: Request) {
       throw new Error("UNAUTHORIZED");
     await rate(
       db,
-      (["transcribe", "transcription-authorize"].includes(p.action) ? "extension-audio:" : "extension:") +
+      (p.action === "transcribe" ? "extension-audio:" : "extension:") +
         credential.id,
-      ["transcribe", "transcription-authorize"].includes(p.action) ? 12 : 120,
+      p.action === "transcribe" ? 12 : 120,
     );
-    if (p.action === "transcription-authorize") return response({ ok: true });
     if (p.action === "transcribe") {
-      const key = process.env.VOICE_TRANSCRIPTION_API_KEY;
+      const groqKey = process.env.GROQ_API_KEY;
+      const key = groqKey || process.env.VOICE_TRANSCRIPTION_API_KEY;
       if (!key)
         return response(
           {
@@ -129,11 +129,13 @@ export async function POST(request: Request) {
               ? "ogg"
               : "webm"),
       );
-      form.append("model", "whisper-1");
+      form.append("model", groqKey ? "whisper-large-v3-turbo" : "whisper-1");
       form.append("response_format", "verbose_json");
       // No prompt text: avoid turning silence into an invented journal entry.
       const upstream = await fetch(
-        "https://api.openai.com/v1/audio/transcriptions",
+        groqKey
+          ? "https://api.groq.com/openai/v1/audio/transcriptions"
+          : "https://api.openai.com/v1/audio/transcriptions",
         {
           method: "POST",
           headers: { Authorization: "Bearer " + key },

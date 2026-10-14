@@ -73,7 +73,6 @@ export const extensionActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("connections") }).strict(),
   z.object({ action: z.literal("revoke"), credentialId: z.uuid() }).strict(),
   z.object({ action: z.literal("context") }).strict(),
-  z.object({ action: z.literal("transcription-authorize") }).strict(),
   z.object({ action: z.literal("disconnect") }).strict(),
   z
     .object({

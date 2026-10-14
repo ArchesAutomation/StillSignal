@@ -39,7 +39,7 @@ async function main() {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.test";
   process.env.SUPABASE_SECRET_KEY = "server-test-key";
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "public-test-key";
-  process.env.VOICE_TRANSCRIPTION_API_KEY = "provider-test-key";
+  process.env.GROQ_API_KEY = "provider-test-key";
   const realFetch = globalThis.fetch;
   let transcript = "Log this: I am feeling fear of missing out.",
     offline = false,
@@ -48,11 +48,11 @@ async function main() {
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init),
       u = new URL(request.url);
-    if (u.hostname === "api.openai.com") {
+    if (u.hostname === "api.groq.com") {
       providerCalls++;
       const form = await request.formData();
       assert.ok((form.get("file") as Blob).size > 100);
-      assert.equal(form.get("model"), "whisper-1");
+      assert.equal(form.get("model"), "whisper-large-v3-turbo");
       return Response.json({
         text: transcript,
         segments: [
