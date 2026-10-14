@@ -1,6 +1,6 @@
 # TraderPulse overhaul verification
 
-Review branch: feat/trader-workspace-broker-sync. Baseline: 6d1079326c5660b39b4eb87eba1f91dab7aeacac (0.4.1). Production migrations and deployment were not performed.
+Review branch: feat/trader-workspace-broker-sync. Baseline: 6d1079326c5660b39b4eb87eba1f91dab7aeacac (0.4.1). The initial review left production unchanged. The user subsequently requested deployment for real-user testing; the updated UI is being released to the existing Vercel project with the existing account/database configuration. No production migration is applied.
 
 Preview: https://trade-pulse-bao0h599x-arches-automation.vercel.app/review
 
@@ -11,7 +11,7 @@ The preview is protected by existing Vercel authentication and uses labeled synt
 | Check | Result |
 |---|---|
 | Original regression baseline | All 33 retained tests pass |
-| Complete suite | 56 tests pass, 0 failures |
+| Complete suite | 59 tests pass, 0 failures |
 | TypeScript | Pass, standalone check and Next build |
 | Optimized Next.js build | Pass |
 | Generated Edge Functions | All five pass Deno checking |
@@ -38,6 +38,8 @@ Checked at desktop (1440 × 1000) and mobile (390 × 844). No horizontal page ov
 ## Connected staging and release gates
 
 The selected ArchesAutomation Supabase organization (fxwnyqgahhlozvgcvbsc) is on the Free plan. The organization-specific cost tool was unavailable. Supabase pricing excludes branching from Free; branch compute starts at $0.01344/hour on eligible paid plans. No upgrade, paid project, branch, or remote migration was created.
+
+Real-user UI testing uses the current Supabase account setup. BROKER_SERVICES_ENABLED and MARKET_SERVICES_ENABLED remain false until their backend and provider requirements are installed. The app returns clear unavailable states instead of querying missing Edge Functions. Three additional tests verify these defaults and anonymous-access rejection.
 
 Create or supply an isolated staging database in the selected organization, confirm its exact cost/capacity, apply the additive migration to a staged baseline, deploy the five generated functions, configure staging Auth and secrets, and run security/performance advisors. Live integration validation needs the approvals, credentials, licensed worker/relay hosting and market entitlements listed in BROKER_ACCESS_MATRIX.md.
 

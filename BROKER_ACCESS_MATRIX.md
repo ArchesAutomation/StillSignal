@@ -1,6 +1,6 @@
 # Broker and market access matrix
 
-Verified against official documentation on October 13, 2026. This branch extends TraderPulse 0.4.1; production has not been migrated or released.
+Verified against official documentation on October 13, 2026. This branch extends TraderPulse 0.4.1. The UI can be deployed with the existing account setup; the new broker backend has not been migrated or activated.
 
 ## Implemented connection paths
 

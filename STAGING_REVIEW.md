@@ -24,6 +24,8 @@ Generate handlers from source:
 
     npm run prepare:edge
 
+After the additive migration and corresponding Edge Functions are installed, enable BROKER_SERVICES_ENABLED and MARKET_SERVICES_ENABLED in Vercel as appropriate. Both default off so the redesigned app can run with the existing journal backend while provider setup is pending.
+
 Run a persistent Node worker outside Vercel. It requires APP_ENV=staging and BROKER_STAGING_PROJECT_REF matching the staging URL, the staging service key, encryption key, and provider configuration. The original production reference is rejected in staging mode.
 
     node --env-file=.env.worker.local --import tsx scripts/broker-worker.ts
