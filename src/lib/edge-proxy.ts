@@ -2,7 +2,12 @@ import { boundedJson } from "./validation";
 import { failure } from "./server";
 export async function forwardToSupabase(
   request: Request,
-  endpoint: "pulse-data" | "pulse-tradingview",
+  endpoint:
+    | "pulse-data"
+    | "pulse-tradingview"
+    | "pulse-brokers"
+    | "pulse-market"
+    | "pulse-broker-webhook",
   body: unknown,
 ) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -17,6 +22,10 @@ export async function forwardToSupabase(
     };
     const token = request.headers.get("authorization");
     if (token) headers.Authorization = token;
+    if (endpoint === "pulse-broker-webhook") {
+      const signature = request.headers.get("Signature");
+      if (signature) headers.Signature = signature;
+    }
     const upstream = await fetch(`${url}/functions/v1/${endpoint}`, {
       method: "POST",
       headers,

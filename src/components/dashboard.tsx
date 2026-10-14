@@ -37,6 +37,15 @@ import {
 } from "lucide-react";
 import { usePulse } from "./use-pulse";
 import { Timeline } from "./timeline";
+import WorkspaceToolbar from "./workspace-toolbar";
+import TradeContextPanel from "./trade-context-panel";
+import BrokerConnections from "./broker-connections";
+import {
+  executionAction,
+  eventOrigin,
+  isActualExecution,
+  pnlByCurrency,
+} from "@/lib/trade-context";
 import { summary, eventWindow, nearest, downsample } from "@/lib/analytics";
 import { cadenceOptions, clock, money, type TradeEvent } from "@/lib/model";
 import dynamic from "next/dynamic";
@@ -144,10 +153,18 @@ function Modal({
 }
 export default function Dashboard({
   user,
+  initialSession,
 }: {
   user: import("@/lib/workspace").WorkspaceUser;
+  initialSession?: import("@/lib/model").Session;
 }) {
   const p = usePulse(user);
+  useEffect(() => {
+    if (initialSession) void p.openSession(initialSession);
+  }, [initialSession]);
+  const [accountFilter, setAccountFilter] = useState("");
+  const [instrumentFilter, setInstrumentFilter] = useState("");
+  const [contextEvent, setContextEvent] = useState<TradeEvent | undefined>();
   const [tab, setTab] = useState<Tab>("Overview"),
     [modal, setModal] = useState<
       "trade" | "note" | "delete" | "csv" | "moment" | null
@@ -211,38 +228,64 @@ export default function Dashboard({
     latest && stats.baseline !== null
       ? Math.round(latest.bpm - stats.baseline)
       : null;
-  const visibleEvents = s?.events.filter((e) => e.t <= viewEnd) || [];
-  const pnl = visibleEvents.reduce(
-      (v, e) =>
-        v + (e.kind === "exit" && e.provenance !== "alert" ? (e.pnl ?? 0) : 0),
-      0,
-    ),
-    closed = visibleEvents.filter(
-      (e) => e.kind === "exit" && e.provenance !== "alert",
+  const visibleJournal =
+    s?.journal.filter(
+      (n) =>
+        n.t <= viewEnd &&
+        (replayPosition >= 100 || (n.updatedAt || n.t) <= viewEnd),
+    ) || [];
+  const visibleEvents =
+    s?.events.filter(
+      (e) =>
+        !e.voided &&
+        e.t <= viewEnd &&
+        (!accountFilter ||
+          (e.broker?.accountId || e.account || "manual") === accountFilter) &&
+        (!instrumentFilter ||
+          (e.instrument?.id || e.symbol) === instrumentFilter),
+    ) || [];
+  const chartInstrument = s?.events.find(
+    (e) => (e.instrument?.id || e.symbol) === instrumentFilter,
+  )?.instrument;
+  const totals = pnlByCurrency(visibleEvents);
+  const closed = visibleEvents.filter(
+      (e) => e.kind === "exit" && isActualExecution(e),
     ),
     wins = closed.filter((e) => (e.pnl ?? 0) > 0).length;
-  const hasPnl = closed.some((e) => e.pnl !== undefined);
   const stale = p.recording && (!latest || p.now - latest.t > 10000);
   const profile = useMemo(
     () =>
       personalProfile(
-        s && !isWorkspace
+        (s && !isWorkspace
           ? [s, ...p.history.filter((h) => h.id !== s.id)]
-          : p.history,
+          : p.history
+        )
+          .filter((h) => replayPosition >= 100 || h.startedAt <= viewEnd)
+          .map((h) =>
+            replayPosition >= 100
+              ? h
+              : {
+                  ...h,
+                  events: h.events.filter((e) => e.t <= viewEnd),
+                  journal: h.journal.filter(
+                    (n) => n.t <= viewEnd && (n.updatedAt || n.t) <= viewEnd,
+                  ),
+                },
+          ),
         p.owner,
       ),
-    [s, p.history, p.owner, isWorkspace],
+    [s, p.history, p.owner, isWorkspace, viewEnd],
   );
   const threshold = p.settings.personalize
     ? (profile.suggestedThreshold ?? p.settings.threshold)
     : p.settings.threshold;
   const moments = useMemo(
     () =>
-      detectHrMoments(p.samples, {
+      detectHrMoments(shown, {
         baselineSeconds: p.settings.baselineSeconds,
         threshold,
       }),
-    [p.samples, p.settings.baselineSeconds, threshold],
+    [shown, p.settings.baselineSeconds, threshold],
   );
   function openReflection(draft: ReflectionDraft) {
     setNoteDraft(draft);
@@ -253,7 +296,7 @@ export default function Dashboard({
     openReflection(draft);
   }
   function inspectMoment(t: number) {
-    if (!s || t < s.startedAt || t > (p.active ? Date.now() : fullEnd)) {
+    if (!s || t < s.startedAt || t > viewEnd) {
       p.setError("Choose a moment inside this journal's time range.");
       return;
     }
@@ -279,7 +322,18 @@ export default function Dashboard({
     setReplay(false);
     setReplayPosition(100);
     setSelected(null);
+    setAccountFilter("");
+    setInstrumentFilter(
+      s?.id === initialSession?.id
+        ? initialSession?.events[0]?.instrument?.id || ""
+        : "",
+    );
+    setContextEvent(undefined);
   }, [s?.id]);
+  useEffect(() => {
+    if (selected && selected.t > viewEnd) setSelected(null);
+    if (contextEvent && contextEvent.t > viewEnd) setContextEvent(undefined);
+  }, [viewEnd, selected, contextEvent]);
   async function act(task: () => Promise<unknown>) {
     setBusy(true);
     p.setError("");
@@ -333,7 +387,7 @@ export default function Dashboard({
         <div className="workspace">
           <span className="workspace-icon">TP</span>
           <div>
-            Personal workspace<small>0.4 · Smart journal</small>
+            Personal workspace<small>Trading & self-awareness</small>
           </div>
           <ChevronDown size={14} />
         </div>
@@ -350,6 +404,7 @@ export default function Dashboard({
           ).map((n) => (
             <button
               key={n.name}
+              aria-current={tab === n.name ? "page" : undefined}
               className={tab === n.name ? "nav active" : "nav"}
               onClick={() => setTab(n.name)}
             >
@@ -413,30 +468,30 @@ export default function Dashboard({
             </button>
           </div>
         </header>
-        <main>
+        <main data-tab={tab}>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">YOUR EDGE STARTS WITH AWARENESS</div>
+              <div className="eyebrow">YOUR TRADING WORKSPACE</div>
               <h1>
                 {tab === "Overview"
-                  ? "Know your pulse. Understand your trades."
+                  ? "Market moves. Your perspective."
                   : tab === "Sessions"
-                    ? "Every session tells a story."
+                    ? "Session archive"
                     : tab === "Journal"
-                      ? "Put your experience into words."
+                      ? "Your journal"
                       : tab === "Connections"
-                        ? "Connect your trading world."
-                        : "Make it your own."}
+                        ? "Connections"
+                        : "Workspace settings"}
               </h1>
               <p>
                 {tab === "Overview"
-                  ? "A clearer picture of what happens within you, while the market moves."
+                  ? "Executions, heart rate, and reflections. One shared timeline."
                   : tab === "Sessions"
                     ? "Revisit your heart rate, trade events, and personal context."
                     : tab === "Journal"
                       ? "Your labels. Your observations. A little more understanding each session."
                       : tab === "Connections"
-                        ? "Bring TradingView alerts, CSV trades, and optional wearables into your journal."
+                        ? "Automatic broker history, chart observations, and optional wearable context."
                         : "Choose the rhythm that fits the way you trade."}
               </p>
             </div>
@@ -494,7 +549,7 @@ export default function Dashboard({
             blocked={!!modal || !!selected}
             onOpen={(draft) => void act(() => openLiveReflection(draft))}
           />
-          {(tab === "Overview" || tab === "Journal") && (
+          {tab === "Journal" && (
             <div className="smart-journal-toolbar">
               <button
                 className="button"
@@ -514,28 +569,25 @@ export default function Dashboard({
               <span>Your words. Your patterns.</span>
             </div>
           )}
-          {(tab === "Overview" || tab === "Journal") && (
-            <JournalInsights
-              session={s}
-              moments={moments.filter((m) => m.t <= viewEnd)}
-              profile={profile}
-              hasSamples={p.samples.length > 0}
-              onMoment={(t, hrEventId) =>
-                openReflection({ t, source: "hr-checkin", hrEventId })
-              }
-              onEvidence={(id) => {
-                const target = p.history.find((h) => h.id === id);
-                if (id === s.id) setTab("Journal");
-                else if (target)
-                  void act(async () => {
-                    await p.openSession(target);
-                    setTab("Journal");
-                  });
-              }}
-            />
-          )}
           {tab === "Overview" && (
             <>
+              <WorkspaceToolbar
+                session={s}
+                sessions={p.history}
+                events={s.events}
+                account={accountFilter}
+                instrument={instrumentFilter}
+                recording={p.active}
+                onAccount={(id) => {
+                  setAccountFilter(id);
+                  setContextEvent(undefined);
+                }}
+                onInstrument={(id) => {
+                  setInstrumentFilter(id);
+                  setContextEvent(undefined);
+                }}
+                onSession={(item) => void act(() => p.openSession(item))}
+              />
               <div className="session-bar">
                 <div>
                   <span className={"status-dot " + (p.active ? "green" : "")} />
@@ -583,7 +635,7 @@ export default function Dashboard({
                         <>
                           <span
                             className={
-                              delta !== null && delta > 0 ? "orange" : "mint"
+                              delta !== null && delta > 0 ? "orange" : "muted"
                             }
                           >
                             {delta === null
@@ -629,7 +681,7 @@ export default function Dashboard({
                   <>
                     <Stat
                       label="Reflections"
-                      value={liveNotes(s.journal).length}
+                      value={liveNotes(visibleJournal).length}
                       detail="Your notes and observations"
                       icon={<BookOpen size={17} />}
                     />
@@ -652,9 +704,17 @@ export default function Dashboard({
                 <Stat
                   label="Recorded P&L"
                   value={
-                    hasPnl ? (
-                      <span className={pnl >= 0 ? "mint" : "rose"}>
-                        {money(pnl)}
+                    totals.length ? (
+                      <span className="currency-total">
+                        {totals.map(([currency, value], i) => (
+                          <span
+                            key={currency}
+                            className={value >= 0 ? "mint" : "rose"}
+                          >
+                            {i ? " / " : ""}
+                            {money(value, currency)}
+                          </span>
+                        ))}
                       </span>
                     ) : (
                       "—"
@@ -666,7 +726,7 @@ export default function Dashboard({
                 <Stat
                   label="Trade events"
                   value={visibleEvents
-                    .filter((e) => e.provenance !== "alert")
+                    .filter((e) => isActualExecution(e))
                     .length.toString()
                     .padStart(2, "0")}
                   detail={
@@ -674,8 +734,7 @@ export default function Dashboard({
                       <span className="mint">
                         {
                           visibleEvents.filter(
-                            (e) =>
-                              e.kind === "entry" && e.provenance !== "alert",
+                            (e) => e.kind === "entry" && isActualExecution(e),
                           ).length
                         }{" "}
                         entries
@@ -687,140 +746,170 @@ export default function Dashboard({
                   icon={<Activity size={17} />}
                 />
               </div>
-              <section className="glass timeline-panel">
-                <div className="panel-heading">
-                  <div>
-                    <h2>
-                      Your session, in sync{" "}
-                      <span
-                        className={p.active ? "live-badge" : "subtle-badge"}
-                      >
-                        {p.active
-                          ? stale
-                            ? "NO SIGNAL"
-                            : "LIVE"
-                          : replay
-                            ? "REPLAY"
-                            : "TIMELINE"}
+              <div className="trading-grid">
+                <section className="glass timeline-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>
+                        Your session, in sync{" "}
+                        <span
+                          className={p.active ? "live-badge" : "subtle-badge"}
+                        >
+                          {p.active
+                            ? stale
+                              ? "NO SIGNAL"
+                              : "LIVE"
+                            : replay
+                              ? "REPLAY"
+                              : "TIMELINE"}
+                        </span>
+                      </h2>
+                      <p>
+                        Trades, reflections, and any heart-rate data share one
+                        timeline.
+                      </p>
+                    </div>
+                    <div className="segmented">
+                      {[
+                        { v: 15, l: "15m" },
+                        { v: 30, l: "30m" },
+                        { v: 60, l: "1h" },
+                        { v: 0, l: "All" },
+                      ].map((r) => (
+                        <button
+                          className={range === r.v ? "selected" : ""}
+                          key={r.v}
+                          onClick={() => setRange(r.v)}
+                        >
+                          {r.l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="chart-legend">
+                    {p.samples.length > 0 && (
+                      <span>
+                        <i className="line orange-bg" />
+                        Heart rate
                       </span>
-                    </h2>
-                    <p>
-                      Trades, reflections, and any heart-rate data share one
-                      timeline.
-                    </p>
+                    )}
+                    <span>
+                      <i className="circle mint-bg" />
+                      Buy
+                    </span>
+                    <span>
+                      <i className="circle rose-bg" />
+                      Sell
+                    </span>
+                    {stats.baseline !== null && (
+                      <span>
+                        <i className="dashed" />
+                        Baseline
+                      </span>
+                    )}
+                    <span className="legend-unit">
+                      {p.samples.length > 0 ? "BPM · " : ""}
+                      {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                    </span>
                   </div>
-                  <div className="segmented">
-                    {[
-                      { v: 15, l: "15m" },
-                      { v: 30, l: "30m" },
-                      { v: 60, l: "1h" },
-                      { v: 0, l: "All" },
-                    ].map((r) => (
+                  <Timeline
+                    owner={p.owner}
+                    selectedTime={contextEvent?.t}
+                    viewportKey={s.id + ":" + range}
+                    sessionStart={s.startedAt}
+                    sessionEnd={fullEnd}
+                    instrument={chartInstrument}
+                    accountId={
+                      accountFilter &&
+                      s.events.find(
+                        (e) => e.broker?.accountId === accountFilter,
+                      )?.broker?.accountId
+                    }
+                    cutoff={viewEnd}
+                    replay={replayPosition < 100}
+                    samples={shown}
+                    events={visibleEvents}
+                    journal={visibleJournal}
+                    baseline={stats.baseline}
+                    start={viewStart}
+                    end={Math.max(viewEnd, viewStart + 60000)}
+                    onSelect={(e) => {
+                      setContextEvent(e);
+                      setSelected(e);
+                    }}
+                    onMoment={inspectMoment}
+                    moments={moments.filter((m) => m.t <= viewEnd)}
+                  />
+                  <div className="timeline-bottom">
+                    <span>
+                      <span className="status-dot small" />
+                      {isWorkspace
+                        ? "No recorded samples"
+                        : `${p.samples.length.toLocaleString()} samples saved`}
+                      {stats.gaps > 0 && ` · ${stats.gaps} signal gaps`}
+                    </span>
+                    <div>
                       <button
-                        className={range === r.v ? "selected" : ""}
-                        key={r.v}
-                        onClick={() => setRange(r.v)}
+                        className="text-button"
+                        onClick={() =>
+                          openReflection({ t: selected?.t || viewEnd })
+                        }
                       >
-                        {r.l}
+                        <Plus size={14} />
+                        Add moment
                       </button>
-                    ))}
+                      <span className="divider" />
+                      <button
+                        className="text-button"
+                        onClick={toggleReplay}
+                        disabled={
+                          p.active ||
+                          (!p.samples.length &&
+                            !s.events.length &&
+                            !liveNotes(visibleJournal).length)
+                        }
+                      >
+                        {replay ? <Pause size={14} /> : <Play size={14} />}
+                        {replay
+                          ? "Pause replay"
+                          : replayPosition < 100
+                            ? "Resume replay"
+                            : "Replay session"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="chart-legend">
-                  {p.samples.length > 0 && (
-                    <span>
-                      <i className="line orange-bg" />
-                      Heart rate
-                    </span>
+                  {(replay || replayPosition < 100) && (
+                    <div className="replay-bar">
+                      <input
+                        aria-label="Replay position"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={replayPosition}
+                        onChange={(e) => setReplayPosition(+e.target.value)}
+                      />
+                      <span>{clock(viewEnd)}</span>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setReplay(false);
+                          setReplayPosition(100);
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
                   )}
-                  <span>
-                    <i className="circle mint-bg" />
-                    Entry
-                  </span>
-                  <span>
-                    <i className="circle purple-bg" />
-                    Exit
-                  </span>
-                  {stats.baseline !== null && (
-                    <span>
-                      <i className="dashed" />
-                      Baseline
-                    </span>
-                  )}
-                  <span className="legend-unit">
-                    {p.samples.length > 0 ? "BPM · " : ""}
-                    {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                  </span>
-                </div>
-                <Timeline
+                </section>
+                <TradeContextPanel
+                  event={contextEvent || visibleEvents.at(-1)}
                   samples={shown}
-                  events={visibleEvents}
-                  journal={s.journal}
-                  baseline={stats.baseline}
-                  start={viewStart}
-                  end={Math.max(viewEnd, viewStart + 60000)}
+                  seconds={p.settings.windowSeconds}
                   onSelect={setSelected}
-                  onMoment={inspectMoment}
-                  moments={moments.filter((m) => m.t <= viewEnd)}
+                  onReflect={(t) => openReflection({ t })}
                 />
-                <div className="timeline-bottom">
-                  <span>
-                    <span className="status-dot small" />
-                    {isWorkspace
-                      ? "No recorded samples"
-                      : `${p.samples.length.toLocaleString()} samples saved`}
-                    {stats.gaps > 0 && ` · ${stats.gaps} signal gaps`}
-                  </span>
-                  <div>
-                    <button
-                      className="text-button"
-                      onClick={() =>
-                        openReflection({ t: selected?.t || viewEnd })
-                      }
-                    >
-                      <Plus size={14} />
-                      Add moment
-                    </button>
-                    <span className="divider" />
-                    <button
-                      className="text-button"
-                      onClick={toggleReplay}
-                      disabled={
-                        p.active ||
-                        (!p.samples.length &&
-                          !s.events.length &&
-                          !liveNotes(s.journal).length)
-                      }
-                    >
-                      {replay ? <Pause size={14} /> : <Play size={14} />}Replay
-                      session
-                    </button>
-                  </div>
-                </div>
-                {(replay || replayPosition < 100) && (
-                  <div className="replay-bar">
-                    <input
-                      aria-label="Replay position"
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={replayPosition}
-                      onChange={(e) => setReplayPosition(+e.target.value)}
-                    />
-                    <span>{clock(viewEnd)}</span>
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        setReplay(false);
-                        setReplayPosition(100);
-                      }}
-                    >
-                      Reset
-                    </button>
-                  </div>
-                )}
-              </section>
+              </div>
               <div className="lower-grid">
                 <section className="glass events-panel">
                   <div className="panel-heading">
@@ -896,25 +985,21 @@ export default function Dashboard({
                                 <span className={"event-tag " + e.kind}>
                                   {e.provenance === "alert" ? (
                                     <Radio size={12} />
-                                  ) : e.kind === "entry" ? (
+                                  ) : executionAction(e) === "buy" ? (
                                     <ArrowUpRight size={12} />
                                   ) : (
                                     <ArrowDownLeft size={12} />
                                   )}{" "}
                                   {e.provenance === "alert"
                                     ? "Price alert"
-                                    : e.kind}
+                                    : executionAction(e) +
+                                      " · " +
+                                      e.kind +
+                                      " " +
+                                      (e.side === "unknown" ? "" : e.side)}
                                 </span>
                                 <small className="event-origin">
-                                  {e.provenance === "backtest"
-                                    ? "CSV · Backtest"
-                                    : e.source === "tradingview"
-                                      ? e.provenance === "strategy"
-                                        ? "TradingView · Strategy"
-                                        : "TradingView · Alert"
-                                      : e.source === "csv"
-                                        ? "CSV"
-                                        : "Manual"}
+                                  {eventOrigin(e)}
                                 </small>
                               </td>
                               <td className="tabular">
@@ -933,7 +1018,14 @@ export default function Dashboard({
                                     : "rose tabular"
                                 }
                               >
-                                {e.pnl === undefined ? "—" : money(e.pnl)}
+                                {e.pnl === undefined
+                                  ? "—"
+                                  : money(
+                                      e.pnl,
+                                      e.currency ||
+                                        e.instrument?.currency ||
+                                        "USD",
+                                    )}
                               </td>
                             </tr>
                           ))}
@@ -997,12 +1089,12 @@ export default function Dashboard({
                     </span>
                     <div>
                       <h3>
-                        {liveNotes(s.journal).length
-                          ? `${liveNotes(s.journal).length} moments with personal context`
+                        {liveNotes(visibleJournal).length
+                          ? `${liveNotes(visibleJournal).length} moments with personal context`
                           : "Numbers tell part of the story"}
                       </h3>
                       <p>
-                        {liveNotes(s.journal).length
+                        {liveNotes(visibleJournal).length
                           ? "Your journal adds what a sensor cannot: what you were thinking and feeling."
                           : "Add a moment to describe what this session felt like to you."}
                       </p>
@@ -1152,7 +1244,7 @@ export default function Dashboard({
                 ))}
               </div>
               <div className="journal-grid">
-                {liveNotes(s.journal)
+                {liveNotes(visibleJournal)
                   .filter(
                     (j) =>
                       journalFilter === "All entries" ||
@@ -1166,8 +1258,8 @@ export default function Dashboard({
                       </div>
                       <p>{j.text || "A moment marked for reflection."}</p>
                       <small>
-                        {nearest(p.samples, j.t)
-                          ? `${nearest(p.samples, j.t)!.bpm} BPM at this moment · Self-reported`
+                        {nearest(shown, j.t)
+                          ? `${nearest(shown, j.t)!.bpm} BPM at this moment · Self-reported`
                           : "Self-reported reflection"}
                       </small>
                       {j.screenshot && <Screenshot {...j.screenshot} />}
@@ -1197,7 +1289,7 @@ export default function Dashboard({
                     </article>
                   ))}
               </div>
-              {liveNotes(s.journal).filter(
+              {liveNotes(visibleJournal).filter(
                 (j) =>
                   journalFilter === "All entries" || j.label === journalFilter,
               ).length === 0 && (
@@ -1214,6 +1306,10 @@ export default function Dashboard({
           )}
           {tab === "Connections" && (
             <>
+              <BrokerConnections
+                owner={p.owner}
+                onChanged={() => void p.refreshHistory()}
+              />
               <div className="connections-grid">
                 <section className="glass connection-card">
                   <div className="connection-top">
@@ -1554,6 +1650,26 @@ export default function Dashboard({
               </section>
             </div>
           )}
+          {(tab === "Overview" || tab === "Journal") && (
+            <JournalInsights
+              session={{ ...s, events: visibleEvents, journal: visibleJournal }}
+              moments={moments.filter((m) => m.t <= viewEnd)}
+              profile={profile}
+              hasSamples={shown.length > 0}
+              onMoment={(t, hrEventId) =>
+                openReflection({ t, source: "hr-checkin", hrEventId })
+              }
+              onEvidence={(id) => {
+                const target = p.history.find((h) => h.id === id);
+                if (id === s.id) setTab("Journal");
+                else if (target)
+                  void act(async () => {
+                    await p.openSession(target);
+                    setTab("Journal");
+                  });
+              }}
+            />
+          )}
           <footer className="app-footer">
             <span>
               <Activity size={13} /> Trade Pulse{" "}
@@ -1777,7 +1893,7 @@ export default function Dashboard({
           </p>
           {(() => {
             const w = eventWindow(
-              p.samples,
+              shown,
               { t: momentTime },
               p.settings.windowSeconds,
             );

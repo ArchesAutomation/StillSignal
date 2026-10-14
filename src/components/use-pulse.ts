@@ -14,7 +14,13 @@ import {
   type JournalEntry,
 } from "@/lib/model";
 import * as storage from "@/lib/storage";
-import { api, sync, pullSession, pullSessions } from "@/lib/cloud";
+import {
+  api,
+  sync,
+  pullSession,
+  pullSessions,
+  cloudConfigured,
+} from "@/lib/cloud";
 import { eventSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
@@ -125,6 +131,10 @@ export function usePulse(user: WorkspaceUser) {
   useEffect(() => {
     let alive = true;
     const flush = () => {
+      if (!cloudConfigured) {
+        setSyncState("On this device");
+        return;
+      }
       if (!navigator.onLine) {
         setSyncState("Offline · saved locally");
         return;
@@ -134,7 +144,12 @@ export function usePulse(user: WorkspaceUser) {
           if (alive) setSyncState(n ? "Syncing batches…" : "Cloud connected");
         })
         .catch(() => {
-          if (alive) setSyncState("Sync paused · saved locally");
+          if (alive)
+            setSyncState(
+              cloudConfigured
+                ? "Sync paused · saved locally"
+                : "On this device",
+            );
         });
     };
     flush();
@@ -218,7 +233,11 @@ export function usePulse(user: WorkspaceUser) {
     setError("");
     setDevice("");
     setInsightTime(Date.now());
-    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    void sync(owner).catch(() =>
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      ),
+    );
     setNotice("Journal session started. A wearable is optional.");
   }
   async function attachWhoop() {
@@ -352,9 +371,11 @@ export function usePulse(user: WorkspaceUser) {
     setInsightTime(Date.now());
     try {
       await sync(owner);
-      setSyncState("Cloud connected");
+      setSyncState(cloudConfigured ? "Cloud connected" : "On this device");
     } catch {
-      setSyncState("Sync paused · saved locally");
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      );
     }
     return sorted.length;
   }
@@ -431,7 +452,11 @@ export function usePulse(user: WorkspaceUser) {
     if (merged.length > 5000)
       throw new Error("This session supports up to 5,000 events.");
     await save({ ...s, events: merged });
-    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    void sync(owner).catch(() =>
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      ),
+    );
   }
   async function addNote(note: JournalEntry) {
     if (current.current?.id === "workspace")
@@ -461,7 +486,11 @@ export function usePulse(user: WorkspaceUser) {
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
-      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+      void sync(owner).catch(() =>
+        setSyncState(
+          cloudConfigured ? "Sync paused · saved locally" : "On this device",
+        ),
+      );
     }
   }
   async function removeNote(id: string) {

@@ -6,7 +6,7 @@ export default function Privacy() {
       <p>
         Trade Pulse stores heart-rate samples, trading events, session metadata,
         preferences, and self-reported journal entries. Every account starts
-        empty. No sample trading or physiological data is generated.
+        empty. The isolated UI review uses separately labeled synthetic data.
       </p>
       <h2>Your private workspace</h2>
       <p>
@@ -31,8 +31,30 @@ export default function Privacy() {
         daily journals, expires after 30 days, and can be rotated or revoked.
         Existing session-scoped 24-hour keys remain supported. CSV files are
         parsed in your browser; only the events you confirm are stored. The
-        original file is not uploaded. No broker passwords or order-execution
-        permissions are collected.
+        original file is not uploaded. SnapTrade handles brokerage login in its
+        hosted portal and requests read-only access. Native API tokens are
+        encrypted on the server and never included in browser storage or session
+        exports. Some native providers issue tokens with trading privileges;
+        TraderPulse exposes no order-placement functionality and calls only
+        account, execution, and market-data endpoints.
+      </p>
+      <h2>Broker and market records</h2>
+      <p>
+        Broker synchronization stores raw executions, amendments, fees, account
+        identities, and durable sync checkpoints separately from wearable
+        samples. Historical fills go to an account-specific UTC daily journal.
+        Unknown starting positions stay unclassified. Foreign currencies stay
+        separate. Disconnecting stops synchronization immediately. The server
+        credential is removed after any required remote revocation succeeds;
+        pending revocation is shown explicitly. Revoke native tokens at the
+        provider to invalidate their underlying grant. SnapTrade disconnect also
+        revokes its brokerage authorizations.
+      </p>
+      <p>
+        Market data is requested only under configured display entitlements.
+        Storage and analytics permissions are checked separately. TradingView
+        supplies the chart library, not the market feed. Historical replay shows
+        only completed candles and does not infer intra-candle prices.
       </p>
       <h2>Controls</h2>
       <p>

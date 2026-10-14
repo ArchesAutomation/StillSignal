@@ -1,23 +1,86 @@
 import { z } from "npm:zod@4.6.7";
 const ts = z.number().int().min(0).max(8640000000000000);
+const currency = z.string().regex(/^[A-Z]{3}$/);
+export const instrumentSchema = z.object({
+  id: z.string().min(1).max(160),
+  symbol: z.string().min(1).max(32),
+  assetClass: z.enum(["equity", "option", "future", "forex", "crypto"]),
+  exchange: z.string().max(40).optional(),
+  currency,
+  multiplier: z.number().finite().positive().max(1e9),
+  expiry: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  providerSymbol: z.string().max(100).optional(),
+});
 export const sampleSchema = z.object({
   t: ts,
   bpm: z.number().int().min(25).max(240),
   provider: z.enum(["whoop", "apple", "oura", "garmin"]).optional(),
 });
-export const eventSchema = z.object({
-  id: z.string().min(1).max(160),
-  t: ts,
-  symbol: z.string().min(1).max(32),
-  kind: z.enum(["entry", "exit"]),
-  side: z.enum(["long", "short"]),
-  price: z.number().finite().min(0).max(1e12),
-  quantity: z.number().finite().positive().max(1e12),
-  account: z.string().max(80).optional(),
-  pnl: z.number().finite().min(-1e15).max(1e15).optional(),
-  source: z.enum(["manual", "csv", "tradingview"]),
-  provenance: z.enum(["alert", "strategy", "backtest", "execution"]).optional(),
-});
+export const eventSchema = z
+  .object({
+    id: z.string().min(1).max(160),
+    t: ts,
+    symbol: z.string().min(1).max(32),
+    kind: z.enum(["entry", "exit", "fill"]),
+    side: z.enum(["long", "short", "unknown"]),
+    price: z.number().finite().min(0).max(1e12),
+    quantity: z.number().finite().positive().max(1e12),
+    account: z.string().max(80).optional(),
+    pnl: z.number().finite().min(-1e15).max(1e15).optional(),
+    source: z.enum(["manual", "csv", "tradingview", "broker"]),
+    provenance: z
+      .enum(["alert", "strategy", "backtest", "execution"])
+      .optional(),
+    broker: z
+      .object({
+        provider: z.string().max(40),
+        connectionId: z.uuid(),
+        accountId: z.uuid(),
+        executionId: z.string().min(1).max(160),
+      })
+      .optional(),
+    instrument: instrumentSchema.optional(),
+    currency: currency.optional(),
+    fees: z.number().finite().min(-1e12).max(1e12).optional(),
+    multiplier: z.number().finite().positive().max(1e9).optional(),
+    receivedAt: ts.optional(),
+    revision: ts.optional(),
+    voided: z.boolean().optional(),
+    positionKnown: z.boolean().optional(),
+    action: z.enum(["buy", "sell"]).optional(),
+    timePrecision: z.enum(["millisecond", "second", "day"]).optional(),
+  })
+  .superRefine((event, ctx) => {
+    if (
+      event.source === "broker" &&
+      (!event.broker ||
+        !event.currency ||
+        !event.instrument ||
+        !event.action ||
+        event.provenance !== "execution")
+    )
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Broker events require execution references, currency, instrument, and action.",
+      });
+    if (
+      event.source !== "broker" &&
+      (event.kind === "fill" || event.side === "unknown" || event.broker)
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Unclassified fills are broker records.",
+      });
+    if ((event.kind === "fill") !== (event.side === "unknown"))
+      ctx.addIssue({
+        code: "custom",
+        message: "Unclassified fills have unknown direction.",
+      });
+  });
 export const sessionSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1).max(120),
