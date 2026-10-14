@@ -9,12 +9,14 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
     const body = extensionActionSchema.parse(await boundedJson(request,4100000));
-    if (body.action === "transcribe" && (process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY)) {
+    if (body.action === "transcribe") {
+      const upstream = await forwardToSupabase(request,"pulse-extension",body);
+      if (upstream.ok || upstream.status !== 503 || !(process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY)) return upstream;
+      const detail = await upstream.clone().json().catch(() => ({})) as {error?:string};
+      if (!detail.error?.includes("Remote transcription is not configured")) return upstream;
       if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body.audio)) return Response.json({error:"Invalid recording."},{status:400});
       const bytes = Buffer.from(body.audio,"base64");
       if (bytes.length > 3000000) return Response.json({error:"Recording exceeds the 3 MB limit."},{status:413});
-      const auth = await forwardToSupabase(request,"pulse-extension",{action:"transcription-authorize"});
-      if (!auth.ok) return auth;
       try {
         const result = await transcribe({
           model: gateway.transcriptionModel("openai/whisper-1"),
