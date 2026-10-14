@@ -145,6 +145,17 @@ export default function AuthGate() {
             One timeline for your heart rate, your trading activity, and your
             own reflections.
           </p>
+          <div className="pulse-sculpture" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
           <div className="auth-features">
             <span>
               <ShieldCheck size={17} />A private workspace for each account

@@ -5,3 +5,15 @@ verify_jwt = false
 
 [functions.pulse-tradingview]
 verify_jwt = false
+
+[functions.pulse-brokers]
+verify_jwt = false
+
+[functions.pulse-market]
+verify_jwt = false
+
+[functions.pulse-broker-webhook]
+verify_jwt = false
+
+[functions.pulse-extension]
+verify_jwt = false

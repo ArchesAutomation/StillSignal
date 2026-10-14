@@ -14,8 +14,15 @@ import {
   type JournalEntry,
 } from "@/lib/model";
 import * as storage from "@/lib/storage";
-import { api, sync, pullSession, pullSessions } from "@/lib/cloud";
-import { eventSchema } from "@/lib/validation";
+import {
+  api,
+  sync,
+  pullSession,
+  pullSessions,
+  cloudConfigured,
+  authClient,
+} from "@/lib/cloud";
+import { eventSchema, sessionSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
@@ -125,6 +132,10 @@ export function usePulse(user: WorkspaceUser) {
   useEffect(() => {
     let alive = true;
     const flush = () => {
+      if (!cloudConfigured) {
+        setSyncState("On this device");
+        return;
+      }
       if (!navigator.onLine) {
         setSyncState("Offline · saved locally");
         return;
@@ -134,7 +145,12 @@ export function usePulse(user: WorkspaceUser) {
           if (alive) setSyncState(n ? "Syncing batches…" : "Cloud connected");
         })
         .catch(() => {
-          if (alive) setSyncState("Sync paused · saved locally");
+          if (alive)
+            setSyncState(
+              cloudConfigured
+                ? "Sync paused · saved locally"
+                : "On this device",
+            );
         });
     };
     flush();
@@ -218,7 +234,11 @@ export function usePulse(user: WorkspaceUser) {
     setError("");
     setDevice("");
     setInsightTime(Date.now());
-    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    void sync(owner).catch(() =>
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      ),
+    );
     setNotice("Journal session started. A wearable is optional.");
   }
   async function attachWhoop() {
@@ -352,9 +372,11 @@ export function usePulse(user: WorkspaceUser) {
     setInsightTime(Date.now());
     try {
       await sync(owner);
-      setSyncState("Cloud connected");
+      setSyncState(cloudConfigured ? "Cloud connected" : "On this device");
     } catch {
-      setSyncState("Sync paused · saved locally");
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      );
     }
     return sorted.length;
   }
@@ -431,7 +453,11 @@ export function usePulse(user: WorkspaceUser) {
     if (merged.length > 5000)
       throw new Error("This session supports up to 5,000 events.");
     await save({ ...s, events: merged });
-    void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    void sync(owner).catch(() =>
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      ),
+    );
   }
   async function addNote(note: JournalEntry) {
     if (current.current?.id === "workspace")
@@ -461,7 +487,11 @@ export function usePulse(user: WorkspaceUser) {
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
-      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+      void sync(owner).catch(() =>
+        setSyncState(
+          cloudConfigured ? "Sync paused · saved locally" : "On this device",
+        ),
+      );
     }
   }
   async function removeNote(id: string) {
@@ -500,10 +530,16 @@ export function usePulse(user: WorkspaceUser) {
   }
   useEffect(() => {
     if (!session || session.id === "workspace") return;
+    let cursor = "";
     const t = setInterval(async () => {
       const s = current.current;
       if (!s) return;
       try {
+        const status = await api<{ updatedAt: string }>({
+          action: "change-status",
+          sessionId: s.id,
+        });
+        if (status.updatedAt === cursor) return;
         const d = await api<{ events: TradeEvent[]; session: Session }>({
           action: "get",
           sessionId: s.id,
@@ -518,10 +554,46 @@ export function usePulse(user: WorkspaceUser) {
         ].sort((a, b) => a.t - b.t);
         const next = { ...mergeSessions(latest, d.session), events: merged };
         if (JSON.stringify(next) !== JSON.stringify(latest)) await save(next);
+        cursor = status.updatedAt;
       } catch {}
-    }, 15000);
+    }, 5000);
     return () => clearInterval(t);
   }, [owner, session?.id, save]);
+  useEffect(() => {
+    const client = authClient();
+    if (!client) return;
+    let alive = true;
+    const channel = client
+      .channel("journal:" + owner)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pulse_sessions",
+          filter: "user_id=eq." + owner,
+        },
+        (payload) => {
+          const parsed = sessionSchema.safeParse(
+            (payload.new as { data?: unknown }).data,
+          );
+          if (!alive || !parsed.success || parsed.data.owner !== owner) return;
+          const remote = parsed.data,
+            selected = current.current;
+          void (async () => {
+            if (selected?.id === remote.id)
+              await save(mergeSessions(current.current ?? undefined, remote));
+            else await storage.saveSession(remote);
+            if (alive) await refreshHistory();
+          })().catch(() => {});
+        },
+      )
+      .subscribe();
+    return () => {
+      alive = false;
+      void client.removeChannel(channel);
+    };
+  }, [owner, save, refreshHistory]);
   return {
     session,
     samples,

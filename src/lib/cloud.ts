@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Session, Sample, TradeEvent } from "./model";
-import { mergeSessions } from "./workspace";
 import { pending, acknowledge, listSessions, saveSession } from "./storage";
 export const cloudConfigured = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -78,15 +77,9 @@ export async function sync(owner: string) {
 }
 export async function pullSessions(owner: string) {
   const data = await api<{ sessions: Session[] }>({ action: "list" });
-  const local = await listSessions(owner);
   for (const s of data.sessions) {
     if (s.owner !== owner) throw new Error("Workspace identity mismatch.");
-    await saveSession(
-      mergeSessions(
-        local.find((l) => l.id === s.id),
-        s,
-      ),
-    );
+    await saveSession(s);
   }
   return data.sessions;
 }

@@ -1,349 +1,289 @@
 "use client";
-import { useMemo, useState } from "react";
-import { downsample, nearest } from "@/lib/analytics";
-import { liveNotes, type HrMoment } from "@/lib/smart-journal";
-import {
-  clock,
-  type Sample,
-  type TradeEvent,
-  type JournalEntry,
-} from "@/lib/model";
-export function Timeline({
-  samples,
-  events,
-  journal,
-  baseline,
-  start,
-  end,
-  onSelect,
-  onMoment,
-  moments = [],
-}: {
-  samples: Sample[];
-  events: TradeEvent[];
-  journal: JournalEntry[];
-  baseline: number | null;
-  start: number;
-  end: number;
-  onSelect: (e: TradeEvent) => void;
-  onMoment?: (t: number) => void;
-  moments?: HrMoment[];
-}) {
-  const [hover, setHover] = useState<number | null>(null);
-  const W = 1100,
-    H = 280,
-    L = 48,
-    R = 25,
-    T = 22,
-    B = 40;
-  const visible = useMemo(
-    () => samples.filter((p) => p.t >= start && p.t <= end),
-    [samples, start, end],
+import { useState, type ComponentProps } from "react";
+import dynamic from "next/dynamic";
+import { LegacyTimeline } from "./legacy-timeline";
+import { useMarketData } from "./use-market-data";
+import type { Instrument } from "@/lib/model";
+import { clock } from "@/lib/model";
+import { executionAction, eventOrigin } from "@/lib/trade-context";
+const SynchronizedChart = dynamic(() => import("./synchronized-chart"), {
+  ssr: false,
+  loading: () => (
+    <div className="chart-loading">Opening synchronized chart…</div>
+  ),
+});
+type Props = ComponentProps<typeof LegacyTimeline> & {
+  owner?: string;
+  instrument?: Instrument;
+  accountId?: string;
+  replay?: boolean;
+  cutoff?: number;
+  selectedTime?: number;
+  sessionStart?: number;
+  sessionEnd?: number;
+  viewportKey?: string;
+};
+export function Timeline(props: Props) {
+  const [interval, setInterval] = useState<60 | 300 | 900 | 3600>(60);
+  const [volume, setVolume] = useState(false);
+  const [hrHeight, setHrHeight] = useState(120);
+  const [liveVersion, setLiveVersion] = useState(0);
+  const [resolved, setResolved] = useState<Instrument | undefined>();
+  const [asset, setAsset] = useState<Instrument["assetClass"]>("equity");
+  const instrument = resolved || props.instrument;
+  const cutoff = props.cutoff ?? props.end;
+  // Load the historical window once. Rendering/tooltip apply the replay cutoff;
+  // scrubbing must not dispatch a request for every cursor movement.
+  const { feed, loading, retry } = useMarketData(
+    instrument
+      ? {
+          instrument,
+          accountId: props.accountId,
+          start: props.sessionStart ?? props.start,
+          end: props.sessionEnd ?? cutoff,
+          interval,
+          replay: !!props.replay,
+        }
+      : null,
+    props.owner || "",
   );
-  const points = useMemo(() => downsample(visible, 600), [visible]);
-  const min =
-    Math.floor(Math.min(60, ...points.map((p) => p.bpm), baseline || 70) / 10) *
-      10 -
-    10;
-  const max =
-    Math.ceil(Math.max(100, ...points.map((p) => p.bpm), baseline || 70) / 10) *
-      10 +
-    10;
-  const x = (t: number) =>
-      L + ((t - start) / Math.max(1, end - start)) * (W - L - R),
-    y = (b: number) => T + ((max - b) / (max - min)) * (H - T - B);
-  const gaps = visible
-    .filter((p, i) => i > 0 && p.t - visible[i - 1].t > 10000)
-    .map((p) => p.t);
-  let gi = 0;
-  let line = "";
-  points.forEach((p, i) => {
-    let gap = false;
-    while (gi < gaps.length && gaps[gi] <= p.t) {
-      if (i && gaps[gi] > points[i - 1].t) gap = true;
-      gi++;
-    }
-    line += `${i === 0 || gap ? "M" : "L"}${x(p.t).toFixed(2)},${y(p.bpm).toFixed(2)} `;
-  });
-  const h =
-    hover === null
-      ? null
-      : nearest(
-          visible,
-          start + hover * (end - start),
-          Math.max(10000, (end - start) / 50),
-        );
+  const chartSupported =
+    typeof window !== "undefined" && typeof ResizeObserver !== "undefined";
+  const advanced = chartSupported && feed.state === "ready";
   return (
-    <div className="chart">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Heart rate and trading events on a synchronized timeline"
-        onClick={(e) => {
-          if (!onMoment) return;
-          const r = e.currentTarget.getBoundingClientRect();
-          const fraction = Math.max(
-            0,
-            Math.min(
-              1,
-              (((e.clientX - r.left) / r.width) * W - L) / (W - L - R),
-            ),
-          );
-          onMoment(Math.round(start + fraction * (end - start)));
-        }}
-        onMouseMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setHover(
-            Math.max(
-              0,
-              Math.min(
-                1,
-                (((e.clientX - r.left) / r.width) * W - L) / (W - L - R),
-              ),
-            ),
-          );
-        }}
-        onMouseLeave={() => setHover(null)}
-      >
-        <defs>
-          <linearGradient id="pulse-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#fb8354" stopOpacity=".14" />
-            <stop offset="100%" stopColor="#fb8354" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {points.length > 0 &&
-          [0, 1, 2, 3, 4].map((i) => {
-            const v = min + ((max - min) * i) / 4;
-            return (
-              <g key={i}>
-                <line
-                  x1={L}
-                  x2={W - R}
-                  y1={y(v)}
-                  y2={y(v)}
-                  stroke="#ffffff"
-                  strokeOpacity=".055"
-                  strokeDasharray="3 5"
-                />
-                <text x={L - 12} y={y(v) + 4} textAnchor="end" className="axis">
-                  {Math.round(v)}
-                </text>
-              </g>
-            );
-          })}
-        {baseline !== null && (
-          <g>
-            <line
-              x1={L}
-              x2={W - R}
-              y1={y(baseline)}
-              y2={y(baseline)}
-              stroke="#818896"
-              strokeDasharray="5 6"
-            />
-            <text
-              x={W - R - 5}
-              y={y(baseline) - 8}
-              textAnchor="end"
-              className="axis"
-            >
-              Baseline {Math.round(baseline)}
-            </text>
-          </g>
-        )}
-        {points.length > 0 && gaps.length === 0 && (
-          <path
-            d={`${line} L${x(points.at(-1)!.t)},${H - B} L${x(points[0].t)},${H - B} Z`}
-            fill="url(#pulse-fill)"
-          />
-        )}
-        <path
-          d={line}
-          fill="none"
-          stroke="#fb895c"
-          strokeWidth="2.4"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        {liveNotes(journal)
-          .filter((j) => j.t >= start && j.t <= end)
-          .slice(-100)
-          .map((j) => (
-            <g key={j.id}>
-              <circle cx={x(j.t)} cy={H - B + 5} r="3" fill="#ac9cef" />
-              <title>
-                {j.label}: {j.text}
-              </title>
-            </g>
-          ))}
-        {moments
-          .filter((m) => m.t >= start && m.t <= end)
-          .slice(-100)
-          .map((m) => (
-            <g
-              key={m.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`HR moment at ${clock(m.t)}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoment?.(m.t);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onMoment?.(m.t);
-                }
-              }}
-            >
-              <line
-                x1={x(m.t)}
-                x2={x(m.t)}
-                y1={T}
-                y2={H - B}
-                stroke="#fb895c"
-                strokeOpacity=".25"
-                strokeDasharray="3 4"
-              />
-              <circle cx={x(m.t)} cy={y(m.peak)} r="6" fill="#fb895c" />
-              <title>HR moment · +{Math.round(m.delta)} BPM</title>
-            </g>
-          ))}
-        {events
-          .filter((e) => e.t >= start && e.t <= end)
-          .slice(-200)
-          .map((e) => {
-            const sample = nearest(visible, e.t);
-            const py = sample ? y(sample.bpm) : H - B - 12;
-            return (
-              <g
-                key={e.id}
-                tabIndex={0}
-                role="button"
-                aria-label={`${e.symbol} ${e.kind} at ${clock(e.t)}`}
-                onKeyDown={(k) => {
-                  if (k.key === "Enter" || k.key === " ") {
-                    k.preventDefault();
-                    onSelect(e);
-                  }
-                }}
-                onClick={(k) => {
-                  k.stopPropagation();
-                  onSelect(e);
-                }}
-                className="trade-marker"
-              >
-                <line
-                  x1={x(e.t)}
-                  x2={x(e.t)}
-                  y1={py}
-                  y2={H - B}
-                  stroke={e.kind === "entry" ? "#69c9b4" : "#b3a5e8"}
-                  strokeOpacity=".3"
-                  strokeDasharray="3 4"
-                />
-                <circle
-                  cx={x(e.t)}
-                  cy={py}
-                  r="8"
-                  fill={e.kind === "entry" ? "#69c9b4" : "#b3a5e8"}
-                  stroke="#17191d"
-                  strokeWidth="3"
-                />
-                <text
-                  x={x(e.t)}
-                  y={T + 11}
-                  textAnchor="middle"
-                  className="marker-label"
-                >
-                  {e.symbol} {e.kind === "entry" ? "↗" : "↘"}
-                </text>
-                <title>
-                  {e.symbol} {e.kind} · {clock(e.t)}
-                </title>
-              </g>
-            );
-          })}
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <text
-            key={i}
-            x={L + (i * (W - L - R)) / 5}
-            y={H - 9}
-            textAnchor="middle"
-            className="axis"
+    <div className="chart-workspace">
+      <div className="chart-controls">
+        <label>
+          Interval{" "}
+          <select
+            aria-label="Candle interval"
+            value={interval}
+            onChange={(e) => setInterval(+e.target.value as typeof interval)}
           >
-            {new Date(start + ((end - start) * i) / 5).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </text>
-        ))}
-        {h && (
-          <g>
-            <line
-              x1={x(h.t)}
-              x2={x(h.t)}
-              y1={T}
-              y2={H - B}
-              stroke="#ffffff"
-              strokeOpacity=".25"
-            />
-            <circle
-              cx={x(h.t)}
-              cy={y(h.bpm)}
-              r="5"
-              fill="#fb895c"
-              stroke="#fff"
-              strokeWidth="2"
-            />
-            <rect
-              x={Math.min(W - 150, Math.max(50, x(h.t) - 70))}
-              y={Math.max(0, y(h.bpm) - 48)}
-              width="140"
-              height="30"
-              rx="7"
-              fill="#2d3037"
-            />
-            <text
-              x={Math.min(W - 80, Math.max(120, x(h.t)))}
-              y={Math.max(0, y(h.bpm) - 48) + 20}
-              textAnchor="middle"
-              fill="#fff"
-              fontSize="11"
-            >
-              {h.bpm} BPM · {clock(h.t)}
-            </text>
-          </g>
+            {[
+              [60, "1m"],
+              [300, "5m"],
+              [900, "15m"],
+              [3600, "1h"],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={volume}
+            onChange={(e) => setVolume(e.target.checked)}
+          />{" "}
+          Volume
+        </label>
+        <label>
+          HR pane{" "}
+          <select
+            aria-label="Heart-rate pane size"
+            value={hrHeight}
+            onChange={(e) => setHrHeight(+e.target.value)}
+          >
+            <option value={90}>Compact</option>
+            <option value={120}>Balanced</option>
+            <option value={180}>Expanded</option>
+          </select>
+        </label>
+        <button
+          className="text-button"
+          onClick={() => setLiveVersion((n) => n + 1)}
+        >
+          Return to {props.replay ? "replay" : "live"}
+        </button>
+      </div>
+      {!props.instrument && (
+        <details className="instrument-resolver">
+          <summary>
+            {instrument
+              ? instrument.symbol +
+                " · " +
+                instrument.assetClass +
+                " · " +
+                (instrument.exchange || "provider venue")
+              : "Select an exact market instrument"}
+          </summary>
+          <p>
+            Legacy symbols need a market and contract. Execution prices do not
+            create candles.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const symbol = String(f.get("symbol")).toUpperCase(),
+                exchange = String(f.get("exchange")).toUpperCase(),
+                expiry = String(f.get("expiry") || "");
+              setResolved({
+                id: [asset, exchange, symbol, expiry].join(":"),
+                symbol,
+                assetClass: asset,
+                exchange,
+                currency: String(f.get("currency")),
+                multiplier: Number(f.get("multiplier")),
+                ...(expiry ? { expiry } : {}),
+                providerSymbol: symbol,
+              });
+            }}
+            className="resolver-fields"
+          >
+            <label>
+              Market
+              <select
+                aria-label="Instrument market"
+                value={asset}
+                onChange={(e) => setAsset(e.target.value as typeof asset)}
+              >
+                <option value="equity">US equity</option>
+                <option value="option">US option · OCC symbol</option>
+                <option value="future">Futures · exact expiry</option>
+                <option value="forex">Forex · OANDA pair</option>
+                <option value="crypto">Crypto</option>
+              </select>
+            </label>
+            <label>
+              Symbol
+              <input
+                name="symbol"
+                aria-label="Exact instrument symbol"
+                required
+                maxLength={32}
+                placeholder={asset === "future" ? "ESZ6" : "AAPL"}
+              />
+            </label>
+            <label>
+              Exchange
+              <input
+                name="exchange"
+                aria-label="Instrument exchange"
+                required
+                maxLength={40}
+                placeholder="XNAS / CME"
+              />
+            </label>
+            {(asset === "future" || asset === "option") && (
+              <label>
+                Expiry
+                <input name="expiry" type="date" required />
+              </label>
+            )}
+            <label>
+              Currency
+              <select name="currency">
+                <option>USD</option>
+                <option>CAD</option>
+                <option>EUR</option>
+                <option>GBP</option>
+                <option>JPY</option>
+                <option>AUD</option>
+                <option>CHF</option>
+              </select>
+            </label>
+            <label>
+              Multiplier
+              <input
+                name="multiplier"
+                type="number"
+                min="0.000001"
+                max="1000000000"
+                step="any"
+                defaultValue={asset === "option" ? 100 : 1}
+                required
+              />
+            </label>
+            <button className="button small-button">Use instrument</button>
+          </form>
+        </details>
+      )}
+      <div className={"feed-status " + feed.state} role="status">
+        <span className="status-dot small" />
+        <span>
+          {loading
+            ? "Loading market data…"
+            : feed.state === "ready"
+              ? feed.provider +
+                " · " +
+                feed.freshness +
+                " · " +
+                feed.granularity
+              : feed.message}
+        </span>
+        {feed.state === "error" && (
+          <button className="text-button" onClick={retry}>
+            Retry feed
+          </button>
         )}
-      </svg>
-      {events.filter((e) => e.t >= start && e.t <= end).length > 200 && (
-        <p className="chart-limit">
-          Showing the latest 200 event markers in this window. All events remain
-          in your export.
+      </div>
+      {props.replay && (
+        <p className="replay-granularity">
+          Replay shows only candles completed by the cursor. Intra-candle OHLC
+          is unavailable.
         </p>
       )}
-      {liveNotes(journal)
-        .filter((j) => j.t >= start && j.t <= end)
-        .slice(-100).length > 0 && (
-        <div className="timeline-journal-list">
-          {liveNotes(journal)
-            .filter((j) => j.t >= start && j.t <= end)
-            .slice(-5)
-            .map((j) => (
-              <span key={j.id} title={j.text}>
-                {clock(j.t)} · {j.label}
-              </span>
-            ))}
-        </div>
+      {advanced ? (
+        <SynchronizedChart
+          {...props}
+          cutoff={cutoff}
+          replay={!!props.replay}
+          candles={feed.candles}
+          volume={volume}
+          hrHeight={hrHeight}
+          liveVersion={liveVersion}
+          moments={props.moments || []}
+        />
+      ) : (
+        <LegacyTimeline {...props} end={cutoff} />
       )}
-      {!points.length && !events.length && !liveNotes(journal).length && (
-        <div className="chart-empty">
-          Add a trade or reflection to start your timeline. A wearable is
-          optional.
-        </div>
-      )}
-      {onMoment && (
+      <div className="chart-event-access" aria-label="Chart markers">
+        {props.events
+          .filter((e) => !e.voided && e.t >= props.start && e.t <= cutoff)
+          .slice(-12)
+          .map((e) => (
+            <button
+              key={e.id}
+              className="marker-chip"
+              onClick={() => props.onSelect(e)}
+            >
+              {executionAction(e) === "buy" ? "↑ Buy" : "↓ Sell"} · {e.kind}{" "}
+              {e.side} · {e.symbol}
+              <small>
+                {eventOrigin(e)} · {clock(e.t)}
+              </small>
+            </button>
+          ))}
+        {(props.moments || [])
+          .filter((m) => m.t >= props.start && m.t <= cutoff)
+          .slice(-5)
+          .map((m) => (
+            <button
+              key={m.id}
+              className="marker-chip"
+              onClick={() => props.onMoment?.(m.t)}
+            >
+              HR +{Math.round(m.delta)} · {clock(m.t)}
+            </button>
+          ))}
+        {props.journal
+          .filter((n) => !n.deletedAt && n.t >= props.start && n.t <= cutoff)
+          .slice(-5)
+          .map((n) => (
+            <button
+              key={n.id}
+              className="marker-chip"
+              onClick={() => props.onMoment?.(n.t)}
+            >
+              {n.label} · {clock(n.t)}
+            </button>
+          ))}
+      </div>
+      {props.onMoment && advanced && (
         <label className="timeline-moment-picker">
           Investigate any moment
           <input
@@ -352,12 +292,18 @@ export function Timeline({
             step="1"
             onChange={(e) => {
               const t = new Date(e.target.value).getTime();
-              if (Number.isFinite(t)) onMoment(t);
+              if (Number.isFinite(t) && t >= props.start && t <= cutoff)
+                props.onMoment?.(t);
             }}
           />
-          <small>Or click the timeline to inspect HR and add context.</small>
         </label>
       )}
+      <p className="chart-attribution">
+        <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">
+          Charts by TradingView
+        </a>{" "}
+        · TradingView Lightweight Charts™. Copyright (с) 2025 TradingView, Inc.
+      </p>
     </div>
   );
 }

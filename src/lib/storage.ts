@@ -1,5 +1,6 @@
 import { openDB, type DBSchema } from "idb";
 import type { Session, Sample } from "./model";
+import { mergeSessions } from "./workspace";
 interface Store extends DBSchema {
   sessions: { key: string; value: Session; indexes: { owner: string } };
   samples: {
@@ -39,7 +40,9 @@ export async function saveSession(s: Session) {
     await tx.done.catch(() => {});
     throw new Error("Workspace identity mismatch.");
   }
-  const key = await tx.store.put(s);
+  // Merge inside the write transaction, against the latest stored revision.
+  // A cloud history fetch must not overwrite a note saved while it was in flight.
+  const key = await tx.store.put(mergeSessions(existing, s));
   await tx.done;
   return key;
 }

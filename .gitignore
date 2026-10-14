@@ -7,3 +7,7 @@ node_modules/
 coverage/
 supabase/.temp/
 supabase/.branches/
+extension/dist/
+pnpm-lock.yaml
+extension/test-results/
+.vercel

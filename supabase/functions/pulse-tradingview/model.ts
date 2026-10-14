@@ -1,17 +1,43 @@
 export type WearableProvider = "whoop" | "apple" | "oura" | "garmin";
 export type Sample = { t: number; bpm: number; provider?: WearableProvider };
+export type Instrument = {
+  id: string;
+  symbol: string;
+  assetClass: "equity" | "option" | "future" | "forex" | "crypto";
+  exchange?: string;
+  currency: string;
+  multiplier: number;
+  expiry?: string;
+  providerSymbol?: string;
+};
 export type TradeEvent = {
   id: string;
   t: number;
   symbol: string;
-  kind: "entry" | "exit";
-  side: "long" | "short";
+  kind: "entry" | "exit" | "fill";
+  side: "long" | "short" | "unknown";
   price: number;
   quantity: number;
   account?: string;
   pnl?: number;
-  source: "manual" | "csv" | "tradingview";
+  source: "manual" | "csv" | "tradingview" | "broker";
   provenance?: "alert" | "strategy" | "backtest" | "execution";
+  broker?: {
+    provider: string;
+    connectionId: string;
+    accountId: string;
+    executionId: string;
+  };
+  instrument?: Instrument;
+  currency?: string;
+  fees?: number;
+  multiplier?: number;
+  receivedAt?: number;
+  revision?: number;
+  voided?: boolean;
+  positionKnown?: boolean;
+  action?: "buy" | "sell";
+  timePrecision?: "millisecond" | "second" | "day";
 };
 export type JournalEntry = {
   id: string;
@@ -21,6 +47,14 @@ export type JournalEntry = {
   updatedAt?: number;
   deletedAt?: number;
   source?: "typed" | "voice" | "hr-checkin";
+  activationAt?: number;
+  recordingStartedAt?: number;
+  captureScope?: {
+    instrumentId?: string;
+    accountId?: string;
+    baselineSeconds?: number;
+    windowSeconds?: number;
+  };
   context?: {
     bpm?: number;
     baseline?: number;
@@ -70,10 +104,10 @@ export const defaults: Settings = {
   personalize: true,
 };
 export const cadenceOptions = [15, 30, 60, 300, 600, 1200, 3600];
-export function money(n: number) {
+export function money(n: number, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
     maximumFractionDigits: 2,
   }).format(n);
 }

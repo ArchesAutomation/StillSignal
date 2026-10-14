@@ -122,6 +122,8 @@ export function reflectionContext(
     .filter(
       (e) =>
         e.provenance !== "alert" &&
+        !e.voided &&
+        e.timePrecision !== "day" &&
         Math.abs(e.t - t) <= settings.windowSeconds * 1000,
     )
     .sort((a, b) => Math.abs(a.t - t) - Math.abs(b.t - t))[0];
@@ -242,8 +244,21 @@ export function reconstructTrades(events: TradeEvent[]) {
   const queues = new Map<string, { event: TradeEvent; remaining: number }[]>();
   const trades: CompletedTrade[] = [];
   for (const event of [...events].sort((a, b) => a.t - b.t)) {
-    if (event.provenance === "alert") continue;
-    const key = `${event.account || ""}:${event.symbol}:${event.side}:${event.provenance || event.source}`;
+    if (
+      event.provenance === "alert" ||
+      event.voided ||
+      event.positionKnown === false ||
+      event.kind === "fill" ||
+      event.side === "unknown"
+    )
+      continue;
+    const key = JSON.stringify([
+      event.broker?.accountId || event.account || "",
+      event.instrument?.id || event.symbol,
+      event.currency || "USD",
+      event.side,
+      event.provenance || event.source,
+    ]);
     const q = queues.get(key) || [];
     if (event.kind === "entry") q.push({ event, remaining: event.quantity });
     else {
@@ -272,7 +287,7 @@ export function reconstructTrades(events: TradeEvent[]) {
     for (const { event, remaining } of q)
       trades.push({
         symbol: event.symbol,
-        side: event.side,
+        side: event.side as "long" | "short",
         entry: event.t,
         entryPrice: event.price,
         quantity: remaining,
