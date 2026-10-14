@@ -63,6 +63,8 @@ import ReflectionEditor, {
   type ReflectionDraft,
 } from "./reflection-editor";
 import SmartCheckins from "./smart-checkins";
+import ExtensionConnection from "./extension-connection";
+import TodayReview from "./today-review";
 import JournalInsights from "./journal-insights";
 import { removeScreenshot } from "@/lib/screenshots";
 type Tab = "Overview" | "Sessions" | "Journal" | "Connections" | "Settings";
@@ -163,6 +165,7 @@ export default function Dashboard({
     if (initialSession) void p.openSession(initialSession);
   }, [initialSession]);
   const [accountFilter, setAccountFilter] = useState("");
+  const [todayReview, setTodayReview] = useState(false);
   const [instrumentFilter, setInstrumentFilter] = useState("");
   const [contextEvent, setContextEvent] = useState<TradeEvent | undefined>();
   const [tab, setTab] = useState<Tab>("Overview"),
@@ -178,6 +181,11 @@ export default function Dashboard({
     [tradePair, setTradePair] = useState(false);
   const [noteDraft, setNoteDraft] = useState<ReflectionDraft | null>(null),
     [momentTime, setMomentTime] = useState(0);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("review") === "today") {
+      setTab("Journal"); setTodayReview(true);
+    }
+  }, []);
   const s = p.session,
     isWorkspace = s?.id === "workspace";
   const fullEnd = s?.endedAt
@@ -538,6 +546,7 @@ export default function Dashboard({
               </button>
             </div>
           )}
+          <ExtensionConnection user={user} sessionId={s.id === "workspace" ? undefined : s.id} manage={tab === "Settings"} scope={{instrumentId:instrumentFilter||undefined,accountId:accountFilter||undefined,baselineSeconds:p.settings.baselineSeconds,windowSeconds:p.settings.windowSeconds}} />
           <SmartCheckins
             owner={p.owner}
             sessionId={s.id}
@@ -1210,7 +1219,8 @@ export default function Dashboard({
               )}
             </section>
           )}
-          {tab === "Journal" && (
+          {tab === "Journal" && todayReview && <TodayReview sessions={p.history} owner={user.id} onClose={()=>setTodayReview(false)} onOpen={item=>{void p.openSession(item);setTodayReview(false);}} />}
+          {tab === "Journal" && !todayReview && (
             <section className="glass content-panel">
               <div className="panel-heading">
                 <div>
@@ -1232,6 +1242,7 @@ export default function Dashboard({
                   "Calm",
                   "Impatient",
                   "FOMO",
+                  "Frustrated",
                   "Other",
                 ].map((f) => (
                   <button

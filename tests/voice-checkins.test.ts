@@ -10,26 +10,191 @@ import ReflectionEditor, {
 } from "../src/components/reflection-editor";
 import SmartCheckins from "../src/components/smart-checkins";
 import { defaults, type JournalEntry } from "../src/lib/model";
-test("enabled HR check-ins beep and speak once, snooze suppresses the next event", async t => {
-  const {dom,root}=setup(); let beeps=0; const spoken:string[]=[];
-  class AudioMock {state="running";currentTime=0;destination={};resume(){return Promise.resolve();}close(){return Promise.resolve();}createOscillator(){return{frequency:{value:0},connect(){},start(){beeps++;},stop(){}};}createGain(){return{connect(){},gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}}};}}
-  class Utterance {constructor(public text:string){}}
-  Object.defineProperty(globalThis,"AudioContext",{value:AudioMock,configurable:true});
-  Object.defineProperty(globalThis,"SpeechSynthesisUtterance",{value:Utterance,configurable:true});
-  Object.assign(dom.window,{speechSynthesis:{speak:(u:Utterance)=>spoken.push(u.text),cancel(){}}});
-  t.after(async()=>{await act(async()=>root.unmount());dom.window.close();delete (globalThis as unknown as Record<string,unknown>).AudioContext;delete (globalThis as unknown as Record<string,unknown>).SpeechSynthesisUtterance;});
-  const now=Date.now(),event={id:"hr-audio",t:now,end:now,baseline:70,peak:100,delta:30,kind:"rise" as const};
-  const props={owner:"audio-owner",sessionId:"audio-session",settings:{...defaults,sound:true,spokenPrompt:true},recording:true,now,latestSampleTime:now,moments:[] as typeof event[],blocked:false,onOpen:()=>{}};
-  await act(async()=>root.render(createElement(SmartCheckins,props)));
-  await act(async()=>dom.window.dispatchEvent(new dom.window.MouseEvent("pointerdown")));
-  await act(async()=>root.render(createElement(SmartCheckins,{...props,moments:[event]})));
-  await new Promise(resolve=>setTimeout(resolve,350));
-  assert.equal(beeps,1); assert.deepEqual(spoken,["Hey, what's going on? What are you feeling?"]);
-  const snooze=[...document.querySelectorAll("button")].find(b=>b.textContent==="Snooze 10 min")!;
-  await act(async()=>snooze.click());
-  const next={...event,id:"second",t:now+180000};
-  await act(async()=>root.render(createElement(SmartCheckins,{...props,now:next.t,latestSampleTime:next.t,moments:[event,next]})));
-  assert.equal(document.querySelector("aside"),null);assert.equal(beeps,1);
+import { updateExtensionLease } from "../src/lib/extension-bridge";
+test("extension prompt ownership suppresses app announcements; a conflicting Alt+J cannot activate twice", async (t) => {
+  const { dom, root } = setup();
+  let prompts = 0,
+    opens = 0;
+  const owner = "extension-owner";
+  Object.assign(dom.window, {
+    chrome: {
+      runtime: {
+        sendMessage: async () => {
+          prompts++;
+          return { claimed: true };
+        },
+      },
+    },
+  });
+  localStorage.setItem("pulse-extension:" + owner, "a".repeat(32));
+  updateExtensionLease(owner, {
+    connected: true,
+    shortcut: "Alt+J",
+    promptsPaused: false,
+  });
+  t.after(async () => {
+    updateExtensionLease(owner, { connected: false });
+    await act(async () => root.unmount());
+    dom.window.close();
+  });
+  const now = Date.now(),
+    event = {
+      id: `hr-${now}`,
+      t: now,
+      end: now,
+      baseline: 70,
+      peak: 100,
+      delta: 30,
+      kind: "rise" as const,
+    };
+  await act(async () =>
+    root.render(
+      createElement(SmartCheckins, {
+        owner,
+        sessionId: "extension-session",
+        settings: { ...defaults, sound: true, spokenPrompt: true },
+        recording: true,
+        now,
+        latestSampleTime: now,
+        moments: [event],
+        blocked: false,
+        onOpen: () => {
+          opens++;
+        },
+      }),
+    ),
+  );
+  assert.equal(prompts, 1);
+  assert.equal(document.querySelector("aside"), null);
+  await act(async () =>
+    window.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", {
+        key: "j",
+        altKey: true,
+        bubbles: true,
+      }),
+    ),
+  );
+  assert.equal(opens, 0);
+  updateExtensionLease(owner, { connected: true, shortcut: "" });
+  await act(async () =>
+    window.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", {
+        key: "j",
+        altKey: true,
+        bubbles: true,
+      }),
+    ),
+  );
+  assert.equal(
+    opens,
+    1,
+    "unassigned/conflicting extension shortcut preserves in-app Alt+J",
+  );
+});
+test("enabled HR check-ins beep and speak once, snooze suppresses the next event", async (t) => {
+  const { dom, root } = setup();
+  let beeps = 0;
+  const spoken: string[] = [];
+  class AudioMock {
+    state = "running";
+    currentTime = 0;
+    destination = {};
+    resume() {
+      return Promise.resolve();
+    }
+    close() {
+      return Promise.resolve();
+    }
+    createOscillator() {
+      return {
+        frequency: { value: 0 },
+        connect() {},
+        start() {
+          beeps++;
+        },
+        stop() {},
+      };
+    }
+    createGain() {
+      return {
+        connect() {},
+        gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+      };
+    }
+  }
+  class Utterance {
+    constructor(public text: string) {}
+  }
+  Object.defineProperty(globalThis, "AudioContext", {
+    value: AudioMock,
+    configurable: true,
+  });
+  Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
+    value: Utterance,
+    configurable: true,
+  });
+  Object.assign(dom.window, {
+    speechSynthesis: {
+      speak: (u: Utterance) => spoken.push(u.text),
+      cancel() {},
+    },
+  });
+  t.after(async () => {
+    await act(async () => root.unmount());
+    dom.window.close();
+    delete (globalThis as unknown as Record<string, unknown>).AudioContext;
+    delete (globalThis as unknown as Record<string, unknown>)
+      .SpeechSynthesisUtterance;
+  });
+  const now = Date.now(),
+    event = {
+      id: "hr-audio",
+      t: now,
+      end: now,
+      baseline: 70,
+      peak: 100,
+      delta: 30,
+      kind: "rise" as const,
+    };
+  const props = {
+    owner: "audio-owner",
+    sessionId: "audio-session",
+    settings: { ...defaults, sound: true, spokenPrompt: true },
+    recording: true,
+    now,
+    latestSampleTime: now,
+    moments: [] as (typeof event)[],
+    blocked: false,
+    onOpen: () => {},
+  };
+  await act(async () => root.render(createElement(SmartCheckins, props)));
+  await act(async () =>
+    dom.window.dispatchEvent(new dom.window.MouseEvent("pointerdown")),
+  );
+  await act(async () =>
+    root.render(createElement(SmartCheckins, { ...props, moments: [event] })),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.equal(beeps, 1);
+  assert.deepEqual(spoken, ["Hey, what's going on? What are you feeling?"]);
+  const snooze = [...document.querySelectorAll("button")].find(
+    (b) => b.textContent === "Snooze 10 min",
+  )!;
+  await act(async () => snooze.click());
+  const next = { ...event, id: "second", t: now + 180000 };
+  await act(async () =>
+    root.render(
+      createElement(SmartCheckins, {
+        ...props,
+        now: next.t,
+        latestSampleTime: next.t,
+        moments: [event, next],
+      }),
+    ),
+  );
+  assert.equal(document.querySelector("aside"), null);
+  assert.equal(beeps, 1);
 });
 function setup() {
   const dom = new JSDOM('<div id="root"></div>', {

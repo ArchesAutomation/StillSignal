@@ -58,6 +58,16 @@ export default function Privacy() {
       </p>
       <h2>Controls</h2>
       <p>
+        The optional Chrome voice journal extension uses a revocable journal-only
+        credential paired through your signed-in account. Activated recordings
+        are sent to OpenAI for transcription. Unclear speech requires review.
+        Raw audio stays only in extension storage during capture and retry and is
+        removed after successful transcription or cancellation. Pending notes
+        stay separated by account. Optional “Hey Journal” detection runs locally
+        and requires a licensed custom model; listening is never restored after
+        a browser restart or account change. Revoke an installation in Settings.
+      </p>
+      <p>
         Voice dictation starts only when you use the shortcut or choose to
         answer a check-in. Your browser's speech service may process audio
         remotely; Trade Pulse stores the reviewed transcript, not an audio

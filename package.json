@@ -10,11 +10,16 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "bench": "node --import tsx scripts/benchmark.ts",
     "check": "npm run typecheck && npm test && npm run build",
-    "prepare:edge": "node scripts/prepare-edge.mjs"
+    "prepare:edge": "node scripts/prepare-edge.mjs",
+    "build:extension": "node scripts/build-extension.mjs",
+    "test:extension:chrome": "node scripts/test-extension-runner.mjs"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "4.0.113",
     "@js-temporal/polyfill": "0.5.1",
+    "@picovoice/porcupine-web": "4.0.0",
     "@supabase/supabase-js": "2.117.3",
+    "ai": "7.0.140",
     "idb": "^8.0.3",
     "lightweight-charts": "5.2.0",
     "lucide-react": "^0.468.0",
@@ -26,13 +31,16 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",
+    "@types/chrome": "0.1.38",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^24.0.0",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "esbuild": "0.28.2",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^30.1.2",
+    "playwright": "1.58.2",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3"
   }

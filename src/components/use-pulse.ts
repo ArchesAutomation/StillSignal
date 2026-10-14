@@ -20,8 +20,9 @@ import {
   pullSession,
   pullSessions,
   cloudConfigured,
+  authClient,
 } from "@/lib/cloud";
-import { eventSchema } from "@/lib/validation";
+import { eventSchema, sessionSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
@@ -529,10 +530,16 @@ export function usePulse(user: WorkspaceUser) {
   }
   useEffect(() => {
     if (!session || session.id === "workspace") return;
+    let cursor = "";
     const t = setInterval(async () => {
       const s = current.current;
       if (!s) return;
       try {
+        const status = await api<{ updatedAt: string }>({
+          action: "change-status",
+          sessionId: s.id,
+        });
+        if (status.updatedAt === cursor) return;
         const d = await api<{ events: TradeEvent[]; session: Session }>({
           action: "get",
           sessionId: s.id,
@@ -547,10 +554,46 @@ export function usePulse(user: WorkspaceUser) {
         ].sort((a, b) => a.t - b.t);
         const next = { ...mergeSessions(latest, d.session), events: merged };
         if (JSON.stringify(next) !== JSON.stringify(latest)) await save(next);
+        cursor = status.updatedAt;
       } catch {}
-    }, 15000);
+    }, 5000);
     return () => clearInterval(t);
   }, [owner, session?.id, save]);
+  useEffect(() => {
+    const client = authClient();
+    if (!client) return;
+    let alive = true;
+    const channel = client
+      .channel("journal:" + owner)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pulse_sessions",
+          filter: "user_id=eq." + owner,
+        },
+        (payload) => {
+          const parsed = sessionSchema.safeParse(
+            (payload.new as { data?: unknown }).data,
+          );
+          if (!alive || !parsed.success || parsed.data.owner !== owner) return;
+          const remote = parsed.data,
+            selected = current.current;
+          void (async () => {
+            if (selected?.id === remote.id)
+              await save(mergeSessions(current.current ?? undefined, remote));
+            else await storage.saveSession(remote);
+            if (alive) await refreshHistory();
+          })().catch(() => {});
+        },
+      )
+      .subscribe();
+    return () => {
+      alive = false;
+      void client.removeChannel(channel);
+    };
+  }, [owner, save, refreshHistory]);
   return {
     session,
     samples,

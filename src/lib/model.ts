@@ -47,6 +47,14 @@ export type JournalEntry = {
   updatedAt?: number;
   deletedAt?: number;
   source?: "typed" | "voice" | "hr-checkin";
+  activationAt?: number;
+  recordingStartedAt?: number;
+  captureScope?: {
+    instrumentId?: string;
+    accountId?: string;
+    baselineSeconds?: number;
+    windowSeconds?: number;
+  };
   context?: {
     bpm?: number;
     baseline?: number;

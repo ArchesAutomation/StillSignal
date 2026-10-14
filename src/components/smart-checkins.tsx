@@ -4,6 +4,10 @@ import { Mic, X } from "lucide-react";
 import type { HrMoment } from "@/lib/smart-journal";
 import type { Settings } from "@/lib/model";
 import type { ReflectionDraft } from "./reflection-editor";
+import {
+  extensionOwnsShortcut,
+  routeExtensionPrompt,
+} from "@/lib/extension-bridge";
 
 export default function SmartCheckins({
   owner,
@@ -50,6 +54,7 @@ export default function SmartCheckins({
         !e.metaKey &&
         !e.shiftKey &&
         !e.repeat &&
+        !extensionOwnsShortcut(owner, settings.shortcutKey) &&
         e.key.toLowerCase() === settings.shortcutKey.toLowerCase() &&
         !busy.current
       ) {
@@ -59,7 +64,7 @@ export default function SmartCheckins({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [settings.shortcutKey]);
+  }, [owner, settings.shortcutKey]);
   useEffect(() => {
     // A real user gesture unlocks audio without ever opening the microphone.
     const unlock = () => {
@@ -102,40 +107,50 @@ export default function SmartCheckins({
     )
       return;
     last.current = now;
-    setPrompt(event);
-    if (settings.sound) {
-      const ctx = audio.current;
-      if (ctx?.state === "running") {
-        const osc = ctx.createOscillator(),
-          gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 660;
-        gain.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.22);
-      } else
-        setAudioError(
-          "Click anywhere in Trade Pulse to enable check-in sounds.",
-        );
-    }
-    if (
-      settings.spokenPrompt &&
-      typeof SpeechSynthesisUtterance !== "undefined"
-    ) {
-      speakingTimer.current = setTimeout(
-        () => {
-          window.speechSynthesis?.speak(
-            new SpeechSynthesisUtterance(
-              "Hey, what's going on? What are you feeling?",
-            ),
+    let valid = true;
+    void (async () => {
+      if (await routeExtensionPrompt(owner, sessionId, event)) return;
+      if (!valid || busy.current) return;
+      setPrompt(event);
+      if (settings.sound) {
+        const ctx = audio.current;
+        if (ctx?.state === "running") {
+          const osc = ctx.createOscillator(),
+            gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 660;
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.22);
+        } else
+          setAudioError(
+            "Click anywhere in Trade Pulse to enable check-in sounds.",
           );
-        },
-        settings.sound ? 300 : 0,
-      );
-    }
+      }
+      if (
+        settings.spokenPrompt &&
+        typeof SpeechSynthesisUtterance !== "undefined"
+      ) {
+        speakingTimer.current = setTimeout(
+          () => {
+            window.speechSynthesis?.speak(
+              new SpeechSynthesisUtterance(
+                "Hey, what's going on? What are you feeling?",
+              ),
+            );
+          },
+          settings.sound ? 300 : 0,
+        );
+      }
+    })();
+    return () => {
+      valid = false;
+    };
   }, [
+    owner,
+    sessionId,
     moments,
     now,
     latestSampleTime,

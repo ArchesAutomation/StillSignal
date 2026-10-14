@@ -106,6 +106,17 @@ export const sessionSchema = z.object({
         updatedAt: ts.optional(),
         deletedAt: ts.optional(),
         source: z.enum(["typed", "voice", "hr-checkin"]).optional(),
+        activationAt: ts.optional(),
+        recordingStartedAt: ts.optional(),
+        captureScope: z
+          .object({
+            instrumentId: z.string().min(1).max(160).optional(),
+            accountId: z.string().min(1).max(80).optional(),
+            baselineSeconds: z.number().int().min(30).max(3600).optional(),
+            windowSeconds: z.number().int().min(15).max(3600).optional(),
+          })
+          .strict()
+          .optional(),
         context: z
           .object({
             bpm: z.number().finite().min(25).max(240).optional(),
@@ -148,6 +159,7 @@ export const actionSchema = z.discriminatedUnion("action", [
       }, "Choose a valid IANA timezone."),
   }),
   z.object({ action: z.literal("list") }),
+  z.object({ action: z.literal("change-status"), sessionId: z.uuid() }),
   z.object({ action: z.literal("save"), session: sessionSchema }),
   z.object({
     action: z.literal("batch"),

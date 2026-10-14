@@ -43,20 +43,18 @@ export async function POST(request: Request) {
       const token = randomBytes(32).toString("hex"),
         hash = createHash("sha256").update(token).digest("hex"),
         expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-      const { error } = await db
-        .from("pulse_connections")
-        .upsert(
-          {
-            user_id: user.id,
-            provider: "tradingview",
-            token_hash: hash,
-            timezone: p.timezone,
-            expires_at: expiresAt,
-            last_received_at: null,
-            event_count: 0,
-          },
-          { onConflict: "user_id,provider" },
-        );
+      const { error } = await db.from("pulse_connections").upsert(
+        {
+          user_id: user.id,
+          provider: "tradingview",
+          token_hash: hash,
+          timezone: p.timezone,
+          expires_at: expiresAt,
+          last_received_at: null,
+          event_count: 0,
+        },
+        { onConflict: "user_id,provider" },
+      );
       checked(error);
       return Response.json(
         {
@@ -81,9 +79,30 @@ export async function POST(request: Request) {
       checked(error);
       return Response.json({ sessions: data?.map((r) => r.data) ?? [] });
     }
+    if (p.action === "change-status") {
+      const { data, error } = await db
+        .from("pulse_sessions")
+        .select("updated_at")
+        .eq("id", p.sessionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      checked(error);
+      if (!data) throw new Error("NOT_FOUND");
+      return Response.json(
+        { updatedAt: data.updated_at },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (p.action === "save") {
       if (p.session.owner !== user.id) throw new Error("UNAUTHORIZED");
-      if (p.session.journal.some(n => n.screenshot && !n.screenshot.path.startsWith(`${user.id}/${p.session.id}/`))) throw new Error("UNAUTHORIZED");
+      if (
+        p.session.journal.some(
+          (n) =>
+            n.screenshot &&
+            !n.screenshot.path.startsWith(`${user.id}/${p.session.id}/`),
+        )
+      )
+        throw new Error("UNAUTHORIZED");
       // A globally unique session ID must never be reassigned across tenants.
       const { error } = await db.rpc("pulse_save_session", {
         p_user: user.id,
