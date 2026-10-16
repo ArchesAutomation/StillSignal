@@ -1380,7 +1380,7 @@ export default function Dashboard({
                   }
                 />
               </div>
-              <section className="glass import-card csv-import-panel">
+              <section id="trade-csv" className="glass import-card csv-import-panel">
                 <h2>CSV trade history</h2>
                 <CsvImporter
                   active={p.active}

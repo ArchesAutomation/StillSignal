@@ -139,6 +139,12 @@ export default function CsvImporter({
         </a>
       </div>
       <p className="connection-note">
+        TradingView trades: export History from the Trading Panel, then confirm
+        that the complete export starts flat. Strategy backtests: export List of
+        Trades from the Strategy Report. Chart-price exports do not contain
+        your trades.
+      </p>
+      <p className="connection-note">
         Template columns: timestamp, symbol, kind, side, price, quantity, pnl,
         execution_id. ISO timestamps include Z or an offset. P&L is in USD. P&L
         and execution ID are optional; use a unique execution ID to distinguish

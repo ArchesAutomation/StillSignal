@@ -46,6 +46,7 @@ export default function TradingViewConnection({
     message = token
       ? tradingViewMessage(token, mode, key, kind, side, quantity)
       : "";
+  const expired = !!connection && Date.parse(connection.expiresAt) <= Date.now();
   async function act(task: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -71,22 +72,28 @@ export default function TradingViewConnection({
         <span className="connection-logo tv">
           T<span>V</span>
         </span>
-        <span className="tag">{connection ? "Connected" : "Live alerts"}</span>
+        <span className="tag">
+          {expired ? "Reconnect needed" : connection?.lastReceivedAt ? "Alerts received" : connection ? "Waiting for first alert" : "Not connected"}
+        </span>
       </div>
       <h2>TradingView</h2>
       <p>
-        Use your trading journal without a wearable. Alerts join an open journal
-        or create daily journals automatically, even when this app is closed.
-        Sessions and notes stay private to your account. Price alerts are observations, not executions, and are excluded from trade statistics. CSV and manual entry work without webhooks.
+        Send price, indicator, or Pine strategy alerts to your journal.
+        TradingView requires a one-time alert setup. Manual buys and sells
+        aren’t automatically synced through this connection.
+      </p>
+      <p className="connection-note">
+        Using TradingView Paper Trading? <a href="#trade-csv">Import your History CSV</a>
+        {" "}to journal those trades. For automatic execution sync, connect a supported broker above.
       </p>
       <ol>
-        <li>Generate your connection below.</li>
+        <li>Choose the alert type and set up your connection below.</li>
         <li>
           In TradingView, create an alert and paste the webhook URL under
           Notifications.
         </li>
-        <li>Paste the generated JSON into Message and create the alert.</li>
-        <li>Check the delivery status here after an alert fires.</li>
+        <li>Copy the alert message into Message and create the alert.</li>
+        <li>Return here after an alert fires to confirm it was received.</li>
       </ol>
       <div className="form-grid">
         <label>
@@ -185,13 +192,15 @@ export default function TradingViewConnection({
         <Link2 size={16} />
         {connection
           ? "Rotate key & regenerate setup"
-          : "Generate webhook setup"}
+          : "Set up TradingView alerts"}
       </button>
       {connection && (
         <div className="connection-note" role="status">
           {connection.lastReceivedAt
             ? `${connection.eventCount} events received · Last delivery ${new Date(connection.lastReceivedAt).toLocaleString()}`
             : "Waiting for your first TradingView alert."}
+          {!connection.lastReceivedAt && <p>Setup is saved. Delivery is confirmed only after an alert reaches your journal.</p>}
+          {expired && <p>This connection has expired. Replace the key and update your TradingView alert message.</p>}
           <br />
           Key expires {new Date(
             connection.expiresAt,
