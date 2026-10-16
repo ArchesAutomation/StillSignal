@@ -27,7 +27,9 @@ Limits: 2 MB, up to 5,000 rows/events, unique headers. Quoted comma-grouped numb
 
 ### Native TradingView export
 
-TradingView exports each Strategy Report tab separately. Export **List of Trades**, rather than Performance Summary. The importer detects English headers `Trade #`, `Type`, `Date/Time`, price and quantity, and monetary Net P&L/Net Profit. Select the instrument if it is absent and confirm the chart/export timezone. The combined Type field identifies entry/exit and long/short.
+For Trading Panel order history, use **Export data → History**. The importer recognizes `Closing Time` as the execution time and prefers `Avg Fill Price` over the requested order price. Confirm the full export starts flat before reconstructing entries and exits; cancelled/unfilled orders are skipped. Chart-price exports contain market prices, not your executed trades.
+
+TradingView exports each Strategy Report tab separately. Export **List of Trades**, rather than Performance Summary. The importer detects English headers `Trade #`, `Type`, `Date/Time` or `Date and time`, price and quantity, and monetary Net P&L/Net Profit. Select the instrument if it is absent and confirm the chart/export timezone. The combined Type field identifies entry/exit and long/short.
 
 Strategy Report events are visibly labeled **Backtest**. They are simulated strategy results, not independently verified broker executions. Native exporter headers vary; use the mapping controls if an export is localized or has different labels. Broker execution reports detect common FillTime, Contract, B/S or Buy/Sell, Fill Qty, Fill Price, status, account and fill/execution ID headers. The importer requires confirmation of a complete export starting flat, excludes unfilled/cancelled orders, and reconstructs per-account entries, partial exits and reversals. Local timestamps still require an explicit timezone. Repeated cumulative order snapshots with conflicting IDs are rejected; identical distinct fills require unique fill IDs. Unrecognized layouts retain mapping controls. There is no universal broker CSV schema.
 

@@ -126,6 +126,62 @@ test("journal, notes, and CSV replay persist without Bluetooth; re-importing doe
   });
   assert.equal(p!.session!.journal[0].text, "My trading plan");
 });
+test("TradingView history uploads preview and persist filled trades through the importer", async (t) => {
+  const dom = setup(),
+    root = createRoot(document.getElementById("root")!),
+    importOwner = "88888888-8888-4888-8888-888888888888";
+  t.after(async () => {
+    await act(async () => root.unmount());
+    dom.window.close();
+  });
+  let pulse: ReturnType<typeof usePulse>;
+  let importing: Promise<unknown> | undefined;
+  function Harness() {
+    pulse = usePulse({ id: importOwner });
+    return createElement(CsvImporter, {
+      active: false,
+      hasSession: false,
+      onImport: (events, name, destination) => {
+        importing = pulse.importEvents(events, name, destination);
+        return importing;
+      },
+    });
+  }
+  await act(async () => root.render(createElement(Harness)));
+  const csv =
+    "Symbol,Side,Type,Qty,Avg Fill Price,Status,Closing Time,Order ID\nES,Buy,Market,1,5000,Filled,2026-01-15 08:30:00,101\nES,Sell,Market,1,5025,Filled,2026-01-15 09:00:00,102\n";
+  const file = document.querySelector("input[type=file]")!;
+  Object.defineProperty(file, "files", {
+    value: [{ name: "TradingView-History.csv", size: csv.length, text: async () => csv }],
+    configurable: true,
+  });
+  await act(async () => {
+    file.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
+  const checkbox = (text: string) => [...document.querySelectorAll("label")]
+    .find((label) => label.textContent?.includes(text))!
+    .querySelector<HTMLInputElement>("input[type=checkbox]")!;
+  await act(async () => checkbox("starts flat").click());
+  assert.match(document.body.textContent!, /2 validated events/);
+  const submit = [...document.querySelectorAll("button")]
+    .find((button) => button.textContent === "Import 2 events")!;
+  assert.equal(submit.disabled, true, "timezone must be confirmed before saving");
+  await act(async () => checkbox("I confirmed").click());
+  assert.equal(submit.disabled, false);
+  await act(async () => {
+    submit.click();
+    await importing;
+  });
+  const sessions = await listSessions(importOwner);
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].name, "TradingView-History");
+  assert.deepEqual(sessions[0].events.map((e) => [e.kind, e.price]), [
+    ["entry", 5000], ["exit", 5025],
+  ]);
+  await act(async () => pulse.openSession(sessions[0]));
+  assert.equal(pulse!.session!.events.length, 2);
+  assert.equal(pulse!.samples.length, 0);
+});
 test("CSV file picker previews real rows before import and trade-only timeline remains usable", async (t) => {
   const dom = setup(),
     root = createRoot(document.getElementById("root")!);

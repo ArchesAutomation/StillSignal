@@ -7,6 +7,37 @@ import {
   tradingViewMessage,
 } from "../src/lib/tradingview";
 import { sessionSchema } from "../src/lib/validation";
+test("TradingView Date and time strategy exports keep entry/exit directions and monetary P&L", () => {
+  const csv =
+    "Trade #,Type,Signal,Date and time,Price USD,Position size (qty),Net P&L USD,Net P&L %\n1,Exit short,Close,2026-01-15 09:00:00,4975,2,50,0.5\n1,Entry short,Short,2026-01-15 08:30:00,5000,2,50,0.5\n";
+  assert.equal(inspectCsv(csv).backtest, true);
+  const events = parseTrades(csv, { symbol: "ES", timezone: "America/New_York" });
+  assert.deepEqual(events.map((e) => [e.kind, e.side, e.pnl]), [
+    ["entry", "short", undefined],
+    ["exit", "short", 50],
+  ]);
+  assert.equal(events[0].t, Date.parse("2026-01-15T13:30:00Z"));
+  assert.ok(events.every((e) => e.provenance === "backtest"));
+});
+test("TradingView order history uses execution time and fill price, skipping cancelled orders", () => {
+  const csv =
+    "Symbol,Side,Type,Qty,Price,Avg Fill Price,Status,Placing Time,Closing Time,Order ID\nCME_MINI:ES1!,Sell,Limit,1,5025,5026,Filled,2026-01-15 08:59:00,2026-01-15 09:00:00,102\nCME_MINI:ES1!,Buy,Limit,1,5000,5001,Filled,2026-01-15 08:29:00,2026-01-15 08:30:00,101\nCME_MINI:ES1!,Buy,Limit,1,4990,,Cancelled,2026-01-15 08:20:00,,100\n";
+  const inspection = inspectCsv(csv);
+  assert.equal(inspection.fills, true);
+  assert.equal(inspection.backtest, false);
+  assert.equal(inspection.mapping.timestamp, "Closing Time");
+  assert.equal(inspection.mapping.price, "Avg Fill Price");
+  assert.throws(() => parseTrades(csv), /starts with a flat position/);
+  const options = { timezone: "America/New_York", fillsStartFlat: true };
+  const events = parseTrades(csv, options);
+  assert.deepEqual(events.map((e) => [e.kind, e.side, e.price]), [
+    ["entry", "long", 5001],
+    ["exit", "long", 5026],
+  ]);
+  assert.equal(events[0].t, Date.parse("2026-01-15T13:30:00Z"));
+  assert.ok(events.every((e) => e.provenance === "execution"));
+  assert.deepEqual(parseTrades(csv, options), events);
+});
 test("CSV native trade exports preserve timezones, mark backtests, and deduplicate executions", () => {
   const csv =
     "Trade #,Type,Signal,Date/Time,Price USD,Position size (qty),Net P&L USD,Net P&L %\n1,Entry long,Long,2026-01-15 08:30:00,5000,1,25,0.5\n1,Exit long,Exit,2026-01-15 09:00:00,5025,1,25,0.5\n1,Exit long,Exit,2026-01-15 09:00:00,5025,1,25,0.5\n";

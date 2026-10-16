@@ -56,12 +56,14 @@ export function inspectCsv(csv: string) {
     throw new Error("CSV column names must be unique.");
   const find = (matches: RegExp) =>
     headers.find((h) => matches.test(normalize(h))) || "";
+  const strategyTime = find(/^(date\/time|date and time|date & time)$/);
   const native =
-    !!find(/^trade #$/) && !!find(/^type$/) && !!find(/^date\/time$/);
+    !!find(/^trade #$/) && !!find(/^type$/) && !!strategyTime;
   const mapping: CsvMapping = {
-    timestamp: find(
-      /^(timestamp|date\/time|datetime|date time|filled time|fill time|filltime|execution time|time)$/,
-    ),
+    timestamp:
+      strategyTime ||
+      find(/^(filled time|fill time|filltime|execution time|closing time)$/) ||
+      find(/^(timestamp|datetime|date time|time)$/),
     symbol: find(/^(symbol|instrument|ticker|contract)$/),
     kind: find(/^(kind|event|entry\/exit)$/) || (native ? find(/^type$/) : ""),
     side: find(/^(side|direction|position)$/) || (native ? find(/^type$/) : ""),
@@ -79,6 +81,12 @@ export function inspectCsv(csv: string) {
   const actionColumn = find(/^(action|b\/s|buy\/sell|buy or sell|side)$/);
   const statusColumn = find(/^(status|order status|ordstatus)$/);
   const fills = !native && !mapping.kind && !!actionColumn;
+  // Order history can contain an order/limit price alongside the actual fill
+  // price. Never prefer the requested price over the recorded execution.
+  if (fills)
+    mapping.price =
+      find(/^(avg fill price|average fill price|fill price|fillprice|execution price)(\s+[^%]+)?$/) ||
+      mapping.price;
   return {
     headers,
     rows: result.data,
