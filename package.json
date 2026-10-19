@@ -12,8 +12,7 @@
     "check": "npm run typecheck && npm test && npm run build",
     "prepare:edge": "node scripts/prepare-edge.mjs",
     "build:extension": "node scripts/build-extension.mjs",
-    "test:extension:chrome": "node scripts/test-extension-runner.mjs",
-    "test:overview:browser": "node scripts/test-overview.mjs"
+    "test:extension:chrome": "node scripts/test-extension-runner.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "4.0.113",

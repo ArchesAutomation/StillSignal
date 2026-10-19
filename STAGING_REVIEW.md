@@ -47,7 +47,7 @@ Production migration and deployment remain a separate release decision.
 ## Overview and candle controls
 
 Build and start the isolated UI review app with the review flags above, then run
-`npm run test:overview:browser`. The default review URL is
+`node scripts/test-overview.mjs`. The default review URL is
 `http://127.0.0.1:3100`; set `OVERVIEW_TEST_URL` for another port or review host.
 Use Playwright's installed Chromium, or set `PLAYWRIGHT_CHANNEL=msedge` to use
 an installed Edge browser.
