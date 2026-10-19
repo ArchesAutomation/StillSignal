@@ -39,7 +39,8 @@ async function mockCloud(
       return Response.json({ id: owner, email: "staging@example.test" });
     if (call.url.pathname.endsWith("/pulse_rate_limit"))
       return Response.json(true);
-    return Response.json(respond(call));
+    const response = respond(call);
+    return response instanceof Response ? response : Response.json(response);
   };
   try {
     await run(calls);
@@ -72,6 +73,84 @@ test("broker status is tenant scoped and does not request credential columns", a
     }
     assert.ok(
       !JSON.stringify(await response.json()).includes("test-service-key"),
+    );
+  });
+});
+
+test("import progress counts only the authenticated customer's selected connection", async () => {
+  await mockCloud(
+    async (calls) => {
+      const response = await brokers(
+        request({ action: "progress", connectionId: connection }),
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        importedExecutions: 3,
+        historyChecked: true,
+      });
+      const queries = calls.filter((c) =>
+        c.url.pathname.startsWith("/rest/v1/pulse_broker_"),
+      );
+      assert.equal(queries.length, 2);
+      assert.ok(
+        queries.every(
+          (c) => c.url.searchParams.get("user_id") === "eq." + owner,
+        ),
+      );
+      const count = queries.find((c) => c.method === "HEAD")!;
+      assert.equal(
+        count.url.searchParams.get("pulse_broker_accounts.connection_id"),
+        "eq." + connection,
+      );
+      assert.equal(queries[0].url.searchParams.get("id"), "eq." + connection);
+    },
+    (c) =>
+      c.url.pathname.endsWith("pulse_broker_executions")
+        ? new Response(null, { headers: { "Content-Range": "0-2/3" } })
+        : { id: connection, last_sync_at: "2026-10-19T00:00:00Z" },
+  );
+});
+
+test("refresh does not queue discovery before OAuth sign-in or after disconnect", async () => {
+  for (const status of ["pending", "revoked"])
+    await mockCloud(
+      async (calls) => {
+        const response = await brokers(
+          request({ action: "refresh", connectionId: connection }),
+        );
+        assert.equal(response.status, 409);
+        assert.ok(
+          !calls.some((c) => c.url.pathname.endsWith("pulse_broker_discovery")),
+        );
+      },
+      (c) =>
+        c.url.pathname.endsWith("pulse_broker_connections")
+          ? { id: connection, status }
+          : null,
+    );
+});
+
+test("an unconfigured tastytrade demo connection is rejected before account mutation", async () => {
+  await mockCloud(async (calls) => {
+    Object.assign(process.env, {
+      APP_ORIGIN: "https://staging.test",
+      BROKER_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"),
+      TASTYTRADE_CLIENT_ID: "client",
+      TASTYTRADE_CLIENT_SECRET: "secret",
+      TASTYTRADE_APPROVED: "true",
+    });
+    delete process.env.TASTYTRADE_PAPER_CLIENT_ID;
+    delete process.env.TASTYTRADE_PAPER_CLIENT_SECRET;
+    const response = await brokers(
+      request({
+        action: "connect",
+        provider: "tastytrade",
+        environment: "paper",
+      }),
+    );
+    assert.equal(response.status, 503);
+    assert.ok(
+      !calls.some((c) => c.url.pathname.startsWith("/rest/v1/pulse_broker_")),
     );
   });
 });

@@ -24,6 +24,8 @@ const providers = z.enum([
   "projectx",
   "rithmic",
   "oanda",
+  "alpaca",
+  "tastytrade",
 ]);
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("status") }),
@@ -38,6 +40,7 @@ const schema = z.discriminatedUnion("action", [
     apiKey: z.string().max(8192).optional(),
   }),
   z.object({ action: z.literal("refresh"), connectionId: z.uuid() }),
+  z.object({ action: z.literal("progress"), connectionId: z.uuid() }),
   z.object({ action: z.literal("disconnect"), connectionId: z.uuid() }),
   z.object({ action: z.literal("sync"), accountId: z.uuid() }),
   z.object({
@@ -75,7 +78,7 @@ export async function POST(request: Request) {
       );
       await saveCredentials(db, row.user_id, row.connection_id, credentials);
       await queueDiscovery(db, row.user_id, row.connection_id);
-      return json({ ok: true });
+      return json({ ok: true, connectionId: row.connection_id });
     }
     const { db, user } = await authenticated(request);
     await rate(db, "broker:" + user.id, 30);
@@ -126,6 +129,14 @@ export async function POST(request: Request) {
     if (body.action === "connect") {
       const route = routes.find((r) => r.id === body.provider)!;
       if (!route.available) return json({ error: route.prerequisite }, 503);
+      if (!route.environments.includes(body.environment))
+        return json(
+          {
+            error:
+              "This broker's demo connection is not available yet. Choose a live account or import a CSV.",
+          },
+          503,
+        );
       if (body.provider === "oanda" && !body.accessToken)
         return json({ error: "Enter your OANDA API token." }, 400);
       if (body.provider === "projectx" && (!body.apiKey || !body.userName))
@@ -197,6 +208,7 @@ export async function POST(request: Request) {
           url: authorizeUrl(
             body.provider,
             await beginOauth(db, user.id, connectionId),
+            body.environment,
           ),
           connectionId,
         });
@@ -212,6 +224,7 @@ export async function POST(request: Request) {
       await queueDiscovery(db, user.id, connectionId);
       return json({
         queued: true,
+        connectionId,
         message:
           "Credentials saved. Account verification and available history import are queued.",
       });
@@ -261,7 +274,39 @@ export async function POST(request: Request) {
       .single();
     checked(result.error);
     const c = result.data!;
+    if (body.action === "progress") {
+      const count = await db
+        .from("pulse_broker_executions")
+        .select("id,pulse_broker_accounts!inner(connection_id)", {
+          count: "exact",
+          head: true,
+        })
+        .eq("user_id", user.id)
+        .eq("pulse_broker_accounts.connection_id", c.id);
+      checked(count.error);
+      return json({
+        importedExecutions: count.count || 0,
+        historyChecked: !!c.last_sync_at,
+      });
+    }
     if (body.action === "refresh") {
+      if (c.status === "revoked")
+        return json(
+          { error: "Reconnect this broker before refreshing its accounts." },
+          409,
+        );
+      const secret = await db
+        .from("pulse_broker_secrets")
+        .select("connection_id")
+        .eq("user_id", user.id)
+        .eq("connection_id", c.id)
+        .maybeSingle();
+      checked(secret.error);
+      if (!secret.data)
+        return json(
+          { error: "Finish signing in with your broker, then check again." },
+          409,
+        );
       await queueDiscovery(db, user.id, c.id);
       return json({
         queued: true,

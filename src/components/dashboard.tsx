@@ -182,7 +182,10 @@ export default function Dashboard({
   const [noteDraft, setNoteDraft] = useState<ReflectionDraft | null>(null),
     [momentTime, setMomentTime] = useState(0);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("review") === "today") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("broker_return") || params.has("broker_error")) {
+      setTab("Connections");
+    } else if (params.get("review") === "today") {
       setTab("Journal"); setTodayReview(true);
     }
   }, []);
@@ -1328,6 +1331,7 @@ export default function Dashboard({
               <BrokerConnections
                 owner={p.owner}
                 onChanged={() => void p.refreshHistory()}
+                onViewJournal={() => setTab("Journal")}
               />
               <div className="connections-grid">
                 <section className="glass connection-card">

@@ -5,12 +5,16 @@ import { projectx } from "./projectx.ts";
 import { oanda } from "./oanda.ts";
 import { tradestation } from "./tradestation.ts";
 import { tradovate } from "./tradovate.ts";
+import { alpaca } from "./alpaca.ts";
+import { tastytrade } from "./tastytrade.ts";
 const adapters: Partial<Record<BrokerProvider, BrokerAdapter>> = {
   snaptrade,
   projectx,
   oanda,
   tradestation,
   tradovate,
+  alpaca,
+  tastytrade,
 };
 export function brokerAdapter(provider: BrokerProvider): BrokerAdapter {
   const adapter = adapters[provider];

@@ -6,7 +6,9 @@ export type BrokerProvider =
   | "ibkr"
   | "projectx"
   | "rithmic"
-  | "oanda";
+  | "oanda"
+  | "alpaca"
+  | "tastytrade";
 export type BrokerCredentials = {
   accessToken?: string;
   refreshToken?: string;

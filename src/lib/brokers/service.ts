@@ -8,6 +8,7 @@ import {
   digest,
 } from "./security";
 import { refreshCredentials } from "./oauth";
+import { ProviderError } from "./http";
 import type { BrokerCredentials, BrokerProvider, BrokerAccount } from "./model";
 export type BrokerDb = ReturnType<typeof service>;
 export async function credentialsFor(
@@ -100,6 +101,7 @@ export async function discoverAccounts(
   credentials: BrokerCredentials,
 ) {
   const accounts = await brokerAdapter(provider).accounts(credentials);
+  if (!accounts.length) throw new ProviderError("PROVIDER_NO_ACCOUNTS");
   const known = await db
     .from("pulse_broker_accounts")
     .select("canonical_key,institution,environment,connection_id")

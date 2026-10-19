@@ -9,6 +9,32 @@ export const brokerRoutes: {
   env: string[];
 }[] = [
   {
+    id: "alpaca",
+    name: "Alpaca",
+    method: "oauth",
+    prerequisite:
+      "Registered Alpaca Connect OAuth application, approved commercial use, and registered callback URL.",
+    freshness:
+      "Individual fill history with execution timestamps; periodic sync",
+    docs: "https://docs.alpaca.markets/us/docs/using-oauth2-and-trading-api",
+    env: ["ALPACA_CLIENT_ID", "ALPACA_CLIENT_SECRET", "ALPACA_APPROVED"],
+  },
+  {
+    id: "tastytrade",
+    name: "tastytrade",
+    method: "oauth",
+    prerequisite:
+      "Verified tastytrade third-party OAuth application, read scope, registered callback, and customer 2FA.",
+    freshness:
+      "Individual transaction history with execution timestamps; periodic sync",
+    docs: "https://developer.tastytrade.com/docs/authentication/oauth2/",
+    env: [
+      "TASTYTRADE_CLIENT_ID",
+      "TASTYTRADE_CLIENT_SECRET",
+      "TASTYTRADE_APPROVED",
+    ],
+  },
+  {
     id: "snaptrade",
     name: "SnapTrade · Global brokerages",
     method: "hosted",
@@ -101,9 +127,16 @@ export function routeAvailability(env: Record<string, string | undefined>) {
   );
   return brokerRoutes.map((route) => ({
     ...route,
+    environments: (route.id === "tastytrade" &&
+    !(env.TASTYTRADE_PAPER_CLIENT_ID && env.TASTYTRADE_PAPER_CLIENT_SECRET)
+      ? ["live"]
+      : ["live", "paper"]) as ("live" | "paper")[],
     available:
       encryptionReady &&
       route.method !== "unavailable" &&
+      // OAuth and hosted flows must have an explicitly configured redirect origin.
+      (route.method === "key" ||
+        /^https:\/\/[^/?#]+$/.test(env.APP_ORIGIN || "")) &&
       route.env.every((key) =>
         /_ENABLED$|_APPROVED$/.test(key) ? env[key] === "true" : !!env[key],
       ),

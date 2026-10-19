@@ -1,13 +1,46 @@
 import { providerJson, ProviderError } from "./http.ts";
 import type { BrokerCredentials, BrokerProvider } from "./model.ts";
+import { tastyHeaders, tastyOrigin } from "./tastytrade.ts";
 export function callbackUrl() {
   const url = new URL(Deno.env.get("APP_ORIGIN") || "");
   if (url.protocol !== "https:" && url.hostname !== "localhost")
     throw new Error("NOT_CONFIGURED");
   return url.origin + "/api/brokers/callback";
 }
-export function authorizeUrl(provider: BrokerProvider, state: string) {
+export function authorizeUrl(
+  provider: BrokerProvider,
+  state: string,
+  environment: "live" | "paper" = "live",
+) {
   const redirect = callbackUrl();
+  if (provider === "alpaca")
+    return (
+      "https://app.alpaca.markets/oauth/authorize?" +
+      new URLSearchParams({
+        response_type: "code",
+        client_id: Deno.env.get("ALPACA_CLIENT_ID")!,
+        redirect_uri: redirect,
+        state,
+        env: environment,
+        // Alpaca assumes read-only access when write/trading scopes are omitted.
+      })
+    );
+  if (provider === "tastytrade")
+    return (
+      (environment === "paper"
+        ? "https://cert-my.staging-tasty.works/auth.html?"
+        : "https://my.tastytrade.com/auth.html?") +
+      new URLSearchParams({
+        response_type: "code",
+        client_id:
+          environment === "paper"
+            ? Deno.env.get("TASTYTRADE_PAPER_CLIENT_ID")!
+            : Deno.env.get("TASTYTRADE_CLIENT_ID")!,
+        redirect_uri: redirect,
+        state,
+        scope: "read",
+      })
+    );
   if (provider === "tradestation")
     return (
       "https://signin.tradestation.com/authorize?" +
@@ -37,6 +70,57 @@ export async function exchangeCode(
   code: string,
   environment: "live" | "paper",
 ): Promise<BrokerCredentials> {
+  if (provider === "alpaca" || provider === "tastytrade") {
+    const tasty = provider === "tastytrade";
+    const clientId = tasty
+      ? environment === "paper"
+        ? Deno.env.get("TASTYTRADE_PAPER_CLIENT_ID")
+        : Deno.env.get("TASTYTRADE_CLIENT_ID")
+      : Deno.env.get("ALPACA_CLIENT_ID");
+    const clientSecret = tasty
+      ? environment === "paper"
+        ? Deno.env.get("TASTYTRADE_PAPER_CLIENT_SECRET")
+        : Deno.env.get("TASTYTRADE_CLIENT_SECRET")
+      : Deno.env.get("ALPACA_CLIENT_SECRET");
+    const body = {
+      grant_type: "authorization_code",
+      code,
+      client_id: clientId!,
+      client_secret: clientSecret!,
+      redirect_uri: callbackUrl(),
+    };
+    const result = await providerJson(
+      tasty
+        ? tastyOrigin({ environment }) + "/oauth/token"
+        : "https://api.alpaca.markets/oauth/token",
+      {
+        method: "POST",
+        headers: {
+          ...(tasty ? tastyHeaders : {}),
+          "Content-Type": tasty
+            ? "application/json"
+            : "application/x-www-form-urlencoded",
+        },
+        body: tasty ? JSON.stringify(body) : new URLSearchParams(body),
+      },
+    );
+    if (
+      !result.access_token ||
+      (tasty &&
+        (!result.refresh_token ||
+          !Number.isFinite(Number(result.expires_in)) ||
+          Number(result.expires_in) <= 0))
+    )
+      throw new ProviderError("PROVIDER_REAUTH");
+    return {
+      accessToken: result.access_token,
+      environment,
+      ...(result.refresh_token ? { refreshToken: result.refresh_token } : {}),
+      ...(result.expires_in
+        ? { expiresAt: Date.now() + Number(result.expires_in) * 1000 }
+        : {}),
+    };
+  }
   if (provider === "tradestation") {
     const result = await providerJson(
       "https://signin.tradestation.com/oauth/token",
@@ -92,6 +176,35 @@ export async function refreshCredentials(
 ): Promise<BrokerCredentials> {
   if (!credentials.expiresAt || credentials.expiresAt > Date.now() + 60000)
     return credentials;
+  if (provider === "tastytrade" && credentials.refreshToken) {
+    const result = await providerJson(
+      tastyOrigin(credentials) + "/oauth/token",
+      {
+        method: "POST",
+        headers: { ...tastyHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "refresh_token",
+          refresh_token: credentials.refreshToken,
+          client_secret:
+            credentials.environment === "paper"
+              ? Deno.env.get("TASTYTRADE_PAPER_CLIENT_SECRET")
+              : Deno.env.get("TASTYTRADE_CLIENT_SECRET"),
+          scope: "read",
+        }),
+      },
+    );
+    if (
+      !result.access_token ||
+      !Number.isFinite(Number(result.expires_in)) ||
+      Number(result.expires_in) <= 0
+    )
+      throw new ProviderError("PROVIDER_REAUTH");
+    return {
+      ...credentials,
+      accessToken: result.access_token,
+      expiresAt: Date.now() + Number(result.expires_in) * 1000,
+    };
+  }
   if (provider === "tradestation" && credentials.refreshToken) {
     const result = await providerJson(
       "https://signin.tradestation.com/oauth/token",
