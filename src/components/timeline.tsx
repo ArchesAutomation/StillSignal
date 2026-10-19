@@ -22,15 +22,24 @@ type Props = ComponentProps<typeof LegacyTimeline> & {
   sessionStart?: number;
   sessionEnd?: number;
   viewportKey?: string;
+  instrumentScope?: string;
 };
 export function Timeline(props: Props) {
   const [interval, setInterval] = useState<60 | 300 | 900 | 3600>(60);
   const [volume, setVolume] = useState(false);
   const [hrHeight, setHrHeight] = useState(120);
   const [liveVersion, setLiveVersion] = useState(0);
-  const [resolved, setResolved] = useState<Instrument | undefined>();
+  const [resolved, setResolved] = useState<{
+    instrument: Instrument;
+    scope: string;
+  }>();
   const [asset, setAsset] = useState<Instrument["assetClass"]>("equity");
-  const instrument = resolved || props.instrument;
+  const scope =
+    props.instrumentScope ||
+    JSON.stringify([props.owner, props.sessionStart ?? props.start]);
+  const instrument =
+    props.instrument ||
+    (resolved?.scope === scope ? resolved.instrument : undefined);
   const cutoff = props.cutoff ?? props.end;
   // Load the historical window once. Rendering/tooltip apply the replay cutoff;
   // scrubbing must not dispatch a request for every cursor movement.
@@ -57,6 +66,8 @@ export function Timeline(props: Props) {
           Interval{" "}
           <select
             aria-label="Candle interval"
+            disabled={!advanced || loading}
+            aria-describedby={!advanced ? "market-controls-help" : undefined}
             value={interval}
             onChange={(e) => setInterval(+e.target.value as typeof interval)}
           >
@@ -75,6 +86,7 @@ export function Timeline(props: Props) {
         <label className="checkbox-label">
           <input
             type="checkbox"
+            disabled={!advanced}
             checked={volume}
             onChange={(e) => setVolume(e.target.checked)}
           />{" "}
@@ -84,6 +96,7 @@ export function Timeline(props: Props) {
           HR pane{" "}
           <select
             aria-label="Heart-rate pane size"
+            disabled={!advanced}
             value={hrHeight}
             onChange={(e) => setHrHeight(+e.target.value)}
           >
@@ -94,11 +107,19 @@ export function Timeline(props: Props) {
         </label>
         <button
           className="text-button"
+          disabled={!advanced}
           onClick={() => setLiveVersion((n) => n + 1)}
         >
           Return to {props.replay ? "replay" : "live"}
         </button>
       </div>
+      {!advanced && (
+        <p id="market-controls-help" className="muted">
+          Showing the trade and heart-rate timeline. Candle intervals, volume,
+          pane sizing, and return to live require an available market chart.
+          {!instrument && " Choose an exact instrument below to load candles."}
+        </p>
+      )}
       {!props.instrument && (
         <details className="instrument-resolver">
           <summary>
@@ -122,14 +143,17 @@ export function Timeline(props: Props) {
                 exchange = String(f.get("exchange")).toUpperCase(),
                 expiry = String(f.get("expiry") || "");
               setResolved({
-                id: [asset, exchange, symbol, expiry].join(":"),
-                symbol,
-                assetClass: asset,
-                exchange,
-                currency: String(f.get("currency")),
-                multiplier: Number(f.get("multiplier")),
-                ...(expiry ? { expiry } : {}),
-                providerSymbol: symbol,
+                scope,
+                instrument: {
+                  id: [asset, exchange, symbol, expiry].join(":"),
+                  symbol,
+                  assetClass: asset,
+                  exchange,
+                  currency: String(f.get("currency")),
+                  multiplier: Number(f.get("multiplier")),
+                  ...(expiry ? { expiry } : {}),
+                  providerSymbol: symbol,
+                },
               });
             }}
             className="resolver-fields"
@@ -212,10 +236,10 @@ export function Timeline(props: Props) {
                 " · " +
                 feed.freshness +
                 " · " +
-                feed.granularity
+                feed.granularity + " · " + feed.candles.length + " candles"
               : feed.message}
         </span>
-        {feed.state === "error" && (
+        {instrument && !loading && feed.state !== "ready" && (
           <button className="text-button" onClick={retry}>
             Retry feed
           </button>
