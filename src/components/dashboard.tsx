@@ -252,9 +252,14 @@ export default function Dashboard({
         (!instrumentFilter ||
           (e.instrument?.id || e.symbol) === instrumentFilter),
     ) || [];
-  const chartInstrument = s?.events.find(
-    (e) => (e.instrument?.id || e.symbol) === instrumentFilter,
-  )?.instrument;
+  const chartInstruments = new Map(
+    visibleEvents.map((e) => [e.instrument?.id || e.symbol, e.instrument]),
+  );
+  const chartInstrument = instrumentFilter
+    ? chartInstruments.get(instrumentFilter)
+    : chartInstruments.size === 1
+      ? chartInstruments.values().next().value
+      : undefined;
   const totals = pnlByCurrency(visibleEvents);
   const closed = visibleEvents.filter(
       (e) => e.kind === "exit" && isActualExecution(e),
@@ -825,6 +830,9 @@ export default function Dashboard({
                     owner={p.owner}
                     selectedTime={contextEvent?.t}
                     viewportKey={s.id + ":" + range}
+                    instrumentScope={JSON.stringify([
+                      p.owner, s.id, accountFilter, instrumentFilter,
+                    ])}
                     sessionStart={s.startedAt}
                     sessionEnd={fullEnd}
                     instrument={chartInstrument}

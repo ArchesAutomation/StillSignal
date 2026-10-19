@@ -43,3 +43,24 @@ Provision pulse_market_entitlements with exact user/instrument IDs, provider, ag
 The broker database tests apply migrations only to a fresh isolated local PGlite database. They cover RLS/secret boundaries, transactional intake, retries, amendments/voids, notes, deletion protection, checkpoints, and cross-account rejection.
 
 Production migration and deployment remain a separate release decision.
+
+## Overview and candle controls
+
+Build and start the isolated UI review app with the review flags above, then run
+`npm run test:overview:browser`. The default review URL is
+`http://127.0.0.1:3100`; set `OVERVIEW_TEST_URL` for another port or review host.
+Use Playwright's installed Chromium, or set `PLAYWRIGHT_CHANNEL=msedge` to use
+an installed Edge browser.
+
+The browser check verifies all four candle intervals (75 one-minute, 15
+five-minute, 5 fifteen-minute, and 2 hourly fixture bars), instrument selection,
+volume, HR pane sizing, timeline ranges, return to live, tab navigation, and
+replay without browser errors. The unit suite also checks unavailable-feed
+controls and instrument resolution across sessions and toolbar selections.
+
+Verified locally on 2026-10-19: 76 tests, TypeScript, optimized review build, and
+the Edge browser check pass. These browser results use labeled synthetic data.
+The production `/api/market` still reports `Market data is not configured yet`.
+Live candles require a configured provider, instrument display entitlement, and
+the corresponding market backend before enabling `MARKET_SERVICES_ENABLED`.
+Broker execution connections can be added independently.
