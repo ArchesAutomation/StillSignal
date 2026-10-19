@@ -1,35 +1,5 @@
-import { snapSignature } from "./security.ts";
-import { providerJson, ProviderError } from "./http.ts";
-import type { BrokerAdapter, BrokerCredentials, RawExecution } from "./model.ts";
-export async function snapRequest(
-  path: string,
-  credentials?: BrokerCredentials,
-  body?: unknown,
-  params: Record<string, string> = {},
-  method?: string,
-) {
-  const query = new URLSearchParams({
-    clientId: Deno.env.get("SNAPTRADE_CLIENT_ID")!,
-    timestamp: String(Math.floor(Date.now() / 1000)),
-    ...params,
-    ...(credentials
-      ? { userId: credentials.userId!, userSecret: credentials.userSecret! }
-      : {}),
-  }).toString();
-  return providerJson("https://api.snaptrade.com/api/v1" + path + "?" + query, {
-    method: method || (body === undefined ? "GET" : "POST"),
-    headers: {
-      "Content-Type": "application/json",
-      Signature: snapSignature(
-        "/api/v1" + path,
-        query,
-        body,
-        Deno.env.get("SNAPTRADE_CONSUMER_KEY")!,
-      ),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-}
+import { ProviderError } from "./http.ts";
+import type { BrokerAdapter, RawExecution } from "./model.ts";
 type Activity = {
   id: string;
   type: string;
@@ -101,90 +71,15 @@ export function snapActivity(row: Activity): RawExecution | null {
     raw: row,
   };
 }
+// Legacy commercial requests are disabled for onboarding, workers and disconnects.
+// Personal OAuth needs its own approved, cost-reviewed integration; it must never
+// reuse commercial API keys or create subordinate SnapTrade users.
+async function blocked(): Promise<never> {
+  throw new ProviderError("SNAPTRADE_PERSONAL_OAUTH_REQUIRED");
+}
 export const snaptrade: BrokerAdapter = {
   provider: "snaptrade",
-  async accounts(credentials) {
-    const [rows, authorizations] = await Promise.all([
-      snapRequest("/accounts", credentials),
-      snapRequest("/authorizations", credentials),
-    ]);
-    return rows
-      .filter(
-        (r: { brokerage_authorization: string }) =>
-          !authorizations.find(
-            (a: { id: string; disabled: boolean }) =>
-              a.id === r.brokerage_authorization,
-          )?.disabled,
-      )
-      .map(
-        (r: {
-          id: string;
-          institution_name: string;
-          institution_account_id?: string;
-          number: string;
-          name: string;
-          balance?: { total?: { currency?: string } };
-          is_paper: boolean;
-        }) => {
-          const number = r.institution_account_id || r.number || "";
-          const currency = r.balance?.total?.currency;
-          if (!currency || !/^[A-Z]{3}$/.test(currency))
-            throw new ProviderError("UNRESOLVED_ACCOUNT_CURRENCY");
-          return {
-            id: "",
-            providerId: r.id,
-            institution: r.institution_name,
-            number,
-            name: r.name || r.institution_name,
-            currency,
-            environment: r.is_paper ? ("paper" as const) : ("live" as const),
-            identityVerified: !!number && !/[*•]/.test(number),
-          };
-        },
-      );
-  },
-  async executions(credentials, account, cursor) {
-    if (Deno.env.get("SNAPTRADE_STABLE_IDS") !== "true")
-      throw new ProviderError("SNAPTRADE_STABLE_IDS_REQUIRED");
-    const result = await snapRequest(
-      "/accounts/" + encodeURIComponent(account.providerId) + "/activities",
-      credentials,
-      undefined,
-      {
-        offset: String(cursor.offset || 0),
-        limit: "200",
-        ...(cursor.startDate ? { startDate: String(cursor.startDate) } : {}),
-      },
-    );
-    const rows: Activity[] = result.data;
-    if (!Array.isArray(rows))
-      throw new ProviderError("PROVIDER_CONTRACT_CHANGED");
-    const complete = rows.length < 200;
-    const records = rows
-      .map(snapActivity)
-      .filter((r): r is RawExecution => r !== null);
-    return {
-      records,
-      complete,
-      cursor: complete
-        ? {
-            offset: 0,
-            startDate: new Date(Date.now() - 7 * 86400000)
-              .toISOString()
-              .slice(0, 10),
-          }
-        : { ...cursor, offset: Number(cursor.offset || 0) + rows.length },
-    };
-  },
-  async disconnect(credentials) {
-    const auths = await snapRequest("/authorizations", credentials);
-    for (const auth of auths)
-      await snapRequest(
-        "/authorizations/" + encodeURIComponent(auth.id),
-        credentials,
-        undefined,
-        {},
-        "DELETE",
-      );
-  },
+  accounts: blocked,
+  executions: blocked,
+  disconnect: blocked,
 };

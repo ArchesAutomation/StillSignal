@@ -1,3 +1,4 @@
+import { directDetails, snaptradeBlockedReason } from "./connection-policy";
 import type { BrokerProvider } from "./model";
 export const brokerRoutes: {
   id: BrokerProvider;
@@ -37,17 +38,11 @@ export const brokerRoutes: {
   {
     id: "snaptrade",
     name: "SnapTrade · Global brokerages",
-    method: "hosted",
-    prerequisite:
-      "Commercial SnapTrade client ID and consumer key; allowed institution catalog; stable transaction-ID agreement before automatic history ingestion.",
-    freshness:
-      "Daily activity history; trade detection needs an additional subscription",
-    docs: "https://docs.snaptrade.com/docs/getting-started",
-    env: [
-      "SNAPTRADE_CLIENT_ID",
-      "SNAPTRADE_CONSUMER_KEY",
-      "SNAPTRADE_COMMERCIAL_ENABLED",
-    ],
+    method: "unavailable",
+    prerequisite: snaptradeBlockedReason,
+    freshness: "Daily transactions, delayed by one day; no live-session sync",
+    docs: "https://docs.snaptrade.com/docs/oauth-apps",
+    env: [],
   },
   {
     id: "tradestation",
@@ -83,7 +78,7 @@ export const brokerRoutes: {
     name: "Interactive Brokers · Native",
     method: "unavailable",
     prerequisite:
-      "IBKR third-party API compliance approval and OAuth onboarding, or a licensed TWS/Client Portal gateway relay with read-only settings. SnapTrade is the hosted route when eligible.",
+      "IBKR third-party API compliance approval and OAuth onboarding, or a licensed TWS/Client Portal gateway relay with read-only settings. Choose SnapTrade separately to review Personal sharing requirements.",
     freshness: "Unavailable until approved relay is installed",
     docs: "https://www.interactivebrokers.com/campus/ibkr-api-page/webapi-doc/",
     env: [],
@@ -125,20 +120,37 @@ export function routeAvailability(env: Record<string, string | undefined>) {
   const encryptionReady = /^[A-Za-z0-9+/]{43}=$/.test(
     env.BROKER_ENCRYPTION_KEY || "",
   );
-  return brokerRoutes.map((route) => ({
-    ...route,
-    environments: (route.id === "tastytrade" &&
-    !(env.TASTYTRADE_PAPER_CLIENT_ID && env.TASTYTRADE_PAPER_CLIENT_SECRET)
-      ? ["live"]
-      : ["live", "paper"]) as ("live" | "paper")[],
-    available:
-      encryptionReady &&
-      route.method !== "unavailable" &&
-      // OAuth and hosted flows must have an explicitly configured redirect origin.
-      (route.method === "key" ||
-        /^https:\/\/[^/?#]+$/.test(env.APP_ORIGIN || "")) &&
-      route.env.every((key) =>
-        /_ENABLED$|_APPROVED$/.test(key) ? env[key] === "true" : !!env[key],
-      ),
-  }));
+  return brokerRoutes.map((route) => {
+    const missing = route.env.filter((key) =>
+      /_ENABLED$|_APPROVED$/.test(key) ? env[key] !== "true" : !env[key],
+    );
+    const reasons = [
+      ...(route.method === "unavailable" ? [route.prerequisite] : []),
+      ...(route.method !== "unavailable" && env.BROKER_SERVICES_ENABLED === "false"
+        ? ["The broker backend is not enabled in this deployment (BROKER_SERVICES_ENABLED)."] : []),
+      ...(route.method !== "unavailable" && !encryptionReady ? ["Server credential encryption is not configured (BROKER_ENCRYPTION_KEY)."] : []),
+      ...(route.method === "oauth" && !/^https:\/\/[^/?#]+$/.test(env.APP_ORIGIN || "")
+        ? ["The secure OAuth callback origin is not configured (APP_ORIGIN)."] : []),
+      ...(missing.length ? ["Missing configuration or approval: " + missing.join(", ") + "."] : []),
+    ];
+    return {
+      ...route,
+      connectionType: route.id === "snaptrade" ? "SnapTrade" : "Direct",
+      ...(directDetails[route.id] || {
+        assets: "Brokerage equities/options where supported; eligibility varies",
+        history: "Daily transactions, delayed by one day; broker history varies",
+        live: "Unavailable: no intraday transaction sync or paid trade detection",
+        payer: "User owns the Personal account; Trade Pulse OAuth preview pricing is temporary and future app costs are unknown. Commercial per-user billing is disabled",
+      }),
+      unavailableReason: reasons.join(" "),
+      nextAction: reasons.length
+        ? "Import a brokerage CSV now, or ask the workspace administrator to complete the requirements above."
+        : route.method === "key" ? "Follow setup instructions, then enter your own API credentials."
+        : "Follow setup instructions, then sign in at your broker and approve account read access.",
+      environments: (route.id === "tastytrade" &&
+        !(env.TASTYTRADE_PAPER_CLIENT_ID && env.TASTYTRADE_PAPER_CLIENT_SECRET)
+        ? ["live"] : ["live", "paper"]) as ("live" | "paper")[],
+      available: reasons.length === 0,
+    };
+  });
 }

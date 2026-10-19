@@ -53,6 +53,8 @@ export async function brokerRequest<T>(payload: unknown): Promise<T> {
 }
 export function brokerHelp(code?: string): string {
   if (!code) return "";
+  if (/SNAPTRADE_PERSONAL_OAUTH/.test(code))
+    return "SnapTrade sync is disabled pending an approved Personal OAuth app and cost review. Use CSV; revoke legacy access in your SnapTrade dashboard.";
   if (/NO_ACCOUNTS/.test(code))
     return "Your broker returned no eligible accounts. Check the account type and permissions, then try again.";
   if (/REAUTH|ACCESS_3/.test(code))

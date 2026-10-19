@@ -69,3 +69,16 @@ test("uninstalled market backend preserves the usable timeline with an honest em
     globalThis.fetch = fetcher;
   }
 });
+
+
+test("Vercel proxy blocks commercial SnapTrade even when an older broker backend is enabled", async () => {
+  const old = { ...process.env }, fetcher = globalThis.fetch;
+  Object.assign(process.env, { BROKER_SERVICES_ENABLED: "true", SNAPTRADE_COMMERCIAL_ENABLED: "true" });
+  globalThis.fetch = async () => { throw new Error("must not forward to a legacy commercial backend"); };
+  try {
+    const response = await brokers(request({ action: "connect", provider: "snaptrade", connectionType: "snaptrade" }));
+    assert.equal(response.status, 503);
+    assert.match((await response.json()).error, /Personal sharing is disabled/);
+    assert.deepEqual((await (await brokers(request({ action: "catalog" }))).json()).institutions, []);
+  } finally { process.env = old; globalThis.fetch = fetcher; }
+});
