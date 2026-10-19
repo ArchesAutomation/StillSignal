@@ -99,6 +99,18 @@ test("additive broker migration preserves tenant policies, TradingView constrain
       /permission denied/,
     );
     await db.exec("reset role");
+    for (const provider of ["alpaca", "tastytrade"])
+      await db.query(
+        "insert into pulse_broker_connections(user_id,provider,status)values($1,$2,'pending')",
+        [alice, provider],
+      );
+    await assert.rejects(
+      db.query(
+        "insert into pulse_broker_connections(user_id,provider,status)values($1,'kraken','pending')",
+        [alice],
+      ),
+      /check constraint/,
+    );
     await assert.rejects(
       db.query(
         "insert into pulse_connections(user_id,provider,token_hash,timezone,expires_at)values($1,'oanda','hash','UTC',now()+interval '1 day')",

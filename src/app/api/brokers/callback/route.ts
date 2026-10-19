@@ -14,9 +14,18 @@ export async function GET(request: Request) {
     state,
     code,
   });
+  const result = response.ok ? await response.json() : {};
+  const connectionId =
+    typeof result.connectionId === "string" &&
+    /^[a-f0-9-]{36}$/.test(result.connectionId)
+      ? result.connectionId
+      : "";
   return Response.redirect(
     new URL(
-      response.ok ? "/?broker_return=1" : "/?broker_error=authorization",
+      response.ok
+        ? "/?broker_return=1" +
+          (connectionId ? "&broker_connection=" + connectionId : "")
+        : "/?broker_error=authorization",
       url.origin,
     ),
     303,
