@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Square, ImagePlus, X } from "lucide-react";
+import { Mic, Square, ImagePlus, ClipboardPaste, X } from "lucide-react";
+import { readClipboardScreenshot, validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import type { JournalEntry } from "@/lib/model";
 import { clock } from "@/lib/model";
 import {
@@ -36,6 +37,7 @@ export type ReflectionDraft = {
   source?: JournalEntry["source"];
   hrEventId?: string;
   autoListen?: boolean;
+  screenshotFile?: File;
 };
 const localTime = (t: number) =>
   new Date(t - new Date(t).getTimezoneOffset() * 60000)
@@ -89,6 +91,8 @@ export default function ReflectionEditor({
   prepareScreenshot,
   onSave,
   onDone,
+  onCancel,
+  compact = false,
 }: {
   draft: ReflectionDraft;
   owner: string;
@@ -96,11 +100,13 @@ export default function ReflectionEditor({
   prepareScreenshot: (t: number) => Promise<string>;
   onSave: (note: JournalEntry) => Promise<void>;
   onDone: () => void;
+  onCancel?: () => void;
+  compact?: boolean;
 }) {
   const [text, setText] = useState(draft.entry?.text || ""),
     [label, setLabel] = useState(draft.entry?.label || "Other"),
     [time, setTime] = useState(localTime(draft.t)),
-    [file, setFile] = useState<File | null>(null),
+    [file, setFile] = useState<File | null>(draft.screenshotFile || null),
     [attachment, setAttachment] = useState(draft.entry?.screenshot),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -108,14 +114,22 @@ export default function ReflectionEditor({
     [interim, setInterim] = useState(""),
     [usedVoice, setUsedVoice] = useState(false),
     [supported, setSupported] = useState(false);
-  const recognition = useRef<Recognition | null>(null),
+  const [preview, setPreview] = useState("");
+  useEffect(() => {
+    if (!file) { setPreview(""); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const form = useRef<HTMLFormElement>(null),
+    recognition = useRef<Recognition | null>(null),
     textRef = useRef(text),
     mounted = useRef(true);
   textRef.current = text;
   const start = useCallback(() => {
+    const speechWindow = (form.current?.ownerDocument.defaultView || window) as SpeechWindow;
     const Ctor =
-      (window as SpeechWindow).SpeechRecognition ||
-      (window as SpeechWindow).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Ctor) {
       setError(
         "Speech dictation is unavailable in this browser. You can type below or use your device's dictation.",
@@ -123,7 +137,7 @@ export default function ReflectionEditor({
       return;
     }
     if (recognition.current) return;
-    window.speechSynthesis?.cancel();
+    speechWindow.speechSynthesis?.cancel();
     const rec = new Ctor(),
       base = textRef.current.trim();
     rec.continuous = true;
@@ -181,8 +195,23 @@ export default function ReflectionEditor({
       recognition.current = null;
     };
   }, [draft.autoListen, start]);
+  function attachFile(next: File) {
+    try {
+      setFile(validateScreenshotFile(next));
+      setError("");
+    } catch (err) { setError((err as Error).message); }
+  }
   return (
     <form
+      ref={form}
+      className={compact ? "floating-entry-form" : undefined}
+      onPaste={(event) => {
+        const image = Array.from(event.clipboardData.files).find((item) => item.type.startsWith("image/"));
+        if (!image) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!busy) attachFile(image);
+      }}
       onSubmit={async (e) => {
         e.preventDefault();
         setBusy(true);
@@ -242,7 +271,7 @@ export default function ReflectionEditor({
           {error}
         </div>
       )}
-      <label>
+      <label hidden={compact}>
         Moment time · your local timezone
         <input
           type="datetime-local"
@@ -282,7 +311,7 @@ export default function ReflectionEditor({
           onClick={() => (listening ? recognition.current?.stop() : start())}
         >
           {listening ? <Square size={14} /> : <Mic size={16} />}
-          {listening ? "Stop dictation" : "Start dictation"}
+          {listening ? "Stop dictation" : compact ? "Microphone" : "Start dictation"}
         </button>
         <span role="status">
           {listening
@@ -296,7 +325,7 @@ export default function ReflectionEditor({
         Reflection
         <textarea
           aria-label="Reflection"
-          rows={5}
+          rows={compact ? 3 : 5}
           maxLength={2000}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -309,6 +338,11 @@ export default function ReflectionEditor({
           {interim}
         </p>
       )}
+      <button type="button" className="button full" disabled={busy} onClick={async (event) => {
+        const clipboard = event.currentTarget.ownerDocument.defaultView?.navigator.clipboard;
+        try { attachFile(await readClipboardScreenshot(clipboard)); }
+        catch (err) { setError((err as Error).message); }
+      }}><ClipboardPaste size={15} /> Paste screenshot</button>
       <label className="screenshot-picker">
         <ImagePlus size={15} /> Chart screenshot · optional
         <input
@@ -316,7 +350,7 @@ export default function ReflectionEditor({
           accept="image/png,image/jpeg,image/webp"
           disabled={busy}
           onChange={(e) => {
-            setFile(e.target.files?.[0] || null);
+            if (e.target.files?.[0]) attachFile(e.target.files[0]);
             e.target.value = "";
           }}
         />
@@ -338,7 +372,8 @@ export default function ReflectionEditor({
         </div>
       )}
       {attachment && !file && <Screenshot {...attachment} />}
-      <p className="form-intro">
+      {file && preview && <img className="journal-screenshot" src={preview} alt="Screenshot attached to this entry" />}
+      <p className="form-intro" hidden={compact}>
         Your confirmed labels and history shape your personal insights.
         Dictation uses your browser's speech service, which may process audio
         remotely. Trade Pulse saves the reviewed text, not an audio recording.
@@ -348,8 +383,9 @@ export default function ReflectionEditor({
         disabled={busy || listening || (!text.trim() && !file && !attachment)}
       >
         {" "}
-        {busy ? "Saving…" : "Save reflection"}
+        {busy ? "Saving…" : compact ? "Save journal entry" : "Save reflection"}
       </button>
+      {onCancel && <button type="button" className="text-button" disabled={busy} onClick={onCancel}>Cancel entry</button>}
     </form>
   );
 }
