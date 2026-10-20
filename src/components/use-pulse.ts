@@ -26,7 +26,7 @@ import { eventSchema, sessionSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
-export function usePulse(user: WorkspaceUser) {
+export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
   const [session, setSession] = useState<Session | null>(() =>
@@ -203,6 +203,7 @@ export function usePulse(user: WorkspaceUser) {
   }
   async function start(name?: string, startedAt = Date.now()) {
     if (rec.current) return;
+    onSessionStart?.();
     sessionLoad.current++;
     const selected = current.current;
     if (

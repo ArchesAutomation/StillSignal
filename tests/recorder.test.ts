@@ -52,11 +52,12 @@ test("recorder flow: authenticated empty workspace â†’ Bluetooth notifications â
     configurable: true,
   });
   let state: ReturnType<typeof usePulse> | undefined;
+  let floatingRequests = 0;
   function Harness() {
     state = usePulse({
       id: "11111111-1111-4111-8111-111111111111",
       email: "tester@example.test",
-    });
+    }, () => { floatingRequests++; });
     return createElement("div", null, state.session?.source);
   }
   const root = createRoot(document.getElementById("root")!);
@@ -66,7 +67,9 @@ test("recorder flow: authenticated empty workspace â†’ Bluetooth notifications â
   assert.equal(state!.session?.id, "workspace");
   assert.equal(state!.samples.length, 0);
   await act(async () => {
-    await state!.start();
+    const starting = state!.start();
+    assert.equal(floatingRequests, 1, "request the floating window synchronously before session storage awaits");
+    await starting;
   });
   assert.equal(state!.active, true);
   assert.equal(state!.recording, false);

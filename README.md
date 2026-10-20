@@ -12,6 +12,10 @@ A private, multi-tenant trading journal built with Next.js, React, TypeScript an
 
 ## Smart journal
 
+**Start session** also opens a floating session dashboard on browsers with Document Picture-in-Picture. It shows fresh heart rate versus the opening baseline (or an explicit disconnected/building/stale state), a journal-entry button, microphone dictation, and screenshot paste. Copy a chart screenshot, then use **Paste screenshot** or Ctrl/Command+V in the panel; review the image and text and save them together through the existing private attachment flow. Clipboard permission may be required; file selection and keyboard paste remain available. Microphone access starts only when requested, never on session start.
+
+The floating dashboard uses the same live session and save callbacks as the main tab. Keep the main tab open. Closing PiP moves the editor back into the dashboard without remounting it or discarding the current draft. Ending a session returns it to the main tab too. Use **Session dashboard** to reopen it. Browsers without PiP, or rejected PiP requests, show the panel in the main tab instead. Opening is requested directly from Start session before asynchronous storage work; it does not depend on automatic media/call PiP eligibility.
+
 Press **Alt + J** while Trade Pulse is focused to open dictation. Review the transcript, choose your own label, and save it with an optional PNG/JPEG/WebP screenshot (up to 5 MB). Unsupported browsers offer typed input. Screenshots are private and use expiring links; screenshot interpretation is deferred. Reflections can be edited or deleted without stale uploads reviving older versions.
 
 Automatic HR moments identify sudden rises and sustained elevations after a complete opening baseline, without requiring a trade. Click a timeline point to inspect the HR window. In Settings, enable the optional **Check-in beep** and **Spoken check-in question**, choose a cooldown, and customize the shortcut. Answer starts dictation; Dismiss and Snooze never open the microphone. Browser speech services may process audio remotely; Trade Pulse stores reviewed text, not recordings.

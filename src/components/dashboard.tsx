@@ -36,6 +36,9 @@ import {
   Pencil,
 } from "lucide-react";
 import { usePulse } from "./use-pulse";
+import { createPortal } from "react-dom";
+import { useFloatingJournal } from "./use-floating-journal";
+import FloatingJournal from "./floating-journal";
 import { Timeline } from "./timeline";
 import WorkspaceToolbar from "./workspace-toolbar";
 import TradeContextPanel from "./trade-context-panel";
@@ -160,7 +163,11 @@ export default function Dashboard({
   user: import("@/lib/workspace").WorkspaceUser;
   initialSession?: import("@/lib/model").Session;
 }) {
-  const p = usePulse(user);
+  const floatingJournal = useFloatingJournal();
+  const p = usePulse(user, () => { void floatingJournal.open(); });
+  useEffect(() => {
+    if (!p.active) floatingJournal.close();
+  }, [p.active, floatingJournal.close]);
   useEffect(() => {
     if (initialSession) void p.openSession(initialSession);
   }, [initialSession]);
@@ -511,6 +518,10 @@ export default function Dashboard({
                         : "Choose the rhythm that fits the way you trade."}
               </p>
             </div>
+            <div className="floating-session-controls">
+            {p.active && <button type="button" className="button" onClick={() => { void floatingJournal.open(); }}>
+              <ExternalLink size={15} /> Session dashboard
+            </button>}
             <button
               className={p.active ? "button stop" : "button primary"}
               disabled={busy}
@@ -519,6 +530,7 @@ export default function Dashboard({
               {p.active ? <Square size={14} /> : <Radio size={16} />}{" "}
               {p.active ? "End session" : "Start session"}
             </button>
+            </div>
           </div>
           {p.error && (
             <div role="alert" className="banner error">
@@ -1871,6 +1883,28 @@ export default function Dashboard({
             </button>
           </form>
         </Modal>
+      )}
+      {floatingJournal.host && createPortal(
+        <FloatingJournal
+          key={s.id}
+          session={s}
+          samples={p.samples}
+          now={p.now}
+          baselineSeconds={p.settings.baselineSeconds}
+          recording={p.recording}
+          active={p.active}
+          syncState={p.syncState}
+          floating={floatingJournal.floating}
+          message={floatingJournal.message}
+          onClose={() => {
+            if (floatingJournal.floating) floatingJournal.close();
+            else if (floatingJournal.host) floatingJournal.host.hidden = true;
+          }}
+          onReopen={() => { void floatingJournal.open(); }}
+          prepareScreenshot={p.prepareScreenshot}
+          onSave={p.addNote}
+        />,
+        floatingJournal.host,
       )}
       {modal === "note" && (
         <Modal
