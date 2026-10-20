@@ -160,24 +160,44 @@ try {
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(origin);
-    const select = page.getByLabel("Your broker");
+    const chooseType = async (name) => page.getByRole("button").filter({ has: page.locator("strong", { hasText: new RegExp("^" + name + "$") }) }).click();
+    await page.getByRole("heading", { name: "Choose connection type", exact: true }).waitFor();
+    assert.equal(await page.locator("select").count(), 0);
+    if (process.env.BROKER_SCREENSHOT_DIR) await page.screenshot({path: process.env.BROKER_SCREENSHOT_DIR + "/connection-types-" + viewport.width + ".png", fullPage:true});
+    await chooseType("SnapTrade");
+    await page.getByLabel("SnapTrade broker").selectOption("Fidelity");
+    assert.match(await page.locator(".broker-wizard").innerText(), /KYC approval/);
+    assert.match(await page.locator(".broker-wizard").innerText(), /future app pricing is undecided/i);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    assert.equal(await page.getByRole("button", { name: /Personal OAuth unavailable/ }).isEnabled(), false);
+    assert.equal(calls.some((c) => c.action === "connect" && c.provider === "snaptrade"), false);
+    await page.getByRole("button", { name: "Change broker", exact: false }).click();
+    await page.getByRole("button", { name: "Change connection type", exact: false }).click();
+    for (const type of ["TradingView", "CSV"]) {
+      await chooseType(type);
+      await page.getByLabel("Brokerage name").fill("My brokerage");
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      assert.equal(await page.getByRole("link", { name: type === "CSV" ? "Open CSV importer" : "Open TradingView alert setup", exact: false }).count(), 1);
+      await page.getByRole("button", { name: "Change broker", exact: false }).click();
+      await page.getByRole("button", { name: "Change connection type", exact: false }).click();
+    }
+    await chooseType("Direct");
+    const select = page.getByLabel("Your broker", { exact: true });
     await select.selectOption("tastytrade");
-    await page
-      .getByText("This connection isn't enabled", { exact: false })
-      .waitFor();
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Continue", exact: false })
-        .isEnabled(),
-      false,
-    );
-    assert.equal(await select.locator('option[value="snaptrade"]').count(), 0);
+    await page.getByText("Missing configuration or approval:", { exact: false }).first().waitFor();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    assert.equal(await page.getByRole("button", { name: "Continue to authentication", exact: true }).isEnabled(), false);
+    await page.getByRole("button", { name: "Change broker", exact: false }).click();
     await select.selectOption("alpaca");
     await page.getByRole("button", { name: "Continue", exact: false }).click();
+    await page.getByRole("button", { name: "Continue to authentication", exact: true }).click();
     await page.getByLabel("Broker account type").selectOption("paper");
     await page
-      .getByRole("button", { name: "Connect account", exact: false })
+      .getByRole("button", { name: "Review permissions", exact: true })
       .click();
+    assert.equal(await page.getByRole("button", { name: "Connect account", exact: true }).isEnabled(), false);
+    await page.getByLabel("I authorize reading my account", { exact: false }).check();
+    await page.getByRole("button", { name: "Connect account", exact: true }).click();
     const popup = context.waitForEvent("page");
     await page
       .getByRole("link", { name: "Continue to secure sign-in", exact: false })
@@ -209,16 +229,20 @@ try {
       .click();
     assert.equal(await page.evaluate(() => window.journalOpened), true);
     await page.getByRole("button", { name: "Connect another broker" }).click();
+    await chooseType("Direct");
     await select.selectOption("oanda");
     await page.getByRole("button", { name: "Continue", exact: false }).click();
     await page.getByText("Manage API Access", { exact: false }).waitFor();
+    await page.getByRole("button", { name: "Continue to authentication", exact: true }).click();
     await page.getByLabel("Broker account type").selectOption("paper");
     await page
       .getByLabel("API token", { exact: true })
       .fill("fixture-private-token");
     await page
-      .getByRole("button", { name: "Connect securely", exact: true })
+      .getByRole("button", { name: "Review permissions", exact: true })
       .click();
+    await page.getByLabel("I authorize reading my account", { exact: false }).check();
+    await page.getByRole("button", { name: "Connect account", exact: true }).click();
     await page
       .getByRole("heading", { name: "Your first trades are in" })
       .waitFor();

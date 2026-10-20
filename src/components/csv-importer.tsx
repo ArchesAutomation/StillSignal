@@ -26,6 +26,7 @@ export default function CsvImporter({
   onDone?: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const readGeneration = useRef(0);
   const [csv, setCsv] = useState(""),
     [name, setName] = useState(""),
     [error, setError] = useState(""),
@@ -65,7 +66,9 @@ export default function CsvImporter({
       ),
   );
   async function read(file: File) {
+    const generation = ++readGeneration.current;
     setError("");
+    setCsv("");
     setConfirmedTimezone(false);
     try {
       if (!/\.csv$/i.test(file.name)) throw new Error("Choose a .csv file.");
@@ -73,10 +76,15 @@ export default function CsvImporter({
         throw new Error("Choose a CSV smaller than 2 MB.");
       const text = await file.text(),
         inspected = inspectCsv(text);
+      if (readGeneration.current !== generation) return;
       setCsv(text);
       setName(file.name.replace(/\.csv$/i, ""));
-      setOptions((o) => ({ ...o, mapping: inspected.mapping }));
+      setOptions((o) => ({
+        timezone: o.timezone,
+        mapping: inspected.mapping,
+      }));
     } catch (e) {
+      if (readGeneration.current !== generation) return;
       setCsv("");
       setError(e instanceof Error ? e.message : "Could not read this file.");
     }
@@ -100,6 +108,7 @@ export default function CsvImporter({
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
+          if (busy) return;
           const f = e.dataTransfer.files[0];
           if (f) void read(f);
         }}
@@ -139,7 +148,7 @@ export default function CsvImporter({
         </a>
       </div>
       <p className="connection-note">
-        TradingView trades: export History from the Trading Panel, then confirm
+        TradingView trades: export filled Orders or History from the Trading Panel, then confirm
         that the complete export starts flat. Strategy backtests: export List of
         Trades from the Strategy Report. Chart-price exports do not contain
         your trades.
@@ -178,11 +187,21 @@ export default function CsvImporter({
               This export starts flat and includes every fill for each
               instrument and account.
               <small>
-                Cancelled and unfilled orders are skipped. Use unique fill IDs
-                for partial executions.
+                Unfilled orders are skipped. Filled Qty and Avg Fill Price are
+                used when available. Orders contain cumulative fills; export
+                individual executions for exact partial-fill detail.
               </small>
             </label>
           )}
+          {inspection.fills && inspection.orderUpdateColumn &&
+            options.mapping?.timestamp === inspection.orderUpdateColumn && (
+              <p className="connection-note" role="note">
+                This export provides order Update Time, not a separate execution
+                timestamp. Imported events retain an Order update time label;
+                it may differ from when the trade filled. Confirm the export
+                timezone below. P&amp;L stays blank if the file does not include it.
+              </p>
+            )}
           <details>
             <summary>Review or change column mapping</summary>
             <div className="form-grid">
@@ -262,6 +281,7 @@ export default function CsvImporter({
               <label>
                 CSV timezone
                 <input
+                  aria-label="CSV timezone"
                   list="csv-timezones"
                   value={options.timezone || ""}
                   onChange={(e) => {

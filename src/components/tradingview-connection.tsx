@@ -67,7 +67,7 @@ export default function TradingViewConnection({
     }
   }
   return (
-    <section className="glass connection-card">
+    <section id="tradingview-setup" className="glass connection-card">
       <div className="connection-top">
         <span className="connection-logo tv">
           T<span>V</span>
@@ -79,7 +79,7 @@ export default function TradingViewConnection({
       <h2>TradingView</h2>
       <p>
         Send price, indicator, or Pine strategy alerts to your journal.
-        TradingView requires a one-time alert setup. Manual buys and sells
+        Trade Pulse cannot reuse your broker login from TradingView. Alerts are signals or events, not guaranteed broker fills. TradingView requires a one-time alert setup. Manual buys and sells
         aren’t automatically synced through this connection.
       </p>
       <p className="connection-note">

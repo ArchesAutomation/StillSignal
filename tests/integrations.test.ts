@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { parseTrades, inspectCsv } from "../src/lib/csv";
 import {
   alertEvents,
@@ -7,6 +8,51 @@ import {
   tradingViewMessage,
 } from "../src/lib/tradingview";
 import { sessionSchema } from "../src/lib/validation";
+import { eventSchema } from "../src/lib/validation";
+import { eventOrigin } from "../src/lib/trade-context";
+
+test("TradingView filled Orders export maps Update Time, filled quantity and average fill price", () => {
+  // Synthetic rows share only the uploaded format; no customer transactions are committed.
+  const csv = readFileSync(new URL("./fixtures/tradingview-filled-orders.csv", import.meta.url), "utf8");
+  const input = inspectCsv(csv);
+  assert.equal(input.mapping.timestamp, "Update Time");
+  assert.equal(input.mapping.quantity, "Filled Qty");
+  assert.equal(input.mapping.price, "Avg Fill Price");
+  assert.equal(input.mapping.execution_id, "Order ID");
+  assert.equal(input.fills, true);
+  assert.equal(input.backtest, false);
+  assert.throws(() => parseTrades(csv), /flat position/);
+  assert.throws(() => parseTrades(csv, { fillsStartFlat: true }), /timezone/);
+  const options = { timezone: "UTC", fillsStartFlat: true };
+  const events = parseTrades(csv, options);
+  assert.deepEqual(events.map((e) => [e.kind, e.side, e.quantity, e.price]), [
+    ["entry", "long", 1, 5000.5], ["exit", "long", 1, 5005.5],
+  ]);
+  assert.equal(events[0].t, Date.parse("2026-01-15T09:00:00Z"));
+  assert.ok(events.every((e) => e.pnl === undefined && e.timestampSource === "order-update"));
+  assert.equal(eventOrigin(events[0]), "CSV · Filled order · Order update time");
+  assert.equal(eventSchema.parse(events[0]).timestampSource, "order-update");
+  assert.deepEqual(parseTrades(csv, options), events);
+});
+
+test("order imports ignore unfilled quantities and retain only the filled part of partially canceled orders", () => {
+  const csv = "Symbol,Side,Qty,Filled Qty,Avg Fill Price,Update Time,Order ID,Status\n" +
+    "ESZ6,Buy,4,1,5000,2026-01-15 09:00:00,partial,Canceled\n" +
+    "ESZ6,Sell,1,1,5005,2026-01-15 09:10:00,close,Filled\n" +
+    "ESZ6,Buy,3,0,,,unfilled,Working\n";
+  const options = { timezone: "UTC", fillsStartFlat: true };
+  const events = parseTrades(csv, options);
+  assert.deepEqual(events.map((e) => [e.kind, e.quantity]), [["entry", 1], ["exit", 1]]);
+  assert.throws(() => parseTrades(csv + "ESZ6,Buy,4,2,5001,2026-01-15 09:01:00,partial,Partially Filled\n", options), /repeated execution\/order ID/);
+});
+
+test("a dedicated fill timestamp takes precedence over an order update timestamp", () => {
+  const csv = "Symbol,Side,Filled Qty,Avg Fill Price,Update Time,Fill Time,Order ID\n" +
+    "ESZ6,Buy,1,5000,2026-01-15 10:00:00,2026-01-15 09:00:00,fill\n";
+  const events = parseTrades(csv, { timezone: "UTC", fillsStartFlat: true });
+  assert.equal(events[0].t, Date.parse("2026-01-15T09:00:00Z"));
+  assert.equal(events[0].timestampSource, undefined);
+});
 test("TradingView Date and time strategy exports keep entry/exit directions and monetary P&L", () => {
   const csv =
     "Trade #,Type,Signal,Date and time,Price USD,Position size (qty),Net P&L USD,Net P&L %\n1,Exit short,Close,2026-01-15 09:00:00,4975,2,50,0.5\n1,Entry short,Short,2026-01-15 08:30:00,5000,2,50,0.5\n";

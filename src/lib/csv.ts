@@ -57,13 +57,15 @@ export function inspectCsv(csv: string) {
   const find = (matches: RegExp) =>
     headers.find((h) => matches.test(normalize(h))) || "";
   const strategyTime = find(/^(date\/time|date and time|date & time)$/);
+  const orderUpdateColumn = find(/^(update time|last update time)$/);
   const native =
     !!find(/^trade #$/) && !!find(/^type$/) && !!strategyTime;
   const mapping: CsvMapping = {
     timestamp:
       strategyTime ||
       find(/^(filled time|fill time|filltime|execution time|closing time)$/) ||
-      find(/^(timestamp|datetime|date time|time)$/),
+      find(/^(timestamp|datetime|date time|time)$/) ||
+      orderUpdateColumn,
     symbol: find(/^(symbol|instrument|ticker|contract)$/),
     kind: find(/^(kind|event|entry\/exit)$/) || (native ? find(/^type$/) : ""),
     side: find(/^(side|direction|position)$/) || (native ? find(/^type$/) : ""),
@@ -81,12 +83,17 @@ export function inspectCsv(csv: string) {
   const actionColumn = find(/^(action|b\/s|buy\/sell|buy or sell|side)$/);
   const statusColumn = find(/^(status|order status|ordstatus)$/);
   const fills = !native && !mapping.kind && !!actionColumn;
+  const filledQuantityColumn = find(
+    /^(fill qty|fill quantity|filled qty|filled quantity|filledqty)$/,
+  );
   // Order history can contain an order/limit price alongside the actual fill
   // price. Never prefer the requested price over the recorded execution.
-  if (fills)
+  if (fills) {
     mapping.price =
       find(/^(avg fill price|average fill price|fill price|fillprice|execution price)(\s+[^%]+)?$/) ||
       mapping.price;
+    mapping.quantity = filledQuantityColumn || mapping.quantity;
+  }
   return {
     headers,
     rows: result.data,
@@ -100,6 +107,8 @@ export function inspectCsv(csv: string) {
     fills,
     actionColumn,
     statusColumn,
+    orderUpdateColumn,
+    filledQuantityColumn,
     accountColumn: find(/^(account|account id|account name)$/),
   };
 }
@@ -252,12 +261,26 @@ function parseFills(
     events: TradeEvent[] = [];
   const rows = input.rows
     .flatMap((row, i) => {
+      // Orders exports may include requested quantity for an order with no fills.
+      // A cumulative filled quantity is authoritative when supplied, even if the
+      // order was later canceled or is still working after a partial fill.
+      const filledQuantity = input.filledQuantityColumn
+        ? number(row[input.filledQuantityColumn] || "", i + 2, "filled quantity")
+        : undefined;
+      if (filledQuantity === 0) return [];
+      if (filledQuantity !== undefined && filledQuantity < 0)
+        throw new Error(`Row ${i + 2}: filled quantity must not be negative.`);
       const status = (row[input.statusColumn] || "")
         .trim()
         .toLowerCase()
         .replace(/[ _-]/g, "");
+      const partiallyFilledOrder =
+        /^(filled qty|filled quantity|filledqty)$/.test(normalize(input.filledQuantityColumn)) &&
+        filledQuantity !== undefined && filledQuantity > 0 &&
+        /^(cancelled|canceled|expired|working|pending|open|new)$/.test(status);
       if (
         input.statusColumn &&
+        !partiallyFilledOrder &&
         /^(cancelled|canceled|rejected|expired|working|pending|open|new)$/.test(
           status,
         )
@@ -267,7 +290,8 @@ function parseFills(
         input.statusColumn &&
         !/^(filled|fill|partiallyfilled|partialfill|executed|complete|completed)$/.test(
           status,
-        )
+        ) &&
+        !partiallyFilledOrder
       )
         throw new Error(
           `Row ${i + 2}: unknown order status. Use a filled-executions export.`,
@@ -363,6 +387,9 @@ function parseFills(
         side,
         source: "csv",
         provenance: "execution",
+        ...(input.orderUpdateColumn && map.timestamp === input.orderUpdateColumn
+          ? { timestampSource: "order-update" }
+          : {}),
         ...(row.account ? { account: row.account } : {}),
         ...(kind === "exit" && row.pnlText
           ? { pnl: number(row.pnlText, row.row, "P&L") }

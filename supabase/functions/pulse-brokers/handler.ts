@@ -2,8 +2,8 @@ import { z } from "npm:zod@4.6.7";
 import { authenticated, checked, failure, rate, service } from "./server.ts";
 import { boundedJson } from "./validation.ts";
 import { routeAvailability } from "./brokers/registry.ts";
-import { snapRequest } from "./brokers/snaptrade.ts";
-import { trustedPortal, digest } from "./brokers/security.ts";
+import { snaptradeBlockedReason } from "./brokers/connection-policy.ts";
+import { digest } from "./brokers/security.ts";
 import {
   beginOauth,
   credentialsFor,
@@ -11,7 +11,7 @@ import {
   saveCredentials,
   queueDiscovery,
 } from "./brokers/service.ts";
-import { authorizeUrl, callbackUrl, exchangeCode } from "./brokers/oauth.ts";
+import { authorizeUrl, exchangeCode } from "./brokers/oauth.ts";
 import { projectxLogin } from "./brokers/projectx.ts";
 import { brokerAdapter } from "./brokers/adapters.ts";
 import { ProviderError } from "./brokers/http.ts";
@@ -33,6 +33,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("connect"),
     provider: providers,
+    connectionType: z.enum(["direct", "snaptrade"]),
     environment: z.enum(["live", "paper"]).default("paper"),
     broker: z.string().max(80).optional(),
     accessToken: z.string().max(8192).optional(),
@@ -111,29 +112,18 @@ export async function POST(request: Request) {
       });
     }
     if (body.action === "catalog") {
-      if (!routes.find((r) => r.id === "snaptrade")?.available)
-        return json({
-          institutions: [],
-          message: "Commercial SnapTrade access is not configured.",
-        });
-      const info = await snapRequest("/snapTrade/partners");
-      return json({
-        institutions: (info.allowed_brokerages || []).map(
-          (b: { slug: string; name: string }) => ({
-            slug: b.slug,
-            name: b.name,
-          }),
-        ),
-      });
+      return json({ institutions: [], message: snaptradeBlockedReason });
     }
     if (body.action === "connect") {
       const route = routes.find((r) => r.id === body.provider)!;
-      if (!route.available) return json({ error: route.prerequisite }, 503);
+      if (body.provider === "snaptrade" || body.connectionType === "snaptrade")
+        return json({ error: snaptradeBlockedReason }, 503);
+      if (!route.available) return json({ error: route.unavailableReason }, 503);
       if (!route.environments.includes(body.environment))
         return json(
           {
             error:
-              "This broker's demo connection is not available yet. Choose a live account or import a CSV.",
+              "Demo OAuth client credentials are not configured for this broker. Choose a live account or import a CSV.",
           },
           503,
         );
@@ -148,61 +138,8 @@ export async function POST(request: Request) {
         db,
         user.id,
         body.provider,
-        body.provider === "snaptrade" ? "live" : body.environment,
+        body.environment,
       );
-      if (body.provider === "snaptrade") {
-        let credentials;
-        const existing = await db
-          .from("pulse_broker_secrets")
-          .select("ciphertext")
-          .eq("user_id", user.id)
-          .eq("connection_id", connectionId)
-          .maybeSingle();
-        checked(existing.error);
-        if (existing.data)
-          credentials = await credentialsFor(
-            db,
-            user.id,
-            connectionId,
-            body.provider,
-          );
-        else {
-          // SnapTrade ID is stable and tenant-scoped; registration conflicts need reconciliation, not duplicate users.
-          const result = await snapRequest(
-            "/snapTrade/registerUser",
-            undefined,
-            { userId: "pulse-" + user.id },
-          );
-          credentials = {
-            userId: result.userId,
-            userSecret: result.userSecret,
-          };
-          if (!credentials.userSecret)
-            throw new ProviderError("PROVIDER_CONTRACT_CHANGED");
-          await saveCredentials(db, user.id, connectionId, credentials);
-        }
-        const catalog = await snapRequest("/snapTrade/partners");
-        if (
-          body.broker &&
-          !catalog.allowed_brokerages.some(
-            (b: { slug: string }) => b.slug === body.broker,
-          )
-        )
-          return json(
-            { error: "That institution is not enabled for this application." },
-            400,
-          );
-        const login = await snapRequest("/snapTrade/login", credentials, {
-          connectionType: "read",
-          customRedirect: callbackUrl().replace(
-            "/api/brokers/callback",
-            "/?broker_return=1",
-          ),
-          immediateRedirect: true,
-          ...(body.broker ? { broker: body.broker } : {}),
-        });
-        return json({ url: trustedPortal(login.redirectURI), connectionId });
-      }
       if (route.method === "oauth")
         return json({
           url: authorizeUrl(
@@ -243,6 +180,11 @@ export async function POST(request: Request) {
           { error: "Account identity must be verified before syncing." },
           409,
         );
+      const connection = await db.from("pulse_broker_connections").select("provider")
+        .eq("id", account.data.connection_id).eq("user_id", user.id).single();
+      checked(connection.error);
+      if (connection.data?.provider === "snaptrade")
+        return json({ error: snaptradeBlockedReason }, 503);
       // Update existing jobs only; unavailable intake routes cannot be activated by this button.
       const result = await db
         .from("pulse_broker_jobs")
@@ -290,6 +232,7 @@ export async function POST(request: Request) {
       });
     }
     if (body.action === "refresh") {
+      if (c.provider === "snaptrade") return json({ error: snaptradeBlockedReason }, 503);
       if (c.status === "revoked")
         return json(
           { error: "Reconnect this broker before refreshing its accounts." },

@@ -58,7 +58,8 @@ export function Timeline(props: Props) {
   );
   const chartSupported =
     typeof window !== "undefined" && typeof ResizeObserver !== "undefined";
-  const advanced = chartSupported && feed.state === "ready";
+  const advanced = chartSupported && feed.state === "ready" && feed.candles.length > 0;
+  const intervalLabel = interval === 3600 ? "1h" : interval / 60 + "m";
   return (
     <div className="chart-workspace">
       <div className="chart-controls">
@@ -66,7 +67,6 @@ export function Timeline(props: Props) {
           Interval{" "}
           <select
             aria-label="Candle interval"
-            disabled={!advanced || loading}
             aria-describedby={!advanced ? "market-controls-help" : undefined}
             value={interval}
             onChange={(e) => setInterval(+e.target.value as typeof interval)}
@@ -115,9 +115,10 @@ export function Timeline(props: Props) {
       </div>
       {!advanced && (
         <p id="market-controls-help" className="muted">
-          Showing the trade and heart-rate timeline. Candle intervals, volume,
-          pane sizing, and return to live require an available market chart.
+          Showing the trade and heart-rate timeline. Volume, pane sizing, and return to live require an available market chart.
+          {" "}The selected {intervalLabel} candle interval will be used when market data is available.
           {!instrument && " Choose an exact instrument below to load candles."}
+          {feed.state === "ready" && !chartSupported && " This browser cannot render the market chart; use a browser with ResizeObserver support."}
         </p>
       )}
       {!props.instrument && (
@@ -229,6 +230,7 @@ export function Timeline(props: Props) {
       <div className={"feed-status " + feed.state} role="status">
         <span className="status-dot small" />
         <span>
+          {intervalLabel + " selected · "}
           {loading
             ? "Loading market data…"
             : feed.state === "ready"
@@ -236,7 +238,7 @@ export function Timeline(props: Props) {
                 " · " +
                 feed.freshness +
                 " · " +
-                feed.granularity + " · " + feed.candles.length + " candles"
+                feed.granularity + (feed.candles.length ? "" : " · No candles returned for this instrument and window; showing the trade and HR timeline") + " · " + feed.candles.length + " candles"
               : feed.message}
         </span>
         {instrument && !loading && feed.state !== "ready" && (
@@ -260,6 +262,7 @@ export function Timeline(props: Props) {
           volume={volume}
           hrHeight={hrHeight}
           liveVersion={liveVersion}
+          viewportKey={(props.viewportKey || "") + ":" + interval}
           moments={props.moments || []}
         />
       ) : (

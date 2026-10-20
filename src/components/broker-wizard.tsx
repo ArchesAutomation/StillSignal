@@ -8,6 +8,8 @@ import {
   type BrokerState,
 } from "./broker-client";
 
+import { connectionTypes, snaptradeBrokerages, snaptradeBlockedReason, type ConnectionType } from "@/lib/brokers/connection-policy";
+
 const guidance: Record<
   string,
   { intro: string; steps: string[]; link?: string; linkLabel?: string }
@@ -87,6 +89,10 @@ export default function BrokerWizard({
 }) {
   const [step, setStep] = useState(1),
     [provider, setProvider] = useState("");
+  const [connectionType, setConnectionType] = useState<ConnectionType>();
+  const [brokerName, setBrokerName] = useState("");
+  const [permissions, setPermissions] = useState(false);
+  const pendingPayload = useRef<unknown>(null);
   const [environment, setEnvironment] = useState<"live" | "paper">("live");
   const [connectionId, setConnectionId] = useState(""),
     [portal, setPortal] = useState("");
@@ -116,10 +122,11 @@ export default function BrokerWizard({
       (c) => c.id === params.get("broker_connection"),
     );
     if (c) {
+      setConnectionType(c.provider === "snaptrade" ? "snaptrade" : "direct");
       setProvider(c.provider);
       setEnvironment(c.environment === "paper" ? "paper" : "live");
       setConnectionId(c.id);
-      setStep(3);
+      setStep(6);
       resumed.current = true;
     }
   }, [state.connections]);
@@ -161,16 +168,22 @@ export default function BrokerWizard({
     }
   }, [progress, onChanged]);
   async function connect(payload: unknown) {
+    pendingPayload.current = null;
     const result = await onAction(payload);
     if (result?.connectionId) {
       setConnectionId(result.connectionId);
       setPortal(result.url || "");
       setProgress(undefined);
       imported.current = false;
-      setStep(3);
+      setStep(6);
     }
   }
   const reset = () => {
+    setProvider("");
+    setBrokerName("");
+    setConnectionType(undefined);
+    setPermissions(false);
+    pendingPayload.current = null;
     setStep(1);
     setConnectionId("");
     setPortal("");
@@ -180,7 +193,7 @@ export default function BrokerWizard({
   return (
     <div className="broker-wizard">
       <ol className="broker-steps" aria-label="Connection steps">
-        {["Choose broker", "Connect securely", "Confirm import"].map(
+        {["Choose connection type", "Choose broker", "Setup instructions", "Authenticate", "Confirm permissions", "Import or sync", "Connection results"].map(
           (label, i) => (
             <li
               key={label}
@@ -200,61 +213,97 @@ export default function BrokerWizard({
       )}
       {step === 1 && (
         <>
-          <h3>Which broker do you use?</h3>
-          <p>
-            Keep trading in your usual platform. We'll read your account history
-            for your journal.
-          </p>
-          <label>
-            Your broker
-            <select
-              value={provider}
-              disabled={busy}
-              onChange={(e) => {
-                setProvider(e.target.value);
-                setEnvironment("live");
-              }}
-            >
-              <option value="">Choose your broker</option>
-              {state.routes
-                .filter(
-                  (r) => r.method !== "unavailable" && r.id !== "snaptrade",
-                )
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                    {r.available ? "" : " · coming soon"}
-                  </option>
-                ))}
-            </select>
-          </label>
-          {route && !route.available && (
-            <div className="banner" role="status">
-              This connection isn't enabled in Trade Pulse yet. You don't need a
-              developer account. <a href="#trade-csv">Import a CSV</a> while we
-              finish setting it up.
-            </div>
-          )}
-          <button
-            className="button primary"
-            disabled={!route?.available || busy}
-            onClick={() => setStep(2)}
-          >
-            Continue <ArrowUpRight size={14} />
-          </button>
-          <details>
-            <summary>Don't see your broker?</summary>
-            <p>
-              Some broker APIs need a separate agreement or a desktop bridge.{" "}
-              <a href="#trade-csv">Import a trade CSV</a> to start journaling
-              now.
-            </p>
-          </details>
+          <h3>Choose connection type</h3>
+          <p>You choose how your own brokerage account connects. No connection type is selected for you.</p>
+          <div className="connection-type-grid" role="group" aria-label="Connection type">
+            {connectionTypes.map((type) => (
+              <button key={type.id} className="connection-type-card" disabled={busy}
+                onClick={() => { setConnectionType(type.id); setProvider(""); setBrokerName(""); setStep(2); }}>
+                <strong>{type.name}</strong><span>{type.description}</span>
+              </button>
+            ))}
+          </div>
         </>
       )}
-      {step === 2 && route && help && (
+      {step === 2 && (
         <>
-          <button className="text-button" disabled={busy} onClick={reset}>
+          <button className="text-button" onClick={reset}><ChevronLeft size={14} /> Change connection type</button>
+          <h3>Choose broker · {connectionTypes.find((t) => t.id === connectionType)?.name}</h3>
+          {connectionType === "direct" ? (
+            <label>Your broker
+              <select aria-label="Your broker" value={provider} disabled={busy} onChange={(e) => { setProvider(e.target.value); setEnvironment("live"); }}>
+                <option value="">Choose your broker</option>
+                {state.routes.filter((r) => r.id !== "snaptrade").map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} · Direct{r.available ? " · Setup available" : " · Setup required"}</option>
+                ))}
+              </select>
+            </label>
+          ) : connectionType === "snaptrade" ? (
+            <label>Your broker in SnapTrade Personal
+              <select aria-label="SnapTrade broker" value={brokerName} onChange={(e) => { setBrokerName(e.target.value); setProvider("snaptrade"); }}>
+                <option value="">Choose your broker</option>
+                {snaptradeBrokerages.map((name) => <option key={name}>{name}</option>)}
+              </select>
+            </label>
+          ) : (
+            <label>Your brokerage or platform
+              <input aria-label="Brokerage name" value={brokerName} maxLength={80} onChange={(e) => setBrokerName(e.target.value)} placeholder="Your brokerage name" />
+            </label>
+          )}
+          {route && <div className="broker-capabilities">
+            <dl>
+              <dt>Connection type</dt><dd>{route.connectionType}</dd>
+              <dt>Asset class</dt><dd>{route.assets}</dd>
+              <dt>Setup availability</dt><dd>{route.available ? "Available for eligible accounts" : route.unavailableReason}</dd>
+              <dt>Credentials / approval</dt><dd>{route.prerequisite}</dd>
+              <dt>Historical data</dt><dd>{route.history}</dd>
+              <dt>Live session / sync speed</dt><dd>{route.live}</dd>
+              <dt>Who pays</dt><dd>{route.payer}</dd>
+              <dt>Next action</dt><dd>{route.nextAction}</dd>
+            </dl>
+            <a href={route.docs} target="_blank" rel="noreferrer">Provider setup documentation <ArrowUpRight size={12} /></a>
+          </div>}
+          {connectionType === "snaptrade" && <p className="banner" role="status">{snaptradeBlockedReason} <a href="https://docs.snaptrade.com/docs/oauth-apps" target="_blank" rel="noreferrer">SnapTrade OAuth requirements</a></p>}
+          {(connectionType === "csv" || connectionType === "tradingview") && <dl className="broker-capabilities">
+            <dt>Connection type</dt><dd>{connectionType === "csv" ? "CSV" : "TradingView"}</dd>
+            <dt>Asset class</dt><dd>Brokerage equities, options, futures and forex; exact instrument details required</dd>
+            <dt>Setup availability</dt><dd>{connectionType === "csv" ? "Available: manual file import" : "Alert setup available with a configured journal backend and an eligible TradingView account"}</dd>
+            <dt>Credentials / approval</dt><dd>{connectionType === "csv" ? "Your brokerage CSV export; no broker login shared" : "Your TradingView account with 2FA and webhook access; a Trade Pulse webhook token"}</dd>
+            <dt>Historical data</dt><dd>{connectionType === "csv" ? "The transactions included in your export" : "Future alerts only; import past transactions using CSV"}</dd>
+            <dt>Live session / sync speed</dt><dd>{connectionType === "csv" ? "Manual; no live synchronization" : "Real-time provider alert events, subject to delivery delays or failures; not broker execution sync"}</dd>
+            <dt>Who pays</dt><dd>{connectionType === "csv" ? "No aggregation service required; user pays any broker export fees" : "User pays any TradingView plan and market-data costs; no Trade Pulse aggregation subscription"}</dd>
+            <dt>Next action</dt><dd>{connectionType === "csv" ? "Export transactions from your brokerage, then open the CSV importer" : "Open alert setup below, generate a webhook token, and configure an alert"}</dd>
+          </dl>}
+          <button className="button primary" disabled={busy || (connectionType === "direct" ? !provider : !brokerName)} onClick={() => setStep(3)}>Continue <ArrowUpRight size={14} /></button>
+          <p><a href="#trade-csv">Import a trade CSV</a> is available for other brokerages.</p>
+        </>
+      )}
+      {step === 3 && (
+        <>
+          <button className="text-button" onClick={() => setStep(2)}><ChevronLeft size={14} /> Change broker</button>
+          <h3>Setup instructions · {route?.name || brokerName}</h3>
+          {connectionType === "direct" && route ? <>
+            <p>{help?.intro || route.prerequisite}</p>
+            <ol className="broker-instructions">{(help?.steps || [route.prerequisite]).map((text) => <li key={text}>{text}</li>)}</ol>
+            {!route.available && <p className="banner" role="status">{route.unavailableReason}</p>}
+            <a href={help?.link || route.docs} target="_blank" rel="noreferrer">{help?.linkLabel || "Provider setup instructions"}</a>
+            <p>Sync reads provider history through the existing worker. It is polling, not a real-time execution stream. Provider execution time and arrival time are recorded separately.</p>
+            <button className="button primary" disabled={!route.available || busy} onClick={() => setStep(4)}>Continue to authentication</button>
+          </> : connectionType === "snaptrade" ? <>
+            <p role="status">{snaptradeBlockedReason}</p>
+            <p>Broker support depends on your region and account. Check your brokerage in your own SnapTrade Personal dashboard. Never paste a SnapTrade consumer key into Trade Pulse.</p>
+            <a href="https://support.snaptrade.com/brokerages" target="_blank" rel="noreferrer">Check brokerage eligibility</a>
+            <button className="button primary" disabled>Personal OAuth unavailable: app approval and cost review required</button>
+            <p><a href="#trade-csv">Import a brokerage CSV</a></p>
+          </> : <>
+            <p>{connectionType === "csv" ? "Export your brokerage transactions, select the file, review column mappings and timestamps, confirm the timezone, then import. Results appear in your journal." : "Trade Pulse cannot reuse a broker login from TradingView. Generate your webhook token below, sign in to TradingView with 2FA, and create a supported price, indicator or Pine strategy alert. Confirm the URL and message, then check delivery status after it fires. Alerts are signals or events, not guaranteed broker fills. Manual broker trades require direct sync or CSV."}</p>
+            <a className="button primary" href={connectionType === "csv" ? "#trade-csv" : "#tradingview-setup"}>{connectionType === "csv" ? "Open CSV importer" : "Open TradingView alert setup"} <ArrowUpRight size={14} /></a>
+          </>}
+        </>
+      )}
+      {step === 4 && route && help && (
+        <>
+          <button className="text-button" disabled={busy} onClick={() => setStep(2)}>
             <ChevronLeft size={14} /> Change broker
           </button>
           <h3>Connect {route.name}</h3>
@@ -308,7 +357,9 @@ export default function BrokerWizard({
                   userName: f.get("userName") || undefined,
                 };
                 e.currentTarget.reset();
-                void connect(payload);
+                pendingPayload.current = { ...payload, connectionType: "direct" };
+                setPermissions(false);
+                setStep(5);
               }}
             >
               {provider === "projectx" && (
@@ -339,24 +390,37 @@ export default function BrokerWizard({
                 include trading permissions; Trade Pulse only reads data.
               </small>
               <button className="button primary" disabled={busy}>
-                {busy ? "Checking connection…" : "Connect securely"}
+                Review permissions
               </button>
             </form>
           ) : (
             <button
               className="button primary"
               disabled={busy}
-              onClick={() =>
-                void connect({ action: "connect", provider, environment })
-              }
+              onClick={() => {
+                pendingPayload.current = { action: "connect", connectionType: "direct", provider, environment };
+                setPermissions(false);
+                setStep(5);
+              }}
             >
-              {busy ? "Preparing sign-in…" : "Connect account"}{" "}
+              Review permissions{" "}
               <ArrowUpRight size={14} />
             </button>
           )}
         </>
       )}
-      {step === 3 && (
+      {step === 5 && route && (
+        <>
+          <h3>Confirm permissions</h3>
+          <p>Connect only an account you own. Trade Pulse reads accounts and transaction history for your journal and does not place orders. Native API tokens may include trading privileges; revoke them at the broker to end access.</p>
+          <p>{route.payer}</p>
+          <label className="checkbox-label"><input type="checkbox" checked={permissions} onChange={(e) => setPermissions(e.target.checked)} /> I authorize reading my account and available transaction history.</label>
+          <button className="button primary" disabled={busy || !permissions || !pendingPayload.current} onClick={() => void connect(pendingPayload.current)}>{busy ? "Preparing connection…" : "Connect account"}</button>
+          <button className="text-button" disabled={busy} onClick={() => { pendingPayload.current = null; setStep(4); }}>Back to authentication</button>
+          {!pendingPayload.current && !busy && <p role="status">If the connection failed, return to authentication and enter your credentials again.</p>}
+        </>
+      )}
+      {(step === 6 || step === 7) && (
         <>
           <h3>
             {progress?.importedExecutions && connection?.status === "connected"
@@ -425,6 +489,7 @@ export default function BrokerWizard({
             {progress?.importedExecutions
               ? "Your imported trades are ready in your journal."
               : "We check your broker's actual history before confirming your first import."}
+            {" "}History imports use polling. Execution timestamps come from your broker; arrival timestamps record when Trade Pulse receives them.
           </p>
           {!!progress?.importedExecutions &&
             connection?.status === "connected" &&
@@ -433,6 +498,7 @@ export default function BrokerWizard({
                 View journal <ArrowUpRight size={14} />
               </button>
             )}
+          {step === 6 && <button className="button primary" onClick={() => setStep(7)}>Show connection status and journal results</button>}
           <div className="inline-actions">
             <button
               className="button small-button"
@@ -463,7 +529,8 @@ export default function BrokerWizard({
               className="text-button"
               disabled={busy}
               onClick={() => {
-                setStep(2);
+                pendingPayload.current = null;
+                setStep(4);
                 setConnectionId("");
                 setPortal("");
                 setProgress(undefined);

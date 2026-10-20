@@ -120,12 +120,11 @@ test("guided connections preserve live/demo selection and distinguish setup from
       createElement(BrokerConnections, { owner: "test-owner", onChanged() {} }),
     ),
   );
-  assert.doesNotMatch(
-    document.body.textContent!,
-    /Commercial SnapTrade client ID|conformance approval|encryption/i,
-  );
+  assert.match(document.body.textContent!, /Choose connection type/);
+  assert.equal(document.querySelector("select"), null);
+  await act(async () => [...document.querySelectorAll("button")].find((b) => b.querySelector("strong")?.textContent === "Direct")!.click());
   const select = document.querySelector<HTMLSelectElement>("select")!;
-  assert.ok(![...select.options].some((o) => o.value === "ibkr"));
+  assert.ok([...select.options].some((o) => o.value === "ibkr"));
   await act(async () => {
     select.value = "tradovate";
     select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
@@ -135,6 +134,11 @@ test("guided connections preserve live/demo selection and distinguish setup from
       .find((b) => b.textContent?.includes("Continue"))!
       .click();
   });
+  await act(async () => [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Continue to authentication"))!.click());
+  const approve = async () => {
+    await act(async () => (document.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+    await act(async () => [...document.querySelectorAll("button")].find((b) => b.textContent === "Connect account")!.click());
+  };
   for (const value of ["paper", "live"]) {
     const environment = document.querySelector<HTMLSelectElement>(
       '[aria-label="Broker account type"]',
@@ -147,10 +151,12 @@ test("guided connections preserve live/demo selection and distinguish setup from
     });
     await act(async () => {
       [...document.querySelectorAll("button")]
-        .find((b) => b.textContent?.includes("Connect account"))!
+        .find((b) => b.textContent?.includes("Review permissions"))!
         .click();
     });
+    await approve();
     assert.deepEqual(calls.filter((c) => c.action === "connect").at(-1), {
+      connectionType: "direct",
       action: "connect",
       provider: "tradovate",
       environment: value,
@@ -192,6 +198,7 @@ test("guided connections preserve live/demo selection and distinguish setup from
       .find((b) => b.textContent?.includes("Continue"))!
       .click();
   });
+  await act(async () => [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Continue to authentication"))!.click());
   assert.match(document.body.textContent!, /Manage API Access/);
   const token = document.querySelector<HTMLInputElement>(
     'input[name="accessToken"]',
@@ -205,6 +212,8 @@ test("guided connections preserve live/demo selection and distinguish setup from
         new dom.window.Event("submit", { bubbles: true, cancelable: true }),
       );
   });
+  assert.equal(calls.filter((c) => c.action === "connect").at(-1)?.provider, "tradovate", "credentials are not sent before permission confirmation");
+  await approve();
   assert.equal(
     calls.filter((c) => c.action === "connect").at(-1)?.accessToken,
     "private-token",

@@ -99,7 +99,7 @@ export default function BrokerConnections({
           <span className="eyebrow">AUTOMATIC JOURNALING</span>
           <h2>Connect your trading account</h2>
           <p>
-            Three guided steps. Keep trading in your usual platform; your trades
+            Choose your connection type, then follow the setup for your own account. Your trades
             and heart rate meet here.
           </p>
         </div>
@@ -174,6 +174,7 @@ export default function BrokerConnections({
                       new Date(c.last_sync_at).toLocaleString()
                     : " · No completed history check"}
                 </small>
+                <small>{state.routes.find((r) => r.id === c.provider)?.live}</small>
                 {c.error_code && <small>{brokerHelp(c.error_code)}</small>}
               </div>
               <div className="inline-actions">

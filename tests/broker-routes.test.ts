@@ -144,6 +144,7 @@ test("an unconfigured tastytrade demo connection is rejected before account muta
     const response = await brokers(
       request({
         action: "connect",
+        connectionType: "direct",
         provider: "tastytrade",
         environment: "paper",
       }),
@@ -290,5 +291,27 @@ test("signed webhook acknowledgment follows durable acceptance and rejects forge
       p_id: "receipt-1",
       p_type: "ACCOUNT_UPDATED",
     });
+  });
+});
+
+
+test("SnapTrade commercial credentials cannot activate onboarding, catalogs, or paid provider calls", async () => {
+  await mockCloud(async (calls) => {
+    Object.assign(process.env, {
+      APP_ORIGIN: "https://staging.test", BROKER_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"),
+      SNAPTRADE_CLIENT_ID: "legacy-client", SNAPTRADE_CONSUMER_KEY: "legacy-secret",
+      SNAPTRADE_COMMERCIAL_ENABLED: "true", SNAPTRADE_STABLE_IDS: "true",
+    });
+    for (const connectionType of ["direct", "snaptrade"]) {
+      const response = await brokers(request({ action: "connect", provider: "snaptrade", connectionType, environment: "live" }));
+      assert.equal(response.status, 503);
+      assert.match((await response.json()).error, /KYC approval/);
+    }
+    const catalog = await brokers(request({ action: "catalog" }));
+    assert.deepEqual((await catalog.json()).institutions, []);
+    const { snaptrade } = await import("../src/lib/brokers/snaptrade");
+    await assert.rejects(snaptrade.accounts({ userId: "legacy-user", userSecret: "legacy-secret" }), /SNAPTRADE_PERSONAL_OAUTH_REQUIRED/);
+    assert.ok(calls.every((c) => c.url.origin === "https://staging.test"));
+    assert.ok(!calls.some((c) => c.url.pathname.startsWith("/rest/v1/pulse_broker_")));
   });
 });

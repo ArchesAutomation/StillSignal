@@ -47,9 +47,16 @@ test("unavailable market controls explain the fallback and allow retry", async (
       instrument: { ...reviewInstrument, id: "unconfigured:MSFT", symbol: "MSFT" },
     })));
     await until(() => status().includes("Only the labeled review instrument"));
-    for (const selector of ['[aria-label="Candle interval"]', '[aria-label="Heart-rate pane size"]', 'input[type="checkbox"]'])
+    for (const selector of ['[aria-label="Heart-rate pane size"]', 'input[type="checkbox"]'])
       assert.equal((document.querySelector(selector) as HTMLInputElement).disabled, true);
     assert.match(document.getElementById("market-controls-help")!.textContent!, /require an available market chart/);
+    const interval = document.querySelector('[aria-label="Candle interval"]') as HTMLSelectElement;
+    assert.equal(interval.disabled, false);
+    for (const [value, label] of [["300", "5m"], ["900", "15m"], ["3600", "1h"], ["60", "1m"]]) {
+      await act(async () => { interval.value = value; interval.dispatchEvent(new ui.dom.window.Event("change", { bubbles: true })); });
+      await until(() => status().includes(label + " selected") && status().includes("Only the labeled review instrument"));
+      assert.match(document.getElementById("market-controls-help")!.textContent!, new RegExp(label));
+    }
     const retry = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Retry feed"));
     assert.ok(retry);
     assert.equal(retry.disabled, false);
