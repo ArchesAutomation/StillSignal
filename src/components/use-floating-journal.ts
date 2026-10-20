@@ -58,7 +58,7 @@ export function useFloatingJournal() {
         return;
       }
       pipRef.current = pip;
-      pip.document.title = "Trade Pulse · Session dashboard";
+      pip.document.title = "Still Signal · Session dashboard";
       for (const style of document.querySelectorAll('style, link[rel="stylesheet"]')) {
         pip.document.head.append(style.cloneNode(true));
       }

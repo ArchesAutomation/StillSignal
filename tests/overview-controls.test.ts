@@ -86,7 +86,7 @@ test("manual instrument resolution cannot override toolbar selection or another 
   } finally { await ui.close(); }
 });
 
-test("Overview keeps a single exact instrument when All instruments is selected and after tab navigation", async () => {
+test("Daily journal keeps a single exact instrument when All instruments is selected and after tab navigation", async () => {
   const ui = setup();
   try {
     const { session } = reviewFixtures();
@@ -101,7 +101,7 @@ test("Overview keeps a single exact instrument when All instruments is selected 
     });
     assert.equal(select.value, "");
     assert.match(status(), /Synthetic review feed/);
-    for (const tab of ["Settings", "Overview"]) {
+    for (const tab of ["Settings", "Daily journal"]) {
       const button = [...document.querySelectorAll("nav button")].find((b) => b.textContent?.trim() === tab)!;
       await act(async () => (button as HTMLButtonElement).click());
     }

@@ -18,7 +18,7 @@ export async function extensionMessage(
   payload: unknown,
 ): Promise<Record<string, unknown>> {
   if (!/^[a-p]{32}$/.test(id) || !runtime())
-    throw new Error("Open Trade Pulse in Chrome with the extension installed.");
+    throw new Error("Open Still Signal in Chrome with the extension installed.");
   const response = await runtime()!.sendMessage(id, payload);
   if (!response || typeof response !== "object")
     throw new Error("Extension unavailable. Open its panel and reconnect.");

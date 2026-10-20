@@ -277,10 +277,10 @@ export default function BrokerWizard({
             <dt>Connection type</dt><dd>{connectionType === "csv" ? "CSV" : "TradingView"}</dd>
             <dt>Asset class</dt><dd>Brokerage equities, options, futures and forex; exact instrument details required</dd>
             <dt>Setup availability</dt><dd>{connectionType === "csv" ? "Available: manual file import" : "Alert setup available with a configured journal backend and an eligible TradingView account"}</dd>
-            <dt>Credentials / approval</dt><dd>{connectionType === "csv" ? "Your brokerage CSV export; no broker login shared" : "Your TradingView account with 2FA and webhook access; a Trade Pulse webhook token"}</dd>
+            <dt>Credentials / approval</dt><dd>{connectionType === "csv" ? "Your brokerage CSV export; no broker login shared" : "Your TradingView account with 2FA and webhook access; a Still Signal webhook token"}</dd>
             <dt>Historical data</dt><dd>{connectionType === "csv" ? "The transactions included in your export" : "Future alerts only; import past transactions using CSV"}</dd>
             <dt>Live session / sync speed</dt><dd>{connectionType === "csv" ? "Manual; no live synchronization" : "Real-time provider alert events, subject to delivery delays or failures; not broker execution sync"}</dd>
-            <dt>Who pays</dt><dd>{connectionType === "csv" ? "No aggregation service required; user pays any broker export fees" : "User pays any TradingView plan and market-data costs; no Trade Pulse aggregation subscription"}</dd>
+            <dt>Who pays</dt><dd>{connectionType === "csv" ? "No aggregation service required; user pays any broker export fees" : "User pays any TradingView plan and market-data costs; no Still Signal aggregation subscription"}</dd>
             <dt>Next action</dt><dd>{connectionType === "csv" ? "Export transactions from your brokerage, then open the CSV importer" : "Open alert setup below, generate a webhook token, and configure an alert"}</dd>
           </dl>}
           <button className="button primary" disabled={busy || (connectionType === "direct" ? !provider : !brokerName)} onClick={() => setStep(3)}>Continue <ArrowUpRight size={14} /></button>
@@ -300,12 +300,12 @@ export default function BrokerWizard({
             <button className="button primary" disabled={!route.available || busy} onClick={() => setStep(4)}>Continue to authentication</button>
           </> : connectionType === "snaptrade" ? <>
             <p role="status">{snaptradeBlockedReason}</p>
-            <p>Broker support depends on your region and account. Check your brokerage in your own SnapTrade Personal dashboard. Never paste a SnapTrade consumer key into Trade Pulse.</p>
+            <p>Broker support depends on your region and account. Check your brokerage in your own SnapTrade Personal dashboard. Never paste a SnapTrade consumer key into Still Signal.</p>
             <a href="https://support.snaptrade.com/brokerages" target="_blank" rel="noreferrer">Check brokerage eligibility</a>
             <button className="button primary" disabled>Personal OAuth unavailable: app approval and cost review required</button>
             <p><a href="#trade-csv">Import a brokerage CSV</a></p>
           </> : <>
-            <p>{connectionType === "csv" ? "Export your brokerage transactions, select the file, review column mappings and timestamps, confirm the timezone, then import. Results appear in your journal." : "Trade Pulse cannot reuse a broker login from TradingView. Generate your webhook token below, sign in to TradingView with 2FA, and create a supported price, indicator or Pine strategy alert. Confirm the URL and message, then check delivery status after it fires. Alerts are signals or events, not guaranteed broker fills. Manual broker trades require direct sync or CSV."}</p>
+            <p>{connectionType === "csv" ? "Export your brokerage transactions, select the file, review column mappings and timestamps, confirm the timezone, then import. Results appear in your journal." : "Still Signal cannot reuse a broker login from TradingView. Generate your webhook token below, sign in to TradingView with 2FA, and create a supported price, indicator or Pine strategy alert. Confirm the URL and message, then check delivery status after it fires. Alerts are signals or events, not guaranteed broker fills. Manual broker trades require direct sync or CSV."}</p>
             <a className="button primary" href={connectionType === "csv" ? "#trade-csv" : "#tradingview-setup"}>{connectionType === "csv" ? "Open CSV importer" : "Open TradingView alert setup"} <ArrowUpRight size={14} /></a>
           </>}
         </>
@@ -396,7 +396,7 @@ export default function BrokerWizard({
               </label>
               <small>
                 Your key is encrypted on the server. These native keys may
-                include trading permissions; Trade Pulse only reads data.
+                include trading permissions; Still Signal only reads data.
               </small>
               <button className="button primary" disabled={busy}>
                 Review permissions
@@ -421,7 +421,7 @@ export default function BrokerWizard({
       {step === 5 && route && (
         <>
           <h3>Confirm permissions</h3>
-          <p>Connect only an account you own. Trade Pulse reads accounts and transaction history for your journal and does not place orders. Native API tokens may include trading privileges; revoke them at the broker to end access.</p>
+          <p>Connect only an account you own. Still Signal reads accounts and transaction history for your journal and does not place orders. Native API tokens may include trading privileges; revoke them at the broker to end access.</p>
           <p>{route.payer}</p>
           <label className="checkbox-label"><input type="checkbox" checked={permissions} onChange={(e) => setPermissions(e.target.checked)} /> I authorize reading my account and available transaction history.</label>
           <button className="button primary" disabled={busy || !permissions || !pendingPayload.current} onClick={() => void connect(pendingPayload.current)}>{busy ? "Preparing connection…" : "Connect account"}</button>
@@ -498,7 +498,7 @@ export default function BrokerWizard({
             {progress?.importedExecutions
               ? "Your imported trades are ready in your journal."
               : "We check your broker's actual history before confirming your first import."}
-            {" "}History imports use polling. Execution timestamps come from your broker; arrival timestamps record when Trade Pulse receives them.
+            {" "}History imports use polling. Execution timestamps come from your broker; arrival timestamps record when Still Signal receives them.
           </p>
           {!!progress?.importedExecutions &&
             connection?.status === "connected" &&

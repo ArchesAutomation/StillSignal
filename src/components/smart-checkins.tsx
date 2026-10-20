@@ -126,7 +126,7 @@ export default function SmartCheckins({
           osc.stop(ctx.currentTime + 0.22);
         } else
           setAudioError(
-            "Click anywhere in Trade Pulse to enable check-in sounds.",
+            "Click anywhere in Still Signal to enable check-in sounds.",
           );
       }
       if (

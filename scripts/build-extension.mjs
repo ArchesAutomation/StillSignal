@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { mkdir, cp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 const origin = new URL(
-  process.env.EXTENSION_APP_ORIGIN || "https://trade-pulse-ebon.vercel.app",
+  process.env.EXTENSION_APP_ORIGIN || "https://still-signal.vercel.app",
 ).origin;
 if (!origin.startsWith("https://") && origin !== "http://localhost:3000")
   throw new Error("Use HTTPS or the local development origin.");
@@ -64,7 +64,7 @@ await build({
 });
 const manifest = {
   manifest_version: 3,
-  name: "Trade Pulse Voice Journal",
+  name: "Still Signal Voice Journal",
   version: "0.1.0",
   minimum_chrome_version: "120",
   description:
@@ -73,7 +73,7 @@ const manifest = {
   host_permissions: [origin + "/*"],
   background: { service_worker: "worker.js", type: "module" },
   action: {
-    default_title: "Open Trade Pulse journal",
+    default_title: "Open Still Signal journal",
     default_icon: { 16: "icons/icon16.png", 32: "icons/icon32.png" },
   },
   icons: {
