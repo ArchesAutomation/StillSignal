@@ -52,6 +52,7 @@ export const eventSchema = z
     positionKnown: z.boolean().optional(),
     action: z.enum(["buy", "sell"]).optional(),
     timePrecision: z.enum(["millisecond", "second", "day"]).optional(),
+    timestampSource: z.literal("order-update").optional(),
   })
   .superRefine((event, ctx) => {
     if (

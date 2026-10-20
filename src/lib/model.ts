@@ -38,6 +38,7 @@ export type TradeEvent = {
   positionKnown?: boolean;
   action?: "buy" | "sell";
   timePrecision?: "millisecond" | "second" | "day";
+  timestampSource?: "order-update";
 };
 export type JournalEntry = {
   id: string;

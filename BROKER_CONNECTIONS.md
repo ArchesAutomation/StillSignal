@@ -44,3 +44,11 @@ TradingView reference: https://www.tradingview.com/support/solutions/43000529348
 Run typecheck, the complete test suite, production build, `node --import tsx scripts/test-broker-browser.mjs`, and the isolated review Overview test described in STAGING_REVIEW.md. Tests use isolated synthetic accounts only; they do not verify live brokerage credentials.
 
 Regenerate Edge Functions with `node scripts/prepare-edge.mjs` after changes to broker source. Both generated handlers and the Vercel proxy enforce the SnapTrade block. Deploy the updated pulse-brokers handler together with the web app: direct connect requests now require an explicit connectionType. Existing migrations and private-demo/auth/signup protections are unchanged. Provider approvals, encrypted credential configuration, a running direct-sync worker, and exact market entitlements are still required before enabling those services.
+
+## TradingView filled Orders CSV
+
+The importer also accepts filled Orders exports with Symbol, Side, Type, Qty, Remaining Qty, Filled Qty, Avg Fill Price, Update Time, Order ID and expiry columns. Filled Qty takes priority over requested Qty, and Avg Fill Price takes priority over limit/stop prices. Reverse-chronological exports are sorted before reconstructing entries/exits. Zero-fill orders are skipped; cumulative partial fills are distinguished from individual-fill exports. Conflicting snapshots for the same order are rejected instead of double-counted.
+
+When no fill timestamp exists, Update Time is used and retained as an explicit Order update time label throughout the journal and context panel. It is not presented as an exact execution time. The export timezone and a complete, initially flat position history must be confirmed before import. Missing P&L is left blank. Loading another file clears the previous preview and confirmations; a late file read cannot overwrite a newer selection.
+
+Run `node scripts/test-csv-browser.mjs` for isolated desktop/mobile upload, preview, persistence, replacement-file and re-import checks. The committed format fixture contains synthetic transactions only. The customer-supplied source file is not stored in this repository or uploaded by the test.

@@ -1,0 +1,3 @@
+Symbol,Side,Type,Qty,Remaining Qty,Filled Qty,Limit Price,Stop Price,Take Profit,Stop Loss,Avg Fill Price,Update Time,Order ID,Expiry,Expiry Time
+ESZ6,Sell,Stop Loss,1,0,1,,5005.5,,,5005.5,2026-01-15 09:10:00,synthetic-close,Day,
+ESZ6,Buy,Limit,1,0,1,5000.5,,,,5000.5,2026-01-15 09:00:00,synthetic-open,Day,

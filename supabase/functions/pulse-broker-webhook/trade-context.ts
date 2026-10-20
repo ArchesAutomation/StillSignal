@@ -18,6 +18,8 @@ export function eventOrigin(event: TradeEvent) {
   if (event.provenance === "backtest") return "CSV · Backtest";
   if (event.source === "tradingview")
     return `TradingView · ${event.provenance === "strategy" ? "Strategy" : "Observation"}`;
+  if (event.source === "csv" && event.timestampSource === "order-update")
+    return "CSV · Filled order · Order update time";
   return event.source === "csv" ? "CSV · Execution" : "Manual";
 }
 export function pnlByCurrency(events: TradeEvent[]) {

@@ -44,7 +44,7 @@ export default function TradeContextPanel({
           </p>
           <dl className="context-facts">
             <div>
-              <dt>Execution time</dt>
+              <dt>{event.timestampSource === "order-update" ? "Order update time" : "Execution time"}</dt>
               <dd>
                 {event.timePrecision === "day"
                   ? new Date(event.t).toISOString().slice(0, 10) +
@@ -83,7 +83,7 @@ export default function TradeContextPanel({
                 </strong>
               </small>
               <small>
-                At fill<strong>{context?.at ?? "—"}</strong>
+                {event.timestampSource === "order-update" ? "At update" : "At fill"}<strong>{context?.at ?? "—"}</strong>
               </small>
               <small>
                 After
@@ -95,7 +95,9 @@ export default function TradeContextPanel({
             <p>
               {event.timePrecision === "day"
                 ? "Date-only records cannot be aligned to a heart-rate measurement."
-                : "Available measurements, in BPM."}
+                : event.timestampSource === "order-update"
+                  ? "Measurements align to the order update time, which may differ from the actual fill time."
+                  : "Available measurements, in BPM."}
             </p>
           </div>
           <button
