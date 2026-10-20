@@ -34,7 +34,15 @@ import {
   Zap,
   Mic,
   Pencil,
+  Sparkles,
+  Circle,
+  Menu,
 } from "lucide-react";
+import SignalCalendar from "./signal-calendar";
+import SignalOverview from "./signal-overview";
+import Stillness from "./stillness";
+import SessionReview from "./session-review";
+import JournalWriting from "./journal-writing";
 import { usePulse } from "./use-pulse";
 import { createPortal } from "react-dom";
 import { useFloatingJournal } from "./use-floating-journal";
@@ -71,7 +79,14 @@ import TodayReview from "./today-review";
 import JournalInsights from "./journal-insights";
 import { removeScreenshot } from "@/lib/screenshots";
 import type { CsvDestination } from "@/lib/csv-session";
-type Tab = "Overview" | "Sessions" | "Journal" | "Connections" | "Settings";
+type Tab =
+  | "Overview"
+  | "Sessions"
+  | "Journal"
+  | "Patterns"
+  | "Stillness"
+  | "Connections"
+  | "Settings";
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(s / 3600)
@@ -165,7 +180,9 @@ export default function Dashboard({
   initialSession?: import("@/lib/model").Session;
 }) {
   const floatingJournal = useFloatingJournal();
-  const p = usePulse(user, () => { void floatingJournal.open(); });
+  const p = usePulse(user, () => {
+    void floatingJournal.open();
+  });
   useEffect(() => {
     if (!p.active) floatingJournal.close();
   }, [p.active, floatingJournal.close]);
@@ -176,7 +193,11 @@ export default function Dashboard({
   const [todayReview, setTodayReview] = useState(false);
   const [instrumentFilter, setInstrumentFilter] = useState("");
   const [contextEvent, setContextEvent] = useState<TradeEvent | undefined>();
-  const [tab, setTab] = useState<Tab>("Overview"),
+  const [journalView, setJournalView] = useState<"Timeline" | "Review">(
+    "Timeline",
+  );
+  const [mobileNav, setMobileNav] = useState(false);
+  const [tab, setTab] = useState<Tab>("Journal"),
     [modal, setModal] = useState<
       "trade" | "note" | "delete" | "csv" | "moment" | null
     >(null),
@@ -194,21 +215,79 @@ export default function Dashboard({
     if (params.has("broker_return") || params.has("broker_error")) {
       setTab("Connections");
     } else if (params.get("review") === "today") {
-      setTab("Journal"); setTodayReview(true);
+      setTab("Journal");
+      setTodayReview(true);
     }
   }, []);
   const s = p.session,
     isWorkspace = s?.id === "workspace";
-  const fullStart = Math.min(s?.startedAt || p.now, p.samples[0]?.t ?? Infinity, s?.events[0]?.t ?? Infinity);
+  const history = useMemo(
+    () =>
+      s && !isWorkspace
+        ? [s, ...p.history.filter((h) => h.id !== s.id)]
+        : p.history,
+    [s, p.history, isWorkspace],
+  );
+  const tabLabel = tab === "Journal" ? "Daily journal" : tab;
+  const navigate = (next: Tab) => {
+    setTab(next);
+    setMobileNav(false);
+  };
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [tab]);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const sidebar = document.getElementById("workspace-navigation");
+    const previous = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      Array.from(
+        sidebar?.querySelectorAll<HTMLElement>(
+          "a[href], button:not(:disabled)",
+        ) || [],
+      );
+    focusables()[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileNav(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusables(),
+        first = elements[0],
+        last = elements.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      previous?.focus();
+    };
+  }, [mobileNav]);
+  const fullStart = Math.min(
+    s?.startedAt || p.now,
+    p.samples[0]?.t ?? Infinity,
+    s?.events[0]?.t ?? Infinity,
+  );
   const fullEnd = p.active
-      ? Math.max(p.now, s?.startedAt || 0)
-      : Math.min(p.now, Math.max(
+    ? Math.max(p.now, s?.startedAt || 0)
+    : Math.min(
+        p.now,
+        Math.max(
           s?.endedAt || 0,
           s?.startedAt || p.now,
           p.samples.at(-1)?.t || 0,
           s?.events.at(-1)?.t || 0,
           s?.journal.at(-1)?.t || 0,
-        ));
+        ),
+      );
   const viewEnd =
     replayPosition < 100 && s
       ? fullStart + ((fullEnd - fullStart) * replayPosition) / 100
@@ -315,7 +394,12 @@ export default function Dashboard({
     setNoteDraft(draft);
     setModal("note");
   }
-  async function importCsv(events: TradeEvent[], name: string, destination: CsvDestination, timezone: string) {
+  async function importCsv(
+    events: TradeEvent[],
+    name: string,
+    destination: CsvDestination,
+    timezone: string,
+  ) {
     await p.importEvents(events, name, destination, timezone);
     setAccountFilter("");
     setInstrumentFilter("");
@@ -324,8 +408,10 @@ export default function Dashboard({
     setReplayPosition(100);
     setContextEvent(undefined);
     setSelected(null);
-    p.setNotice(`${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`);
-    setTab("Overview");
+    p.setNotice(
+      `${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`,
+    );
+    setTab("Journal");
   }
   async function openLiveReflection(draft: ReflectionDraft) {
     if (!p.active && !isWorkspace) await p.start();
@@ -356,6 +442,7 @@ export default function Dashboard({
   }, [replay]);
   useEffect(() => {
     setReplay(false);
+    setJournalView("Timeline");
     setReplayPosition(100);
     setSelected(null);
     setAccountFilter("");
@@ -388,7 +475,7 @@ export default function Dashboard({
   function exportSession() {
     if (s)
       download(
-        `trade-pulse-${s.id}.json`,
+        `still-signal-${s.id}.json`,
         JSON.stringify(
           { version: 1, session: s, samples: p.samples, settings: p.settings },
           null,
@@ -405,35 +492,46 @@ export default function Dashboard({
     return (
       <div className="loading">
         <Activity size={32} />
-        <span>Opening Trade Pulse…</span>
+        <span>Opening Still Signal…</span>
       </div>
     );
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Trade Pulse home">
+      {mobileNav && (
+        <button
+          className="nav-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setMobileNav(false)}
+        />
+      )}
+      <aside
+        className={`sidebar${mobileNav ? " mobile-open" : ""}`}
+        id="workspace-navigation"
+      >
+        <a className="brand" href="/" aria-label="Still Signal home">
           <span className="brand-icon">
             <Activity size={23} />
           </span>
           <span>
-            trade<span className="brand-light">pulse</span>
-            <span className="brand-dot">.</span>
+            still<span className="brand-light">signal.</span>
           </span>
         </a>
         <div className="workspace">
-          <span className="workspace-icon">TP</span>
           <div>
-            Personal workspace<small>Trading & self-awareness</small>
+            <span className="eyebrow">PERSONAL WORKSPACE</span>
+            <strong>{p.email?.split("@")[0] || "Your"}’s journal</strong>
+            <small>Trading & self-awareness</small>
           </div>
-          <ChevronDown size={14} />
         </div>
         <div className="nav-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
           {(
             [
               { name: "Overview", icon: LayoutDashboard },
-              { name: "Sessions", icon: History },
               { name: "Journal", icon: BookOpen },
+              { name: "Patterns", icon: Activity },
+              { name: "Sessions", icon: History },
+              { name: "Stillness", icon: Circle },
               { name: "Connections", icon: Link2 },
               { name: "Settings", icon: SlidersHorizontal },
             ] as const
@@ -442,14 +540,13 @@ export default function Dashboard({
               key={n.name}
               aria-current={tab === n.name ? "page" : undefined}
               className={tab === n.name ? "nav active" : "nav"}
-              onClick={() => setTab(n.name)}
+              onClick={() => navigate(n.name)}
             >
               <n.icon size={18} />
-              {n.name}
+              {n.name === "Journal" ? "Daily journal" : n.name}
               {n.name === "Sessions" && (
                 <span className="nav-count">{p.history.length}</span>
               )}
-              {n.name === "Overview" && <span className="nav-active-dot" />}
             </button>
           ))}
         </nav>
@@ -464,8 +561,17 @@ export default function Dashboard({
                   : "Wearables are optional"}
               </small>
             </div>
-            <Bluetooth size={16} />
+            {p.recording && <Bluetooth size={16} />}
           </div>
+          <button
+            className="sensitivity-control"
+            onClick={() => navigate("Settings")}
+          >
+            <span>HR sensitivity</span>
+            <strong>
+              +{threshold} <small>BPM</small>
+            </strong>
+          </button>
           <button className="user-button" onClick={() => setTab("Settings")}>
             <span className="avatar">
               {p.email ? p.email[0].toUpperCase() : "T"}
@@ -480,10 +586,19 @@ export default function Dashboard({
       </aside>
       <div className="main-wrap">
         <header className="topbar">
+          <button
+            className="icon-button mobile-menu"
+            aria-label="Toggle navigation"
+            aria-controls="workspace-navigation"
+            aria-expanded={mobileNav}
+            onClick={() => setMobileNav((v) => !v)}
+          >
+            <Menu size={20} />
+          </button>
           <div className="breadcrumbs">
             Workspace
             <ChevronRight size={13} />
-            <strong>{tab}</strong>
+            <strong>{tabLabel}</strong>
           </div>
           <div className="topbar-right">
             <span className="private-label">
@@ -507,45 +622,71 @@ export default function Dashboard({
         <main data-tab={tab}>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">YOUR TRADING WORKSPACE</div>
+              <div className="eyebrow">
+                {tab === "Journal"
+                  ? "YOUR PHYSIOLOGY · YOUR INTERPRETATION"
+                  : tab === "Stillness"
+                    ? "A LITTLE SPACE TO NOTICE"
+                    : "STILL SIGNAL · PERSONAL WORKSPACE"}
+              </div>
               <h1>
                 {tab === "Overview"
-                  ? "Market moves. Your perspective."
+                  ? "Your perspective, in focus."
                   : tab === "Sessions"
                     ? "Session archive"
                     : tab === "Journal"
-                      ? "Your journal"
-                      : tab === "Connections"
-                        ? "Connections"
-                        : "Workspace settings"}
+                      ? new Date(s.startedAt).toLocaleDateString([], {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        })
+                      : tab === "Patterns"
+                        ? "The patterns in your signal."
+                        : tab === "Stillness"
+                          ? "Arrive before you analyse."
+                          : tab === "Connections"
+                            ? "Connections"
+                            : "Workspace settings"}
               </h1>
               <p>
                 {tab === "Overview"
-                  ? "Executions, heart rate, and reflections. One shared timeline."
+                  ? "A clearer view of the days, decisions, and moments behind your trading."
                   : tab === "Sessions"
                     ? "Revisit your heart rate, trade events, and personal context."
                     : tab === "Journal"
-                      ? "Your labels. Your observations. A little more understanding each session."
-                      : tab === "Connections"
-                        ? "Automatic broker history, chart observations, and optional wearable context."
-                        : "Choose the rhythm that fits the way you trade."}
+                      ? "Heart rate, execution, and reflection. One shared timeline."
+                      : tab === "Patterns"
+                        ? "Your history is evidence. What it means is yours to explore."
+                        : tab === "Stillness"
+                          ? "There is nothing you need to prove in this moment."
+                          : tab === "Connections"
+                            ? "Automatic broker history, chart observations, and optional wearable context."
+                            : "Choose the rhythm that fits the way you trade."}
               </p>
             </div>
             <div className="page-actions floating-session-controls">
               <button className="button" onClick={() => setModal("csv")}>
                 <Upload size={16} /> Import CSV
               </button>
-              {p.active && <button type="button" className="button" onClick={() => { void floatingJournal.open(); }}>
-                <ExternalLink size={15} /> Session dashboard
-              </button>}
-            <button
-              className={p.active ? "button stop" : "button primary"}
-              disabled={busy}
-              onClick={() => act(p.active ? p.stop : p.start)}
-            >
-              {p.active ? <Square size={14} /> : <Radio size={16} />}{" "}
-              {p.active ? "End session" : "Start session"}
-            </button>
+              {p.active && (
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    void floatingJournal.open();
+                  }}
+                >
+                  <ExternalLink size={15} /> Session dashboard
+                </button>
+              )}
+              <button
+                className={p.active ? "button stop" : "button primary"}
+                disabled={busy}
+                onClick={() => act(p.active ? p.stop : p.start)}
+              >
+                {p.active ? <Square size={14} /> : <Radio size={16} />}{" "}
+                {p.active ? "End session" : "Start session"}
+              </button>
             </div>
           </div>
           {p.error && (
@@ -582,7 +723,17 @@ export default function Dashboard({
               </button>
             </div>
           )}
-          <ExtensionConnection user={user} sessionId={s.id === "workspace" ? undefined : s.id} manage={tab === "Settings"} scope={{instrumentId:instrumentFilter||undefined,accountId:accountFilter||undefined,baselineSeconds:p.settings.baselineSeconds,windowSeconds:p.settings.windowSeconds}} />
+          <ExtensionConnection
+            user={user}
+            sessionId={s.id === "workspace" ? undefined : s.id}
+            manage={tab === "Settings"}
+            scope={{
+              instrumentId: instrumentFilter || undefined,
+              accountId: accountFilter || undefined,
+              baselineSeconds: p.settings.baselineSeconds,
+              windowSeconds: p.settings.windowSeconds,
+            }}
+          />
           <SmartCheckins
             owner={p.owner}
             sessionId={s.id}
@@ -594,7 +745,30 @@ export default function Dashboard({
             blocked={!!modal || !!selected}
             onOpen={(draft) => void act(() => openLiveReflection(draft))}
           />
-          {tab === "Journal" && (
+          {tab === "Overview" && (
+            <SignalOverview
+              sessions={history}
+              session={s}
+              profile={profile}
+              recording={p.active}
+              onJournal={() => {
+                setJournalView("Timeline");
+                setTab("Journal");
+              }}
+              onPatterns={() => setTab("Patterns")}
+              onReflect={() => openReflection({ t: viewEnd })}
+              onOpen={(item) => {
+                void act(async () => {
+                  if (item.id !== s.id) await p.openSession(item);
+                  setTab("Journal");
+                });
+              }}
+            />
+          )}
+          <div hidden={tab !== "Stillness"}>
+            <Stillness time={viewEnd} onReflect={openReflection} />
+          </div>
+          {tab === "Journal" && !todayReview && (
             <div className="smart-journal-toolbar">
               <button
                 className="button"
@@ -611,11 +785,26 @@ export default function Dashboard({
                 <Mic size={16} /> Voice check-in{" "}
                 <kbd>Alt + {p.settings.shortcutKey.toUpperCase()}</kbd>
               </button>
+              <button
+                className="button"
+                onClick={() => openReflection({ t: viewEnd })}
+              >
+                <Plus size={15} /> Add reflection
+              </button>
               <span>Your words. Your patterns.</span>
             </div>
           )}
-          {tab === "Overview" && (
+          {tab === "Journal" && !todayReview && (
             <>
+              <SignalCalendar
+                key={s.id}
+                sessions={history}
+                selected={s}
+                recording={p.active}
+                onOpen={(item) => {
+                  if (item.id !== s.id) void act(() => p.openSession(item));
+                }}
+              />
               <WorkspaceToolbar
                 session={s}
                 sessions={p.history}
@@ -791,400 +980,413 @@ export default function Dashboard({
                   icon={<Activity size={17} />}
                 />
               </div>
-              <div className="trading-grid">
-                <section className="glass timeline-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>
-                        Your session, in sync{" "}
-                        <span
-                          className={p.active ? "live-badge" : "subtle-badge"}
-                        >
-                          {p.active
-                            ? stale
-                              ? "NO SIGNAL"
-                              : "LIVE"
-                            : replay
-                              ? "REPLAY"
-                              : "TIMELINE"}
-                        </span>
-                      </h2>
-                      <p>
-                        Trades, reflections, and any heart-rate data share one
-                        timeline.
-                      </p>
-                    </div>
-                    <div className="segmented">
-                      {[
-                        { v: 15, l: "15m" },
-                        { v: 30, l: "30m" },
-                        { v: 60, l: "1h" },
-                        { v: 0, l: "All" },
-                      ].map((r) => (
-                        <button
-                          className={range === r.v ? "selected" : ""}
-                          key={r.v}
-                          onClick={() => setRange(r.v)}
-                        >
-                          {r.l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="chart-legend">
-                    {p.samples.length > 0 && (
-                      <span>
-                        <i className="line orange-bg" />
-                        Heart rate
-                      </span>
-                    )}
-                    <span>
-                      <i className="circle mint-bg" />
-                      Buy
-                    </span>
-                    <span>
-                      <i className="circle rose-bg" />
-                      Sell
-                    </span>
-                    {stats.baseline !== null && (
-                      <span>
-                        <i className="dashed" />
-                        Baseline
-                      </span>
-                    )}
-                    <span className="legend-unit">
-                      {p.samples.length > 0 ? "BPM · " : ""}
-                      {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                    </span>
-                  </div>
-                  <Timeline
-                    owner={p.owner}
-                    selectedTime={contextEvent?.t}
-                    viewportKey={s.id + ":" + range}
-                    instrumentScope={JSON.stringify([
-                      p.owner, s.id, accountFilter, instrumentFilter,
-                    ])}
-                    sessionStart={fullStart}
-                    sessionEnd={fullEnd}
-                    instrument={chartInstrument}
-                    accountId={
-                      accountFilter &&
-                      s.events.find(
-                        (e) => e.broker?.accountId === accountFilter,
-                      )?.broker?.accountId
-                    }
-                    cutoff={viewEnd}
-                    replay={replayPosition < 100}
-                    samples={shown}
-                    events={visibleEvents}
-                    journal={visibleJournal}
-                    baseline={stats.baseline}
-                    start={viewStart}
-                    end={Math.max(viewEnd, viewStart + 60000)}
-                    onSelect={(e) => {
-                      setContextEvent(e);
-                      setSelected(e);
-                    }}
-                    onMoment={inspectMoment}
-                    moments={moments.filter((m) => m.t <= viewEnd)}
-                  />
-                  <div className="timeline-bottom">
-                    <span>
-                      <span className="status-dot small" />
-                      {isWorkspace
-                        ? "No recorded samples"
-                        : `${p.samples.length.toLocaleString()} samples saved`}
-                      {stats.gaps > 0 && ` · ${stats.gaps} signal gaps`}
-                    </span>
-                    <div>
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          openReflection({ t: selected?.t || viewEnd })
-                        }
-                      >
-                        <Plus size={14} />
-                        Add moment
-                      </button>
-                      <span className="divider" />
-                      <button
-                        className="text-button"
-                        onClick={toggleReplay}
-                        disabled={
-                          p.active ||
-                          (!p.samples.length &&
-                            !s.events.length &&
-                            !liveNotes(visibleJournal).length)
-                        }
-                      >
-                        {replay ? <Pause size={14} /> : <Play size={14} />}
-                        {replay
-                          ? "Pause replay"
-                          : replayPosition < 100
-                            ? "Resume replay"
-                            : "Replay session"}
-                      </button>
-                    </div>
-                  </div>
-                  {(replay || replayPosition < 100) && (
-                    <div className="replay-bar">
-                      <input
-                        aria-label="Replay position"
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        value={replayPosition}
-                        onChange={(e) => setReplayPosition(+e.target.value)}
-                      />
-                      <span>{clock(viewEnd)}</span>
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          setReplay(false);
-                          setReplayPosition(100);
-                        }}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  )}
-                </section>
-                <TradeContextPanel
-                  event={contextEvent || visibleEvents.at(-1)}
-                  samples={shown}
-                  events={visibleEvents}
-                  end={viewEnd}
-                  seconds={p.settings.windowSeconds}
-                  onSelect={setSelected}
-                  onReflect={(t) => openReflection({ t })}
-                />
+              <div className="journal-tabs" aria-label="Journal views">
+                <button
+                  className={journalView === "Timeline" ? "active" : ""}
+                  aria-pressed={journalView === "Timeline"}
+                  onClick={() => setJournalView("Timeline")}
+                >
+                  Daily timeline
+                </button>
+                <button onClick={() => setTab("Patterns")}>
+                  Patterns & insights
+                </button>
+                <button
+                  className={journalView === "Review" ? "active" : ""}
+                  aria-pressed={journalView === "Review"}
+                  onClick={() => setJournalView("Review")}
+                >
+                  Mindful trade review
+                </button>
+                <button
+                  className="today-notes"
+                  onClick={() => setTodayReview(true)}
+                >
+                  Today’s reflections
+                </button>
               </div>
-              <div className="lower-grid">
-                <section className="glass events-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>
-                        Trade activity{" "}
-                        <span className="count-badge">
-                          {visibleEvents.length}
-                        </span>
-                      </h2>
-                      <p>The decisions behind the timeline.</p>
-                    </div>
-                    <div className="inline-actions">
-                      <button
-                        className="button small-button"
-                        title="Import CSV"
-                        aria-label="Import trade CSV"
-                        onClick={() => setModal("csv")}
-                      >
-                        <Upload size={16} />
-                        Import CSV
-                      </button>
-                      <button
-                        className="button small-button"
-                        onClick={() => setModal("trade")}
-                      >
-                        <Plus size={14} />
-                        Add event
-                      </button>
-                    </div>
-                  </div>
-                  <div className="table-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Instrument</th>
-                          <th>Event</th>
-                          <th>Time</th>
-                          {(shown.length > 0 || p.recording) && (
-                            <th>Heart rate</th>
-                          )}
-                          <th>P&L</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visibleEvents
-                          .slice(-6)
-                          .reverse()
-                          .map((e) => (
-                            <tr key={e.id} onClick={() => setSelected(e)}>
-                              <td>
-                                <button
-                                  className="symbol-button"
-                                  onClick={() => setSelected(e)}
-                                >
-                                  <span
-                                    className={
-                                      "symbol-icon " +
-                                      (e.symbol === "ES" ? "blue" : "")
-                                    }
-                                  >
-                                    {e.symbol.slice(0, 2)}
-                                  </span>
-                                  <span>
-                                    {e.symbol}
-                                    <small>
-                                      {e.side === "long" ? "Long" : "Short"} ·{" "}
-                                      {e.quantity} qty
-                                    </small>
-                                  </span>
-                                </button>
-                              </td>
-                              <td>
-                                <span className={"event-tag " + e.kind}>
-                                  {e.provenance === "alert" ? (
-                                    <Radio size={12} />
-                                  ) : executionAction(e) === "buy" ? (
-                                    <ArrowUpRight size={12} />
-                                  ) : (
-                                    <ArrowDownLeft size={12} />
-                                  )}{" "}
-                                  {e.provenance === "alert"
-                                    ? "Price alert"
-                                    : executionAction(e) +
-                                      " · " +
-                                      e.kind +
-                                      " " +
-                                      (e.side === "unknown" ? "" : e.side)}
-                                </span>
-                                <small className="event-origin">
-                                  {eventOrigin(e)}
-                                </small>
-                              </td>
-                              <td className="tabular">
-                                {clock(e.t).replace(/\s?(AM|PM)$/, "")}
-                              </td>
-                              {(shown.length > 0 || p.recording) && (
-                                <td className="tabular">
-                                  {nearest(shown, e.t)?.bpm ?? "—"}
-                                  <small className="inline-muted"> BPM</small>
-                                </td>
-                              )}
-                              <td
-                                className={
-                                  (e.pnl ?? 0) >= 0
-                                    ? "mint tabular"
-                                    : "rose tabular"
-                                }
-                              >
-                                {e.pnl === undefined
-                                  ? "—"
-                                  : money(
-                                      e.pnl,
-                                      e.currency ||
-                                        e.instrument?.currency ||
-                                        "USD",
-                                    )}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                    {!visibleEvents.length && (
-                      <div className="empty-state">
-                        <Activity />
-                        <h3>Your first event belongs here.</h3>
+              <div hidden={journalView !== "Timeline"}>
+                <div className="trading-grid">
+                  <section className="glass timeline-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>
+                          The rhythm of your session{" "}
+                          <span
+                            className={p.active ? "live-badge" : "subtle-badge"}
+                          >
+                            {p.active
+                              ? stale
+                                ? "NO SIGNAL"
+                                : "LIVE"
+                              : replay
+                                ? "REPLAY"
+                                : "TIMELINE"}
+                          </span>
+                        </h2>
                         <p>
-                          Add an entry, import a CSV, or connect TradingView.
+                          Trades, reflections, and any heart-rate data share one
+                          timeline.
                         </p>
                       </div>
+                      <div className="segmented">
+                        {[
+                          { v: 15, l: "15m" },
+                          { v: 30, l: "30m" },
+                          { v: 60, l: "1h" },
+                          { v: 0, l: "All" },
+                        ].map((r) => (
+                          <button
+                            className={range === r.v ? "selected" : ""}
+                            key={r.v}
+                            onClick={() => setRange(r.v)}
+                          >
+                            {r.l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="chart-legend">
+                      {p.samples.length > 0 && (
+                        <span>
+                          <i className="line orange-bg" />
+                          Heart rate
+                        </span>
+                      )}
+                      <span>
+                        <i className="circle mint-bg" />
+                        Buy
+                      </span>
+                      <span>
+                        <i className="circle rose-bg" />
+                        Sell
+                      </span>
+                      {stats.baseline !== null && (
+                        <span>
+                          <i className="dashed" />
+                          Baseline
+                        </span>
+                      )}
+                      <span className="legend-unit">
+                        {p.samples.length > 0 ? "BPM · " : ""}
+                        {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                      </span>
+                    </div>
+                    <Timeline
+                      owner={p.owner}
+                      selectedTime={contextEvent?.t}
+                      viewportKey={s.id + ":" + range}
+                      instrumentScope={JSON.stringify([
+                        p.owner,
+                        s.id,
+                        accountFilter,
+                        instrumentFilter,
+                      ])}
+                      sessionStart={fullStart}
+                      sessionEnd={fullEnd}
+                      instrument={chartInstrument}
+                      accountId={
+                        accountFilter &&
+                        s.events.find(
+                          (e) => e.broker?.accountId === accountFilter,
+                        )?.broker?.accountId
+                      }
+                      cutoff={viewEnd}
+                      replay={replayPosition < 100}
+                      samples={shown}
+                      events={visibleEvents}
+                      journal={visibleJournal}
+                      baseline={stats.baseline}
+                      start={viewStart}
+                      end={Math.max(viewEnd, viewStart + 60000)}
+                      onSelect={(e) => {
+                        setContextEvent(e);
+                        setSelected(e);
+                      }}
+                      onMoment={inspectMoment}
+                      moments={moments.filter((m) => m.t <= viewEnd)}
+                    />
+                    <div className="timeline-bottom">
+                      <span>
+                        <span className="status-dot small" />
+                        {isWorkspace
+                          ? "No recorded samples"
+                          : `${p.samples.length.toLocaleString()} samples saved`}
+                        {stats.gaps > 0 && ` · ${stats.gaps} signal gaps`}
+                      </span>
+                      <div>
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            openReflection({ t: selected?.t || viewEnd })
+                          }
+                        >
+                          <Plus size={14} />
+                          Add moment
+                        </button>
+                        <span className="divider" />
+                        <button
+                          className="text-button"
+                          onClick={toggleReplay}
+                          disabled={
+                            p.active ||
+                            (!p.samples.length &&
+                              !s.events.length &&
+                              !liveNotes(visibleJournal).length)
+                          }
+                        >
+                          {replay ? <Pause size={14} /> : <Play size={14} />}
+                          {replay
+                            ? "Pause replay"
+                            : replayPosition < 100
+                              ? "Resume replay"
+                              : "Replay session"}
+                        </button>
+                      </div>
+                    </div>
+                    {(replay || replayPosition < 100) && (
+                      <div className="replay-bar">
+                        <input
+                          aria-label="Replay position"
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={replayPosition}
+                          onChange={(e) => setReplayPosition(+e.target.value)}
+                        />
+                        <span>{clock(viewEnd)}</span>
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setReplay(false);
+                            setReplayPosition(100);
+                          }}
+                        >
+                          Reset
+                        </button>
+                      </div>
                     )}
-                  </div>
-                  <div className="panel-footer">
-                    {visibleEvents.length > 6
-                      ? "Showing the latest 6 events"
-                      : "Click an event to explore its context"}
-                    <button
-                      className="text-button"
-                      disabled={isWorkspace}
-                      onClick={exportSession}
-                    >
-                      Export session <Download size={13} />
-                    </button>
-                  </div>
-                </section>
-                <section className="glass insights-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>
-                        <span className="orange">
-                          <Zap size={16} />
-                        </span>{" "}
-                        Session observations
-                      </h2>
-                      <p>A little perspective, without the noise.</p>
+                  </section>
+                  <TradeContextPanel
+                    event={contextEvent || visibleEvents.at(-1)}
+                    samples={shown}
+                    events={visibleEvents}
+                    end={viewEnd}
+                    seconds={p.settings.windowSeconds}
+                    onSelect={setSelected}
+                    onReflect={(t) => openReflection({ t })}
+                  />
+                </div>
+                <div className="lower-grid">
+                  <section className="glass events-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>
+                          Trade activity{" "}
+                          <span className="count-badge">
+                            {visibleEvents.length}
+                          </span>
+                        </h2>
+                        <p>The decisions behind the timeline.</p>
+                      </div>
+                      <div className="inline-actions">
+                        <button
+                          className="button small-button"
+                          title="Import CSV"
+                          aria-label="Import trade CSV"
+                          onClick={() => setModal("csv")}
+                        >
+                          <Upload size={16} />
+                          Import CSV
+                        </button>
+                        <button
+                          className="button small-button"
+                          onClick={() => setModal("trade")}
+                        >
+                          <Plus size={14} />
+                          Add event
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="observation">
-                    <span className="observation-icon">
-                      <Activity size={17} />
-                    </span>
-                    <div>
-                      <h3>
-                        {insight.peak === null
-                          ? "Your journal works on its own"
-                          : `Your session peaked at ${insight.peak} BPM`}
-                      </h3>
-                      <p>
-                        {insight.baseline === null
-                          ? "Add trades and reflections now. Attach a wearable whenever you want heart-rate context."
-                          : `${Math.round((insight.peak || 0) - insight.baseline)} BPM above your opening baseline. Context is yours to add.`}
-                      </p>
+                    <div className="table-scroll">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Instrument</th>
+                            <th>Event</th>
+                            <th>Time</th>
+                            {(shown.length > 0 || p.recording) && (
+                              <th>Heart rate</th>
+                            )}
+                            <th>P&L</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleEvents
+                            .slice(-6)
+                            .reverse()
+                            .map((e) => (
+                              <tr key={e.id} onClick={() => setSelected(e)}>
+                                <td>
+                                  <button
+                                    className="symbol-button"
+                                    onClick={() => setSelected(e)}
+                                  >
+                                    <span
+                                      className={
+                                        "symbol-icon " +
+                                        (e.symbol === "ES" ? "blue" : "")
+                                      }
+                                    >
+                                      {e.symbol.slice(0, 2)}
+                                    </span>
+                                    <span>
+                                      {e.symbol}
+                                      <small>
+                                        {e.side === "long" ? "Long" : "Short"} ·{" "}
+                                        {e.quantity} qty
+                                      </small>
+                                    </span>
+                                  </button>
+                                </td>
+                                <td>
+                                  <span className={"event-tag " + e.kind}>
+                                    {e.provenance === "alert" ? (
+                                      <Radio size={12} />
+                                    ) : executionAction(e) === "buy" ? (
+                                      <ArrowUpRight size={12} />
+                                    ) : (
+                                      <ArrowDownLeft size={12} />
+                                    )}{" "}
+                                    {e.provenance === "alert"
+                                      ? "Price alert"
+                                      : executionAction(e) +
+                                        " · " +
+                                        e.kind +
+                                        " " +
+                                        (e.side === "unknown" ? "" : e.side)}
+                                  </span>
+                                  <small className="event-origin">
+                                    {eventOrigin(e)}
+                                  </small>
+                                </td>
+                                <td className="tabular">
+                                  {clock(e.t).replace(/\s?(AM|PM)$/, "")}
+                                </td>
+                                {(shown.length > 0 || p.recording) && (
+                                  <td className="tabular">
+                                    {nearest(shown, e.t)?.bpm ?? "—"}
+                                    <small className="inline-muted"> BPM</small>
+                                  </td>
+                                )}
+                                <td
+                                  className={
+                                    (e.pnl ?? 0) >= 0
+                                      ? "mint tabular"
+                                      : "rose tabular"
+                                  }
+                                >
+                                  {e.pnl === undefined
+                                    ? "—"
+                                    : money(
+                                        e.pnl,
+                                        e.currency ||
+                                          e.instrument?.currency ||
+                                          "USD",
+                                      )}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                      {!visibleEvents.length && (
+                        <div className="empty-state">
+                          <Activity />
+                          <h3>Your first event belongs here.</h3>
+                          <p>
+                            Add an entry, import a CSV, or connect TradingView.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="observation">
-                    <span className="observation-icon purple">
-                      <BookOpen size={17} />
-                    </span>
-                    <div>
-                      <h3>
-                        {liveNotes(visibleJournal).length
-                          ? `${liveNotes(visibleJournal).length} moments with personal context`
-                          : "Numbers tell part of the story"}
-                      </h3>
-                      <p>
-                        {liveNotes(visibleJournal).length
-                          ? "Your journal adds what a sensor cannot: what you were thinking and feeling."
-                          : "Add a moment to describe what this session felt like to you."}
-                      </p>
+                    <div className="panel-footer">
+                      {visibleEvents.length > 6
+                        ? "Showing the latest 6 events"
+                        : "Click an event to explore its context"}
                       <button
-                        className="text-button orange"
-                        onClick={() =>
-                          openReflection({ t: selected?.t || viewEnd })
-                        }
+                        className="text-button"
+                        disabled={isWorkspace}
+                        onClick={exportSession}
                       >
-                        Add a reflection <ArrowUpRight size={13} />
+                        Export session <Download size={13} />
                       </button>
                     </div>
-                  </div>
-                  <div className="insight-note">
-                    <ShieldCheck size={13} />
-                    <span>
-                      Descriptive statistics. No emotion detection or trading
-                      recommendations.
-                    </span>
-                  </div>
-                </section>
-              </div>
-              <section className="journal-strip glass">
-                <span className="journal-strip-icon">
-                  <BookOpen size={21} />
-                </span>
-                <div>
-                  <h3>Your numbers have a story. Give them context.</h3>
-                  <p>
-                    A quick reflection today becomes a clearer picture tomorrow.
-                  </p>
+                  </section>
+                  <section className="glass insights-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>
+                          <span className="orange">
+                            <Zap size={16} />
+                          </span>{" "}
+                          Session observations
+                        </h2>
+                        <p>A little perspective, without the noise.</p>
+                      </div>
+                    </div>
+                    <div className="observation">
+                      <span className="observation-icon">
+                        <Activity size={17} />
+                      </span>
+                      <div>
+                        <h3>
+                          {insight.peak === null
+                            ? "Your journal works on its own"
+                            : `Your session peaked at ${insight.peak} BPM`}
+                        </h3>
+                        <p>
+                          {insight.baseline === null
+                            ? "Add trades and reflections now. Attach a wearable whenever you want heart-rate context."
+                            : `${Math.round((insight.peak || 0) - insight.baseline)} BPM above your opening baseline. Context is yours to add.`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="observation">
+                      <span className="observation-icon purple">
+                        <BookOpen size={17} />
+                      </span>
+                      <div>
+                        <h3>
+                          {liveNotes(visibleJournal).length
+                            ? `${liveNotes(visibleJournal).length} moments with personal context`
+                            : "Numbers tell part of the story"}
+                        </h3>
+                        <p>
+                          {liveNotes(visibleJournal).length
+                            ? "Your journal adds what a sensor cannot: what you were thinking and feeling."
+                            : "Add a moment to describe what this session felt like to you."}
+                        </p>
+                        <button
+                          className="text-button orange"
+                          onClick={() =>
+                            openReflection({ t: selected?.t || viewEnd })
+                          }
+                        >
+                          Add a reflection <ArrowUpRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="insight-note">
+                      <ShieldCheck size={13} />
+                      <span>
+                        Descriptive statistics. No emotion detection or trading
+                        recommendations.
+                      </span>
+                    </div>
+                  </section>
                 </div>
-                <button
-                  className="button"
-                  onClick={() => openReflection({ t: selected?.t || viewEnd })}
-                >
-                  Open your journal <ArrowUpRight size={14} />
-                </button>
-              </section>
+              </div>
             </>
           )}
           {tab === "Sessions" && (
@@ -1236,7 +1438,7 @@ export default function Dashboard({
                       onClick={() =>
                         act(async () => {
                           await p.openSession(item);
-                          if (!p.active) setTab("Overview");
+                          if (!p.active) setTab("Journal");
                         })
                       }
                     >
@@ -1261,12 +1463,24 @@ export default function Dashboard({
               )}
             </section>
           )}
-          {tab === "Journal" && todayReview && <TodayReview sessions={p.history} owner={user.id} onClose={()=>setTodayReview(false)} onOpen={item=>{void p.openSession(item);setTodayReview(false);}} />}
-          {tab === "Journal" && !todayReview && (
-            <section className="glass content-panel">
+          {tab === "Journal" && todayReview && (
+            <TodayReview
+              sessions={history}
+              owner={user.id}
+              onClose={() => setTodayReview(false)}
+              onOpen={(item) => {
+                void act(async () => {
+                  if (item.id !== s.id) await p.openSession(item);
+                  setTodayReview(false);
+                });
+              }}
+            />
+          )}
+          {tab === "Journal" && !todayReview && journalView === "Timeline" && (
+            <section className="glass content-panel journal-flow">
               <div className="panel-heading">
                 <div>
-                  <h2>Session journal</h2>
+                  <h2>The moments behind the numbers</h2>
                   <p>{s.name} · Reflections belong to the selected session.</p>
                 </div>
                 <button
@@ -1357,14 +1571,48 @@ export default function Dashboard({
               )}
             </section>
           )}
+          <div
+            hidden={
+              tab !== "Journal" || todayReview || journalView !== "Review"
+            }
+          >
+            <SessionReview
+              key={s.id}
+              session={s}
+              time={viewEnd}
+              onSave={p.addNote}
+              onJournal={() => setJournalView("Timeline")}
+            />
+          </div>
+          <div
+            hidden={
+              tab !== "Journal" || todayReview || journalView !== "Timeline"
+            }
+          >
+            <JournalWriting
+              key={s.id}
+              time={viewEnd}
+              question={personalQuestion(profile, visibleEvents, viewEnd)}
+              onSave={p.addNote}
+              onOpen={openReflection}
+            />
+          </div>
           {tab === "Connections" && (
             <>
-              <section id="trade-csv" className="glass import-card csv-import-panel">
+              <section
+                id="trade-csv"
+                className="glass import-card csv-import-panel"
+              >
                 <div>
                   <h2>Manual CSV import</h2>
-                  <p>Add your exported trades to the matching day's session and recorded heart rate. No broker setup.</p>
+                  <p>
+                    Add your exported trades to the matching day's session and
+                    recorded heart rate. No broker setup.
+                  </p>
                 </div>
-                <button className="button" onClick={() => setModal("csv")}><Upload size={16} /> Import CSV</button>
+                <button className="button" onClick={() => setModal("csv")}>
+                  <Upload size={16} /> Import CSV
+                </button>
               </section>
               <BrokerConnections
                 owner={p.owner}
@@ -1613,7 +1861,7 @@ export default function Dashboard({
                     ))}
                   </select>
                   <small>
-                    Works while Trade Pulse is focused. Dictation requests
+                    Works while Still Signal is focused. Dictation requests
                     microphone permission.
                   </small>
                 </label>
@@ -1698,29 +1946,79 @@ export default function Dashboard({
               </section>
             </div>
           )}
-          {(tab === "Overview" || tab === "Journal") && (
-            <JournalInsights
-              session={{ ...s, events: visibleEvents, journal: visibleJournal }}
-              moments={moments.filter((m) => m.t <= viewEnd)}
-              profile={profile}
-              hasSamples={shown.length > 0}
-              onMoment={(t, hrEventId) =>
-                openReflection({ t, source: "hr-checkin", hrEventId })
-              }
-              onEvidence={(id) => {
-                const target = p.history.find((h) => h.id === id);
-                if (id === s.id) setTab("Journal");
-                else if (target)
-                  void act(async () => {
-                    await p.openSession(target);
-                    setTab("Journal");
-                  });
-              }}
-            />
+          {tab === "Patterns" && (
+            <>
+              <div className="analysis-explainer">
+                <Sparkles size={20} />
+                <div>
+                  <h2>
+                    Observe the connection. Keep the interpretation yours.
+                  </h2>
+                  <p>
+                    These observations use your confirmed labels, recorded heart
+                    rate, and execution history. Open the supporting moments
+                    before drawing a conclusion.
+                  </p>
+                </div>
+              </div>
+              <div className="pattern-summary">
+                <div>
+                  <span>Confirmed reflections</span>
+                  <strong>{profile.count}</strong>
+                </div>
+                <div>
+                  <span>Saved sessions</span>
+                  <strong>{profile.sessionCount}</strong>
+                </div>
+                <div>
+                  <span>HR-linked reflections</span>
+                  <strong>
+                    {history.reduce(
+                      (count, session) =>
+                        count +
+                        liveNotes(session.journal).filter(
+                          (n) => n.context?.bpm !== undefined,
+                        ).length,
+                      0,
+                    )}
+                  </strong>
+                </div>
+                <div>
+                  <span>Learned sensitivity</span>
+                  <strong>
+                    {profile.suggestedThreshold === null
+                      ? "Building"
+                      : `+${profile.suggestedThreshold} BPM`}
+                  </strong>
+                </div>
+              </div>
+              <JournalInsights
+                session={{
+                  ...s,
+                  events: visibleEvents,
+                  journal: visibleJournal,
+                }}
+                moments={moments.filter((m) => m.t <= viewEnd)}
+                profile={profile}
+                hasSamples={shown.length > 0}
+                onMoment={(t, hrEventId) =>
+                  openReflection({ t, source: "hr-checkin", hrEventId })
+                }
+                onEvidence={(id) => {
+                  const target = p.history.find((h) => h.id === id);
+                  if (id === s.id) setTab("Journal");
+                  else if (target)
+                    void act(async () => {
+                      await p.openSession(target);
+                      setTab("Journal");
+                    });
+                }}
+              />
+            </>
           )}
           <footer className="app-footer">
             <span>
-              <Activity size={13} /> Trade Pulse{" "}
+              <Activity size={13} /> Still Signal{" "}
               <span className="footer-dot">·</span> A little more
               self-awareness.
             </span>
@@ -1893,28 +2191,31 @@ export default function Dashboard({
           </form>
         </Modal>
       )}
-      {floatingJournal.host && createPortal(
-        <FloatingJournal
-          key={s.id}
-          session={s}
-          samples={p.samples}
-          now={p.now}
-          baselineSeconds={p.settings.baselineSeconds}
-          recording={p.recording}
-          active={p.active}
-          syncState={p.syncState}
-          floating={floatingJournal.floating}
-          message={floatingJournal.message}
-          onClose={() => {
-            if (floatingJournal.floating) floatingJournal.close();
-            else if (floatingJournal.host) floatingJournal.host.hidden = true;
-          }}
-          onReopen={() => { void floatingJournal.open(); }}
-          prepareScreenshot={p.prepareScreenshot}
-          onSave={p.addNote}
-        />,
-        floatingJournal.host,
-      )}
+      {floatingJournal.host &&
+        createPortal(
+          <FloatingJournal
+            key={s.id}
+            session={s}
+            samples={p.samples}
+            now={p.now}
+            baselineSeconds={p.settings.baselineSeconds}
+            recording={p.recording}
+            active={p.active}
+            syncState={p.syncState}
+            floating={floatingJournal.floating}
+            message={floatingJournal.message}
+            onClose={() => {
+              if (floatingJournal.floating) floatingJournal.close();
+              else if (floatingJournal.host) floatingJournal.host.hidden = true;
+            }}
+            onReopen={() => {
+              void floatingJournal.open();
+            }}
+            prepareScreenshot={p.prepareScreenshot}
+            onSave={p.addNote}
+          />,
+          floatingJournal.host,
+        )}
       {modal === "note" && (
         <Modal
           title={
@@ -2034,14 +2335,22 @@ export default function Dashboard({
           onClose={() => setSelected(null)}
         >
           {(() => {
-            const w = selected.timePrecision === "day" ? { before: null, at: null, after: null } : eventWindow(shown, selected, p.settings.windowSeconds);
+            const w =
+              selected.timePrecision === "day"
+                ? { before: null, at: null, after: null }
+                : eventWindow(shown, selected, p.settings.windowSeconds);
             return (
               <>
                 <p className="form-intro">
                   {clock(selected.t)} · {selected.side} · {selected.quantity} at{" "}
                   {selected.price} · Source: {selected.source}
                 </p>
-                {selected.timestampSource === "order-update" && <p className="form-intro">Order update time, not an exact fill time. Heart-rate alignment uses this recorded timestamp.</p>}
+                {selected.timestampSource === "order-update" && (
+                  <p className="form-intro">
+                    Order update time, not an exact fill time. Heart-rate
+                    alignment uses this recorded timestamp.
+                  </p>
+                )}
                 <div className="event-stats">
                   <div>
                     <small>Before · {p.settings.windowSeconds}s</small>
@@ -2068,7 +2377,13 @@ export default function Dashboard({
                   Averages use available samples in your chosen window. Missing
                   readings are left blank; no values are inferred.
                 </p>
-                <PositionHeartRate event={selected} samples={shown} events={visibleEvents} seconds={p.settings.windowSeconds} end={viewEnd} />
+                <PositionHeartRate
+                  event={selected}
+                  samples={shown}
+                  events={visibleEvents}
+                  seconds={p.settings.windowSeconds}
+                  end={viewEnd}
+                />
                 <button
                   className="button primary full"
                   onClick={() => openReflection({ t: selected?.t || viewEnd })}

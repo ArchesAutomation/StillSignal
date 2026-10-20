@@ -152,7 +152,7 @@ async function main() {
     }
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end(
-      `<!doctype html><title>Trade Pulse extension fixture</title><button id="approve">Connect account</button><p id="result"></p><script>document.getElementById('approve').onclick=async()=>{const q=new URLSearchParams(location.search);const p={action:'pair',extensionId:q.get('connectExtension'),instanceId:q.get('instance'),challenge:q.get('challenge')};const r=await fetch('/api/extension',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer signed-in-test'},body:JSON.stringify(p)});const d=await r.json();const result=await chrome.runtime.sendMessage(p.extensionId,{type:'pair-result',code:d.code,instanceId:p.instanceId,challenge:p.challenge});document.getElementById('result').textContent=JSON.stringify(result)};</script>`,
+      `<!doctype html><title>Still Signal extension fixture</title><button id="approve">Connect account</button><p id="result"></p><script>document.getElementById('approve').onclick=async()=>{const q=new URLSearchParams(location.search);const p={action:'pair',extensionId:q.get('connectExtension'),instanceId:q.get('instance'),challenge:q.get('challenge')};const r=await fetch('/api/extension',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer signed-in-test'},body:JSON.stringify(p)});const d=await r.json();const result=await chrome.runtime.sendMessage(p.extensionId,{type:'pair-result',code:d.code,instanceId:p.instanceId,challenge:p.challenge});document.getElementById('result').textContent=JSON.stringify(result)};</script>`,
     );
   });
   await new Promise<void>((r) => server.listen(3000, "127.0.0.1", r));
@@ -500,7 +500,7 @@ async function main() {
     await panel.locator("#refresh").click();
     await panel
       .locator("#identity")
-      .filter({ hasText: "Connect your Trade Pulse account" })
+      .filter({ hasText: "Connect your Still Signal account" })
       .waitFor();
     results.push(
       "server revocation disconnects the account and disables capture",

@@ -33,6 +33,8 @@ type SpeechWindow = Window & {
 };
 export type ReflectionDraft = {
   t: number;
+  initialText?: string;
+  initialLabel?: string;
   entry?: JournalEntry;
   source?: JournalEntry["source"];
   hrEventId?: string;
@@ -103,8 +105,8 @@ export default function ReflectionEditor({
   onCancel?: () => void;
   compact?: boolean;
 }) {
-  const [text, setText] = useState(draft.entry?.text || ""),
-    [label, setLabel] = useState(draft.entry?.label || "Other"),
+  const [text, setText] = useState(draft.entry?.text || draft.initialText || ""),
+    [label, setLabel] = useState(draft.entry?.label || draft.initialLabel || "Other"),
     [time, setTime] = useState(localTime(draft.t)),
     [file, setFile] = useState<File | null>(draft.screenshotFile || null),
     [attachment, setAttachment] = useState(draft.entry?.screenshot),
@@ -376,7 +378,7 @@ export default function ReflectionEditor({
       <p className="form-intro" hidden={compact}>
         Your confirmed labels and history shape your personal insights.
         Dictation uses your browser's speech service, which may process audio
-        remotely. Trade Pulse saves the reviewed text, not an audio recording.
+        remotely. Still Signal saves the reviewed text, not an audio recording.
       </p>
       <button
         className="button primary full"

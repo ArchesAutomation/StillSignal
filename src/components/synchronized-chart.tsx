@@ -73,14 +73,14 @@ export default function SynchronizedChart(props: ChartProps) {
       autoSize: true,
       height: 440,
       layout: {
-        background: { type: ColorType.Solid, color: "#111211" },
-        textColor: "#aaa9a4",
-        fontFamily: "Arial, sans-serif",
+        background: { type: ColorType.Solid, color: "#0d1416" },
+        textColor: "#8e9a99",
+        fontFamily: "Manrope, sans-serif",
         fontSize: 11,
         attributionLogo: true,
         panes: {
-          separatorColor: "#30312d",
-          separatorHoverColor: "#fc7c59",
+          separatorColor: "#223034",
+          separatorHoverColor: "#ff7654",
           enableResize: true,
         },
       },
@@ -104,10 +104,10 @@ export default function SynchronizedChart(props: ChartProps) {
             : null,
         timeVisible: true,
         secondsVisible: true,
-        borderColor: "#30312d",
+        borderColor: "#223034",
         rightOffset: 3,
       },
-      rightPriceScale: { borderColor: "#30312d", minimumWidth: 68 },
+      rightPriceScale: { borderColor: "#223034", minimumWidth: 68 },
       localization: {
         timeFormatter: (time: Time) =>
           typeof time === "number"
@@ -121,8 +121,8 @@ export default function SynchronizedChart(props: ChartProps) {
         upColor: "transparent",
         downColor: "transparent",
         borderVisible: false,
-        wickUpColor: "#66b99c",
-        wickDownColor: "#e97979",
+        wickUpColor: "#58d6ac",
+        wickDownColor: "#ff796f",
       },
       0,
     );
@@ -234,7 +234,7 @@ export default function SynchronizedChart(props: ChartProps) {
         .map((c) => ({
           time: utc(c.t),
           value: c.volume!,
-          color: c.close >= c.open ? "#66b99c30" : "#e9797930",
+          color: c.close >= c.open ? "#58d6ac30" : "#ff796f30",
         })),
     );
     const events = visibleChartEvents(props.events, props.start, props.cutoff);
@@ -271,7 +271,7 @@ export default function SynchronizedChart(props: ChartProps) {
               ? ("arrowUp" as const)
               : ("arrowDown" as const)
             : ("square" as const),
-          color: execution ? (buy ? "#66b99c" : "#e97979") : "#aaa9a4",
+          color: execution ? (buy ? "#58d6ac" : "#ff796f") : "#8e9a99",
           text:
             (buy ? "BUY" : "SELL") +
             " · " +
@@ -288,7 +288,7 @@ export default function SynchronizedChart(props: ChartProps) {
         id: n.id,
         position: "belowBar" as const,
         shape: "circle" as const,
-        color: "#e7ded0",
+        color: "#a88bff",
         text: n.label,
         size: 0.6,
       })),
@@ -297,7 +297,7 @@ export default function SynchronizedChart(props: ChartProps) {
         id: m.id,
         position: "aboveBar" as const,
         shape: "circle" as const,
-        color: "#fc7c59",
+        color: "#ff7654",
         text: "HR +" + Math.round(m.delta),
         size: 0.6,
       })),
@@ -311,7 +311,7 @@ export default function SynchronizedChart(props: ChartProps) {
           a.chart.addSeries(
             LineSeries,
             {
-              color: "#fc7c59",
+              color: "#ff7654",
               lineWidth: 2,
               pointMarkersVisible: segment.length === 1,
               lastValueVisible: false,

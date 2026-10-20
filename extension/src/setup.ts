@@ -13,7 +13,7 @@ button.onclick = async () => {
       payload: { type: "permission", granted: true },
     });
     permissionStatus.textContent =
-      "Microphone enabled. Open the toolbar side panel and connect Trade Pulse.";
+      "Microphone enabled. Open the toolbar side panel and connect Still Signal.";
   } catch {
     await chrome.runtime.sendMessage({
       target: "worker",

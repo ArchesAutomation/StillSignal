@@ -22,7 +22,7 @@ async function render() {
       return;
     }
     $("identity").textContent =
-      s.credential?.identity ?? "Connect your Trade Pulse account";
+      s.credential?.identity ?? "Connect your Still Signal account";
     $("status").textContent = s.status;
     $("status").classList.toggle(
       "live",

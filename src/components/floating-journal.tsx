@@ -49,7 +49,7 @@ export default function FloatingJournal({
   return (
     <section className="floating-journal" aria-label="Session dashboard" onPaste={paste} tabIndex={-1}>
       <header className="floating-journal-heading">
-        <span><Activity size={18} /> tradepulse<span className="orange">.</span></span>
+        <span><Activity size={18} /> still<span className="orange">signal.</span></span>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Close session dashboard"><X size={17} /></button>
       </header>
       <div className="floating-session-name"><span className={"status-dot " + (active ? "green" : "")} />{active ? "SESSION LIVE" : "SESSION ENDED"}</div>
@@ -95,7 +95,7 @@ export default function FloatingJournal({
       <footer className="floating-journal-footer">
         <span>{syncState}</span>
         {!floating && active && <button type="button" className="text-button" onClick={onReopen}>Reopen floating dashboard</button>}
-        <small>Keep the main Trade Pulse tab open.</small>
+        <small>Keep the main Still Signal tab open.</small>
       </footer>
     </section>
   );

@@ -131,7 +131,7 @@ async function request<T>(
   return d;
 }
 async function disconnect(
-  message = "Connect Trade Pulse to continue.",
+  message = "Connect Still Signal to continue.",
   revoke = false,
 ) {
   await chrome.storage.session.remove(["wakeConsent", "autoRespondConsent"]);
@@ -236,7 +236,7 @@ const digest = async (s: string) =>
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
 async function connect() {
-  await disconnect("Complete connection in Trade Pulse.", true);
+  await disconnect("Complete connection in Still Signal.", true);
   const secret = randomSecret(),
     challenge = await digest(secret);
   state.pairing = { secret, challenge, createdAt: Date.now() };
@@ -248,7 +248,7 @@ async function connect() {
   await chrome.tabs.create({ url: url.toString() });
 }
 async function newJournal(t = Date.now()) {
-  if (!state.credential) throw new Error("Connect Trade Pulse first.");
+  if (!state.credential) throw new Error("Connect Still Signal first.");
   state.pendingStart ??= {
     requestId: crypto.randomUUID(),
     sessionId: crypto.randomUUID(),
@@ -298,7 +298,7 @@ async function newJournal(t = Date.now()) {
 async function start(activationAt: number, hr = false) {
   if (state.active || state.review)
     throw new Error("Finish or cancel the current recording first.");
-  if (!state.credential) throw new Error("Connect Trade Pulse first.");
+  if (!state.credential) throw new Error("Connect Still Signal first.");
   if (
     !(await chrome.storage.local.get("microphoneGranted")).microphoneGranted
   ) {
@@ -742,7 +742,7 @@ async function panel(input: unknown) {
     await persist();
   } else if (p.type === "wake") {
     if (p.enabled && !state.credential)
-      throw new Error("Connect Trade Pulse first.");
+      throw new Error("Connect Still Signal first.");
     if (state.active)
       throw new Error("Stop recording before changing wake listening.");
     if (p.enabled) {
@@ -941,7 +941,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, respond) => {
         m.challenge !== pair.challenge ||
         Date.now() - pair.createdAt > 600000
       )
-        throw new Error("Pairing expired. Start Connect Trade Pulse again.");
+        throw new Error("Pairing expired. Start Connect Still Signal again.");
       const credential = await request<Credential>(
         {
           action: "exchange",
@@ -963,7 +963,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, respond) => {
     if (!state.credential) return { connected: false };
     if (m.type === "account-left" || m.userId !== state.credential.userId) {
       await disconnect(
-        "Application account changed. Reconnect Trade Pulse.",
+        "Application account changed. Reconnect Still Signal.",
         true,
       );
       return { connected: false };

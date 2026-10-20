@@ -1,16 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./workspace.css";
+import "./signal.css";
 export const metadata: Metadata = {
-  title: "Trade Pulse — Know your pulse. Understand your trades.",
+  title: "Still Signal — Awareness before action.",
   description:
     "A personal awareness layer for traders. Synchronize live heart rate, trading events, and your own reflections.",
   robots: { index: false, follow: false },
-  applicationName: "Trade Pulse",
+  applicationName: "Still Signal",
   icons: { icon: "/icon.svg" },
 };
 export const viewport: Viewport = {
-  themeColor: "#101114",
+  themeColor: "#080c0e",
   width: "device-width",
   initialScale: 1,
 };

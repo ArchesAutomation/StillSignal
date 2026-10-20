@@ -1,10 +1,10 @@
 export default function Privacy() {
   return (
     <main className="legal-page">
-      <a href="/">← Trade Pulse</a>
+      <a href="/">← Still Signal</a>
       <h1>Your data, in context.</h1>
       <p>
-        Trade Pulse stores heart-rate samples, trading events, session metadata,
+        Still Signal stores heart-rate samples, trading events, session metadata,
         preferences, and self-reported journal entries. Every account starts
         empty. The isolated UI review uses separately labeled synthetic data.
       </p>
@@ -35,7 +35,7 @@ export default function Privacy() {
         hosted portal and requests read-only access. Native API tokens are
         encrypted on the server and never included in browser storage or session
         exports. Some native providers issue tokens with trading privileges;
-        TraderPulse exposes no order-placement functionality and calls only
+        Still Signal exposes no order-placement functionality and calls only
         account, execution, and market-data endpoints.
       </p>
       <h2>Broker and market records</h2>
@@ -71,7 +71,7 @@ export default function Privacy() {
       <p>
         Voice dictation starts only when you use the shortcut or choose to
         answer a check-in. Your browser's speech service may process audio
-        remotely; Trade Pulse stores the reviewed transcript, not an audio
+        remotely; Still Signal stores the reviewed transcript, not an audio
         recording. Screenshots are stored in a private account-owned bucket and
         displayed using short-lived links. Screenshot contents are not sent for
         AI interpretation.

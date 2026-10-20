@@ -1,10 +1,10 @@
-# Trade Pulse 0.4.1
+# Still Signal 0.4.1
 
 A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 
-- Live app: https://trade-pulse-ebon.vercel.app
-- Source: https://github.com/ArchesAutomation/TraderPulse
-- Backend: Supabase **TraderPulse** (`ipfurgwqqjkybhadzutj`), Canada Central.
+- Live app: https://still-signal.vercel.app (the existing trade-pulse-ebon.vercel.app alias remains available).
+- Source: https://github.com/ArchesAutomation/StillSignal
+- Backend: Supabase **Still Signal** (`ipfurgwqqjkybhadzutj`), Canada Central.
 - Each authenticated user is one tenant. Shared credentials share a workspace; give each tester their own account.
 - Empty beta accounts: `demo@traderpulse.test` and `caleb@traderpulse.test`. Passwords are supplied privately and never committed.
 - Signup/reset links are hidden during the private beta. SMTP/Resend remains deferred. Operators can create confirmed password accounts in Supabase Auth without sending invitations.
@@ -16,9 +16,9 @@ A private, multi-tenant trading journal built with Next.js, React, TypeScript an
 
 The floating dashboard uses the same live session and save callbacks as the main tab. Keep the main tab open. Closing PiP moves the editor back into the dashboard without remounting it or discarding the current draft. Ending a session returns it to the main tab too. Use **Session dashboard** to reopen it. Browsers without PiP, or rejected PiP requests, show the panel in the main tab instead. Opening is requested directly from Start session before asynchronous storage work; it does not depend on automatic media/call PiP eligibility.
 
-Press **Alt + J** while Trade Pulse is focused to open dictation. Review the transcript, choose your own label, and save it with an optional PNG/JPEG/WebP screenshot (up to 5 MB). Unsupported browsers offer typed input. Screenshots are private and use expiring links; screenshot interpretation is deferred. Reflections can be edited or deleted without stale uploads reviving older versions.
+Press **Alt + J** while Still Signal is focused to open dictation. Review the transcript, choose your own label, and save it with an optional PNG/JPEG/WebP screenshot (up to 5 MB). Unsupported browsers offer typed input. Screenshots are private and use expiring links; screenshot interpretation is deferred. Reflections can be edited or deleted without stale uploads reviving older versions.
 
-Automatic HR moments identify sudden rises and sustained elevations after a complete opening baseline, without requiring a trade. Click a timeline point to inspect the HR window. In Settings, enable the optional **Check-in beep** and **Spoken check-in question**, choose a cooldown, and customize the shortcut. Answer starts dictation; Dismiss and Snooze never open the microphone. Browser speech services may process audio remotely; Trade Pulse stores reviewed text, not recordings.
+Automatic HR moments identify sudden rises and sustained elevations after a complete opening baseline, without requiring a trade. Click a timeline point to inspect the HR window. In Settings, enable the optional **Check-in beep** and **Spoken check-in question**, choose a cooldown, and customize the shortcut. Answer starts dictation; Dismiss and Snooze never open the microphone. Browser speech services may process audio remotely; Still Signal stores reviewed text, not recordings.
 
 Personal insights compile only your available saved history: confirmed labels, HR deviations and proximity to recorded losses, with supporting moments. Questions use those facts. Learned sensitivity needs at least 8 reflections across 3 sessions and 5 elevated HR-linked records; otherwise the selected threshold applies. It can be disabled in Settings. This release uses deterministic personal analytics; no generative model is trained on your records.
 

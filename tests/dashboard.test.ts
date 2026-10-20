@@ -31,7 +31,7 @@ test("signed-out visitors see sign-in, no sample dashboard or personal session d
   const dom = domSetup();
   const root = createRoot(document.getElementById("root")!);
   await act(async () => root.render(createElement(AuthGate)));
-  assert.match(document.body.textContent!, /Welcome to Trade Pulse/);
+  assert.match(document.body.textContent!, /Welcome to Still Signal/);
   assert.ok(document.querySelector("input[type=password]"));
   assert.equal(
     document.querySelector(
@@ -45,6 +45,26 @@ test("signed-out visitors see sign-in, no sample dashboard or personal session d
   );
   await act(async () => root.unmount());
   dom.window.close();
+});
+
+test("today's review deep link survives dashboard initialization", async () => {
+  const dom = domSetup();
+  dom.reconfigure({ url: "https://still-signal.test/?review=today" });
+  const root = createRoot(document.getElementById("root")!);
+  try {
+    await act(async () =>
+      root.render(
+        createElement(Dashboard, {
+          user: { id: "12121212-1212-4212-8212-121212121212" },
+        }),
+      ),
+    );
+    assert.ok(document.querySelector('[aria-label="Today\'s journal review"]'));
+    assert.match(document.body.textContent!, /No reflections recorded today/);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
 });
 test("new authenticated workspace is empty and journaling does not require a wearable", async () => {
   const dom = domSetup();
@@ -70,7 +90,7 @@ test("new authenticated workspace is empty and journaling does not require a wea
       (b) => b.textContent?.trim() === label,
     )!;
   assert.equal(button("Add event").disabled, false);
-  await act(async () => button("Journal").click());
+  await act(async () => button("Daily journal").click());
   assert.match(document.body.textContent!, /A moment worth remembering/);
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);

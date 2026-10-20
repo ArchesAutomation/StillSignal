@@ -121,7 +121,7 @@ export default function AuthGate() {
         ? "Let’s get you back in."
         : mode === "new-password"
           ? "Choose a new password."
-          : "Welcome to Trade Pulse.";
+          : "Welcome to Still Signal.";
   return (
     <main className="auth-page">
       <a className="brand auth-brand" href="/">
@@ -129,17 +129,16 @@ export default function AuthGate() {
           <Activity size={23} />
         </span>
         <span>
-          trade<span className="brand-light">pulse</span>
-          <span className="brand-dot">.</span>
+          still<span className="brand-light">signal.</span>
         </span>
       </a>
       <section className="auth-layout">
         <div className="auth-story">
           <div className="eyebrow">YOUR EDGE STARTS WITH AWARENESS</div>
           <h1>
-            Know your pulse.
+            Awareness
             <br />
-            Understand your trades.
+            before action.
           </h1>
           <p>
             One timeline for your heart rate, your trading activity, and your

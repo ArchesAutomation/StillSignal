@@ -59,7 +59,7 @@ export default function ExtensionConnection({
       if (p.success) setPair(p.data);
       else
         setMessage(
-          "Invalid extension pairing request. Start Connect Trade Pulse again.",
+          "Invalid extension pairing request. Start Connect Still Signal again.",
         );
     }
   }, []);
@@ -174,7 +174,7 @@ export default function ExtensionConnection({
         <div>
           <h3>Voice journal extension</h3>
           <p>
-            Pair from the extension’s Connect Trade Pulse button. Microphone
+            Pair from the extension’s Connect Still Signal button. Microphone
             permission and recording shortcuts are managed in Chrome.
           </p>
           <p>

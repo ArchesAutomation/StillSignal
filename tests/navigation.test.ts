@@ -102,10 +102,12 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
     for (const [i, tab] of [
       "Overview",
       "Settings",
-      "Journal",
+      "Daily journal",
+      "Patterns",
+      "Stillness",
       "Sessions",
       "Connections",
-      "Overview",
+      "Daily journal",
     ].entries()) {
       // Sessions navigation is safe while recording; its session selector remains disabled.
       const name =
@@ -123,10 +125,10 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
       assert.equal(disconnects, 0);
     }
     const samples = await getSamples(session.id, owner);
-    assert.equal(samples.length, 6);
+    assert.equal(samples.length, 8);
     assert.deepEqual(
       samples.map((s) => s.bpm),
-      [80, 81, 82, 83, 84, 85],
+      [80, 81, 82, 83, 84, 85, 86, 87],
     );
     assert.equal(
       (
