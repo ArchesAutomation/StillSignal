@@ -2,18 +2,22 @@
 import { BookOpen, ArrowUpRight } from "lucide-react";
 import type { Sample, TradeEvent } from "@/lib/model";
 import { clock, money } from "@/lib/model";
-import { eventWindow } from "@/lib/analytics";
+import { eventWindow, positionWindow } from "@/lib/analytics";
 import { executionAction, eventOrigin } from "@/lib/trade-context";
 export default function TradeContextPanel({
   event,
   samples,
   seconds,
+  events = [],
+  end = samples.at(-1)?.t ?? event?.t ?? Date.now(),
   onSelect,
   onReflect,
 }: {
   event?: TradeEvent;
   samples: Sample[];
   seconds: number;
+  events?: TradeEvent[];
+  end?: number;
   onSelect: (event: TradeEvent) => void;
   onReflect: (t: number) => void;
 }) {
@@ -100,6 +104,7 @@ export default function TradeContextPanel({
                   : "Available measurements, in BPM."}
             </p>
           </div>
+          <PositionHeartRate event={event} samples={samples} events={events} seconds={seconds} end={end} />
           <button
             className="button primary full"
             onClick={() => onReflect(event.t)}
@@ -123,5 +128,26 @@ export default function TradeContextPanel({
         </div>
       )}
     </aside>
+  );
+}
+
+export function PositionHeartRate({ event, samples, events, seconds, end }: {
+  event: TradeEvent; samples: Sample[]; events: TradeEvent[]; seconds: number; end: number;
+}) {
+  const position = positionWindow(samples, events, event, seconds, end);
+  if (!position) return null;
+  return (
+          <div className="context-hr" aria-label="Position heart rate">
+            <span>WHILE THE POSITION IS OPEN</span>
+            <p>{clock(position.start)} – {position.closed ? clock(position.end) : "Still open"}</p>
+            <div>
+              <small>Before entry<strong>{position.before == null ? "—" : Math.round(position.before)}</strong></small>
+              <small>During position<strong>{position.during == null ? "—" : Math.round(position.during)}</strong></small>
+              <small>After exit<strong>{position.after == null ? "—" : Math.round(position.after)}</strong></small>
+            </div>
+            <p>{position.count ? `${position.count.toLocaleString()} recorded measurements during the position. Averages in BPM; gaps are not filled.` : "No heart rate was recorded during this position."}
+              {position.approximate && " Position timing uses order updates and may differ from actual fill times."}
+            </p>
+          </div>
   );
 }

@@ -9,7 +9,7 @@ import CsvImporter from "../src/components/csv-importer";
 import { Timeline } from "../src/components/timeline";
 import { parseTrades } from "../src/lib/csv";
 import { listSessions, getSamples } from "../src/lib/storage";
-import { saveSession } from "../src/lib/storage";
+import { saveSession, appendSamples } from "../src/lib/storage";
 const owner = "77777777-7777-4777-8777-777777777777";
 test("starting a journal supersedes an older asynchronous history load", async (t) => {
   const dom = setup(),
@@ -72,6 +72,63 @@ function setup() {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   return dom;
 }
+test("manual CSV joins the active recorded day and Bluetooth continues receiving samples", async (t) => {
+  const dom = setup(), root = createRoot(document.getElementById("root")!);
+  let pulse: ReturnType<typeof usePulse>;
+  const characteristic = Object.assign(new EventTarget(), {
+    value: new DataView(new Uint8Array([0, 70]).buffer),
+    async startNotifications() { return this; },
+    async stopNotifications() { return this; },
+  });
+  let disconnected = false;
+  const device = Object.assign(new EventTarget(), { name: "Synthetic sensor", gatt: {
+    connected: true,
+    async connect() { return { async getPrimaryService() { return { async getCharacteristic() { return characteristic; } }; } }; },
+    disconnect() { disconnected = true; },
+  } });
+  Object.defineProperty(navigator, "bluetooth", { configurable: true, value: { async requestDevice() { return device; } } });
+  function Harness() { pulse = usePulse({ id: "66666666-6666-4666-8666-666666666666" }); return null; }
+  t.after(async () => { await act(async () => { await pulse.stop(); root.unmount(); }); dom.window.close(); });
+  await act(async () => root.render(createElement(Harness)));
+  const now = Date.now();
+  await act(async () => { await pulse.start("All-day recording", now - 60000); await pulse.attachWhoop(); });
+  const id = pulse!.session!.id, start = pulse!.session!.startedAt;
+  await act(async () => characteristic.dispatchEvent(new Event("characteristicvaluechanged")));
+  const rows = parseTrades(`timestamp,symbol,kind,side,price,quantity\n${new Date(now - 30000).toISOString()},ES,entry,long,5000,1\n${new Date(now - 10000).toISOString()},ES,exit,long,5005,1\n`);
+  await act(async () => { await pulse.importEvents(rows, "Orders", "daily", "UTC"); });
+  assert.equal(pulse!.session!.id, id);
+  assert.equal(pulse!.session!.startedAt, start);
+  assert.equal(pulse!.active, true);
+  assert.equal(pulse!.recording, true);
+  assert.equal(disconnected, false);
+  assert.equal(pulse!.session!.events.length, 2);
+  assert.equal((await getSamples(id, pulse!.owner)).length, 1);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  characteristic.value = new DataView(new Uint8Array([0, 95]).buffer);
+  await act(async () => { characteristic.dispatchEvent(new Event("characteristicvaluechanged")); await pulse.importEvents(rows, "Orders again", "daily", "UTC"); });
+  assert.equal(pulse!.session!.events.length, 2);
+  assert.deepEqual((await getSamples(id, pulse!.owner)).map((p) => p.bpm), [70, 95]);
+  assert.equal((await listSessions(pulse!.owner)).length, 1);
+});
+
+test("daily import reopens matching recorded history with its original heart-rate samples", async (t) => {
+  const dom = setup(), root = createRoot(document.getElementById("root")!);
+  const user = "55555555-5555-4555-8555-555555555555";
+  let pulse: ReturnType<typeof usePulse>;
+  function Harness() { pulse = usePulse({ id: user }); return null; }
+  t.after(async () => { await act(async () => root.unmount()); dom.window.close(); });
+  await act(async () => root.render(createElement(Harness)));
+  const events = parseTrades("timestamp,symbol,kind,side,price,quantity\n2026-01-15T09:00:00Z,ES,entry,long,5000,1\n2026-01-15T09:10:00Z,ES,exit,long,5010,1\n");
+  const day = { id: crypto.randomUUID(), owner: user, name: "Recorded heart rate", source: "journal" as const, startedAt: events[0].t - 60000, endedAt: events[1].t - 60000, events: [], journal: [], sampleCount: 2 };
+  const points = [{ t: events[0].t - 30000, bpm: 70 }, { t: events[0].t + 30000, bpm: 90 }];
+  await saveSession(day);
+  await appendSamples(day.id, points, user, false);
+  await act(async () => { await pulse.importEvents(events, "Export", "daily", "UTC"); });
+  assert.equal(pulse!.session!.id, day.id);
+  assert.deepEqual(pulse!.samples, points);
+  assert.equal(pulse!.session!.events.length, 2);
+  assert.equal((await listSessions(user)).length, 1);
+});
 test("journal, notes, and CSV replay persist without Bluetooth; re-importing does not create duplicates", async (t) => {
   const dom = setup(),
     root = createRoot(document.getElementById("root")!);
@@ -165,8 +222,6 @@ test("TradingView history uploads preview and persist filled trades through the 
   assert.match(document.body.textContent!, /2 validated events/);
   const submit = [...document.querySelectorAll("button")]
     .find((button) => button.textContent === "Import 2 events")!;
-  assert.equal(submit.disabled, true, "timezone must be confirmed before saving");
-  await act(async () => checkbox("I confirmed").click());
   assert.equal(submit.disabled, false);
   await act(async () => {
     submit.click();
@@ -174,7 +229,7 @@ test("TradingView history uploads preview and persist filled trades through the 
   });
   const sessions = await listSessions(importOwner);
   assert.equal(sessions.length, 1);
-  assert.equal(sessions[0].name, "TradingView-History");
+  assert.match(sessions[0].name, /^Trading day/);
   assert.deepEqual(sessions[0].events.map((e) => [e.kind, e.price]), [
     ["entry", 5000], ["exit", 5025],
   ]);

@@ -79,6 +79,7 @@ export default function BrokerWizard({
   onAction,
   onChanged,
   onViewJournal,
+  onImportCsv,
 }: {
   owner: string;
   state: BrokerState;
@@ -86,6 +87,7 @@ export default function BrokerWizard({
   onAction: (payload: unknown) => Promise<BrokerActionResult | undefined>;
   onChanged: () => void;
   onViewJournal?: () => void;
+  onImportCsv?: () => void;
 }) {
   const [step, setStep] = useState(1),
     [provider, setProvider] = useState("");
@@ -218,7 +220,14 @@ export default function BrokerWizard({
           <div className="connection-type-grid" role="group" aria-label="Connection type">
             {connectionTypes.map((type) => (
               <button key={type.id} className="connection-type-card" disabled={busy}
-                onClick={() => { setConnectionType(type.id); setProvider(""); setBrokerName(""); setStep(2); }}>
+                onClick={() => {
+                  if (type.id === "csv") {
+                    if (onImportCsv) onImportCsv();
+                    else document.getElementById("trade-csv")?.scrollIntoView({ behavior: "smooth" });
+                    return;
+                  }
+                  setConnectionType(type.id); setProvider(""); setBrokerName(""); setStep(2);
+                }}>
                 <strong>{type.name}</strong><span>{type.description}</span>
               </button>
             ))}

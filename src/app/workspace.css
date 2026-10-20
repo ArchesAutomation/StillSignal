@@ -790,6 +790,21 @@ input::placeholder,
 textarea::placeholder {
   color: #979b8b;
 }
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.csv-import-panel { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 20px; }
+.csv-import-panel p { color: var(--muted); margin-top: 6px; }
+.csv-import-panel .button { flex-shrink: 0; }
+.csv-flat-confirmation { align-items: flex-start; }
+.csv-flat-confirmation input { margin-top: 3px; flex-shrink: 0; }
+.csv-flat-confirmation small { display: block; color: var(--muted); margin-top: 5px; }
+.csv-match-summary { padding: 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+@media (max-width: 700px) {
+  .page-heading { flex-wrap: wrap; }
+  .page-actions { width: 100%; }
+  .page-actions .button { flex: 1; justify-content: center; }
+  .csv-import-panel { flex-direction: column; align-items: stretch; }
+  .csv-dropzone { padding: 18px; }
+}
 .modal {
   background: #181a15;
   border-color: #3d4035;

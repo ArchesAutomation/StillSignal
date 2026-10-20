@@ -31,7 +31,11 @@ Official references:
 
 TradingView setup links to the existing alert editor. Users need 2FA, eligible webhook access, and their journal webhook token. Supported price, indicator and Pine strategy alerts are provider events, not guaranteed broker fills. A TradingView broker login cannot be reused by Trade Pulse; manual brokerage transactions do not automatically synchronize. Delivery may be delayed or fail. The customer pays applicable TradingView and data-plan costs.
 
-CSV setup links to the existing importer: export brokerage transactions, preview mappings, confirm timestamps/timezone, import, and inspect journal results. CSV is manual and requires no aggregation service. Existing import deduplication and account/session handling are preserved.
+CSV is a separate manual import. The dashboard's visible Import CSV action opens it directly; the CSV shortcut in Connections also bypasses broker setup. Choose a file, check its timezone and preview, confirm an initially flat position for filled-order exports, and import. No broker name, login or approval is required.
+
+By default, imports match the export's calendar dates to the user's recorded sessions. The selected matching day is preferred; otherwise the matching session with the most heart-rate samples is used. Multiple dates are handled separately, and a journal is created only when no session matches. Existing session identity, recording bounds, samples and notes remain intact. An active session keeps recording. The dashboard displays the union of recorded and trade times, with missing HR shown as gaps. If a day has multiple recordings, the selected matching session is the target; this does not combine separate wearable recordings.
+
+Importing identical executions does not duplicate them. Advanced options retain separate-file and selected-session imports. Backtests default to a separate journal. Position context averages actual HR measurements before entry, through scale-ins/partial exits until the position is fully closed, and after exit. Accounts and instruments are not cross-paired; alerts and backtests do not produce a broker holding window.
 
 TradingView reference: https://www.tradingview.com/support/solutions/43000529348-how-to-configure-webhook-alerts/
 
@@ -49,6 +53,6 @@ Regenerate Edge Functions with `node scripts/prepare-edge.mjs` after changes to 
 
 The importer also accepts filled Orders exports with Symbol, Side, Type, Qty, Remaining Qty, Filled Qty, Avg Fill Price, Update Time, Order ID and expiry columns. Filled Qty takes priority over requested Qty, and Avg Fill Price takes priority over limit/stop prices. Reverse-chronological exports are sorted before reconstructing entries/exits. Zero-fill orders are skipped; cumulative partial fills are distinguished from individual-fill exports. Conflicting snapshots for the same order are rejected instead of double-counted.
 
-When no fill timestamp exists, Update Time is used and retained as an explicit Order update time label throughout the journal and context panel. It is not presented as an exact execution time. The export timezone and a complete, initially flat position history must be confirmed before import. Missing P&L is left blank. Loading another file clears the previous preview and confirmations; a late file read cannot overwrite a newer selection.
+When no fill timestamp exists, Update Time is used and retained as an explicit Order update time label throughout the journal and context panel. It is not presented as an exact execution time. The export timezone is visible and editable; importing uses that timezone. A complete, initially flat position history must be confirmed before import. Missing P&L is left blank. Loading another file clears the previous preview and confirmation; a late file read cannot overwrite a newer selection.
 
 Run `node scripts/test-csv-browser.mjs` for isolated desktop/mobile upload, preview, persistence, replacement-file and re-import checks. The committed format fixture contains synthetic transactions only. The customer-supplied source file is not stored in this repository or uploaded by the test.

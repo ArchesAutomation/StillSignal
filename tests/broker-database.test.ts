@@ -61,6 +61,26 @@ const context = {
   provider: "oanda",
   receivedAt: 1700000010000,
 };
+test("manual CSV saves to the existing recorded session without changing cloud identity or HR chunks", async () => {
+  const db = await database();
+  try {
+    const id = "66666666-6666-4666-8666-666666666666";
+    const s = { id, owner: alice, name: "Recorded day", source: "journal", startedAt: 2000, endedAt: 4000, sampleCount: 1, events: [], journal: [] };
+    await db.query("select pulse_save_session($1,$2,$3)", [alice, id, s]);
+    await db.query("select pulse_ingest_batch($1,$2,$3,$4)", [alice, id, "77777777-7777-4777-8777-777777777777", [{t:3000,bpm:80}]]);
+    const events = [{ id:"csv-before", t:1000, symbol:"ES", kind:"entry", side:"long", quantity:1, price:5000, source:"csv" },
+      { id:"csv-after", t:5000, symbol:"ES", kind:"exit", side:"long", quantity:1, price:5010, source:"csv" }];
+    await db.query("select pulse_save_session($1,$2,$3)", [alice, id, {...s,events}]);
+    const result = (await db.query<{data:{startedAt:number;endedAt:number;events:unknown[];sampleCount:number}}>("select data from pulse_sessions where id=$1",[id])).rows[0].data;
+    assert.equal(result.startedAt, 2000);
+    assert.equal(result.endedAt, 4000);
+    assert.equal(result.events.length, 2);
+    assert.equal(result.sampleCount, 1);
+    assert.deepEqual((await db.query<{samples:unknown}>("select samples from pulse_sample_chunks where session_id=$1",[id])).rows[0].samples,[{t:3000,bpm:80}]);
+    await assert.rejects(db.query("select pulse_save_session($1,$2,$3)", [bob,id,{...s,owner:bob,events}]),/ownership mismatch/);
+  } finally { await db.close(); }
+});
+
 test("additive broker migration preserves tenant policies, TradingView constraints, and secret boundaries", async () => {
   const db = await database();
   try {
