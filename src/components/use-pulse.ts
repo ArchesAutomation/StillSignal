@@ -26,6 +26,7 @@ import { eventSchema, sessionSchema } from "@/lib/validation";
 import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
+import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -313,7 +314,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   async function importEvents(
     events: TradeEvent[],
     name: string,
-    destination: "new" | "current" = "new",
+    destination: CsvDestination = "daily",
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
   ) {
     if (!events.length) throw new Error("There are no trade rows to import.");
     events.forEach((e) => eventSchema.parse(e));
@@ -321,6 +323,48 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       throw new Error(
         "CSV timestamps cannot be more than five minutes in the future. Check the timezone.",
       );
+    if (destination === "daily") {
+      sessionLoad.current++;
+      // Refresh the user's own journal index before matching dates. This never
+      // connects a broker or sends the source CSV to a provider.
+      if (cloudConfigured && navigator.onLine) {
+        try { await pullSessions(owner); }
+        catch { throw new Error("Could not refresh your saved sessions. Retry when cloud sync is available; your CSV is still here."); }
+      }
+      const saved = await storage.listSessions(owner);
+      const selected = current.current;
+      const sessions = selected && selected.id !== "workspace"
+        ? [selected, ...saved.filter((s) => s.id !== selected.id)] : saved;
+      const plans = planCsvSessions(events, sessions, owner, timezone, selected?.id, rec.current ? selected?.id : undefined);
+      const updates = new Map<string, Session>();
+      for (const plan of plans) {
+        const base = plan.session || {
+          id: crypto.randomUUID(), owner, name: `Trading day · ${plan.day}`,
+          source: "csv" as const, startedAt: plan.events[0].t,
+          endedAt: plan.events.at(-1)!.t, sampleCount: 0, events: [], journal: [],
+        };
+        updates.set(base.id, mergeCsvEvents(updates.get(base.id) || base, plan.events));
+      }
+      // Validate every date before writing any import. Preserve recording refs
+      // and their original sample timestamps when the active session matches.
+      for (const update of updates.values()) sessionSchema.parse(update);
+      await writing.current;
+      for (const update of updates.values()) {
+        if (rec.current && update.id === current.current?.id) {
+          const live = mergeCsvEvents(current.current, update.events);
+          await save(live);
+        } else await storage.saveSession(update);
+      }
+      const importedHistory = await storage.listSessions(owner);
+      setHistory(importedHistory);
+      if (!rec.current) {
+        const target = updates.get(selected?.id || "") || [...updates.values()].at(-1)!;
+        await openSession(importedHistory.find((s) => s.id === target.id) || target);
+      }
+      if (cloudConfigured)
+        void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+      return events.length;
+    }
     if (destination === "current" && current.current?.id !== "workspace")
       return addEvents(events);
     if (rec.current)
@@ -471,8 +515,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         throw new Error("This session supports up to 1,000 journal entries.");
       const old = s.journal.find((j) => j.id === note.id);
       if (
-        note.t < s.startedAt ||
-        (s.endedAt && note.t > s.endedAt) ||
+        note.t < Math.min(s.startedAt, s.events[0]?.t ?? Infinity) ||
+        (s.endedAt && note.t > Math.max(s.endedAt, s.events.at(-1)?.t ?? 0)) ||
         note.t > Date.now() + 300000
       )
         throw new Error("Choose a moment inside this journal's time range.");

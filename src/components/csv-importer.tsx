@@ -9,6 +9,7 @@ import {
   type CsvField,
 } from "@/lib/csv";
 import type { TradeEvent } from "@/lib/model";
+import type { CsvDestination } from "@/lib/csv-session";
 
 export default function CsvImporter({
   onImport,
@@ -19,7 +20,8 @@ export default function CsvImporter({
   onImport: (
     events: TradeEvent[],
     name: string,
-    destination: "new" | "current",
+    destination: CsvDestination,
+    timezone: string,
   ) => Promise<unknown>;
   hasSession: boolean;
   active: boolean;
@@ -32,10 +34,8 @@ export default function CsvImporter({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [dragging, setDragging] = useState(false),
-    [confirmedTimezone, setConfirmedTimezone] = useState(false),
-    [destination, setDestination] = useState<"new" | "current">(
-      active ? "current" : "new",
-    );
+    [reading, setReading] = useState(false),
+    [destination, setDestination] = useState<CsvDestination>("daily");
   const [options, setOptions] = useState<CsvOptions>({
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
@@ -50,7 +50,9 @@ export default function CsvImporter({
   const preview = useMemo(() => {
     if (!csv) return { events: [] as TradeEvent[], error: "" };
     try {
-      return { events: parseTrades(csv, deferred), error: "" };
+      // Preview the entry/exit reconstruction immediately. Saving still needs
+      // the user's starting-position confirmation below.
+      return { events: parseTrades(csv, { ...deferred, fillsStartFlat: true }), error: "" };
     } catch (e) {
       return {
         events: [] as TradeEvent[],
@@ -69,7 +71,7 @@ export default function CsvImporter({
     const generation = ++readGeneration.current;
     setError("");
     setCsv("");
-    setConfirmedTimezone(false);
+    setReading(true);
     try {
       if (!/\.csv$/i.test(file.name)) throw new Error("Choose a .csv file.");
       if (file.size > 2_000_000)
@@ -79,6 +81,7 @@ export default function CsvImporter({
       if (readGeneration.current !== generation) return;
       setCsv(text);
       setName(file.name.replace(/\.csv$/i, ""));
+      setDestination(inspected.backtest ? "new" : "daily");
       setOptions((o) => ({
         timezone: o.timezone,
         mapping: inspected.mapping,
@@ -87,6 +90,8 @@ export default function CsvImporter({
       if (readGeneration.current !== generation) return;
       setCsv("");
       setError(e instanceof Error ? e.message : "Could not read this file.");
+    } finally {
+      if (readGeneration.current === generation) setReading(false);
     }
   }
   function mapField(field: CsvField, value: string) {
@@ -94,7 +99,7 @@ export default function CsvImporter({
       ...o,
       mapping: { ...inspection!.mapping, ...o.mapping, [field]: value },
     }));
-    if (field === "timestamp") setConfirmedTimezone(false);
+    setError("");
   }
   return (
     <section className="csv-importer" aria-label="Trade CSV importer">
@@ -114,17 +119,17 @@ export default function CsvImporter({
         }}
       >
         <Upload size={26} />
-        <h3>Drop your trade CSV here</h3>
+        <h3>{csv ? "Choose a different file" : "Drop your trade CSV here"}</h3>
         <p>
-          Or choose a file. Up to 2 MB and 5,000 events. No wearable required.
+          Trades match your session by date and time. Your heart-rate recording stays intact.
         </p>
         <button
           className="button"
           type="button"
-          disabled={busy}
+          disabled={busy || reading}
           onClick={() => input.current?.click()}
         >
-          Choose CSV file
+          {reading ? "Reading file…" : "Choose CSV file"}
         </button>
         <input
           ref={input}
@@ -147,18 +152,10 @@ export default function CsvImporter({
           Download empty CSV template
         </a>
       </div>
-      <p className="connection-note">
-        TradingView trades: export filled Orders or History from the Trading Panel, then confirm
-        that the complete export starts flat. Strategy backtests: export List of
-        Trades from the Strategy Report. Chart-price exports do not contain
-        your trades.
-      </p>
-      <p className="connection-note">
-        Template columns: timestamp, symbol, kind, side, price, quantity, pnl,
-        execution_id. ISO timestamps include Z or an offset. P&L is in USD. P&L
-        and execution ID are optional; use a unique execution ID to distinguish
-        otherwise identical fills.
-      </p>
+      {!csv && <p className="connection-note">
+        TradingView: export filled Orders or History from the Trading Panel.
+        No broker connection needed. Up to 2 MB and 5,000 events.
+      </p>}
       {inspection && (
         <div className="csv-preview">
           <h3>{inspection.format}</h3>
@@ -172,38 +169,16 @@ export default function CsvImporter({
               export, not Performance Summary or chart prices.
             </p>
           )}
-          {inspection.fills && (
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={!!options.fillsStartFlat}
-                onChange={(e) =>
-                  setOptions((o) => ({
-                    ...o,
-                    fillsStartFlat: e.target.checked,
-                  }))
-                }
-              />{" "}
-              This export starts flat and includes every fill for each
-              instrument and account.
-              <small>
-                Unfilled orders are skipped. Filled Qty and Avg Fill Price are
-                used when available. Orders contain cumulative fills; export
-                individual executions for exact partial-fill detail.
-              </small>
-            </label>
-          )}
           {inspection.fills && inspection.orderUpdateColumn &&
             options.mapping?.timestamp === inspection.orderUpdateColumn && (
               <p className="connection-note" role="note">
                 This export provides order Update Time, not a separate execution
-                timestamp. Imported events retain an Order update time label;
-                it may differ from when the trade filled. Confirm the export
-                timezone below. P&amp;L stays blank if the file does not include it.
+                timestamp. Heart rate aligns to that update time, which may differ
+                from the actual fill. P&amp;L stays blank if it is not in the file.
               </p>
             )}
-          <details>
-            <summary>Review or change column mapping</summary>
+          <details className="csv-advanced">
+            <summary>Advanced import options</summary>
             <div className="form-grid">
               {csvFields.map((field) => (
                 <label key={field}>
@@ -226,6 +201,14 @@ export default function CsvImporter({
                 </label>
               ))}
             </div>
+            <label>
+              Import into
+              <select value={destination} onChange={(e) => setDestination(e.target.value as CsvDestination)}>
+                {!inspection.backtest && <option value="daily">Match sessions by trade date (recommended)</option>}
+                <option value="new" disabled={active}>A separate journal for this file</option>
+                {hasSession && <option value="current">The selected session only</option>}
+              </select>
+            </label>
           </details>
           <div className="form-grid">
             {!options.mapping?.symbol && (
@@ -286,7 +269,7 @@ export default function CsvImporter({
                   value={options.timezone || ""}
                   onChange={(e) => {
                     setOptions((o) => ({ ...o, timezone: e.target.value }));
-                    setConfirmedTimezone(false);
+                    setError("");
                   }}
                 />
                 <datalist id="csv-timezones">
@@ -302,38 +285,17 @@ export default function CsvImporter({
                   ))}
                 </datalist>
                 <small>
-                  Match the timezone used in the exported file or TradingView
-                  chart.
+                  Use the timezone shown in your export. The import uses this to
+                  align trades with your recorded heart rate.
                 </small>
               </label>
             )}
-            <label>
-              Import into
-              <select
-                value={destination}
-                onChange={(e) =>
-                  setDestination(e.target.value as "new" | "current")
-                }
-              >
-                <option value="new" disabled={active}>
-                  A journal for this file
-                </option>
-                {hasSession && (
-                  <option value="current">The selected session</option>
-                )}
-              </select>
-            </label>
           </div>
-          {timezoneNeeded && (
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={confirmedTimezone}
-                onChange={(e) => setConfirmedTimezone(e.target.checked)}
-              />
-              I confirmed that the CSV timezone matches the export.
-            </label>
-          )}
+          {destination === "daily" && <p className="csv-match-summary" role="status">
+            Trades will be added to the matching session for each date, alongside
+            its recorded heart rate. If no session exists, a journal is created.
+            Missing heart-rate measurements stay blank.
+          </p>}
           {preview.error ? (
             <p role="alert" className="banner error">
               {preview.error}
@@ -374,21 +336,30 @@ export default function CsvImporter({
               </div>
             </>
           )}
+          {inspection.fills && !options.mapping?.kind && (
+            <label className="checkbox-label csv-flat-confirmation">
+              <input type="checkbox" checked={!!options.fillsStartFlat}
+                onChange={(e) => setOptions((o) => ({ ...o, fillsStartFlat: e.target.checked }))} />
+              <span>This export starts flat: no position was open before its first trade.
+                <small>Include all fills for the period so entries and exits match correctly.</small>
+              </span>
+            </label>
+          )}
           <button
             className="button primary full"
             type="button"
             disabled={
-              busy ||
+              busy || reading ||
               deferred !== options ||
               !!preview.error ||
               !preview.events.length ||
-              (timezoneNeeded && !confirmedTimezone)
+              (inspection.fills && !options.mapping?.kind && !options.fillsStartFlat)
             }
             onClick={async () => {
               setBusy(true);
               setError("");
               try {
-                await onImport(preview.events, name, destination);
+                await onImport(preview.events, name, destination, options.timezone || "UTC");
                 setCsv("");
                 onDone?.();
               } catch (e) {

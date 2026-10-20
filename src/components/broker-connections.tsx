@@ -19,10 +19,12 @@ export default function BrokerConnections({
   owner,
   onChanged,
   onViewJournal,
+  onImportCsv,
 }: {
   owner: string;
   onChanged: () => void;
   onViewJournal?: () => void;
+  onImportCsv?: () => void;
 }) {
   const [state, setState] = useState<BrokerState>(empty);
   const [busy, setBusy] = useState(false),
@@ -130,6 +132,7 @@ export default function BrokerConnections({
           onAction={act}
           onChanged={onChanged}
           onViewJournal={onViewJournal}
+          onImportCsv={onImportCsv}
         />
       )}
       <div className="broker-connected">

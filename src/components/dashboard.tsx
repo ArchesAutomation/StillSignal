@@ -41,7 +41,7 @@ import { useFloatingJournal } from "./use-floating-journal";
 import FloatingJournal from "./floating-journal";
 import { Timeline } from "./timeline";
 import WorkspaceToolbar from "./workspace-toolbar";
-import TradeContextPanel from "./trade-context-panel";
+import TradeContextPanel, { PositionHeartRate } from "./trade-context-panel";
 import BrokerConnections from "./broker-connections";
 import {
   executionAction,
@@ -70,6 +70,7 @@ import ExtensionConnection from "./extension-connection";
 import TodayReview from "./today-review";
 import JournalInsights from "./journal-insights";
 import { removeScreenshot } from "@/lib/screenshots";
+import type { CsvDestination } from "@/lib/csv-session";
 type Tab = "Overview" | "Sessions" | "Journal" | "Connections" | "Settings";
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -198,22 +199,22 @@ export default function Dashboard({
   }, []);
   const s = p.session,
     isWorkspace = s?.id === "workspace";
-  const fullEnd = s?.endedAt
-    ? Math.min(s.endedAt, p.now)
-    : p.active
+  const fullStart = Math.min(s?.startedAt || p.now, p.samples[0]?.t ?? Infinity, s?.events[0]?.t ?? Infinity);
+  const fullEnd = p.active
       ? Math.max(p.now, s?.startedAt || 0)
-      : Math.max(
+      : Math.min(p.now, Math.max(
+          s?.endedAt || 0,
           s?.startedAt || p.now,
           p.samples.at(-1)?.t || 0,
           s?.events.at(-1)?.t || 0,
           s?.journal.at(-1)?.t || 0,
-        );
+        ));
   const viewEnd =
     replayPosition < 100 && s
-      ? s.startedAt + ((fullEnd - s.startedAt) * replayPosition) / 100
+      ? fullStart + ((fullEnd - fullStart) * replayPosition) / 100
       : fullEnd;
   const viewStart = s
-    ? Math.max(s.startedAt, range ? viewEnd - range * 60000 : s.startedAt)
+    ? Math.max(fullStart, range ? viewEnd - range * 60000 : fullStart)
     : p.now;
   const shown = useMemo(
     () => p.samples.filter((x) => x.t <= viewEnd),
@@ -314,12 +315,24 @@ export default function Dashboard({
     setNoteDraft(draft);
     setModal("note");
   }
+  async function importCsv(events: TradeEvent[], name: string, destination: CsvDestination, timezone: string) {
+    await p.importEvents(events, name, destination, timezone);
+    setAccountFilter("");
+    setInstrumentFilter("");
+    setRange(0);
+    setReplay(false);
+    setReplayPosition(100);
+    setContextEvent(undefined);
+    setSelected(null);
+    p.setNotice(`${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`);
+    setTab("Overview");
+  }
   async function openLiveReflection(draft: ReflectionDraft) {
     if (!p.active && !isWorkspace) await p.start();
     openReflection(draft);
   }
   function inspectMoment(t: number) {
-    if (!s || t < s.startedAt || t > viewEnd) {
+    if (!s || t < fullStart || t > viewEnd) {
       p.setError("Choose a moment inside this journal's time range.");
       return;
     }
@@ -518,10 +531,13 @@ export default function Dashboard({
                         : "Choose the rhythm that fits the way you trade."}
               </p>
             </div>
-            <div className="floating-session-controls">
-            {p.active && <button type="button" className="button" onClick={() => { void floatingJournal.open(); }}>
-              <ExternalLink size={15} /> Session dashboard
-            </button>}
+            <div className="page-actions floating-session-controls">
+              <button className="button" onClick={() => setModal("csv")}>
+                <Upload size={16} /> Import CSV
+              </button>
+              {p.active && <button type="button" className="button" onClick={() => { void floatingJournal.open(); }}>
+                <ExternalLink size={15} /> Session dashboard
+              </button>}
             <button
               className={p.active ? "button stop" : "button primary"}
               disabled={busy}
@@ -848,7 +864,7 @@ export default function Dashboard({
                     instrumentScope={JSON.stringify([
                       p.owner, s.id, accountFilter, instrumentFilter,
                     ])}
-                    sessionStart={s.startedAt}
+                    sessionStart={fullStart}
                     sessionEnd={fullEnd}
                     instrument={chartInstrument}
                     accountId={
@@ -937,6 +953,8 @@ export default function Dashboard({
                 <TradeContextPanel
                   event={contextEvent || visibleEvents.at(-1)}
                   samples={shown}
+                  events={visibleEvents}
+                  end={viewEnd}
                   seconds={p.settings.windowSeconds}
                   onSelect={setSelected}
                   onReflect={(t) => openReflection({ t })}
@@ -956,12 +974,13 @@ export default function Dashboard({
                     </div>
                     <div className="inline-actions">
                       <button
-                        className="icon-button"
+                        className="button small-button"
                         title="Import CSV"
                         aria-label="Import trade CSV"
                         onClick={() => setModal("csv")}
                       >
                         <Upload size={16} />
+                        Import CSV
                       </button>
                       <button
                         className="button small-button"
@@ -1340,10 +1359,18 @@ export default function Dashboard({
           )}
           {tab === "Connections" && (
             <>
+              <section id="trade-csv" className="glass import-card csv-import-panel">
+                <div>
+                  <h2>Manual CSV import</h2>
+                  <p>Add your exported trades to the matching day's session and recorded heart rate. No broker setup.</p>
+                </div>
+                <button className="button" onClick={() => setModal("csv")}><Upload size={16} /> Import CSV</button>
+              </section>
               <BrokerConnections
                 owner={p.owner}
                 onChanged={() => void p.refreshHistory()}
                 onViewJournal={() => setTab("Journal")}
+                onImportCsv={() => setModal("csv")}
               />
               <div className="connections-grid">
                 <section className="glass connection-card">
@@ -1404,20 +1431,6 @@ export default function Dashboard({
                   }
                 />
               </div>
-              <section id="trade-csv" className="glass import-card csv-import-panel">
-                <h2>CSV trade history</h2>
-                <CsvImporter
-                  active={p.active}
-                  hasSession={!isWorkspace}
-                  onImport={async (events, name, destination) => {
-                    await p.importEvents(events, name, destination);
-                    p.setNotice(
-                      `${events.length} events imported. Re-importing identical executions does not duplicate them.`,
-                    );
-                    setTab("Overview");
-                  }}
-                />
-              </section>
               <section className="glass connection-note">
                 <h3>Optional wearable context</h3>
                 <p>
@@ -1716,15 +1729,11 @@ export default function Dashboard({
         </main>
       </div>
       {modal === "csv" && (
-        <Modal title="Import trade CSV" onClose={() => setModal(null)}>
+        <Modal title="Import CSV" onClose={() => setModal(null)}>
           <CsvImporter
             active={p.active}
             hasSession={!isWorkspace}
-            onImport={async (events, name, destination) => {
-              await p.importEvents(events, name, destination);
-              p.setNotice(`${events.length} events imported.`);
-              setTab("Overview");
-            }}
+            onImport={importCsv}
             onDone={() => setModal(null)}
           />
         </Modal>
@@ -2025,13 +2034,14 @@ export default function Dashboard({
           onClose={() => setSelected(null)}
         >
           {(() => {
-            const w = eventWindow(shown, selected, p.settings.windowSeconds);
+            const w = selected.timePrecision === "day" ? { before: null, at: null, after: null } : eventWindow(shown, selected, p.settings.windowSeconds);
             return (
               <>
                 <p className="form-intro">
                   {clock(selected.t)} · {selected.side} · {selected.quantity} at{" "}
                   {selected.price} · Source: {selected.source}
                 </p>
+                {selected.timestampSource === "order-update" && <p className="form-intro">Order update time, not an exact fill time. Heart-rate alignment uses this recorded timestamp.</p>}
                 <div className="event-stats">
                   <div>
                     <small>Before · {p.settings.windowSeconds}s</small>
@@ -2058,6 +2068,7 @@ export default function Dashboard({
                   Averages use available samples in your chosen window. Missing
                   readings are left blank; no values are inferred.
                 </p>
+                <PositionHeartRate event={selected} samples={shown} events={visibleEvents} seconds={p.settings.windowSeconds} end={viewEnd} />
                 <button
                   className="button primary full"
                   onClick={() => openReflection({ t: selected?.t || viewEnd })}

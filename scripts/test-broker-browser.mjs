@@ -173,7 +173,10 @@ try {
     assert.equal(calls.some((c) => c.action === "connect" && c.provider === "snaptrade"), false);
     await page.getByRole("button", { name: "Change broker", exact: false }).click();
     await page.getByRole("button", { name: "Change connection type", exact: false }).click();
-    for (const type of ["TradingView", "CSV"]) {
+    await chooseType("CSV");
+    assert.equal(await page.getByLabel("Brokerage name").count(), 0, "CSV must bypass broker setup");
+    await page.getByRole("heading", { name: "Choose connection type", exact: true }).waitFor();
+    for (const type of ["TradingView"]) {
       await chooseType(type);
       await page.getByLabel("Brokerage name").fill("My brokerage");
       await page.getByRole("button", { name: "Continue", exact: true }).click();
