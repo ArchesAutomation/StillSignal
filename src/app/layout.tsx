@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./workspace.css";
 import "./signal.css";
+import "./concept.css";
+import "./concept-integration.css";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:

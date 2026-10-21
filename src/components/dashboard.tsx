@@ -38,6 +38,7 @@ import {
   Circle,
   Menu,
 } from "lucide-react";
+import ConceptWorkspace from "./concept/workspace";
 import SignalCalendar from "./signal-calendar";
 import SignalOverview from "./signal-overview";
 import Stillness from "./stillness";
@@ -179,10 +180,16 @@ export default function Dashboard({
   user: import("@/lib/workspace").WorkspaceUser;
   initialSession?: import("@/lib/model").Session;
 }) {
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const legacyDialog = useRef<HTMLDialogElement>(null);
   const floatingJournal = useFloatingJournal();
   const p = usePulse(user, () => {
     void floatingJournal.open();
   });
+  useEffect(() => {
+    if (legacyOpen && p.session && !legacyDialog.current?.open) legacyDialog.current?.showModal();
+    else if (!legacyOpen) legacyDialog.current?.close?.();
+  }, [legacyOpen, p.session?.id]);
   useEffect(() => {
     if (!p.active) floatingJournal.close();
   }, [p.active, floatingJournal.close]);
@@ -214,9 +221,11 @@ export default function Dashboard({
     const params = new URLSearchParams(window.location.search);
     if (params.has("broker_return") || params.has("broker_error")) {
       setTab("Connections");
+      setLegacyOpen(true);
     } else if (params.get("review") === "today") {
       setTab("Journal");
       setTodayReview(true);
+      setLegacyOpen(true);
     }
   }, []);
   const s = p.session,
@@ -496,7 +505,23 @@ export default function Dashboard({
       </div>
     );
   return (
-    <div className="app-shell">
+    <div className="dashboard-shell">
+      <ConceptWorkspace
+        pulse={p} session={s} history={history} page={tab} threshold={threshold}
+        onPage={(next) => { setTab(next); setLegacyOpen(next === "Connections" || next === "Settings"); }}
+        onReflect={openReflection}
+        onTrade={() => setModal("trade")}
+        onCsv={() => setModal("csv")}
+        onAdvanced={(event) => { setTab("Journal"); setTodayReview(false); setJournalView("Timeline"); setContextEvent(event); setInstrumentFilter(event?.instrument?.id || event?.symbol || ""); setLegacyOpen(true); }}
+        onFloat={() => void floatingJournal.open()}
+        onExport={exportSession}
+        onDelete={() => setModal("delete")}
+        onSelectTrade={setSelected}
+        onToday={() => {setTodayReview(true);setTab("Journal");setLegacyOpen(true);}}
+      />
+      <dialog ref={legacyDialog} className="legacy-workspace" onCancel={() => {setLegacyOpen(false);setTab("Journal");}}>
+        <div className="legacy-tool-heading"><strong>{tab === "Journal" ? "Chart, replay & journal tools" : tab}</strong><button className="icon-button" aria-label="Close workspace tools" onClick={() => {setLegacyOpen(false);setTab("Journal");}}><X size={20}/></button></div>
+        <div className="app-shell">
       {mobileNav && (
         <button
           className="nav-backdrop"
@@ -723,28 +748,6 @@ export default function Dashboard({
               </button>
             </div>
           )}
-          <ExtensionConnection
-            user={user}
-            sessionId={s.id === "workspace" ? undefined : s.id}
-            manage={tab === "Settings"}
-            scope={{
-              instrumentId: instrumentFilter || undefined,
-              accountId: accountFilter || undefined,
-              baselineSeconds: p.settings.baselineSeconds,
-              windowSeconds: p.settings.windowSeconds,
-            }}
-          />
-          <SmartCheckins
-            owner={p.owner}
-            sessionId={s.id}
-            settings={p.settings}
-            recording={p.recording}
-            now={p.now}
-            latestSampleTime={p.samples.at(-1)?.t}
-            moments={moments}
-            blocked={!!modal || !!selected}
-            onOpen={(draft) => void act(() => openLiveReflection(draft))}
-          />
           {tab === "Overview" && (
             <SignalOverview
               sessions={history}
@@ -2026,6 +2029,31 @@ export default function Dashboard({
           </footer>
         </main>
       </div>
+        </div>
+      </dialog>
+          <ExtensionConnection
+            user={user}
+            sessionId={s.id === "workspace" ? undefined : s.id}
+            manage={tab === "Settings"}
+            scope={{
+              instrumentId: instrumentFilter || undefined,
+              accountId: accountFilter || undefined,
+              baselineSeconds: p.settings.baselineSeconds,
+              windowSeconds: p.settings.windowSeconds,
+            }}
+          />
+          <SmartCheckins
+            owner={p.owner}
+            sessionId={s.id}
+            settings={p.settings}
+            recording={p.recording}
+            now={p.now}
+            latestSampleTime={p.samples.at(-1)?.t}
+            moments={moments}
+            blocked={!!modal || !!selected}
+            onOpen={(draft) => void act(() => openLiveReflection(draft))}
+          />
+
       {modal === "csv" && (
         <Modal title="Import CSV" onClose={() => setModal(null)}>
           <CsvImporter
