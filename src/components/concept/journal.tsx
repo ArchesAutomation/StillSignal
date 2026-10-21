@@ -7,8 +7,10 @@ import {
   reconstructTrades,
 } from "@/lib/smart-journal";
 import { money, type TradeEvent } from "@/lib/model";
+import { isOct20Demo, oct20DemoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { Screenshot } from "../reflection-editor";
+import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
 import Writing from "./writing";
 import Review from "./review";
@@ -37,6 +39,7 @@ export default function Journal(
     [expanded, setExpanded] = useState(""),
     [account, setAccount] = useState(""),
     [instrument, setInstrument] = useState(""),
+    [chartSymbol, setChartSymbol] = useState(""),
     [replay, setReplay] = useState(false),
     [position, setPosition] = useState(100);
   const end = p.active
@@ -47,6 +50,36 @@ export default function Journal(
         ...s.events.map((e) => e.t),
         ...s.journal.map((n) => n.t),
       );
+  const demo = isOct20Demo(s);
+  const marketSymbols = [...new Set(s.events.filter((e) => !e.voided).map((e) => e.symbol))];
+  const symbol = chartSymbol && marketSymbols.includes(chartSymbol)
+    ? chartSymbol
+    : marketSymbols[0] || "";
+  const marketEvent = s.events.find((e) => e.symbol === symbol && e.instrument);
+  const { feed, loading: marketLoading } = useMarketData(
+    !demo && marketEvent?.instrument
+      ? {
+          instrument: marketEvent.instrument,
+          accountId: marketEvent.broker?.accountId || marketEvent.account,
+          start: s.startedAt,
+          end,
+          interval: 60,
+          replay: false,
+        }
+      : null,
+    s.owner,
+  );
+  const demoBars = useMemo(() => oct20DemoCandles(s, symbol), [s, symbol]);
+  const candles = demo ? demoBars : feed.candles;
+  const priceStatus = demo
+    ? "No simulated candles for this instrument."
+    : marketLoading
+      ? "Loading market candles…"
+      : marketEvent?.instrument
+        ? "Market candles unavailable for this recording."
+        : symbol
+          ? "Trade fills are shown; price candles need an available market feed."
+          : "Add a trade to select an instrument.";
   const cutoff = Math.round(s.startedAt + ((end - s.startedAt) * position) / 100);
   const start = range
     ? Math.max(s.startedAt, cutoff - range * 60000)
@@ -56,6 +89,7 @@ export default function Journal(
     setRange(0);
     setAccount("");
     setInstrument("");
+    setChartSymbol("");
     setReplay(false);
     setPosition(100);
     setExpanded("");
@@ -131,8 +165,8 @@ export default function Journal(
   const trades = reconstructTrades(events.filter(isActualExecution));
   const trade =
     trades.find(
-      (t) => selected && t.entry <= selected.t && (t.exit || end) >= selected.t,
-    ) || trades[0];
+      (t) => t.symbol === symbol && selected && t.entry <= selected.t && (t.exit || end) >= selected.t,
+    ) || trades.find((t) => t.symbol === symbol) || trades[0];
   const phaseDefs = trade
     ? [
         {
@@ -214,6 +248,14 @@ export default function Journal(
       s.events.map((e) => [e.instrument?.id || e.symbol, e.symbol]),
     ).entries(),
   ];
+  const chartRows = rows.filter((row) => {
+    if (row.event) return row.event.symbol === symbol;
+    const linked = row.note?.context?.eventId;
+    return !linked || s.events.find((event) => event.id === linked)?.symbol === symbol;
+  });
+  const tradeExit = trade?.exit
+    ? events.find((event) => event.kind === "exit" && event.symbol === trade.symbol && event.t === trade.exit)
+    : undefined;
   const accounts = [
     ...new Map(
       s.events.map((e) => [
@@ -289,8 +331,8 @@ export default function Journal(
           <div>
             <div className={cx("timeline-head")}>
               <div>
-                <h2>Heart-rate journey</h2>
-                <p>Select or drag across any area to inspect it.</p>
+                <h2>The rhythm of your session</h2>
+                <p>Price and heart rate on the same timeline. Select or drag to inspect a moment.</p>
               </div>
               <div className={cx("ranges")}>
                 {[
@@ -308,7 +350,32 @@ export default function Journal(
                 ))}
               </div>
             </div>
+            <div className={cx("price-controls")}>
+              <label>
+                Instrument
+                <select
+                  aria-label="Chart instrument"
+                  value={symbol}
+                  onChange={(event) => {
+                    setChartSymbol(event.target.value);
+                    setSelected(null);
+                  }}
+                >
+                  {marketSymbols.length ? marketSymbols.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  )) : <option value="">No instrument</option>}
+                </select>
+              </label>
+              <span className={cx("price-source")} role="status">
+                {demo ? "DEMO · fictional 1m candles · Oct 20 NY" : marketLoading ? "Loading market prices" : feed.state === "ready" ? `${feed.provider} · ${feed.granularity}` : "Recorded HR · market price when available"}
+              </span>
+            </div>
             <div className={cx("chartlegend")}>
+              <span className={cx("price-legend")}>
+                <i className={cx("legend-candle", "rising")} />
+                <i className={cx("legend-candle", "falling")} />
+                {symbol || "Price"} candles
+              </span>
               <span>
                 <i className={cx("legendline")} />
                 Heart rate
@@ -324,12 +391,16 @@ export default function Journal(
               <span style={{ color: "var(--purple)" }}>● Reflection</span>
             </div>
             <Chart
-              key={s.id + ":" + range}
+              key={s.id + ":" + symbol + ":" + range}
               samples={samples}
               baseline={stats.baseline}
               start={start}
               end={cutoff}
-              moments={rows}
+              candles={candles}
+              symbol={symbol || "Price"}
+              priceStatus={priceStatus}
+              demo={demo}
+              moments={chartRows}
               selected={current.id}
               onSelect={pick}
             />
@@ -362,7 +433,7 @@ export default function Journal(
             <div className={cx("moment-accent")} />
             <div className={cx("momentbody")}>
               <div className={cx("momenttitle")}>
-                <h3>Focused moment</h3>
+                <h3>Trade context</h3>
                 <button
                   aria-label="Clear selected moment"
                   onClick={() => setSelected(null)}
@@ -370,6 +441,35 @@ export default function Journal(
                   ×
                 </button>
               </div>
+              {trade && (
+                <>
+                  <div className={cx("context-symbol")}>
+                    <strong>{trade.symbol}</strong>
+                    <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
+                  </div>
+                  <p className={cx("context-caption")}>
+                    {demo ? "Simulated October 20 trade" : "Recorded trade"} · {trade.quantity} shares
+                  </p>
+                  <div className={cx("context-facts")}>
+                    <div><span>Entry price</span><strong>{trade.entryPrice.toFixed(2)}</strong></div>
+                    <div><span>Exit price</span><strong>{trade.exitPrice?.toFixed(2) ?? "Open"}</strong></div>
+                    <div><span>Realised P&L</span><strong className={cx((tradeExit?.pnl || 0) >= 0 ? "positive" : "negative")}>
+                      {tradeExit?.pnl === undefined ? "—" : money(tradeExit.pnl, tradeExit.currency || "USD")}
+                    </strong></div>
+                  </div>
+                  <div className={cx("context-heart")}>
+                    <span>Heart rate around this trade</span>
+                    <div>
+                      <label>Before <b>{nearest(samples, trade.entry - 60000)?.bpm ?? "—"}</b></label>
+                      <label>At entry <b>{nearest(samples, trade.entry)?.bpm ?? "—"}</b></label>
+                      <label>After <b>{nearest(samples, (trade.exit || cutoff) + 60000)?.bpm ?? "—"}</b></label>
+                    </div>
+                    <small>BPM · synced to the price timeline</small>
+                  </div>
+                </>
+              )}
+              <div className={cx("context-divider")} />
+              <span className={cx("context-section")}>Selected moment</span>
               <div className={cx("bigbpm")}>
                 <strong>{current.bpm ?? "—"}</strong>
                 <span>BPM</span>
