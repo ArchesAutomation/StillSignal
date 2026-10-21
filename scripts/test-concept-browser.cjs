@@ -144,6 +144,36 @@ let browser, server;
   });
   await shot("Journal");
   await fits("Desktop journal");
+  const phaseColors = {
+    before: "rgb(114, 183, 255)",
+    entry: "rgb(88, 214, 172)",
+    management: "rgb(242, 204, 114)",
+    exit: "rgb(255, 118, 84)",
+    after: "rgb(168, 139, 255)",
+  };
+  for (const [phase, color] of Object.entries(phaseColors)) {
+    const card = page.locator(`.ss-phase[data-phase="${phase}"]`);
+    assert.equal(await card.evaluate((element) => getComputedStyle(element).borderLeftColor), color);
+    await card.hover();
+    await page.waitForTimeout(250);
+    assert.equal(await card.evaluate((element) => getComputedStyle(element).borderTopColor), color);
+  }
+  const entryRow = page.locator('.ss-entryrow[data-phase="entry"]').first();
+  await entryRow.hover();
+  await page.waitForTimeout(250);
+  assert.equal(await entryRow.evaluate((element) => getComputedStyle(element).borderTopColor), phaseColors.entry);
+  await entryRow.click();
+  await page.waitForTimeout(250);
+  assert.equal(await entryRow.evaluate((element) => element.classList.contains("ss-selected-row")), true);
+  assert.equal(await entryRow.evaluate((element) => getComputedStyle(element).borderTopColor), phaseColors.entry);
+  const afterRow = page.locator('.ss-entryrow[data-phase="after"]').first();
+  await afterRow.focus();
+  await afterRow.press("Enter");
+  await page.waitForTimeout(250);
+  assert.equal(await afterRow.evaluate((element) => element.classList.contains("ss-selected-row")), true);
+  assert.equal(await afterRow.evaluate((element) => getComputedStyle(element).borderTopColor), phaseColors.after);
+  await shot("Journal-Phase-Selected");
+  checks.push("Five phase colors follow cards and timeline rows on hover, click and keyboard selection");
   await page
     .locator(".ss-app")
     .getByLabel("Journal reflection", { exact: true })
@@ -225,8 +255,20 @@ let browser, server;
     "Three-part review persists and updates the same note without duplicates",
   );
   await nav("Heart-rate analytics");
+  await page.getByRole("heading", { name: "Trade journeys", exact: true }).waitFor();
+  const journeySession = page.locator(".ss-journey-session").first();
+  assert.equal(await journeySession.locator(".ss-journey-session-toggle").getAttribute("aria-expanded"), "true");
+  assert.equal(await journeySession.locator(".ss-journey-card").count(), 2);
+  const firstJourney = journeySession.locator(".ss-journey-card").first();
+  assert.equal(await firstJourney.locator(".ss-journey-stage").count(), 5);
+  await firstJourney.locator('.ss-journey-stage[data-phase="before"]').getByText("10 min before", { exact: true }).waitFor();
+  await firstJourney.locator('.ss-journey-stage[data-phase="after"]').getByText("Nearby · Focused", { exact: true }).waitFor();
   await fits("Desktop patterns");
   await shot("Patterns");
+  await firstJourney.locator('.ss-journey-stage[data-phase="after"] .ss-journey-notes button').first().click();
+  await page.locator(".ss-entryrow.ss-selected-row").waitFor();
+  checks.push("Trade journeys show every recorded trade with five measured HR stages and nearby journal entries that open in context");
+  await nav("Heart-rate analytics");
   await nav("Sessions");
   await fits("Desktop sessions");
   await shot("Sessions");
