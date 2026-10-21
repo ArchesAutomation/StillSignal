@@ -295,3 +295,109 @@
 .ss-app .ss-entryrow {
   cursor: pointer;
 }
+
+/* The price and heart-rate journal chart requested for the October 20 review. */
+.ss-app .ss-price-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 1px 0 10px;
+}
+.ss-app .ss-price-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.ss-app .ss-price-controls select {
+  background: #142023;
+  color: #f2f7f5;
+  border: 1px solid #304145;
+  border-radius: 7px;
+  padding: 5px 23px 5px 9px;
+  font: 11px 'DM Mono', monospace;
+}
+.ss-app .ss-price-source {
+  color: #a6b7b3;
+  font: 10px 'DM Mono', monospace;
+  text-align: right;
+}
+.ss-app .ss-price-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #dce7e3;
+}
+.ss-app .ss-legend-candle {
+  display: inline-block;
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+}
+.ss-app .ss-legend-candle.ss-rising { background: #61d7b0; }
+.ss-app .ss-legend-candle.ss-falling { background: #f17b78; margin-right: 4px; }
+.ss-app .ss-price-chartwrap {
+  padding: 11px 5px 5px;
+  background: linear-gradient(180deg, #0b1517, #0a1012 74%);
+}
+.ss-app .ss-price-chart { height: 410px; }
+.ss-app .ss-price-charttip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 2;
+  min-width: 112px;
+  box-shadow: 0 8px 26px #0009;
+}
+.ss-app .ss-price-charttip strong { color: #f2f7f5; }
+.ss-app .ss-context-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.ss-app .ss-context-symbol strong {
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.ss-app .ss-context-symbol span {
+  color: #5ad4a8;
+  font: 10px 'DM Mono', monospace;
+  letter-spacing: .08em;
+}
+.ss-app .ss-context-caption { color: var(--muted); font-size: 11px; margin: 8px 0 14px; }
+.ss-app .ss-context-facts { border-top: 1px solid var(--line); }
+.ss-app .ss-context-facts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+  font-size: 11px;
+}
+.ss-app .ss-context-facts span { color: var(--muted); }
+.ss-app .ss-context-facts strong { color: #eaf4f0; font: 12px 'DM Mono', monospace; }
+.ss-app .ss-context-facts .ss-positive { color: #61d7b0; }
+.ss-app .ss-context-facts .ss-negative { color: #f17b78; }
+.ss-app .ss-context-heart {
+  padding: 12px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-app .ss-context-heart > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 11px 0 8px; }
+.ss-app .ss-context-heart label { display: flex; flex-direction: column; gap: 4px; }
+.ss-app .ss-context-heart b { color: #f2f7f5; font: 17px 'DM Mono', monospace; }
+.ss-app .ss-context-heart small { font-size: 9px; }
+.ss-app .ss-context-divider { border-top: 1px solid var(--line); margin: 18px 0 15px; }
+.ss-app .ss-context-section { font-size: 11px; color: #cddbd7; }
+.ss-app .ss-context-section + .ss-bigbpm { margin-top: 10px; }
+@media (max-width: 720px) {
+  .ss-app .ss-price-controls { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .ss-app .ss-price-source { text-align: left; }
+  .ss-app .ss-chartlegend { flex-wrap: wrap; row-gap: 6px; }
+  .ss-app .ss-price-chart { height: 320px; }
+}

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
-const base = process.env.UI_REVIEW_URL || "http://127.0.0.1:3000";
+const base = process.env.UI_REVIEW_URL || "http://localhost:3000";
 const output =
   process.env.UI_REVIEW_OUTPUT || path.resolve("../concept-verification");
 fs.mkdirSync(output, { recursive: true });
@@ -70,29 +70,32 @@ let browser, server;
   await reference.goto(`http://127.0.0.1:${server.address().port}`);
   await page.goto(base + "/review");
   await page
-    .getByRole("heading", { name: "Heart-rate journey", exact: true })
+    .getByRole("heading", { name: "The rhythm of your session", exact: true })
     .waitFor();
   await page.waitForFunction(
     () =>
       document
-        .querySelector('.ss-chart path[stroke="#ff7654"]')
+        .querySelector('.ss-chart path[stroke="#ff8179"]')
         ?.getAttribute("d")?.length > 50,
   );
+  await page.locator('.ss-chart [data-candle="AAPL"]').first().waitFor();
   await Promise.all([
     reference.evaluate(() => document.fonts.ready),
     page.evaluate(() => document.fonts.ready),
   ]);
   assert.ok(
-    (await page.locator('.ss-chart path[stroke="#ff7654"]').getAttribute("d"))
+    (await page.locator('.ss-chart path[stroke="#ff8179"]').getAttribute("d"))
       .length > 50,
   );
   assert.equal(
     await page
-      .locator('.ss-chart path[stroke="#ff7654"]')
+      .locator('.ss-chart path[stroke="#ff8179"]')
       .evaluate((e) => getComputedStyle(e).stroke),
-    "rgb(255, 118, 84)",
+    "rgb(255, 129, 121)",
   );
-  checks.push("SVG heart-rate series renders with the concept stroke");
+  assert.equal(await page.locator('.ss-chart [data-candle="AAPL"]').count(), 75);
+  await page.getByRole("heading", { name: "Trade context", exact: true }).waitFor();
+  checks.push("Synchronized AAPL candles, heart-rate trace and trade context render");
   const referenceBox = async (name) =>
     reference.locator("#journalPage ." + name).evaluate((e) => {
       const r = e.getBoundingClientRect();
@@ -115,7 +118,6 @@ let browser, server;
     "metrics",
     "sectiontabs",
     "timeline-layout",
-    "chartwrap",
     "moment",
   ]) {
     const a = await referenceBox(name),
@@ -126,11 +128,15 @@ let browser, server;
         Math.abs(a[field] - b[field]) <= 1,
         `${name}.${field}: ${a[field]} vs ${b[field]}`,
       );
-    if (name !== "moment")
+    if (name !== "moment" && name !== "timeline-layout")
       assert.ok(Math.abs(a.h - b.h) <= 1, `${name}.height: ${a.h} vs ${b.h}`);
   }
+  const chart = await appBox("chartwrap");
+  assert.equal(chart.w > 500, true);
+  assert.equal(chart.h > 400, true);
+  geometry.chartwrap = { app: chart, updatedForPriceAndHr: true };
   checks.push(
-    "Reference geometry matches within 1px for header, hero, week, metrics, tabs, chart grid and moment card",
+    "Reference geometry matches within 1px through the journal grid; expanded price chart fits",
   );
   await reference.screenshot({
     path: path.join(output, "HTML-reference.png"),
@@ -288,6 +294,30 @@ let browser, server;
   checks.push(
     "Existing WHOOP, settings, price/replay, manual trade and CSV tools remain accessible",
   );
+  const csv = fs
+    .readFileSync("tests/fixtures/tradingview-filled-orders.csv", "utf8")
+    .replaceAll("2026-01-15 09:10:00", "2026-10-13 14:50:00")
+    .replaceAll("2026-01-15 09:00:00", "2026-10-13 14:40:00");
+  const countBefore = (await saved()).sampleCount;
+  await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+  const csvDialog = page.locator("dialog.modal[open]");
+  await csvDialog.getByLabel("Trade CSV file", { exact: true }).setInputFiles({
+    name: "ordinary-trades.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv),
+  });
+  await csvDialog.getByText("2 validated events.", { exact: false }).waitFor();
+  await csvDialog.getByLabel("CSV timezone", { exact: true }).fill("UTC");
+  await csvDialog.getByLabel("This export starts flat", { exact: false }).check();
+  await csvDialog.getByRole("button", { name: "Import 2 events", exact: true }).click();
+  await csvDialog.waitFor({ state: "detached" });
+  await page.locator(".ss-flow .ss-entrytext").filter({ hasText: "ESZ6" }).first().waitFor();
+  assert.equal((await saved()).sampleCount, countBefore);
+  await page.getByLabel("Chart instrument", { exact: true }).selectOption("ESZ6");
+  assert.equal(await page.locator('.ss-chart [data-candle="ESZ6"]').count(), 0);
+  assert.ok(await page.locator('.ss-chart [data-marker="true"]').count() >= 2);
+  assert.ok((await page.locator('.ss-chart path[stroke="#ff8179"]').getAttribute("d")).length > 50);
+  checks.push("Ordinary trade CSV imports, retains HR and draws entry/exit markers without inventing candles");
   for (const width of [390, 768]) {
     await page.setViewportSize({ width, height: 900 });
     for (const [label, name] of [
