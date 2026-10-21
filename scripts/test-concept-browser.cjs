@@ -230,6 +230,28 @@ let browser, server;
   await nav("Sessions");
   await fits("Desktop sessions");
   await shot("Sessions");
+  const dayCard = page.locator(".ss-day-module").first();
+  const dayToggle = dayCard.locator(".ss-day-toggle");
+  assert.equal(await dayToggle.getAttribute("aria-expanded"), "true");
+  await dayCard.getByText("Orders executed", { exact: true }).waitFor();
+  assert.equal(await dayCard.locator(".ss-day-summary-labels small").count() >= 2, true);
+  assert.equal(await dayCard.locator(".ss-day-label-row").count() >= 2, true);
+  assert.equal(await dayCard.locator(".ss-day-snapshot").getByText("4", { exact: true }).count() >= 1, true);
+  await dayToggle.click();
+  assert.equal(await dayToggle.getAttribute("aria-expanded"), "false");
+  await dayToggle.click();
+  const recording = dayCard.locator(".ss-recording-module").first();
+  await recording.locator(".ss-recording-toggle").click();
+  await recording.getByRole("heading", { name: /Journal entries/ }).waitFor();
+  await recording.locator(".ss-recording-trace").waitFor();
+  const entry = recording.locator(".ss-entry-module").filter({ hasText: "Waited for the level." });
+  await entry.locator("summary").click();
+  await entry.locator(".ss-entry-module-body > p").getByText("Waited for the level. The exit felt rushed even though the plan was clear.", { exact: true }).waitFor();
+  await fits("Desktop expanded day and recording");
+  await shot("Sessions-Expanded");
+  await entry.getByRole("button", { name: "Open this entry in the full journal" }).click();
+  await page.locator(".ss-entryrow.ss-selected-row").waitFor();
+  checks.push("Day, recording and reflection accordions show label distribution, executed orders, HR detail and entry context");
   await nav("Stillness");
   await page.getByRole("button", { name: "I’m here", exact: true }).click();
   await fits("Desktop Stillness");
@@ -338,6 +360,10 @@ let browser, server;
         await page
           .getByRole("button", { name: "I’m here", exact: true })
           .click();
+      if (label === "Sessions") {
+        const recording = page.locator(".ss-day-module").first().locator(".ss-recording-module").first();
+        await recording.locator(".ss-recording-toggle").click();
+      }
       await fits(`${width}px ${label}`);
       if (width === 390) await shot("Mobile-" + label);
     }

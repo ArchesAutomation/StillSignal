@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
-import { liveNotes, reconstructTrades } from "@/lib/smart-journal";
 import { summary } from "@/lib/analytics";
-import { cx, time, type Page, type Props } from "./shared";
+import { cx, type Page, type Props } from "./shared";
 import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
+import SessionDays from "./session-days";
 import Overview from "./overview";
 import Stillness, { reflections } from "./stillness";
 const navigation: [Page, string, string][] = [
@@ -23,7 +23,8 @@ export default function ConceptWorkspace(props: Props) {
     [welcome, setWelcome] = useState(false),
     [startSignal, setStartSignal] = useState(0),
     [whisper, setWhisper] = useState(""),
-    [widget, setWidget] = useState(false);
+    [widget, setWidget] = useState(false),
+    [focusTime, setFocusTime] = useState<number | undefined>();
   const welcomeRef = useRef<HTMLDialogElement>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function ConceptWorkspace(props: Props) {
     }
   }
   const go = (next: Page) => {
+    if (next !== "Journal") setFocusTime(undefined);
     if (next === "Stillness" && page !== "Stillness") setWelcome(true);
     if (next === "Journal") setView("story");
     if (next === "Patterns") setView("patterns");
@@ -288,6 +290,7 @@ export default function ConceptWorkspace(props: Props) {
           )}
           <Journal
             {...viewProps}
+            focusTime={focusTime}
             view={page === "Patterns" ? "patterns" : view}
             setView={(v) => {
               setView(v);
@@ -302,21 +305,21 @@ export default function ConceptWorkspace(props: Props) {
                 <div className={cx("eyebrow")}>Recorded data sources</div>
                 <h1>Sessions</h1>
                 <p>
-                  Sessions hold wearable samples and executions. Open a
-                  recording to see its heart rate, trades and reflections.
+                  Your recordings and reflections, organised by day. Expand a
+                  day to see its story, then open any recording or entry.
                 </p>
               </div>
             </section>
             <div className={cx("analysisexplainer")}>
-              <strong>Your recordings, in context.</strong>
+              <strong>One day at a time.</strong>
               <p>
-                Trade CSV timestamps connect entries and exits to the matching
-                session. Open a journal to inspect the timeline.
+                Each day gathers your own reflection labels, heart-rate
+                recordings and trades. Open a recording to see the details.
               </p>
             </div>
             <div className={cx("sectiontitle")}>
               <div>
-                <h2>Recent recordings</h2>
+                <h2>Your days</h2>
                 <p>
                   {history.length} recordings ·{" "}
                   {history.filter((h) => h.endedAt).length} completed
@@ -343,73 +346,34 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
               </div>
             </div>
-            <div className={cx("sessionlist")}>
-              {history.map((item) => (
-                <div className={cx("sessionrow")} key={item.id}>
-                  <time>
-                    {new Date(item.startedAt)
-                      .toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                      })
-                      .toUpperCase()}
-                    <br />
-                    {time(item.startedAt, false)}–
-                    {item.endedAt ? time(item.endedAt, false) : "Active"}
-                  </time>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p>
-                      {item.sampleCount.toLocaleString()} HR samples ·{" "}
-                      {Array.from(
-                        new Set(item.events.map((e) => e.symbol)),
-                      ).join(", ") || "no trades"}{" "}
-                      ·{" "}
-                      {
-                        reconstructTrades(item.events).filter((t) => t.exit)
-                          .length
-                      }{" "}
-                      reconstructed trades
-                    </p>
-                  </div>
-                  <span className={cx("sessionstat")}>
-                    {liveNotes(item.journal).length} reflections
-                  </span>
-                  <span
-                    className={cx(item.endedAt ? "attached" : "unattached")}
-                  >
-                    ● {item.endedAt ? "Completed" : "Active / interrupted"}
-                  </span>
-                  <div className={cx("sessionactions")}>
-                    <button
-                      className={cx("ghost")}
-                      disabled={p.active && item.id !== s.id}
-                      onClick={() =>
-                        void act(async () => {
-                          await p.openSession(item);
-                          go("Journal");
-                        })
-                      }
-                    >
-                      Open journal
-                    </button>
-                    <button
-                      className={cx("iconbtn")}
-                      aria-label={`Manage ${item.name}`}
-                      disabled={p.active && item.id !== s.id}
-                      onClick={() =>
-                        void act(async () => {
-                          if (item.id !== s.id) await p.openSession(item);
-                          go("Settings");
-                        })
-                      }
-                    >
-                      •••
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SessionDays
+              history={history}
+              selected={s}
+              selectedSamples={p.samples}
+              owner={p.owner}
+              baselineSeconds={p.settings.baselineSeconds}
+              active={p.active}
+              onOpen={(item) =>
+                void act(async () => {
+                  if (item.id !== s.id) await p.openSession(item);
+                  setFocusTime(undefined);
+                  go("Journal");
+                })
+              }
+              onManage={(item) =>
+                void act(async () => {
+                  if (item.id !== s.id) await p.openSession(item);
+                  go("Settings");
+                })
+              }
+              onEntry={(item, entry) =>
+                void act(async () => {
+                  if (item.id !== s.id) await p.openSession(item);
+                  setFocusTime(entry.t);
+                  go("Journal");
+                })
+              }
+            />
             {!history.length && (
               <p className={cx("empty-note")}>
                 Start a session or import your trades to begin.
