@@ -1,21 +1,25 @@
 "use client";
 import { useMemo, useState } from "react";
-import type { Session } from "@/lib/model";
+import type { Sample, Session } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, Title, signed, time } from "./shared";
+import TradeJourneys from "./trade-journeys";
 export default function Patterns({
   sessions,
   selected,
+  selectedSamples,
+  owner,
   onOpen,
 }: {
   sessions: Session[];
   selected: Session;
+  selectedSamples: Sample[];
+  owner: string;
   onOpen: (s: Session, t?: number) => void;
 }) {
   const [days, setDays] = useState(30),
-    [active, setActive] = useState(""),
-    [slot, setSlot] = useState<number | null>(null);
-  const records = useMemo(
+    [active, setActive] = useState("");
+  const rangeSessions = useMemo(
     () =>
       sessions
         .filter(
@@ -23,8 +27,12 @@ export default function Patterns({
             s.startedAt >= selected.startedAt - days * 86400000 &&
             s.startedAt <= selected.startedAt + 86400000,
         )
-        .flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n }))),
+        .sort((a, b) => b.startedAt - a.startedAt),
     [sessions, selected.startedAt, days],
+  );
+  const records = useMemo(
+    () => rangeSessions.flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n }))),
+    [rangeSessions],
   );
   const labels = [...new Set(records.map((r) => r.n.label))]
     .map((label) => {
@@ -43,26 +51,7 @@ export default function Patterns({
   const best = labels.find((l) => l.mean !== null),
     focus = labels.find((l) => l.label === active) || best || labels[0];
   const max = Math.max(1, ...labels.map((l) => Math.abs(l.mean || 0)));
-  const hours = [9, 10, 11, 13, 15];
-  const slots = Array.from({ length: 25 }, (_, i) => {
-    const day = Math.floor(i / 5) + 1,
-      hour = hours[i % 5],
-      rows = records.filter(
-        (r) =>
-          new Date(r.n.t).getDay() === day &&
-          new Date(r.n.t).getHours() === hour &&
-          r.n.context?.delta !== undefined,
-      );
-    return {
-      day,
-      hour,
-      rows,
-      mean: rows.length
-        ? rows.reduce((n, r) => n + r.n.context!.delta!, 0) / rows.length
-        : null,
-    };
-  });
-  const evidence = slot !== null ? slots[slot].rows : focus?.rows || [];
+  const evidence = focus?.rows || [];
   return (
     <>
       <Title
@@ -112,7 +101,6 @@ export default function Patterns({
               key={l.label}
               onClick={() => {
                 setActive(l.label);
-                setSlot(null);
               }}
             >
               <span>{l.label}</span>
@@ -147,7 +135,6 @@ export default function Patterns({
               className={cx("ghost")}
               onClick={() => {
                 setActive(best?.label || "");
-                setSlot(null);
                 document
                   .getElementById("ss-pattern-evidence")
                   ?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -169,7 +156,6 @@ export default function Patterns({
               <button
                 onClick={() => {
                   setActive(l.label);
-                  setSlot(null);
                 }}
               >
                 {l.rows.length} moments · see what changed →
@@ -179,51 +165,14 @@ export default function Patterns({
         </div>
       </div>
       <Title
-        title="When your responses appear"
-        description="Select a time block to see the reflections behind the colour."
+        title="Trade journeys"
+        description="Every recorded execution, session by session. Follow heart rate from ten minutes before through the trade and read your own reflections beside it. Missing measurements stay blank."
       />
-      <div className={cx("heatmap")}>
-        <div />
-        {hours.map((h) => (
-          <div key={h} className={cx("label")}>
-            {h}:00
-          </div>
-        ))}
-        {["MON", "TUE", "WED", "THU", "FRI"].map((d, day) => (
-          <div className={cx("heatmap-row")} key={d}>
-            <div className={cx("label")}>{d}</div>
-            {slots.slice(day * 5, day * 5 + 5).map((s, i) => (
-              <button
-                className={cx(
-                  "cell",
-                  s.mean !== null &&
-                    (s.mean > 30
-                      ? "h3"
-                      : s.mean > 20
-                        ? "h2"
-                        : s.mean > 10
-                          ? "h1"
-                          : ""),
-                  slot === day * 5 + i && "selected",
-                )}
-                key={i}
-                aria-label={`${d} ${s.hour}:00 · ${s.rows.length} reflections`}
-                onClick={() => setSlot(day * 5 + i)}
-              >
-                {s.mean === null ? "—" : signed(s.mean)}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
+      <TradeJourneys sessions={rangeSessions} selected={selected} selectedSamples={selectedSamples} owner={owner} onOpen={onOpen} />
       <div className={cx("patternlens")} id="ss-pattern-evidence">
         <div className={cx("patternlens-top")}>
           <div>
-            <h3>
-              {slot === null
-                ? `${focus?.label || "Your"} moments`
-                : `${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][slots[slot].day - 1]} around ${slots[slot].hour}:00`}
-            </h3>
+            <h3>{focus?.label || "Your"} moments</h3>
             <p>
               {evidence.length} supporting reflections. Times use your browser’s
               local timezone.

@@ -9,6 +9,7 @@ import {
 import { money, type TradeEvent } from "@/lib/model";
 import { isOct20Demo, oct20DemoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
+import { timelinePhase } from "@/lib/timeline-phase";
 import { Screenshot } from "../reflection-editor";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
@@ -408,6 +409,7 @@ export default function Journal(
               {phases.map((m) => (
                 <button
                   className={cx("phase", current.id === m.id && "active")}
+                  data-phase={m.phase.toLowerCase()}
                   key={m.id}
                   onClick={() => pick(m)}
                 >
@@ -626,10 +628,13 @@ export default function Journal(
                   filter === "All moments" ||
                   (filter === "Trades" ? r.event : r.note),
               )
-              .map((row) => (
+              .map((row) => {
+                const phase = timelinePhase(row.phase, row.t, trades);
+                return (
                 <div key={row.id}>
                   <div
                     role="button"
+                    data-phase={phase}
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -650,13 +655,19 @@ export default function Journal(
                   >
                     <time>{time(row.t)}</time>
                     <span className={cx("phasepill")}>
-                      {row.phase === "REFLECTION"
-                        ? "Reflection"
-                        : row.phase === "ENTRY"
-                          ? "Entry"
-                          : row.phase === "EXIT"
-                            ? "Exit"
-                            : "Fill"}
+                      {row.phase === "FILL"
+                        ? "Fill"
+                        : phase === "before"
+                          ? "Before trade"
+                          : phase === "management"
+                            ? "Management"
+                            : phase === "after"
+                              ? "After trade"
+                              : phase === "reflection"
+                                ? "Reflection"
+                                : phase === "entry"
+                                  ? "Entry"
+                                  : "Exit"}
                     </span>
                     <div className={cx("hrvalue")}>
                       {row.bpm ?? "—"}
@@ -752,7 +763,8 @@ export default function Journal(
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
           </div>
           {!rows.length && (
             <p className={cx("empty-note")}>
@@ -772,19 +784,29 @@ export default function Journal(
         <Patterns
           sessions={history}
           selected={s}
+          selectedSamples={p.samples}
+          owner={p.owner}
           onOpen={(target, t) => {
             void p.openSession(target).then(() => {
               setView("story");
-              if (t)
-                setSelected({
-                  id: "evidence-" + t,
+              props.onPage("Journal");
+              if (t !== undefined) {
+                const note = liveNotes(target.journal).find((item) => item.t === t);
+                const event = target.events.find((item) => item.t === t && !item.voided);
+                const row: Moment = {
+                  id: note?.id || event?.id || `moment-${t}`,
                   t,
-                  phase: "REFLECTION",
-                  label: "Reflection",
-                  text: target.journal.find((n) => n.t === t)?.text || "",
-                  bpm: null,
-                });
-            });
+                  phase: note ? "REFLECTION" : event?.kind.toUpperCase() || "MOMENT",
+                  label: note?.label || event?.kind.toUpperCase() || "Moment",
+                  text: note?.text || (event ? `${event.symbol} · ${event.side} · ${event.quantity} at ${event.price}` : ""),
+                  bpm: note?.context?.bpm ?? null,
+                  note,
+                  event,
+                };
+                setSelected(row);
+                setExpanded(row.id);
+              }
+            }).catch((error: unknown) => p.setError(error instanceof Error ? error.message : "Could not open that session."));
           }}
         />
       </section>

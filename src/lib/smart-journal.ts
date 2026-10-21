@@ -237,6 +237,8 @@ export type CompletedTrade = {
   exit?: number;
   entryPrice: number;
   exitPrice?: number;
+  entryEventId?: string;
+  exitEventId?: string;
   quantity: number;
   provenance?: TradeEvent["provenance"];
 };
@@ -273,6 +275,8 @@ export function reconstructTrades(events: TradeEvent[]) {
           exit: event.t,
           entryPrice: first.event.price,
           exitPrice: event.price,
+          entryEventId: first.event.id,
+          exitEventId: event.id,
           quantity: n,
           provenance: event.provenance,
         });
@@ -290,6 +294,7 @@ export function reconstructTrades(events: TradeEvent[]) {
         side: event.side as "long" | "short",
         entry: event.t,
         entryPrice: event.price,
+        entryEventId: event.id,
         quantity: remaining,
         provenance: event.provenance,
       });
