@@ -1,0 +1,702 @@
+"use client";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { nearest, summary } from "@/lib/analytics";
+import {
+  detectHrMoments,
+  liveNotes,
+  reconstructTrades,
+} from "@/lib/smart-journal";
+import { money, type TradeEvent } from "@/lib/model";
+import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
+import { Screenshot } from "../reflection-editor";
+import Chart from "./chart";
+import Writing from "./writing";
+import Review from "./review";
+import Patterns from "./patterns";
+import {
+  cx,
+  Metric,
+  Title,
+  time,
+  signed,
+  type Moment,
+  type Props,
+} from "./shared";
+export default function Journal(
+  props: Props & {
+    view: "story" | "patterns" | "review";
+    setView: (v: "story" | "patterns" | "review") => void;
+    focusTime?: number;
+  },
+) {
+  const { pulse: p, session: s, history, view, setView } = props;
+  const [selected, setSelected] = useState<Moment | null>(null),
+    [range, setRange] = useState(0),
+    [filter, setFilter] = useState("All moments"),
+    [filters, setFilters] = useState(false),
+    [expanded, setExpanded] = useState(""),
+    [account, setAccount] = useState(""),
+    [instrument, setInstrument] = useState(""),
+    [replay, setReplay] = useState(false),
+    [position, setPosition] = useState(100);
+  const end = p.active
+    ? p.now
+    : Math.max(
+        s.endedAt || s.startedAt,
+        p.samples.at(-1)?.t || 0,
+        ...s.events.map((e) => e.t),
+        ...s.journal.map((n) => n.t),
+      );
+  const cutoff = Math.round(s.startedAt + ((end - s.startedAt) * position) / 100);
+  const start = range
+    ? Math.max(s.startedAt, cutoff - range * 60000)
+    : s.startedAt;
+  useEffect(() => {
+    setSelected(null);
+    setRange(0);
+    setAccount("");
+    setInstrument("");
+    setReplay(false);
+    setPosition(100);
+    setExpanded("");
+  }, [s.id]);
+  useEffect(() => {
+    if (!replay) return;
+    const timer = setInterval(
+      () =>
+        setPosition((v) => {
+          if (v >= 100) {
+            setReplay(false);
+            return 100;
+          }
+          return Math.min(100, v + 0.5);
+        }),
+      100,
+    );
+    return () => clearInterval(timer);
+  }, [replay]);
+  const samples = useMemo(
+    () => p.samples.filter((x) => x.t <= cutoff),
+    [p.samples, cutoff],
+  );
+  const stats = useMemo(
+    () =>
+      summary(
+        samples,
+        samples[0]?.t || s.startedAt,
+        p.settings.baselineSeconds,
+      ),
+    [samples, s.startedAt, p.settings.baselineSeconds],
+  );
+  const notes = liveNotes(s.journal).filter(
+    (n) =>
+      n.t <= cutoff && (position === 100 || (n.updatedAt || n.t) <= cutoff),
+  );
+  const events = s.events.filter(
+    (e) =>
+      !e.voided &&
+      e.t <= cutoff &&
+      (!account ||
+        (e.broker?.accountId || e.account || "manual") === account) &&
+      (!instrument || (e.instrument?.id || e.symbol) === instrument),
+  );
+  const moments = useMemo(
+    () =>
+      detectHrMoments(samples, {
+        baselineSeconds: p.settings.baselineSeconds,
+        threshold: props.threshold,
+      }),
+    [samples, p.settings.baselineSeconds, props.threshold],
+  );
+  const rows: Moment[] = [
+    ...events.map((e) => ({
+      id: e.id,
+      t: e.t,
+      phase: e.kind.toUpperCase(),
+      label: e.kind === "entry" ? "ENTRY" : e.kind === "exit" ? "EXIT" : "FILL",
+      text: `${e.symbol} · ${e.side} · ${e.quantity} at ${e.price}${e.pnl === undefined ? "" : ` · ${money(e.pnl, e.currency || "USD")}`}`,
+      event: e,
+      bpm: nearest(samples, e.t)?.bpm ?? null,
+    })),
+    ...notes.map((n) => ({
+      id: n.id,
+      t: n.t,
+      phase: "REFLECTION",
+      label: n.label,
+      text: n.text || "A moment marked for reflection.",
+      note: n,
+      bpm: nearest(samples, n.t)?.bpm ?? n.context?.bpm ?? null,
+    })),
+  ].sort((a, b) => a.t - b.t);
+  const trades = reconstructTrades(events.filter(isActualExecution));
+  const trade =
+    trades.find(
+      (t) => selected && t.entry <= selected.t && (t.exit || end) >= selected.t,
+    ) || trades[0];
+  const phaseDefs = trade
+    ? [
+        {
+          name: "BEFORE",
+          t:
+            notes.filter((n) => n.t < trade.entry).at(-1)?.t ??
+            Math.max(s.startedAt, trade.entry - 60000),
+        },
+        { name: "ENTRY", t: trade.entry },
+        { name: "MANAGEMENT", t: Math.round((trade.entry + (trade.exit || cutoff)) / 2) },
+        { name: "EXIT", t: trade.exit ?? cutoff },
+        {
+          name: "AFTER",
+          t:
+            notes.find((n) => n.t > (trade.exit || cutoff))?.t ??
+            Math.min(cutoff, (trade.exit || cutoff) + 60000),
+        },
+      ]
+    : [];
+  const phases: Moment[] = phaseDefs.map(({ name, t }) => {
+    const n = notes.find((n) => n.t === t);
+    const pts =
+      name === "MANAGEMENT"
+        ? samples.filter(
+            (p) => p.t >= trade!.entry && p.t <= (trade!.exit || cutoff),
+          )
+        : [];
+    return {
+      id: "phase-" + name,
+      t,
+      phase: name,
+      label: n?.label || "Unlabelled",
+      text: n?.text || "Add what you were noticing at this point in the trade.",
+      note: n,
+      bpm: pts.length
+        ? Math.round(pts.reduce((n, p) => n + p.bpm, 0) / pts.length)
+        : (nearest(samples, t)?.bpm ?? null),
+      event: events.find((e) => e.t === t),
+    };
+  });
+  const current =
+    selected && selected.t <= cutoff
+      ? selected
+      : phases.find((m) => m.phase === "ENTRY") ||
+        rows[0] || {
+          id: "empty",
+          t: cutoff,
+          phase: "MOMENT",
+          label: "Unlabelled",
+          text: "Select a moment to explore your heart rate, execution and reflection together.",
+          bpm: null,
+        };
+  useEffect(() => {
+    if (props.focusTime !== undefined) {
+      const row = rows.find((r) => r.t === props.focusTime);
+      if (row) {
+        setSelected(row);
+        setExpanded(row.id);
+      }
+    }
+  }, [props.focusTime]);
+  const delta =
+    current.bpm !== null && stats.baseline !== null
+      ? current.bpm - stats.baseline
+      : null;
+  const totals = pnlByCurrency(events),
+    exits = events.filter((e) => e.kind === "exit" && isActualExecution(e));
+  const pick = (m: Moment) => {
+    setSelected(m);
+  };
+  const reflect = (voice = false) =>
+    props.onReflect({
+      t: current.t,
+      source: voice ? "voice" : "typed",
+      autoListen: voice,
+    });
+  const choices = [
+    ...new Map(
+      s.events.map((e) => [e.instrument?.id || e.symbol, e.symbol]),
+    ).entries(),
+  ];
+  const accounts = [
+    ...new Map(
+      s.events.map((e) => [
+        e.broker?.accountId || e.account || "manual",
+        e.account || "Manual",
+      ]),
+    ).entries(),
+  ];
+  return (
+    <>
+      <section className={cx("metrics")}>
+        <Metric
+          label="Realised P&L"
+          value={
+            totals.length
+              ? totals.map(([c, v]) => (
+                  <Fragment key={c}>
+                    {v > 0 ? "+" : ""}
+                    {money(v, c)}{" "}
+                  </Fragment>
+                ))
+              : "—"
+          }
+          detail={`${exits.length} closed trade${exits.length === 1 ? "" : "s"}`}
+        />
+        <Metric
+          label="Session baseline"
+          value={
+            <>
+              {stats.baseline === null ? "—" : Math.round(stats.baseline)}{" "}
+              <small className={cx("subtle")}>BPM</small>
+            </>
+          }
+          detail={`First ${p.settings.baselineSeconds / 60}-minute average`}
+          subtle
+        />
+        <Metric
+          label="Peak response"
+          value={
+            <>
+              {stats.peak ?? "—"} <small className={cx("subtle")}>BPM</small>
+            </>
+          }
+          detail={
+            stats.peak !== null && stats.baseline !== null
+              ? `${signed(stats.peak - stats.baseline)} above baseline`
+              : "No heart-rate samples"
+          }
+        />
+        <Metric
+          label="Session load"
+          value={
+            samples.length ? (moments.length > 0 ? "Elevated" : "Steady") : "—"
+          }
+          detail={`${moments.filter((m) => m.kind === "rise").length} spikes · ${moments.filter((m) => m.kind === "elevation").length} sustained rises`}
+          subtle
+        />
+      </section>
+      <div className={cx("sectiontabs")} aria-label="Journal views">
+        {(["story", "patterns", "review"] as const).map((v, i) => (
+          <button
+            key={v}
+            className={cx(view === v && "active")}
+            aria-pressed={view === v}
+            onClick={() => setView(v)}
+          >
+            {["Day story", "Patterns", "Review"][i]}
+          </button>
+        ))}
+      </div>
+      <section hidden={view !== "story"}>
+        <div className={cx("timeline-layout")}>
+          <div>
+            <div className={cx("timeline-head")}>
+              <div>
+                <h2>Heart-rate journey</h2>
+                <p>Select or drag across any area to inspect it.</p>
+              </div>
+              <div className={cx("ranges")}>
+                {[
+                  [15, "15m"],
+                  [60, "1h"],
+                  [0, "All"],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    className={cx(range === v && "active")}
+                    onClick={() => setRange(Number(v))}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={cx("chartlegend")}>
+              <span>
+                <i className={cx("legendline")} />
+                Heart rate
+              </span>
+              <span>
+                <i className={cx("legenddash")} />
+                {stats.baseline === null
+                  ? "—"
+                  : Math.round(stats.baseline)}{" "}
+                baseline
+              </span>
+              <span style={{ color: "var(--green)" }}>● Entry</span>
+              <span style={{ color: "var(--purple)" }}>● Reflection</span>
+            </div>
+            <Chart
+              key={s.id + ":" + range}
+              samples={samples}
+              baseline={stats.baseline}
+              start={start}
+              end={cutoff}
+              moments={rows}
+              selected={current.id}
+              onSelect={pick}
+            />
+            <div className={cx("phases")}>
+              {phases.map((m) => (
+                <button
+                  className={cx("phase", current.id === m.id && "active")}
+                  key={m.id}
+                  onClick={() => pick(m)}
+                >
+                  <span>{m.phase}</span>
+                  <strong>
+                    {m.phase === "MANAGEMENT" && trade
+                      ? `${time(trade.entry, false)}–${time(trade.exit || cutoff, false)}`
+                      : time(m.t).replace(/ [AP]M/, "")}
+                  </strong>
+                  <small>
+                    {m.bpm ?? "—"} {m.phase === "MANAGEMENT" ? "avg" : "BPM"}{" "}
+                    <b className={cx("up")}>
+                      {m.bpm !== null && stats.baseline !== null
+                        ? signed(m.bpm - stats.baseline)
+                        : ""}
+                    </b>
+                  </small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <aside className={cx("moment")}>
+            <div className={cx("moment-accent")} />
+            <div className={cx("momentbody")}>
+              <div className={cx("momenttitle")}>
+                <h3>Focused moment</h3>
+                <button
+                  aria-label="Clear selected moment"
+                  onClick={() => setSelected(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className={cx("bigbpm")}>
+                <strong>{current.bpm ?? "—"}</strong>
+                <span>BPM</span>
+              </div>
+              <div className={cx("delta")}>
+                {delta === null
+                  ? "No heart-rate context"
+                  : `${signed(delta)} above your baseline`}
+              </div>
+              <div className={cx("momenttime")}>
+                {time(current.t)} · {current.phase}
+              </div>
+              <span className={cx("tag")}>{current.label}</span>
+              <p className={cx("quote")}>“{current.text}”</p>
+              <div className={cx("contextactions")}>
+                <button
+                  className={cx("ghost")}
+                  onClick={() => props.onAdvanced(current.event)}
+                >
+                  View price
+                </button>
+                <button
+                  className={cx("ghost")}
+                  onClick={() =>
+                    props.onReflect({
+                      t: current.t,
+                      initialLabel: "Other",
+                      initialText: "Possible sensor anomaly: ",
+                    })
+                  }
+                >
+                  Mark anomaly
+                </button>
+              </div>
+              <div className={cx("capture")}>
+                <button className={cx("ghost")} onClick={() => reflect()}>
+                  Write
+                </button>
+                <button
+                  className={cx("ghost", "mic")}
+                  onClick={() => reflect(true)}
+                >
+                  ● Speak now
+                </button>
+              </div>
+              <button
+                className={cx("textlink")}
+                onClick={() =>
+                  props.onReflect({
+                    t: current.t,
+                    ...(current.note ? { entry: current.note } : {}),
+                  })
+                }
+              >
+                Edit emotion or timestamp
+              </button>
+            </div>
+          </aside>
+        </div>
+        <div className={cx("journalflow")}>
+          <Title
+            title="The day, in order"
+            description="Execution, physiology and your own words on one continuous timeline."
+          >
+            <button
+              className={cx("ghost")}
+              onClick={() => setFilters((v) => !v)}
+            >
+              Filter moments
+            </button>
+          </Title>
+          {filters && (
+            <div className={cx("filter-controls")}>
+              <select
+                aria-label="Moment filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                {["All moments", "Trades", "Reflections"].map((f) => (
+                  <option key={f}>{f}</option>
+                ))}
+              </select>
+              <select
+                aria-label="Account"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+              >
+                <option value="">All accounts</option>
+                {accounts.map(([id, n]) => (
+                  <option value={id} key={id}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Instrument"
+                value={instrument}
+                onChange={(e) => setInstrument(e.target.value)}
+              >
+                <option value="">All instruments</option>
+                {choices.map(([id, n]) => (
+                  <option value={id} key={id}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <button className={cx("ghost")} onClick={props.onCsv}>
+                Import CSV
+              </button>
+              <button className={cx("ghost")} onClick={props.onTrade}>
+                Add trade
+              </button>
+              <button className={cx("ghost")} onClick={props.onToday}>
+                Today’s reflections
+              </button>
+              <button
+                className={cx("ghost")}
+                disabled={p.active || !(events.length || samples.length)}
+                onClick={() => {
+                  if (position === 100) setPosition(0);
+                  setReplay((v) => !v);
+                }}
+              >
+                {replay ? "Pause replay" : "Replay session"}
+              </button>
+              {position < 100 && (
+                <>
+                  <input
+                    aria-label="Replay position"
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={position}
+                    onChange={(e) => setPosition(+e.target.value)}
+                  />
+                  <button
+                    className={cx("ghost")}
+                    onClick={() => {
+                      setReplay(false);
+                      setPosition(100);
+                    }}
+                  >
+                    Reset replay
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          <div className={cx("flow")}>
+            {rows
+              .filter(
+                (r) =>
+                  filter === "All moments" ||
+                  (filter === "Trades" ? r.event : r.note),
+              )
+              .map((row) => (
+                <div key={row.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        pick(row);
+                        setExpanded((v) => (v === row.id ? "" : row.id));
+                      }
+                    }}
+                    className={cx(
+                      "entryrow",
+                      current.id === row.id && "selected-row",
+                    )}
+                    aria-expanded={expanded === row.id}
+                    onClick={() => {
+                      pick(row);
+                      setExpanded((v) => (v === row.id ? "" : row.id));
+                    }}
+                  >
+                    <time>{time(row.t)}</time>
+                    <span className={cx("phasepill")}>
+                      {row.phase === "REFLECTION"
+                        ? "Reflection"
+                        : row.phase === "ENTRY"
+                          ? "Entry"
+                          : row.phase === "EXIT"
+                            ? "Exit"
+                            : "Fill"}
+                    </span>
+                    <div className={cx("hrvalue")}>
+                      {row.bpm ?? "—"}
+                      <small>
+                        {row.bpm !== null && stats.baseline !== null
+                          ? signed(row.bpm - stats.baseline) + " BPM"
+                          : "No HR"}
+                      </small>
+                    </div>
+                    <div className={cx("entrytext")}>
+                      <em>{row.label.toUpperCase()}</em> {row.text}
+                    </div>
+                    {row.note?.screenshot ? (
+                      <div
+                        className={cx("thumb")}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <Screenshot {...row.note.screenshot} />
+                      </div>
+                    ) : (
+                      <div className={cx("thumb", "empty-thumb")} />
+                    )}
+                    <span className={cx("chev")}>›</span>
+                  </div>
+                  {expanded === row.id && (
+                    <div className={cx("momentdetail", "open")}>
+                      <div>
+                        <h4>WHAT THE DATA ADDS</h4>
+                        <p>
+                          {row.bpm === null
+                            ? "No heart-rate sample is available at this timestamp."
+                            : `Recorded heart rate at this moment: ${row.bpm} BPM${stats.baseline === null ? "" : `, ${signed(row.bpm - stats.baseline)} from the opening baseline`}.`}
+                        </p>
+                        <div className={cx("interpretation")}>
+                          <b>Invitation:</b> What did you notice in your body,
+                          thoughts or behaviour?
+                        </div>
+                        {row.event && (
+                          <button
+                            className={cx("ghost")}
+                            onClick={() => props.onSelectTrade(row.event!)}
+                          >
+                            Inspect trade context
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <label>Your interpretation</label>
+                        <p>
+                          {row.note?.text ||
+                            "Add your own words to this moment."}
+                        </p>
+                        <button
+                          className={cx("ghost")}
+                          onClick={() =>
+                            props.onReflect({
+                              t: row.t,
+                              ...(row.note ? { entry: row.note } : {}),
+                            })
+                          }
+                        >
+                          {row.note ? "Edit reflection" : "Add reflection"}
+                        </button>
+                        {row.note && (
+                          <button
+                            className={cx("textlink")}
+                            onClick={async () => {
+                              try {
+                                await p.removeNote(row.note!.id);
+                                if (row.note!.screenshot) {
+                                  const { removeScreenshot } = await import(
+                                    "@/lib/screenshots"
+                                  );
+                                  await removeScreenshot(
+                                    row.note!.screenshot.path,
+                                  );
+                                }
+                                setExpanded("");
+                              } catch (e) {
+                                p.setError(
+                                  e instanceof Error
+                                    ? e.message
+                                    : "Could not delete reflection.",
+                                );
+                              }
+                            }}
+                          >
+                            Delete reflection
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+          {!rows.length && (
+            <p className={cx("empty-note")}>
+              Start a session, add a trade, or write your first reflection.
+            </p>
+          )}
+        </div>
+        <Writing
+          key={s.id}
+          time={Math.min(current.t, cutoff)}
+          onSave={p.addNote}
+          onReflect={props.onReflect}
+          onReview={() => setView("review")}
+        />
+      </section>
+      <section hidden={view !== "patterns"}>
+        <Patterns
+          sessions={history}
+          selected={s}
+          onOpen={(target, t) => {
+            void p.openSession(target).then(() => {
+              setView("story");
+              if (t)
+                setSelected({
+                  id: "evidence-" + t,
+                  t,
+                  phase: "REFLECTION",
+                  label: "Reflection",
+                  text: target.journal.find((n) => n.t === t)?.text || "",
+                  bpm: null,
+                });
+            });
+          }}
+        />
+      </section>
+      <section hidden={view !== "review"}>
+        <Review
+          key={s.id}
+          session={s}
+          time={cutoff}
+          onSave={p.addNote}
+          onReflect={(t) => props.onReflect({ t })}
+        />
+      </section>
+    </>
+  );
+}

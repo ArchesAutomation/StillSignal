@@ -359,13 +359,36 @@ export default function SynchronizedChart(props: ChartProps) {
   }, [props.hrHeight]);
   useEffect(() => {
     const a = api.current;
-    if (
-      a &&
-      props.selectedTime !== undefined &&
-      props.selectedTime <= props.cutoff
-    )
-      a.chart.setCrosshairPosition(1, utc(props.selectedTime), a.carrier);
-  }, [props.selectedTime, props.cutoff]);
+    const host = container.current;
+    const selected = props.selectedTime;
+    if (!a || !host || selected === undefined || selected > props.cutoff)
+      return;
+    let frame = 0;
+    const focus = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // A dialog can mount or update the chart before its first visible layout.
+        // The chart's synthetic crosshair requires initialized time and price scales.
+        if (
+          api.current !== a ||
+          !host.getBoundingClientRect().width ||
+          a.chart.timeScale().timeToCoordinate(utc(selected)) === null ||
+          a.carrier.priceToCoordinate(1) === null
+        )
+          return;
+        a.chart.setCrosshairPosition(1, utc(selected), a.carrier);
+      });
+    };
+    const observer = new ResizeObserver(focus);
+    observer.observe(host);
+    a.chart.timeScale().subscribeVisibleLogicalRangeChange(focus);
+    focus();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      a.chart.timeScale().unsubscribeVisibleLogicalRangeChange(focus);
+    };
+  }, [props.selectedTime, props.cutoff, props.candles]);
   useEffect(() => {
     if (props.end > props.start)
       api.current?.chart

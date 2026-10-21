@@ -257,7 +257,7 @@ test("Alt+J opens dictation, repeated keys do not duplicate it, and closing rele
       }),
     ),
   );
-  assert.equal(document.querySelectorAll("dialog").length, 1);
+  assert.equal(document.querySelectorAll("dialog.modal").length, 1);
   assert.equal(starts, 1);
   await act(async () =>
     dom.window.dispatchEvent(
@@ -276,7 +276,7 @@ test("Alt+J opens dictation, repeated keys do not duplicate it, and closing rele
     ).click(),
   );
   assert.equal(aborts, 1);
-  assert.equal(document.querySelectorAll("dialog").length, 0);
+  assert.equal(document.querySelectorAll("dialog.modal").length, 0);
 });
 test("speech transcript is reviewed before saving and preserves the activation timestamp", async (t) => {
   const { dom, root } = setup();

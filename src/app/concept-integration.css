@@ -1,0 +1,297 @@
+@font-face {
+  font-family: "DM Mono";
+  src: url("/fonts/DMMono-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+/* Functional states and existing tools that were not part of the supplied HTML. */
+.ss-app [hidden] {
+  display: none !important;
+}
+.ss-app button {
+  cursor: pointer;
+}
+.ss-app button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.ss-app button:focus-visible,
+.ss-app [tabindex]:focus-visible,
+.ss-app input:focus-visible,
+.ss-app textarea:focus-visible,
+.ss-app select:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 3px;
+}
+.ss-app .ss-day,
+.ss-app .ss-monthday {
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+}
+.ss-app .ss-day {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+}
+.ss-app .ss-day.ss-selected {
+  background: #121a1c;
+  color: var(--orange);
+}
+.ss-app .ss-day:disabled,
+.ss-app .ss-monthday:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.ss-app .ss-monthday {
+  text-align: left;
+}
+.ss-app .ss-monthday.ss-empty {
+  opacity: 0.22;
+}
+.ss-app .ss-sensitivity {
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+.ss-app .ss-phase {
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.ss-app .ss-entryrow {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.ss-app .ss-entrytext {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ss-app .ss-quote {
+  overflow-wrap: anywhere;
+  max-height: 190px;
+  overflow: auto;
+}
+.ss-app .ss-empty-thumb {
+  background: none !important;
+  border-color: transparent !important;
+  opacity: 0;
+}
+.ss-app .ss-heatmap-row {
+  display: contents;
+}
+.ss-app .ss-emotionrow {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.ss-app .ss-heatmap .ss-cell {
+  border: 0;
+  font: inherit;
+  font-size: 11px;
+  color: inherit;
+}
+.ss-app .ss-writing-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ss-app .ss-save-status {
+  font-size: 12px;
+  color: var(--green);
+  margin: 12px 0;
+}
+.ss-app .ss-reviewprompt {
+  display: block;
+}
+.ss-app .ss-filter-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.ss-app .ss-filter-controls select {
+  background: #111719;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px;
+  font-size: 11px;
+}
+.ss-app .ss-message {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  background: var(--surface);
+}
+.ss-app .ss-message.ss-error {
+  border-color: var(--red);
+}
+.ss-app .ss-message button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.ss-app .ss-evidence-list {
+  display: grid;
+  margin-top: 12px;
+}
+.ss-app .ss-evidence-list button {
+  display: grid;
+  grid-template-columns: 145px 75px 1fr 15px;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  color: var(--text);
+  text-align: left;
+  font-size: 11px;
+}
+.ss-app .ss-stillnesswelcome {
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+}
+.ss-app .ss-stillnesswelcome::backdrop {
+  background: #070b0d;
+}
+.ss-app .ss-noticeactions {
+  flex-wrap: wrap;
+}
+.ss-app .ss-widgetpanel {
+  max-height: calc(100dvh - 150px);
+  overflow: auto;
+}
+.ss-app .ss-widgetpill {
+  cursor: default;
+}
+.legacy-workspace {
+  width: min(1320px, calc(100vw - 32px));
+  height: calc(100dvh - 40px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid #344347;
+  border-radius: 15px;
+  background: #080c0e;
+  color: var(--text);
+}
+.legacy-workspace::backdrop {
+  background: #030709d9;
+  backdrop-filter: blur(5px);
+}
+.legacy-tool-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #101719;
+  border-bottom: 1px solid #223034;
+  font-size: 14px;
+}
+.legacy-workspace .app-shell {
+  min-height: 0;
+  background: none;
+}
+.legacy-workspace .sidebar,
+.legacy-workspace .topbar,
+.legacy-workspace .page-heading,
+.legacy-workspace .app-footer {
+  display: none !important;
+}
+.legacy-workspace .main-wrap {
+  margin: 0;
+}
+.legacy-workspace main {
+  padding: 22px;
+}
+.legacy-workspace .journal-flow,
+.legacy-workspace .journal-writing,
+.legacy-workspace .smart-journal-toolbar,
+.legacy-workspace .signal-calendar,
+.legacy-workspace .journal-tabs,
+.legacy-workspace .stats-grid,
+.legacy-workspace .lower-grid,
+.legacy-workspace .session-review {
+  display: none;
+}
+.legacy-workspace .trading-grid {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.legacy-workspace .timeline-panel {
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .ss-app .ss-topactions {
+    gap: 6px;
+  }
+  .ss-app .ss-topactions button {
+    font-size: 10px;
+    padding: 8px;
+  }
+  .ss-app .ss-crumb {
+    font-size: 10px;
+  }
+  .ss-app .ss-evidence-list button {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ss-app .ss-entryrow {
+    grid-template-columns: 77px 70px 65px minmax(0, 1fr);
+  }
+  .ss-app .ss-sessionactions {
+    flex-wrap: wrap;
+  }
+  .legacy-workspace {
+    width: calc(100vw - 12px);
+    height: calc(100dvh - 12px);
+  }
+  .legacy-workspace main {
+    padding: 12px;
+  }
+  .legacy-workspace .trading-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-app * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.ss-app .ss-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ss-app .ss-thumb a {
+  display: block;
+  height: 100%;
+}
+.ss-app .ss-entryrow {
+  cursor: pointer;
+}

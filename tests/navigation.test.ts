@@ -63,9 +63,15 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
   const click = async (label: string, nav = false) => {
     const button = [
       ...document.querySelectorAll<HTMLButtonElement>(
-        nav ? "nav button" : "button",
+        nav ? ".ss-nav button, .ss-sensitivity" : "button",
       ),
-    ].find((b) => b.textContent?.trim() === label);
+    ].find((b) =>
+      nav
+        ? b.getAttribute("aria-label") ===
+            (label === "Patterns" ? "Heart-rate analytics" : label) ||
+          (label === "Settings" && b.classList.contains("ss-sensitivity"))
+        : b.textContent?.trim() === label,
+    );
     assert.ok(button, label + " must exist");
     await until(() => !button.disabled);
     await act(async () => {
@@ -110,13 +116,7 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
       "Daily journal",
     ].entries()) {
       // Sessions navigation is safe while recording; its session selector remains disabled.
-      const name =
-        tab === "Sessions"
-          ? [...document.querySelectorAll("nav button")]
-              .find((b) => b.textContent?.startsWith("Sessions"))
-              ?.textContent?.trim() || "Sessions"
-          : tab;
-      await click(name, true);
+      await click(tab, true);
       characteristic.value = new DataView(Uint8Array.from([0, 80 + i]).buffer);
       await act(async () => {
         characteristic.dispatchEvent(new Event("characteristicvaluechanged"));

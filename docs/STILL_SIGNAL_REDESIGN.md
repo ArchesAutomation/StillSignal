@@ -1,59 +1,33 @@
-# Still Signal interface redesign
+# Still Signal: HTML concept implementation
 
-Implements the visual direction of `Still_Signal_Concept_v3.html` using the existing Next.js application and journal services.
+The workspace now uses the supplied HTML's page structures and stylesheet. The original is preserved at design/Still_Signal_Concept_v3.html. The concept stylesheet contains its declaration values, scoped to the new workspace so existing dialogs retain their working styles. Manrope and both DM Mono weights are self-hosted.
 
-## What changed
+## Screens and existing features
 
-- Daily journal is the main workspace: week navigation, account/instrument/session filters, statistics, synchronized market and HR chart, replay, trade context, reflection history, and a free-form journal with rotating prompts.
-- Overview shows actual session and reflection counts, the user's most recorded label, a monthly session calendar, and recent reflections.
-- Patterns exposes the existing personal analytics and supporting moments in a dedicated view.
-- Mindful trade review saves three editable sections as one ordinary journal reflection. Each section is limited to 600 characters to fit the existing 2,000-character storage contract.
-- Stillness adds a pausable 60-second awareness practice and reflection themes. Its writing and voice actions use the existing reflection editor and selected session.
-- The mobile drawer supports keyboard focus containment, Escape, and closing after navigation. Journal and review drafts remain mounted when navigating between views in the same session.
-- The app, auth page, privacy page, floating journal, and downloadable voice extension use Still Signal branding. Manrope and DM Mono are self-hosted; licenses are included.
+- Daily journal follows the concept's date controls, week strip, four metrics, Day story / Patterns / Review tabs, heart-rate journey, five trade phases, focused-moment card, chronological rows, ruled writing area, prompt carousel, and reflection guide.
+- Overview follows the concept's opening question, metrics, evidence cards, monthly calendar, record summary, reflection panel, and review invitation. Counts and statements use the signed-in account's records.
+- Heart-rate analytics uses the concept's visual insight, response-by-label bars, findings, time-block heatmap, and evidence panel. Supporting reflections open their original journal.
+- Sessions uses the concept's recording list. Start/end session, optional WHOOP recording, CSV import, cloud refresh and opening an individual recording remain available.
+- Stillness uses the concept's welcome screen, note card, Return to choice practice, topic pills, reflection bubble and quiet signal. The 60-second practice supports pause/resume/reset. Notes save into the selected journal.
+- The floating pill opens session tools: manual trades, CSV, voice/screenshot capture, the existing floating journal, settings, account export and the full market/HR chart and replay.
+- Connections and Settings open the existing operational controls in a workspace dialog. Broker accounts, TradingView, WHOOP, preferences, export/deletion, voice extension pairing and account sign-out retain their implementations.
+- Reflection edits, deletion, labels, dictation and private screenshots use the existing editor and storage paths. Review sections update one ordinary reflection rather than creating duplicate reviews.
+- Small screens use the concept's five-item bottom navigation; intermediate widths use its collapsed icon rail.
 
-## Existing behavior retained
-
-| Capability                                                                 | Location                                       |
-| -------------------------------------------------------------------------- | ---------------------------------------------- |
-| Start/end session and optional WHOOP recording                             | Global session controls; Connections           |
-| Broker account setup and history sync                                      | Connections                                    |
-| TradingView alerts and token management                                    | Connections                                    |
-| CSV mapping, preview, and import                                           | Global Import CSV; Connections; trade activity |
-| Manual trade entries and paired exits                                      | Daily journal → Add event                      |
-| Market/HR chart, instrument selection, replay, event context               | Daily journal                                  |
-| Reflection labels, edits, deletion, dictation, screenshot upload/paste     | Daily journal; reflection editor               |
-| Floating session dashboard and voice extension                             | Session dashboard; Settings                    |
-| Historical sessions and account-scoped export/deletion                     | Sessions; Settings                             |
-| Settings, personal sensitivity, check-ins, shortcuts                       | Settings                                       |
-| Account authentication, local storage/outbox, cloud sync, tenant isolation | Existing services and storage contracts        |
-
-No database migrations or production configuration changes are required. Existing IndexedDB names, preference keys, API routes, webhook identifiers, and download filenames retain their compatibility identifiers.
-
-The verified Vercel project `still-signal` has both `still-signal.vercel.app` and `trade-pulse-ebon.vercel.app`. New extension packages use the Still Signal origin. Existing installed extensions can continue using the retained alias.
-
-The concept's sample profits, R multiples, emotional predictions, AI-written summaries, points, streaks, and independent mindfulness storage are not simulated. Overview and Patterns show only available recorded evidence. Calendars group session start dates; they open a selected recording rather than silently merging multiple sessions into one record. Stillness reflections explicitly save into the selected journal.
+The existing account isolation, IndexedDB/outbox, cloud sync, API routes, extension credentials and compatibility identifiers are unchanged. No schema migration or environment change is included.
 
 ## Verification
 
-- TypeScript and optimized Next.js build pass.
-- 105 automated tests pass, including recording across every navigation view, two-account storage isolation, cloud/API contracts, calendar leap dates and separate currencies, review payload limits and error recovery, the Stillness timer, and the existing today's-review deep link.
-- Browser checks at 1536px and 390px cover all seven navigation views, signed-out screens, draft retention, reflection saves and edits, persisted IndexedDB writes, review updates without duplicate notes, pattern evidence, and mobile navigation. No uncaught browser exceptions or page overflow were observed.
-- Installed Chrome extension checks pass using synthetic audio and a deterministic transcription provider. They cover pairing, offscreen recording through panel closure and worker termination, offline recovery, corrections, undo, microphone denial, restart consent, and revocation. This is not a live transcription-quality test.
-- A normal optimized production build serves `/review` as 404. The review environment remains isolated from cloud accounts.
-- Local developer console reports the existing CSP restriction on development-only React `eval`; production CSP was retained.
+- 105 automated tests pass. The Bluetooth navigation test now operates the new navigation and verifies samples continue across every view without disconnecting.
+- scripts/test-concept-browser.cjs compares the original HTML and app at 1440px: header, hero, week strip, metrics, tabs, chart grid and focused-moment card positions/widths match within 1px. Account content determines variable text heights and row counts.
+- Browser checks cover inline draft retention, saving into chronological rows and IndexedDB, three-part reviews updating the same note, Stillness notes and practice controls, and access to WHOOP, settings, price/replay, trade-entry and CSV tools.
+- All five primary screens fit 390px and 768px without page overflow; desktop views also fit. The browser run reports no page exceptions or application console errors. The pre-existing development-only React/CSP eval warning is excluded; production CSP remains intact.
+- Price context waits until the synchronized chart's time and price scales have a visible layout before focusing its crosshair. This prevents the chart library's null-scale error when opening it in a dialog.
 
-Live broker accounts, a physical wearable, real transcription services, and a deployed authenticated account were not exercised during this UI change. Production deployment and database/auth settings were not modified.
+The concept's hard-coded prices, emotional predictions, AI summaries, R multiples, awareness points and streaks are not substituted for account data. AI organisation and independent mindfulness storage remain outside the existing shipped features. Calendar dates open individual recordings; recordings are not silently merged. A physical wearable, live broker and real transcription provider were not exercised by this UI verification.
 
-## Run the isolated preview
+## Run the isolated review
 
-Install dependencies with `npm ci`. In PowerShell:
+Install dependencies with npm ci. Set APP_ENV=staging, TRADERPULSE_UI_REVIEW=true and NEXT_PUBLIC_UI_REVIEW=true in the development server terminal, leaving public Supabase variables unset. Start npm run dev and open http://127.0.0.1:3000/review.
 
-```powershell
-$env:APP_ENV = 'staging'
-$env:TRADERPULSE_UI_REVIEW = 'true'
-$env:NEXT_PUBLIC_UI_REVIEW = 'true'
-npm run dev
-```
-
-Leave public Supabase variables unset for this isolated review and open `http://localhost:3000/review`. Its labelled synthetic data comes from the existing staging fixtures. For ordinary development, use the existing environment setup instead.
+In another terminal run node scripts/test-concept-browser.cjs. It writes labeled fixture screenshots and a geometry/interaction report outside the repository under ../concept-verification. The normal production build excludes the isolated /review route.
