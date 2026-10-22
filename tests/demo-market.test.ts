@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isOct20Demo, oct20DemoCandles, oct20DemoSessionId } from "../src/lib/demo-market";
+import { isOct20Demo, oct20DemoCandles, oct20DemoSessionId, demoCandles } from "../src/lib/demo-market";
 import type { Session } from "../src/lib/model";
 
 const start = Date.parse("2026-10-20T09:30:00-04:00");
@@ -38,4 +38,11 @@ test("fictional prices cannot appear in another account or recording", () => {
   assert.deepEqual(oct20DemoCandles({ ...session, owner: "someone-else" }, "AAPL"), []);
   assert.deepEqual(oct20DemoCandles({ ...session, id: "another-session" }, "AAPL"), []);
   assert.deepEqual(oct20DemoCandles(session, "NVDA"), []);
+});
+
+test("explicitly marked month-demo sessions have fictional candles, normal sessions do not", () => {
+  const monthSession = { ...session, id: "month-demo", owner: "demo-owner", demo: true };
+  assert.equal(demoCandles(monthSession, "AAPL").length, 390);
+  assert.deepEqual(demoCandles({ ...monthSession, demo: false }, "AAPL"), []);
+  assert.deepEqual(demoCandles(monthSession, "NVDA"), []);
 });

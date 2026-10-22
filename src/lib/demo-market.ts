@@ -13,6 +13,16 @@ export const isOct20Demo = (session: Session) =>
 
 export function oct20DemoCandles(session: Session, symbol: string): Candle[] {
   if (!isOct20Demo(session)) return [];
+  return simulatedCandles(session, symbol);
+}
+
+export const isDemoSession = (session: Session) => session.demo === true || isOct20Demo(session);
+
+export function demoCandles(session: Session, symbol: string): Candle[] {
+  return isDemoSession(session) ? simulatedCandles(session, symbol) : [];
+}
+
+function simulatedCandles(session: Session, symbol: string): Candle[] {
   const events = session.events
     .filter((event) => !event.voided && event.symbol === symbol)
     .sort((a, b) => a.t - b.t);

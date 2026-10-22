@@ -1,4 +1,5 @@
 /* Working features composed inside the final V4 visual system. */
+.ss-app .ss-demo-notice { margin:16px 0 0;border:1px solid #a88bff45;border-radius:9px;padding:10px 13px;background:#a88bff0d;color:#c6b3ff;font:10px 'DM Mono',monospace;line-height:1.6; }
 .ss-app .ss-presencegrid { display:grid;grid-template-columns:1.05fr .95fr;gap:22px;margin:32px 0 0;max-width:none;align-items:start; }
 .ss-app .ss-noticecard .ss-time-link { font-size:10px;margin:9px 0; }
 .ss-app .ss-noticecard .ss-destinations { margin:10px 0; }

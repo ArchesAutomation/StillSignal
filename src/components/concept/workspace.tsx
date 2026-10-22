@@ -228,6 +228,7 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
+        {s.demo && <p className={cx("demo-notice")}>DEMO DATA · Simulated heart rate, trades and reflections. No broker or wearable is connected to this dataset.</p>}
         {p.error && (
           <div className={cx("message", "error")} role="alert">
             <span>{p.error}</span>

@@ -7,7 +7,7 @@ import {
   reconstructTrades,
 } from "@/lib/smart-journal";
 import { money, type TradeEvent } from "@/lib/model";
-import { isOct20Demo, oct20DemoCandles } from "@/lib/demo-market";
+import { isDemoSession, demoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { timelinePhase } from "@/lib/timeline-phase";
 import { noteTime, isTradeSection, sectionName, sessionTrades } from "@/lib/journal-routing";
@@ -54,7 +54,7 @@ export default function Journal(
         ...s.events.map((e) => e.t),
         ...s.journal.map((n) => noteTime(n) ?? 0),
       );
-  const demo = isOct20Demo(s);
+  const demo = isDemoSession(s);
   const marketSymbols = [...new Set(s.events.filter((e) => !e.voided).map((e) => e.symbol))];
   const symbol = chartSymbol && marketSymbols.includes(chartSymbol)
     ? chartSymbol
@@ -73,7 +73,7 @@ export default function Journal(
       : null,
     s.owner,
   );
-  const demoBars = useMemo(() => oct20DemoCandles(s, symbol), [s, symbol]);
+  const demoBars = useMemo(() => demoCandles(s, symbol), [s, symbol]);
   const candles = demo ? demoBars : feed.candles;
   const priceStatus = demo
     ? "No simulated candles for this instrument."
@@ -390,7 +390,7 @@ export default function Journal(
                 </select>
               </label>
               <span className={cx("price-source")} role="status">
-                {demo ? "DEMO · fictional 1m candles · Oct 20 NY" : marketLoading ? "Loading market prices" : feed.state === "ready" ? `${feed.provider} · ${feed.granularity}` : "Recorded HR · market price when available"}
+                {demo ? "DEMO · simulated 1m candles · New York time" : marketLoading ? "Loading market prices" : feed.state === "ready" ? `${feed.provider} · ${feed.granularity}` : "Recorded HR · market price when available"}
               </span>
             </div>
             <div className={cx("chartlegend")}>
@@ -475,7 +475,7 @@ export default function Journal(
                     <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
                   </div>
                   <p className={cx("context-caption")}>
-                    {demo ? "Simulated October 20 trade" : "Recorded trade"} · {trade.quantity} shares
+                    {demo ? "Simulated trade" : "Recorded trade"} · {trade.quantity} shares
                   </p>
                   <div className={cx("context-facts")}>
                     <div><span>Entry price</span><strong>{trade.entryPrice.toFixed(2)}</strong></div>
