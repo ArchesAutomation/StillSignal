@@ -1,33 +1,24 @@
-# Still Signal: HTML concept implementation
+# Still Signal — final V4 interface
 
-The workspace now uses the supplied HTML's page structures and stylesheet. The original is preserved at design/Still_Signal_Concept_v3.html. The concept stylesheet contains its declaration values, scoped to the new workspace so existing dialogs retain their working styles. Manrope and both DM Mono weights are self-hosted.
+`design/Still_Signal_Concept_v4.html` is the visual reference for Overview, Daily journal, Heart-rate analytics, Stillness and live capture. The stylesheet is mechanically scoped in `concept.css`; the final V4 declarations take precedence in `v4-reference.css`. `v4-functional.css` accommodates live data and retained controls. Fonts remain self-hosted.
 
-## Screens and existing features
+The expandable Sessions/day/recording view, trade journeys, Connections, CSV import, Bluetooth recording, chart replay, screenshots and dictation remain available. Heart rate is the default journal chart. Price toggles the existing synchronized candle view. Additional session tools are in the header menu.
 
-- Daily journal follows the concept's date controls, week strip, four metrics, Day story / Patterns / Review tabs, five trade phases, chronological rows, ruled writing area, prompt carousel, and reflection guide. Its chart now shows price candles over a synchronized heart-rate pane, with trade context beside it, following the later screenshot request. Phase cards and timeline rows use the screenshot's blue Before, green Entry, yellow Management, coral Exit, and purple After colors on hover and selection. Reflections are assigned a phase from their recorded timing relative to executions, without inferring their emotional label.
-- Overview follows the concept's opening question, metrics, evidence cards, monthly calendar, record summary, reflection panel, and review invitation. Counts and statements use the signed-in account's records.
-- Heart-rate analytics uses the concept's visual insight, response-by-label bars, findings, and evidence panel. The weekday/hour heatmap is replaced by expandable sessions with one card per recorded trade or unmatched execution. Each card puts the order and the trader's own nearby reflections beside measured heart rate ten minutes before, at entry, during the trade, at exit, and ten minutes after. Missing samples and day-only timestamps remain blank instead of being inferred. Supporting reflections open their original journal.
-- Sessions groups recordings by local calendar day. Each day card shows recording, reflection, executed-order and trade counts plus the distribution of the trader's own reflection labels. Expanding a day reveals individual recording modules; expanding a recording reveals heart-rate statistics, its journal entries and trade events. Each entry expands to its full text, saved context and screenshot and can open its moment in the full journal. Start/end session, optional WHOOP recording, CSV import, cloud refresh and opening an individual recording remain available.
-- Stillness uses the concept's welcome screen, note card, Return to choice practice, topic pills, reflection bubble and quiet signal. The 60-second practice supports pause/resume/reset. Notes save into the selected journal.
-- The floating pill opens session tools: manual trades, CSV, voice/screenshot capture, the existing floating journal, settings, account export and the full market/HR chart and replay.
-- Connections and Settings open the existing operational controls in a workspace dialog. Broker accounts, TradingView, WHOOP, preferences, export/deletion, voice extension pairing and account sign-out retain their implementations.
-- Reflection edits, deletion, labels, dictation and private screenshots use the existing editor and storage paths. Review sections update one ordinary reflection rather than creating duplicate reviews.
-- Small screens use the concept's five-item bottom navigation; intermediate widths use its collapsed icon rail.
+Stillness shows the reference's two cards, topic orbit, quiet reflection and post-session support. Its notes are private until explicitly linked. The in-app capture widget and floating journal share `CapturePanel`. The panel is 304px wide; the separate window requests 320×430 instead of 380×640. The pill supports dragging, and Escape closes the expanded panel.
 
-The existing account isolation, IndexedDB/outbox, cloud sync, API routes, extension credentials and compatibility identifiers are unchanged. No schema migration or environment change is included. Caleb's separate October 20, 2026 recording already contains clearly labeled fictional fills, reflections and 23,400 heart-rate samples. Its one-minute candles are generated deterministically from those fictional fills only for that specific session and account, labeled DEMO in the chart. Other sessions request their existing entitled market feed when an exact instrument is stored. Ordinary trade CSVs continue to add fills and chart markers with recorded heart rate; a fills-only file does not invent an OHLC price series.
+This change also retains the interrupted V4 checklist work: journal destinations by trade/phase, optional event times distinct from creation time, drafts retained on the device, prompt answers saved independently from questions, private Stillness notes, post-session support, phase colors and a personal-history learning state for session load. Source-generated Edge Function validators carry those optional metadata fields. No database migration is required. The Edge Functions must be deployed with the frontend before releasing the new journal metadata to production; this branch does not change the live database or functions.
 
-## Verification
+## Validation
 
-- 107 automated tests pass. The Bluetooth navigation test operates the new navigation and verifies samples continue across every view without disconnecting. Demo-candle tests cover fill alignment, deterministic bars and account isolation.
-- scripts/test-concept-browser.cjs compares the original HTML and app at 1440px: header, hero, week strip, metrics, tabs and journal grid positions/widths match within 1px. The later screenshot changes the chart and trade-context card contents. Account content determines variable text heights and row counts.
-- Browser checks cover synchronized candles/HR/trade context, an actual ordinary trade CSV upload, retained HR samples and visible entry/exit markers without made-up candles. They also cover inline draft retention, saving into chronological rows and IndexedDB, three-part reviews updating the same note, Stillness notes and practice controls, and access to WHOOP, settings, price/replay and trade-entry tools.
-- All five primary screens fit 390px and 768px without page overflow; desktop views also fit. The browser run reports no page exceptions or application console errors. The pre-existing development-only React/CSP eval warning is excluded; production CSP remains intact.
-- Price context waits until the synchronized chart's time and price scales have a visible layout before focusing its crosshair. This prevents the chart library's null-scale error when opening it in a dialog.
+- 112 automated tests pass, including Bluetooth navigation, CSV imports, floating-window editor retention, voice activation timestamps, cloud isolation, storage and reviews.
+- TypeScript and an optimized webpack build pass.
+- Browser checks at 1440px and 390px confirm no page overflow; Stillness uses two columns on desktop and one on mobile.
+- Browser interactions verified nudge saving, private Stillness saving, journal saving, focus-mode Escape, analytics trade journeys and the preserved Sessions interface using synthetic, isolated data.
+- The reference HTML was inspected as source. Its browser `file:` URL is unavailable to automation, so no pixel-diff claim is made.
+- Real broker, wearable, microphone and cloud persistence were not exercised by the local UI review.
 
-The concept's hard-coded prices, emotional predictions, AI summaries, R multiples, awareness points and streaks are not substituted for account data. The October 20 candles are explicitly fictional. AI organisation and independent mindfulness storage remain outside the existing shipped features. Calendar dates open individual recordings; recordings are not silently merged. A physical wearable, live broker and real transcription provider were not exercised by this UI verification.
+## Isolated UI review
 
-## Run the isolated review
+Set `APP_ENV=staging` and `TRADERPULSE_UI_REVIEW=true`, with `NEXT_PUBLIC_SUPABASE_URL` empty. Build using `next build --webpack`, then run `next start --port 3021` and open `/review`. The optimized build avoids development eval code under the existing CSP. The normal production build excludes `/review`.
 
-Install dependencies with npm ci. Set APP_ENV=staging, TRADERPULSE_UI_REVIEW=true and NEXT_PUBLIC_UI_REVIEW=true in the development server terminal, leaving public Supabase variables unset. Start npm run dev and open http://127.0.0.1:3000/review.
-
-In another terminal run node scripts/test-concept-browser.cjs. It writes labeled fixture screenshots and a geometry/interaction report outside the repository under ../concept-verification. Use localhost for the development server to keep HMR on the allowed origin. The normal production build excludes the isolated /review route.
+`scripts/test-concept-browser.cjs` is the historical V3 comparison and is not the V4 acceptance test.

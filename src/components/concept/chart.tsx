@@ -3,18 +3,24 @@ import { useMemo, useRef, useState } from "react";
 import { downsample, nearest } from "@/lib/analytics";
 import type { Candle } from "@/lib/market/model";
 import { cx, time, type Moment, type Series } from "./shared";
+import { phaseColors } from "@/lib/phase-colors";
 
 type ChartProps = Series & {
+  showPrice?: boolean;
   candles: Candle[];
   symbol: string;
   priceStatus: string;
   demo: boolean;
   moments: Moment[];
+  phaseForMoment: (moment: Moment) => string;
   selected?: string;
+  selectedPhase?: string;
+  phaseWindow?: [number, number];
   onSelect: (moment: Moment) => void;
 };
 
 export default function ConceptChart({
+  showPrice = false,
   samples,
   baseline,
   start,
@@ -24,7 +30,10 @@ export default function ConceptChart({
   priceStatus,
   demo,
   moments,
+  phaseForMoment,
   selected,
+  selectedPhase,
+  phaseWindow,
   onSelect,
 }: ChartProps) {
   const [zoom, setZoom] = useState<[number, number] | null>(null);
@@ -51,14 +60,20 @@ export default function ConceptChart({
     () => candles.filter((bar) => bar.complete && bar.t >= lo && bar.end <= hi),
     [candles, lo, hi],
   );
-  const hr = useMemo(
+  const hrSegments = useMemo(
     () =>
-      downsample(
-        samples.filter((sample) => sample.t >= lo && sample.t <= hi),
-        700,
-      ),
+      {
+        const points = samples.filter(sample => sample.t >= lo && sample.t <= hi);
+        const groups: typeof points[] = [];
+        for (let i = 0; i < points.length; i++) {
+          if (!i || points[i].t - points[i - 1].t > 10000) groups.push([]);
+          groups.at(-1)!.push(points[i]);
+        }
+        return groups.map(group => downsample(group, Math.max(4, Math.round(700 * group.length / Math.max(1, points.length)))));
+      },
     [samples, lo, hi],
   );
+  const hr = hrSegments.flat();
   const prices = priceBars.flatMap((bar) => [bar.low, bar.high]);
   const priceMin = prices.length ? Math.min(...prices) : 0;
   const priceMax = prices.length ? Math.max(...prices) : 1;
@@ -71,10 +86,10 @@ export default function ConceptChart({
   const priceY = (price: number) =>
     272 - ((price - priceLow) / (priceHigh - priceLow)) * 244;
   const hrY = (bpm: number) =>
-    382 - ((bpm - hrMin) / (hrMax - hrMin)) * 82;
-  const hrLine = hr
+    showPrice ? 475 - ((bpm - hrMin) / (hrMax - hrMin)) * 170 : 380 - ((bpm - hrMin) / (hrMax - hrMin)) * 325;
+  const hrLine = hrSegments.map(group => group
     .map((sample, i) => `${i ? "L" : "M"} ${x(sample.t)} ${hrY(sample.bpm)}`)
-    .join(" ");
+    .join(" ")).join(" ");
   const pointerX = (clientX: number) => {
     const rect = svg.current!.getBoundingClientRect();
     return Math.max(42, Math.min(942, ((clientX - rect.left) / rect.width) * 1000));
@@ -90,20 +105,20 @@ export default function ConceptChart({
     return {
       x: value,
       t,
-      bpm: nearest(samples, t, 60000)?.bpm ?? null,
+      bpm: nearest(samples, t, 10000)?.bpm ?? null,
       price: nearestPrice(t),
     };
   };
   return (
     <>
-      <div className={cx("chartwrap", "price-chartwrap")}>
+      <div className={cx("chartwrap", showPrice && "price-chartwrap")}>
         <svg
           ref={svg}
-          className={cx("chart", "price-chart")}
-          viewBox="0 0 1000 410"
+          className={cx("chart", showPrice && "price-chart")}
+          viewBox={showPrice ? "0 0 1000 510" : "0 0 1000 430"}
           preserveAspectRatio="none"
           role="img"
-          aria-label={`${symbol} price candles above synchronized heart rate. Select a marker or drag to zoom.`}
+          aria-label={showPrice ? `${symbol} price candles above synchronized heart rate. Select a marker or drag to zoom.` : "Heart rate across the session. Select a marker or drag to zoom."}
           onPointerDown={(event) => {
             if ((event.target as Element).closest("[data-marker]")) return;
             svg.current?.setPointerCapture(event.pointerId);
@@ -147,9 +162,10 @@ export default function ConceptChart({
               <rect x="42" y="17" width="900" height="268" />
             </clipPath>
             <clipPath id="ss-hr-clip">
-              <rect x="42" y="295" width="900" height="95" />
+              <rect x="42" y={showPrice ? 295 : 20} width="900" height={showPrice ? 190 : 375} />
             </clipPath>
           </defs>
+          {showPrice && <>
           <rect x="42" y="18" width="900" height="260" fill="url(#ss-price-fade)" />
           {[0, 1, 2, 3, 4].map((index) => {
             const py = 30 + index * 61;
@@ -187,6 +203,10 @@ export default function ConceptChart({
             </text>
           )}
           <line x1="42" x2="942" y1="291" y2="291" stroke="#314044" />
+          </>}
+          {phaseWindow && <rect x={x(Math.max(lo, phaseWindow[0]))} y={showPrice ? 295 : 20}
+            width={Math.max(0, x(Math.min(hi, phaseWindow[1])) - x(Math.max(lo, phaseWindow[0])))}
+            height={showPrice ? 185 : 375} fill={phaseColors[selectedPhase || ""] || "#a0aeae"} opacity=".16" />}
           {[60, 80, 100, 120].filter((value) => value >= hrMin && value <= hrMax).map((value) => (
             <g key={value}>
               <line x1="42" x2="942" y1={hrY(value)} y2={hrY(value)} stroke="#263236" strokeDasharray="3 7" />
@@ -200,26 +220,25 @@ export default function ConceptChart({
           )}
           <g clipPath="url(#ss-hr-clip)">
             <path d={hrLine} fill="none" stroke="#ff765433" strokeWidth="7" />
-            <path d={hrLine} fill="none" stroke="#ff8179" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            <path d={hrLine} fill="none" stroke="#ff7654" strokeWidth="2" vectorEffect="non-scaling-stroke" />
           </g>
           {!hr.length && (
-            <text x="492" y="350" textAnchor="middle" fill="#8e9a99" fontSize="12">
+            <text x="492" y={showPrice ? 350 : 210} textAnchor="middle" fill="#8e9a99" fontSize="12">
               Heart-rate samples will appear when recorded.
             </text>
           )}
           {moments
             .filter((moment) => moment.t >= lo && moment.t <= hi)
             .map((moment) => {
-              const color = moment.event
-                ? moment.event.kind === "entry" ? "#58d6ac" : "#ff9b75"
-                : "#a88bff";
+              const phase = phaseForMoment(moment);
+              const color = phaseColors[phase] || phaseColors.reflection;
               return (
                 <g
                   key={moment.id}
                   data-marker="true"
                   role="button"
                   tabIndex={0}
-                  aria-label={`${moment.phase} at ${displayTime(moment.t)}`}
+                  aria-label={`${phase.toUpperCase()} at ${displayTime(moment.t)}`}
                   onClick={() => onSelect(moment)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -229,22 +248,27 @@ export default function ConceptChart({
                   }}
                   style={{ cursor: "pointer" }}
                 >
-                  <line x1={x(moment.t)} x2={x(moment.t)} y1="32" y2="382" stroke={color} strokeDasharray="3 7" opacity=".38" />
-                  <circle cx={x(moment.t)} cy={moment.event && priceBars.length ? priceY(moment.event.price) : 289} r={selected === moment.id ? 8 : 5} fill={color} stroke={selected === moment.id ? "#fff" : "#0b1214"} strokeWidth="2" />
+                  <line x1={x(moment.t)} x2={x(moment.t)} y1={showPrice ? 32 : (moment.bpm !== null ? hrY(moment.bpm) + 9 : 32)} y2={showPrice ? 475 : 395} stroke={color} strokeDasharray="3 7" opacity=".38" />
+                  {showPrice && <circle cx={x(moment.t)} cy={moment.event && priceBars.length ? priceY(moment.event.price) : 289} r={selected === moment.id ? 8 : 5} fill={color} stroke={selected === moment.id ? "#fff" : "#0b1214"} strokeWidth="2" />}
                   {moment.bpm !== null && (
-                    <circle cx={x(moment.t)} cy={hrY(moment.bpm)} r={selected === moment.id ? 6 : 3} fill={color} />
+                    <circle cx={x(moment.t)} cy={hrY(moment.bpm)} r={selected === moment.id ? 11 : 6} fill={color} stroke={selected === moment.id ? "white" : "transparent"} strokeWidth="3" />
                   )}
                 </g>
               );
             })}
           {drag && (
-            <rect x={Math.min(...drag)} y="17" width={Math.abs(drag[1] - drag[0])} height="373" fill="#a88bff15" stroke="#9e86f0" />
+            <rect x={Math.min(...drag)} y="17" width={Math.abs(drag[1] - drag[0])} height={showPrice ? 463 : 378} fill="#a88bff15" stroke="#9e86f0" />
           )}
+          {Array.from({ length: 6 }, (_, index) => {
+            const tick = lo + (hi - lo) * index / 5;
+            return <g key={index}><line x1={x(tick)} x2={x(tick)} y1={showPrice ? 483 : 399} y2={showPrice ? 488 : 404} stroke="#829291" />
+              <text x={x(tick)} y={showPrice ? 503 : 420} textAnchor={index === 0 ? "start" : index === 5 ? "end" : "middle"} fill="#a4b0ae" fontSize="12">{displayTime(tick, false)}</text></g>;
+          })}
         </svg>
         {hover && !drag && (
           <div className={cx("charttip", "price-charttip")} style={{ opacity: 1, left: `${Math.min(76, hover.x / 10)}%`, top: 15 }}>
             <strong>{displayTime(hover.t, false)}{demo ? " NY" : ""}</strong>
-            <span>{symbol} {hover.price === null ? "—" : hover.price.toFixed(2)}</span>
+            {showPrice && <span>{symbol} {hover.price === null ? "—" : hover.price.toFixed(2)}</span>}
             <span>{hover.bpm ?? "—"} BPM</span>
           </div>
         )}
@@ -255,7 +279,7 @@ export default function ConceptChart({
             <button className={cx("textlink")} onClick={() => setZoom(null)}>Reset zoom</button>
           ) : "Drag to zoom into a moment"}
         </span>
-        <span>{displayTime(lo, false)} — {displayTime(hi, false)}{demo ? " NY · Demo prices" : ""}</span>
+        <span>{displayTime(lo, false)} — {displayTime(hi, false)}{demo ? showPrice ? " NY · Demo prices" : " NY" : ""}</span>
       </div>
     </>
   );

@@ -96,12 +96,21 @@ export const sessionSchema = z.object({
     .optional(),
   owner: z.uuid(),
   sampleCount: z.number().int().min(0),
+  timezone: z.string().max(80).optional(),
+  demo: z.boolean().optional(),
   events: z.array(eventSchema).max(5000),
   journal: z
     .array(
       z.object({
         id: z.string().max(160),
         t: ts,
+        eventTime: ts.nullable().optional(),
+        section: z.enum(["before", "entry", "management", "exit", "after", "day-review", "post-session", "stillness", "custom"]).optional(),
+        customSection: z.string().max(80).optional(),
+        tradeId: z.string().max(160).optional(),
+        order: z.number().int().optional(),
+        prompt: z.object({ id: z.string().max(160), question: z.string().max(500), choice: z.string().max(160).optional() }).optional(),
+        support: z.object({ outcome: z.enum(["loss", "profit", "breakeven"]), adherence: z.enum(["followed", "broken", "partly"]) }).optional(),
         label: z.string().max(40),
         text: z.string().max(2000),
         updatedAt: ts.optional(),

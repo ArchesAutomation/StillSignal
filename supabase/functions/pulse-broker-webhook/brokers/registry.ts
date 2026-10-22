@@ -109,7 +109,7 @@ export const brokerRoutes: {
     name: "OANDA v20",
     method: "key",
     prerequisite:
-      "Eligible v20 account and commercial application approval. Personal tokens can carry trading privileges; TraderPulse invokes read endpoints only. Global Markets and TMS accounts are ineligible.",
+      "Eligible v20 account and commercial application approval. Personal tokens can carry trading privileges; Still Signal invokes read endpoints only. Global Markets and TMS accounts are ineligible.",
     freshness:
       "Periodic transaction sync with durable transaction-ID checkpoint",
     docs: "https://developer.oanda.com/rest-live-v20/introduction/",
@@ -140,7 +140,7 @@ export function routeAvailability(env: Record<string, string | undefined>) {
         assets: "Brokerage equities/options where supported; eligibility varies",
         history: "Daily transactions, delayed by one day; broker history varies",
         live: "Unavailable: no intraday transaction sync or paid trade detection",
-        payer: "User owns the Personal account; Trade Pulse OAuth preview pricing is temporary and future app costs are unknown. Commercial per-user billing is disabled",
+        payer: "User owns the Personal account; Still Signal OAuth preview pricing is temporary and future app costs are unknown. Commercial per-user billing is disabled",
       }),
       unavailableReason: reasons.join(" "),
       nextAction: reasons.length

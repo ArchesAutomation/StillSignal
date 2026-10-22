@@ -5,6 +5,7 @@ import { money, type Sample, type Session } from "@/lib/model";
 import { getSamples } from "@/lib/storage";
 import { buildTradeJourneys, type TradeJourney } from "@/lib/trade-journeys";
 import { cx, time } from "./shared";
+import { noteTime } from "@/lib/journal-routing";
 
 function JourneyCard({ journey, index, session, onOpen }: {
   journey: TradeJourney;
@@ -40,7 +41,7 @@ function JourneyCard({ journey, index, session, onOpen }: {
               <div className={cx("journey-notes")}>
                 {stage.notes.map((note) => (
                   <button key={note.id} onClick={() => onOpen(session, note.t)}>
-                    <span><b>Nearby · {note.label || "Reflection"}</b><time>{time(note.t, false)}</time></span>
+                    <span><b>{note.tradeId ? "Linked" : "Nearby"} · {note.label || "Reflection"}</b><time>{noteTime(note) === null ? "Untimed" : time(noteTime(note)!, false)}</time></span>
                     <span>{note.text || "Open reflection"}</span>
                   </button>
                 ))}

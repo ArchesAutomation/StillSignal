@@ -4,6 +4,7 @@ import type { Sample, Session } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, Title, signed, time } from "./shared";
 import TradeJourneys from "./trade-journeys";
+import { noteTime } from "@/lib/journal-routing";
 export default function Patterns({
   sessions,
   selected,
@@ -34,7 +35,7 @@ export default function Patterns({
     () => rangeSessions.flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n }))),
     [rangeSessions],
   );
-  const labels = [...new Set(records.map((r) => r.n.label))]
+  const labels = [...new Set(records.filter(r => r.n.label !== "Unlabelled").map((r) => r.n.label))]
     .map((label) => {
       const rows = records.filter((r) => r.n.label === label),
         hr = rows.filter((r) => r.n.context?.delta !== undefined);
@@ -68,6 +69,13 @@ export default function Patterns({
           <option value={90}>Last 90 days</option>
         </select>
       </Title>
+      <div className={cx("analytics-intro")}>
+        {[
+          ["1 · YOU LABEL", "You describe the moment", "Still Signal does not decide whether you felt FOMO, confidence or frustration."],
+          ["2 · WE COMPARE", "Similar recorded moments are grouped", "HR change, timing, execution and outcomes are shown beside one another."],
+          ["3 · YOU INTERPRET", "A pattern becomes a question", "The result is evidence to investigate—not a prediction or instruction."],
+        ].map(([step, title, description]) => <div className={cx("analytics-step")} key={step}><b>{step}</b><strong>{title}</strong><span>{description}</span></div>)}
+      </div>
       <div className={cx("visualinsight")}>
         <div className={cx("insightnumber")}>
           {best ? signed(best.mean!) : "—"}
@@ -164,6 +172,7 @@ export default function Patterns({
           ))}
         </div>
       </div>
+      <p className={cx("datacaveat")}>Average response means recorded BPM minus the opening session baseline. Each bar uses only reflections with both measurements. Small samples suggest questions; they do not confirm a pattern.</p>
       <Title
         title="Trade journeys"
         description="Every recorded execution, session by session. Follow heart rate from ten minutes before through the trade and read your own reflections beside it. Missing measurements stay blank."
@@ -203,7 +212,7 @@ export default function Patterns({
           {evidence.slice(0, 8).map(({ s, n }) => (
             <button key={s.id + n.id} onClick={() => onOpen(s, n.t)}>
               <span>
-                {new Date(n.t).toLocaleDateString()} · {time(n.t)}
+                {new Date(s.startedAt).toLocaleDateString()} · {noteTime(n) === null ? "Untimed" : time(noteTime(n)!)}
               </span>
               <b>{n.label}</b>
               <span>{n.text.slice(0, 150)}</span>

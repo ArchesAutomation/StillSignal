@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, Title, time } from "./shared";
+import PostSession from "./post-session";
 const headings = ["Before the trade", "During the trade", "Exit and after"];
 const prompts = [
-  "What did that response mean to you?",
+  "What did you notice before taking the entry?",
   "Did the response alter a decision?",
   "What would help you reset?",
 ];
@@ -50,7 +51,9 @@ export default function Review({
         ...previous,
         id: previous?.id || crypto.randomUUID(),
         t: previous?.t ?? timestamp,
-        label: previous?.label || "Other",
+        eventTime: null,
+        section: "day-review",
+        label: previous?.label || "Unlabelled",
         source: "typed",
         text:
           prefix +
@@ -154,6 +157,7 @@ export default function Review({
           {status}
         </p>
       )}
+      <PostSession session={session} onSave={onSave} />
     </section>
   );
 }

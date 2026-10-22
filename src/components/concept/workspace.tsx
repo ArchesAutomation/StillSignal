@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
+import CapturePanel from "./capture-panel";
 import { cx, type Page, type Props } from "./shared";
 import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
@@ -26,11 +27,18 @@ export default function ConceptWorkspace(props: Props) {
     [widget, setWidget] = useState(false),
     [focusTime, setFocusTime] = useState<number | undefined>();
   const welcomeRef = useRef<HTMLDialogElement>(null),
+    widgetRef = useRef<HTMLElement>(null),
+    dragRef = useRef<{ x: number; y: number } | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (welcome) welcomeRef.current?.showModal();
   }, [welcome]);
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setWidget(false); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
   useEffect(() => {
     setWeek(0);
   }, [s.id]);
@@ -148,6 +156,17 @@ export default function ConceptWorkspace(props: Props) {
             Workspace <b>/ {journal ? "Daily journal" : page}</b>
           </div>
           <div className={cx("topactions")}>
+            <details className={cx("tools")}><summary className={cx("iconbtn")} aria-label="Session tools">⋯</summary>
+              <div className={cx("tool-menu")} onClick={event => { if ((event.target as HTMLElement).closest("button")) event.currentTarget.parentElement?.removeAttribute("open"); }}>
+                <button onClick={props.onFloat}>Floating journal</button>
+                <button onClick={props.onTrade}>Add trade</button>
+                <button onClick={props.onCsv}>Import market data</button>
+                <button onClick={() => go("Connections")}>Connections</button>
+                <button onClick={() => go("Settings")}>Settings</button>
+                <button onClick={props.onExport}>Export session</button>
+                <button onClick={() => props.onAdvanced()}>Chart & replay</button>
+              </div>
+            </details>
             {journal ? (
               <>
                 <button
@@ -209,6 +228,7 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
+        {s.demo && <p className={cx("demo-notice")}>DEMO DATA · Simulated heart rate, trades and reflections. No broker or wearable is connected to this dataset.</p>}
         {p.error && (
           <div className={cx("message", "error")} role="alert">
             <span>{p.error}</span>
@@ -288,6 +308,16 @@ export default function ConceptWorkspace(props: Props) {
               onOpen={(target) => void act(() => p.openSession(target))}
             />
           )}
+        <section className={cx("session-controls", "v4-sessionbar", !p.active && "idle")} aria-label="Session controls">
+          <div className={cx("session-state")}><i /><div><strong>{p.active ? "Recording" : s.endedAt ? "Session ended" : "Session not started"}</strong>
+            <small>{p.active ? p.recording ? "Heart rate and journal" : "Journal only · wearable optional" : p.syncState}</small></div></div>
+          <button className={cx(p.active ? "ghost end-session" : "primary")} onClick={() => void act(async () => {
+            if (p.active) { await p.stop(); review(); } else await p.start();
+          })}>{p.active ? "End Session" : "Start Session"}</button>
+          {p.active && !p.recording && <button className={cx("ghost")} onClick={() => void act(p.attachWhoop)}>Connect heart rate</button>}
+          <button className={cx("ghost")} onClick={props.onCsv}>Import market data</button>
+          <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "Market data missing"}</span>
+        </section>
           <Journal
             {...viewProps}
             focusTime={focusTime}
@@ -383,6 +413,8 @@ export default function ConceptWorkspace(props: Props) {
         )}
         <div hidden={page !== "Stillness"}>
           <Stillness
+            key={s.id}
+            session={s}
             time={captureTime}
             onSave={p.addNote}
             onReflect={props.onReflect}
@@ -429,6 +461,7 @@ export default function ConceptWorkspace(props: Props) {
         {whisper}
       </div>
       <aside
+        ref={widgetRef}
         className={cx(
           "livewidget",
           delta !== null && delta >= props.threshold && "elevated",
@@ -436,92 +469,24 @@ export default function ConceptWorkspace(props: Props) {
         )}
         aria-label="Still Signal live widget"
       >
-        <div className={cx("widgetpanel")}>
-          <div className={cx("widgetpanelhead")}>
-            <div>
-              <div className={cx("eyebrow")}>
-                {p.active ? "Session live" : "Session tools"} · silent nudge
-              </div>
-              <h3>Capture this moment</h3>
-              <p>Context is attached to the selected timestamp.</p>
-            </div>
-            <button
-              className={cx("widgetexpand")}
-              aria-label="Close widget"
-              onClick={() => setWidget(false)}
-            >
-              ×
-            </button>
-          </div>
-          <div className={cx("widgetsignal")}>
-            <div>
-              <span>{p.recording ? "CURRENT HR" : "LAST RECORDED HR"}</span>
-              <strong>{latest?.bpm ?? "—"} BPM</strong>
-            </div>
-            <div>
-              <span>BASELINE CHANGE</span>
-              <strong style={{ color: "var(--orange)" }}>
-                {delta === null ? "—" : `${delta >= 0 ? "+" : ""}${delta}`}
-              </strong>
-            </div>
-          </div>
-          <div className={cx("widgetactions")}>
-            <button
-              className={cx("primary")}
-              onClick={() =>
-                props.onReflect({
-                  t: captureTime,
-                  source: "voice",
-                  autoListen: true,
-                })
-              }
-            >
-              ● Speak
-            </button>
-            <button
-              className={cx("ghost")}
-              onClick={() => props.onReflect({ t: captureTime })}
-            >
-              ▣ Paste screenshot
-            </button>
-            <button className={cx("ghost")} onClick={props.onTrade}>
-              Add trade
-            </button>
-            <button className={cx("ghost")} onClick={props.onCsv}>
-              Import CSV
-            </button>
-            <button
-              className={cx("ghost")}
-              onClick={() => void act(p.active ? p.stop : p.start)}
-            >
-              {p.active ? "End session" : "Start session"}
-            </button>
-            <button className={cx("ghost")} onClick={props.onFloat}>
-              Floating journal
-            </button>
-            <button className={cx("ghost")} onClick={() => go("Connections")}>
-              Connections
-            </button>
-            <button className={cx("ghost")} onClick={() => go("Settings")}>
-              Settings
-            </button>
-            <button className={cx("ghost")} onClick={props.onExport}>
-              Export session
-            </button>
-            <button className={cx("ghost")} onClick={() => props.onAdvanced()}>
-              Chart & replay
-            </button>
-          </div>
-          <div className={cx("widgetprompt")}>
-            <b>What are you noticing right now?</b>
-            <br />
-            Your words give the recorded signal its context.
-          </div>
-          <div className={cx("shortcut")}>
-            ALT + {p.settings.shortcutKey.toUpperCase()} · VOICE NOTE
-          </div>
-        </div>
-        <div className={cx("widgetpill")}>
+        <CapturePanel key={s.id} session={s} samples={p.samples} baselineSeconds={p.settings.baselineSeconds} now={p.now} active={p.active} recording={p.recording} shortcut={p.settings.shortcutKey} onClose={() => setWidget(false)} onReflect={props.onReflect} onSave={p.addNote} />
+        <div className={cx("widgetpill")} title="Drag the widget anywhere"
+          onPointerDown={event => {
+            if ((event.target as HTMLElement).closest("button")) return;
+            const element = widgetRef.current!;
+            const rect = element.getBoundingClientRect();
+            dragRef.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+            element.style.right = "auto"; element.style.bottom = "auto";
+            element.style.left = rect.left + "px"; element.style.top = rect.top + "px";
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={event => {
+            if (!dragRef.current || !widgetRef.current) return;
+            const element = widgetRef.current;
+            element.style.left = Math.max(8, Math.min(innerWidth - element.offsetWidth - 8, event.clientX - dragRef.current.x)) + "px";
+            element.style.top = Math.max(widget ? 360 : 8, Math.min(innerHeight - element.offsetHeight - 8, event.clientY - dragRef.current.y)) + "px";
+          }}
+          onPointerUp={() => { dragRef.current = null; }} onPointerCancel={() => { dragRef.current = null; }}>
           <span className={cx("widgetlogo")}>⌁</span>
           <i
             className={cx("widgetstatus")}

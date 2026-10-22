@@ -340,7 +340,7 @@ test("speech transcript is reviewed before saving and preserves the activation t
   );
   assert.equal(saved[0].t, timestamp);
   assert.equal(saved[0].source, "voice");
-  assert.equal(saved[0].label, "Other");
+  assert.equal(saved[0].label, "Unlabelled");
 });
 test("unsupported browser offers typing; live HR check-ins never prompt from stale data or repeatedly", async (t) => {
   const { dom, root } = setup();
