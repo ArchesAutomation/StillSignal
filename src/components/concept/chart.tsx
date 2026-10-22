@@ -12,6 +12,7 @@ type ChartProps = Series & {
   priceStatus: string;
   demo: boolean;
   moments: Moment[];
+  phaseForMoment: (moment: Moment) => string;
   selected?: string;
   selectedPhase?: string;
   phaseWindow?: [number, number];
@@ -29,6 +30,7 @@ export default function ConceptChart({
   priceStatus,
   demo,
   moments,
+  phaseForMoment,
   selected,
   selectedPhase,
   phaseWindow,
@@ -228,7 +230,7 @@ export default function ConceptChart({
           {moments
             .filter((moment) => moment.t >= lo && moment.t <= hi)
             .map((moment) => {
-              const phase = moment.note?.section || moment.phase.toLowerCase();
+              const phase = phaseForMoment(moment);
               const color = phaseColors[phase] || phaseColors.reflection;
               return (
                 <g
@@ -236,7 +238,7 @@ export default function ConceptChart({
                   data-marker="true"
                   role="button"
                   tabIndex={0}
-                  aria-label={`${moment.phase} at ${displayTime(moment.t)}`}
+                  aria-label={`${phase.toUpperCase()} at ${displayTime(moment.t)}`}
                   onClick={() => onSelect(moment)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {

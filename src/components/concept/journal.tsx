@@ -424,6 +424,7 @@ export default function Journal(
               priceStatus={priceStatus}
               demo={demo}
               moments={chartRows}
+              phaseForMoment={rowPhase}
               selected={current.id}
               selectedPhase={selectedPhase}
               phaseWindow={phaseWindow}
