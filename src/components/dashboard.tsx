@@ -1,4 +1,5 @@
 "use client";
+import { dailyJournalSession } from "@/lib/journal-collection";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
@@ -1659,13 +1660,13 @@ export default function Dashboard({
                   </div>
                   <button
                     className="button primary"
-                    disabled={busy || p.recording}
+                    disabled={busy || p.recording || p.connectingWhoop}
                     onClick={() => act(p.attachWhoop)}
                   >
                     <Bluetooth size={16} />
                     {p.recording
                       ? "Recording with " + p.device
-                      : "Attach WHOOP to journal"}
+                      : p.connectingWhoop ? "Connecting WHOOP…" : "Attach WHOOP to journal"}
                   </button>
                   {p.recording && (
                     <button
@@ -2223,7 +2224,7 @@ export default function Dashboard({
         createPortal(
           <FloatingJournal
             key={s.id}
-            session={s}
+            session={dailyJournalSession(s, p.history)}
             samples={p.samples}
             now={p.now}
             baselineSeconds={p.settings.baselineSeconds}
@@ -2239,6 +2240,7 @@ export default function Dashboard({
             onReopen={() => {
               void floatingJournal.open();
             }}
+            onPopup={floatingJournal.openPopup}
             prepareScreenshot={p.prepareScreenshot}
             onSave={p.addNote}
           />,
@@ -2257,7 +2259,7 @@ export default function Dashboard({
           }}
         >
           <ReflectionEditor
-            session={s}
+            session={dailyJournalSession(s, p.history)}
             draft={noteDraft || { t: selected?.t || viewEnd }}
             owner={p.owner}
             prepareScreenshot={p.prepareScreenshot}

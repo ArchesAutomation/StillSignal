@@ -23,11 +23,12 @@ import {
   authClient,
 } from "@/lib/cloud";
 import { eventSchema, sessionSchema } from "@/lib/validation";
-import { connectHeartRate } from "@/lib/bluetooth";
+import { connectHeartRate, requestHeartRateDevice } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
 import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
+import { dailyJournalSession } from "@/lib/journal-collection";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -38,6 +39,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     [history, setHistory] = useState<Session[]>([]);
   const [active, setActive] = useState(false),
     [recording, setRecording] = useState(false),
+    [connectingWhoop, setConnectingWhoop] = useState(false),
     [device, setDevice] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -55,6 +57,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     insightLast = useRef(0);
   const sessionLoad = useRef(0);
   const noteWrites = useRef(Promise.resolve());
+  const wearableRequest = useRef(0), wearablePending = useRef(false);
   const save = useCallback(async (s: Session) => {
     if (s.id !== "workspace") {
       await storage.saveSession(s);
@@ -175,6 +178,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     window.addEventListener("beforeunload", warn);
     return () => {
       sessionLoad.current++;
+      wearableRequest.current++;
       connection.current?.disconnect();
       window.removeEventListener("beforeunload", warn);
     };
@@ -185,6 +189,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     setInsightTime(Date.now());
   }
   async function stop() {
+    wearableRequest.current++;
     rec.current = false;
     setActive(false);
     setRecording(false);
@@ -205,9 +210,9 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       setInsightTime(Date.now());
     }
   }
-  async function start(name?: string, startedAt = Date.now()) {
+  async function start(name?: string, startedAt = Date.now(), openDashboard = true) {
     if (rec.current) return;
-    onSessionStart?.();
+    if (openDashboard) onSessionStart?.();
     sessionLoad.current++;
     const selected = current.current;
     if (
@@ -248,65 +253,85 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     setNotice("Journal session started. A wearable is optional.");
   }
   async function attachWhoop() {
-    if (connection.current) return;
-    if (!rec.current) await start();
+    if (connection.current || wearablePending.current) return;
+    wearablePending.current = true;
+    const request = ++wearableRequest.current;
+    const journalVersion = sessionLoad.current;
+    setConnectingWhoop(true);
     setError("");
-    const c = await connectHeartRate(
-      (p) => {
-        const currentSession = current.current;
-        if (!rec.current || !currentSession) return;
-        if (
-          raw.current.length >= 100000 ||
-          p.t - (raw.current[0]?.t ?? p.t) > 43200000
-        ) {
-          void stop();
-          setNotice("Session limit reached. Start a new session to continue.");
-          return;
-        }
-        const sample = { ...p, provider: "whoop" as const };
-        raw.current.push(sample);
-        writing.current = writing.current
-          .then(async () => {
-            await storage.appendSamples(currentSession.id, [sample], owner);
-            const latest = current.current;
-            if (latest?.id === currentSession.id)
-              await storage.saveSession({
-                ...latest,
-                sampleCount: raw.current.length,
-              });
-          })
-          .catch(() => {
-            connection.current?.disconnect();
-            connection.current = null;
-            setRecording(false);
-            setDevice("");
-            setError(
-              "Heart-rate recording stopped because browser storage could not save a sample. Your journal remains available.",
-            );
-          });
-      },
-      () => {
-        connection.current = null;
-        setRecording(false);
-        setDevice("");
-        setNotice(
-          "Wearable disconnected. Your journal and TradingView connection continue.",
-        );
-      },
-    );
-    connection.current = c;
-    setDevice(c.name);
-    setRecording(true);
-    const currentSession = current.current!;
-    await save({
-      ...currentSession,
-      wearable: { provider: "whoop", connection: "bluetooth" },
-    });
-    setNotice(
-      "WHOOP attached. Keep this tab open and your device awake for heart-rate recording.",
-    );
+    try {
+      // The chooser must precede both IndexedDB awaits and the PiP request in start().
+      const selectedDevice = await requestHeartRateDevice();
+      if (request !== wearableRequest.current || journalVersion !== sessionLoad.current) return;
+      if (!rec.current) await start(undefined, Date.now(), false);
+      if (request !== wearableRequest.current || !rec.current) return;
+      const targetSession = current.current?.id;
+      const c = await connectHeartRate(
+        (p) => {
+          const currentSession = current.current;
+          if (!rec.current || !currentSession) return;
+          if (
+            raw.current.length >= 100000 ||
+            p.t - (raw.current[0]?.t ?? p.t) > 43200000
+          ) {
+            void stop();
+            setNotice("Session limit reached. Start a new session to continue.");
+            return;
+          }
+          const sample = { ...p, provider: "whoop" as const };
+          raw.current.push(sample);
+          writing.current = writing.current
+            .then(async () => {
+              await storage.appendSamples(currentSession.id, [sample], owner);
+              const latest = current.current;
+              if (latest?.id === currentSession.id)
+                await storage.saveSession({
+                  ...latest,
+                  sampleCount: raw.current.length,
+                });
+            })
+            .catch(() => {
+              connection.current?.disconnect();
+              connection.current = null;
+              setRecording(false);
+              setDevice("");
+              setError(
+                "Heart-rate recording stopped because browser storage could not save a sample. Your journal remains available.",
+              );
+            });
+        },
+        () => {
+          connection.current = null;
+          setRecording(false);
+          setDevice("");
+          setNotice(
+            "Wearable disconnected. Your journal and TradingView connection continue.",
+          );
+        },
+        selectedDevice,
+      );
+      if (request !== wearableRequest.current || !rec.current || current.current?.id !== targetSession) {
+        c.disconnect();
+        return;
+      }
+      connection.current = c;
+      setDevice(c.name);
+      setRecording(true);
+      const currentSession = current.current!;
+      await save({
+        ...currentSession,
+        wearable: { provider: "whoop", connection: "bluetooth" },
+      });
+      setNotice(
+        "WHOOP attached. Keep this tab open and your device awake. Use Floating journal in Session tools to open the widget.",
+      );
+    } finally {
+      wearablePending.current = false;
+      setConnectingWhoop(false);
+    }
   }
   async function detachWearable() {
+    wearableRequest.current++;
     connection.current?.disconnect();
     connection.current = null;
     setRecording(false);
@@ -475,6 +500,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       setSession(loaded);
       setSamples(pts);
       setInsightTime(Date.now());
+      return loaded;
     } catch {
       setError("Could not open this saved session.");
     }
@@ -523,7 +549,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       if (s.journal.length >= 1000 && !s.journal.some((j) => j.id === note.id))
         throw new Error("This session supports up to 1,000 journal entries.");
       const old = s.journal.find((j) => j.id === note.id);
-      validateDestination(note, s);
+      validateDestination(note, dailyJournalSession(s, history));
       const occurredAt = noteTime(note);
       if (
         occurredAt !== null && (
@@ -534,12 +560,15 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         throw new Error("Choose a moment inside this journal's time range.");
       const updated = {
         ...note,
-        context: note.deletedAt || occurredAt === null || note.section === "stillness"
+        context: note.deletedAt || occurredAt === null
           ? undefined
           : {
               ...reflectionContext(raw.current, occurredAt, settings, s.events),
               ...note.context,
             },
+        ...(occurredAt !== null && !note.deletedAt ? {
+          captureScope: { ...note.captureScope, windowSeconds: note.captureScope?.windowSeconds ?? settings.windowSeconds },
+        } : {}),
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
@@ -670,6 +699,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     insightTime,
     start,
     attachWhoop,
+    connectingWhoop,
     detachWearable,
     importEvents,
     stop,

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
-import { destination, isTradeSection, validateDestination } from "@/lib/journal-routing";
+import { destination, validateDestination } from "@/lib/journal-routing";
 import { useJournalDraft } from "../use-journal-draft";
 import Destination from "./destination";
 import PostSession from "./post-session";
@@ -53,9 +53,9 @@ export default function Stillness({
     [begun, setBegun] = useState(false),
     [busy, setBusy] = useState(false),
     [status, setStatus] = useState("");
-  const [link, setLink] = useState(false), [timed, setTimed] = useState(false);
-  const [section, setSection] = useState<JournalEntry["section"]>("day-review"), [tradeId, setTradeId] = useState(""), [custom, setCustom] = useState("");
-  const route = { section: link ? section : "stillness" as const, tradeId: link && isTradeSection(section) ? tradeId || undefined : undefined, customSection: custom || undefined };
+  const [timed, setTimed] = useState(false);
+  const [section, setSection] = useState<JournalEntry["section"]>(), [tradeId, setTradeId] = useState(""), [custom, setCustom] = useState("");
+  const route = { section, origin: "stillness" as const, tradeId: tradeId || undefined, customSection: section === "custom" ? custom || undefined : undefined };
   const elapsedRef = useRef(0);
   function begin() {
     if (elapsedRef.current >= 60) {
@@ -93,7 +93,7 @@ export default function Stillness({
           <div className={cx("eyebrow")}>A private mindfulness note</div>
           <h2>What are you noticing?</h2>
           <p>
-            Private in Stillness until you choose to link it.
+            Saved in My Journal, alongside your writing and reflections.
           </p>
           <textarea
             aria-label="Mindfulness note"
@@ -103,8 +103,7 @@ export default function Stillness({
             onChange={(e) => setText(e.target.value)}
             placeholder="A thought, feeling, sensation or urge—without needing to make it sound clever..."
           />
-          <label className={cx("time-link")}><input type="checkbox" checked={link} onChange={e => setLink(e.target.checked)} /> Add to main journal</label>
-          {link && <Destination session={session} section={section} tradeId={tradeId} custom={custom} onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />}
+          <Destination session={session} section={section} tradeId={tradeId} custom={custom} onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />
           <label className={cx("time-link")}><input type="checkbox" checked={timed} onChange={e => setTimed(e.target.checked)} /> Link to current HR window</label>
           <div className={cx("noticeactions")}>
             <button
@@ -125,7 +124,7 @@ export default function Stillness({
                   validateDestination(note, session);
                   await onSave(note);
                   setText("");
-                  setStatus(link ? `Saved to ${destination(note, session)} and today's journal.` : "Saved privately in Stillness.");
+                  setStatus(`Saved to My Journal · ${destination(note, session)}.`);
                 } catch (e) {
                   setStatus(
                     e instanceof Error
@@ -162,12 +161,6 @@ export default function Stillness({
             </button>
           </div>
           {status && <p role="status">{status}</p>}
-          <div className={cx("private-notes")}>
-            {session.journal.filter(n => !n.deletedAt && n.section === "stillness").map(note =>
-              <article key={note.id}><p>{note.text}</p><button className={cx("textlink")} onClick={() => {
-                setText(note.text); setLink(true); setStatus("Choose a destination, then save a copy to your journal.");
-              }}>Link a copy to journal</button></article>)}
-          </div>
         </section>
         <section className={cx("returncard", begun && "active")}>
           <div className={cx("eyebrow")}>60 seconds</div>

@@ -4,6 +4,8 @@ import type { JournalEntry, Sample, Session } from "@/lib/model";
 import type { ReflectionDraft } from "../reflection-editor";
 import { summary } from "@/lib/analytics";
 import { cx } from "./shared";
+import Destination from "./destination";
+import { validateDestination } from "@/lib/journal-routing";
 
 export function captureSignal(samples: Sample[], session: Session, baselineSeconds: number) {
   const stats = summary(samples, samples[0]?.t || session.startedAt, baselineSeconds);
@@ -24,6 +26,7 @@ export default function CapturePanel({ session, samples, baselineSeconds, now, a
   const fresh = !!latest && (!active || (recording && now - latest.t <= 10000));
   const captureTime = active ? now : session.endedAt || session.startedAt;
   const [answer, setAnswer] = useState(""), [busy, setBusy] = useState(false), [status, setStatus] = useState("");
+  const [section, setSection] = useState<JournalEntry["section"]>(), [tradeId, setTradeId] = useState(""), [custom, setCustom] = useState("");
   const question = "Is there an urge to act before you have checked your plan?";
   return <div className={cx("widgetpanel")}>
     <div className={cx("widgetpanelhead")}>
@@ -36,15 +39,18 @@ export default function CapturePanel({ session, samples, baselineSeconds, now, a
       <div><span>PERSONAL DEVIATION</span><strong style={{ color: "var(--orange)" }}>{fresh && sigma !== null ? `${sigma.toFixed(1)}σ` : "—"}</strong></div>
     </div>
     <div className={cx("widgetactions")}>
-      <button className={cx("primary")} onClick={() => onReflect({ t: captureTime, source: "voice", autoListen: true })}>● Speak</button>
-      <button className={cx("ghost")} onClick={() => onScreenshot ? onScreenshot() : onReflect({ t: captureTime })}>▣ Paste screenshot</button>
+      <button className={cx("primary")} onClick={() => onReflect({ t: captureTime, section, tradeId, customSection: custom, origin: "capture", source: "voice", autoListen: true })}>● Speak</button>
+      <button className={cx("ghost")} onClick={() => onScreenshot ? onScreenshot() : onReflect({ t: captureTime, section, tradeId, customSection: custom, origin: "capture" })}>▣ Paste screenshot</button>
     </div>
     <div className={cx("widgetprompt")}><b>{question}</b><br />Does that description fit what you are noticing now?
+      <Destination session={session} section={section} tradeId={tradeId} custom={custom} onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />
       <div className={cx("widgetguess")}>{["Yes", "No", "Not sure"].map(value => <button key={value} disabled={busy} aria-pressed={answer === value} onClick={async () => {
         setBusy(true); setStatus("");
         try {
-          await onSave({ id: crypto.randomUUID(), t: Date.now(), eventTime: captureTime, section: "day-review", label: "Unlabelled", text: value, source: "typed", prompt: { id: "silent-nudge", question } });
-          setAnswer(value); setStatus("Attached to this moment.");
+          const note: JournalEntry = { id: crypto.randomUUID(), t: Date.now(), eventTime: captureTime, section, tradeId: tradeId || undefined, customSection: section === "custom" ? custom : undefined, origin: "capture", label: "Unlabelled", text: value, source: "typed", prompt: { id: "silent-nudge", question } };
+          validateDestination(note, session);
+          await onSave(note);
+          setAnswer(value); setStatus("Saved to My Journal.");
         } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save your answer."); }
         finally { setBusy(false); }
       }}>{value}</button>)}</div>

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, Square, ImagePlus, ClipboardPaste, X } from "lucide-react";
 import { readClipboardScreenshot, validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import type { JournalEntry, Session } from "@/lib/model";
-import { isTradeSection, noteTime, validateDestination } from "@/lib/journal-routing";
+import { noteTime, validateDestination } from "@/lib/journal-routing";
 import Destination from "./concept/destination";
 import { clock } from "@/lib/model";
 import {
@@ -43,6 +43,7 @@ export type ReflectionDraft = {
   initialLabel?: string;
   entry?: JournalEntry;
   source?: JournalEntry["source"];
+  origin?: JournalEntry["origin"];
   hrEventId?: string;
   autoListen?: boolean;
   screenshotFile?: File;
@@ -124,7 +125,7 @@ export default function ReflectionEditor({
     [interim, setInterim] = useState(""),
     [usedVoice, setUsedVoice] = useState(false),
     [supported, setSupported] = useState(false);
-  const [section, setSection] = useState<JournalEntry["section"]>(draft.entry?.section || draft.section || "day-review");
+  const [section, setSection] = useState<JournalEntry["section"]>(draft.entry?.section === "stillness" ? undefined : draft.entry?.section || draft.section);
   const [tradeId, setTradeId] = useState(draft.entry?.tradeId || draft.tradeId || "");
   const [custom, setCustom] = useState(draft.entry?.customSection || draft.customSection || "");
   const [timed, setTimed] = useState((draft.entry ? noteTime(draft.entry) : draft.eventTime) !== null);
@@ -232,8 +233,8 @@ export default function ReflectionEditor({
         setError("");
         let uploaded: JournalEntry["screenshot"];
         try {
-          const t =
-            time === localTime(draft.t) ? draft.t : new Date(time).getTime();
+          const originalTime = draft.entry ? noteTime(draft.entry) ?? draft.t : draft.eventTime ?? draft.t;
+          const t = time === localTime(originalTime) ? originalTime : new Date(time).getTime();
           if (!Number.isFinite(t)) throw new Error("Choose a valid time.");
           if (file)
             uploaded = await uploadScreenshot(
@@ -247,18 +248,16 @@ export default function ReflectionEditor({
             t: draft.entry?.t ?? (timed ? t : Date.now()),
             eventTime: timed ? t : null,
             section,
-            tradeId: isTradeSection(section) ? tradeId || undefined : undefined,
+            tradeId: tradeId || undefined,
+            origin: draft.entry?.origin || (draft.entry?.section === "stillness" ? "stillness" : draft.origin || "capture"),
             customSection: section === "custom" ? custom : undefined,
             label,
             text,
             source:
               draft.source ||
               (usedVoice ? "voice" : draft.entry?.source || "typed"),
-            ...(draft.entry?.context
-              ? { context: draft.entry.context }
-              : draft.hrEventId
-                ? { context: { hrEventId: draft.hrEventId } }
-                : {}),
+            context: draft.entry?.context && noteTime(draft.entry) === (timed ? t : null)
+              ? draft.entry.context : draft.hrEventId ? { hrEventId: draft.hrEventId } : undefined,
             ...(uploaded || attachment
               ? { screenshot: uploaded || attachment }
               : {}),
@@ -291,7 +290,7 @@ export default function ReflectionEditor({
           {error}
         </div>
       )}
-      {session && section !== "stillness" && <Destination session={session} section={section} tradeId={tradeId} custom={custom}
+      {session && <Destination session={session} section={section} tradeId={tradeId} custom={custom}
         onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />}
       <label><input type="checkbox" checked={timed} onChange={e => setTimed(e.target.checked)} /> Link to a known time and HR window</label>
       <label hidden={compact || !timed}>

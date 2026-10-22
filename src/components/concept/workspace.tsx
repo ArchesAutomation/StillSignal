@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import CapturePanel from "./capture-panel";
+import { dailyJournalSession } from "@/lib/journal-collection";
 import { cx, type Page, type Props } from "./shared";
 import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
@@ -19,6 +20,7 @@ const navigation: [Page, string, string][] = [
 ];
 export default function ConceptWorkspace(props: Props) {
   const { pulse: p, session: s, history, page } = props;
+  const daySession = dailyJournalSession(s, history);
   const [view, setView] = useState<"story" | "patterns" | "review">("story"),
     [week, setWeek] = useState(0),
     [welcome, setWelcome] = useState(false),
@@ -204,9 +206,10 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
                 <button
                   className={cx("primary")}
+                  disabled={p.connectingWhoop}
                   onClick={() => void act(p.active ? p.stop : p.attachWhoop)}
                 >
-                  {p.active ? "End session" : "Start HR recording"}
+                  {p.connectingWhoop ? "Connecting WHOOP…" : p.active ? "End session" : "Start HR recording"}
                 </button>
               </>
             ) : page === "Stillness" ? (
@@ -314,7 +317,7 @@ export default function ConceptWorkspace(props: Props) {
           <button className={cx(p.active ? "ghost end-session" : "primary")} onClick={() => void act(async () => {
             if (p.active) { await p.stop(); review(); } else await p.start();
           })}>{p.active ? "End Session" : "Start Session"}</button>
-          {p.active && !p.recording && <button className={cx("ghost")} onClick={() => void act(p.attachWhoop)}>Connect heart rate</button>}
+          {p.active && !p.recording && <button className={cx("ghost")} disabled={p.connectingWhoop} onClick={() => void act(p.attachWhoop)}>{p.connectingWhoop ? "Connecting WHOOP…" : "Connect heart rate"}</button>}
           <button className={cx("ghost")} onClick={props.onCsv}>Import market data</button>
           <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "Market data missing"}</span>
         </section>
@@ -414,7 +417,7 @@ export default function ConceptWorkspace(props: Props) {
         <div hidden={page !== "Stillness"}>
           <Stillness
             key={s.id}
-            session={s}
+            session={daySession}
             time={captureTime}
             onSave={p.addNote}
             onReflect={props.onReflect}
@@ -469,7 +472,7 @@ export default function ConceptWorkspace(props: Props) {
         )}
         aria-label="Still Signal live widget"
       >
-        <CapturePanel key={s.id} session={s} samples={p.samples} baselineSeconds={p.settings.baselineSeconds} now={p.now} active={p.active} recording={p.recording} shortcut={p.settings.shortcutKey} onClose={() => setWidget(false)} onReflect={props.onReflect} onSave={p.addNote} />
+        <CapturePanel key={s.id} session={daySession} samples={p.samples} baselineSeconds={p.settings.baselineSeconds} now={p.now} active={p.active} recording={p.recording} shortcut={p.settings.shortcutKey} onClose={() => setWidget(false)} onReflect={props.onReflect} onSave={p.addNote} />
         <div className={cx("widgetpill")} title="Drag the widget anywhere"
           onPointerDown={event => {
             if ((event.target as HTMLElement).closest("button")) return;

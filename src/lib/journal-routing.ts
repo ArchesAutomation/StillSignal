@@ -4,10 +4,10 @@ import { isActualExecution } from "./trade-context";
 
 export const sections = ["before", "entry", "management", "exit", "after", "day-review", "post-session", "custom"] as const;
 export const sectionName = (section?: JournalEntry["section"], custom?: string) =>
-  section === "custom" ? custom || "Custom" : ({
+  !section ? "Unsorted" : section === "custom" ? custom || "Custom" : ({
     before: "Before", entry: "Entry", management: "Management", exit: "Exit",
     after: "After", "day-review": "Day review", "post-session": "Post-session support", stillness: "Private Stillness",
-  }[section || "day-review"]);
+  }[section]);
 export const isTradeSection = (section?: JournalEntry["section"]) =>
   !!section && ["before", "entry", "management", "exit", "after"].includes(section);
 export const noteTime = (note: JournalEntry): number | null =>
@@ -18,9 +18,15 @@ export const sessionTrades = (session: Session) =>
     .sort((a, b) => a.entry - b.entry || a.id.localeCompare(b.id));
 export function destination(note: Pick<JournalEntry, "section" | "customSection" | "tradeId">, session: Session) {
   const index = sessionTrades(session).findIndex(t => t.id === note.tradeId);
-  return (index >= 0 ? `Trade ${index + 1} · ` : "") + sectionName(note.section, note.customSection);
+  return (index >= 0 ? `Trade ${index + 1} · ` : isTradeSection(note.section) ? "Trade unassigned · " : "") + (!note.section || note.section === "stillness" ? "Unsorted" : sectionName(note.section, note.customSection));
 }
 export function validateDestination(note: JournalEntry, session: Session) {
+  if (note.deletedAt) return;
+  if (sessionTrades(session).length > 1 && !note.tradeId &&
+    (note.prompt || (note.origin && note.origin !== "free-writing") || note.source === "voice"))
+    throw new Error("Choose Trade 1, Trade 2, or the trade this reflection belongs to before saving.");
+  if (note.tradeId && !sessionTrades(session).some(t => t.id === note.tradeId))
+    throw new Error("Choose a trade from this journal day.");
   if (isTradeSection(note.section) && !sessionTrades(session).some(t => t.id === note.tradeId))
     throw new Error("Choose the trade this answer belongs to.");
   if (note.section === "custom" && !note.customSection?.trim())

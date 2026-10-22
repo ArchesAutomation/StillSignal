@@ -116,6 +116,7 @@ export const sessionSchema = z.object({
         updatedAt: ts.optional(),
         deletedAt: ts.optional(),
         source: z.enum(["typed", "voice", "hr-checkin"]).optional(),
+        origin: z.enum(["free-writing", "timeline", "stillness", "capture"]).optional(),
         activationAt: ts.optional(),
         recordingStartedAt: ts.optional(),
         captureScope: z
