@@ -4,9 +4,10 @@ import type { JournalEntry, Sample, Session } from "@/lib/model";
 import { readClipboardScreenshot, validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import ReflectionEditor, { type ReflectionDraft } from "./reflection-editor";
 import CapturePanel from "./concept/capture-panel";
-export default function FloatingJournal({ session, samples, now, baselineSeconds, recording, active, syncState, floating, message, onClose, onReopen, prepareScreenshot, onSave }: {
+export default function FloatingJournal({ session, samples, now, baselineSeconds, recording, active, syncState, floating, message, onClose, onReopen, onPopup, prepareScreenshot, onSave }: {
   session: Session; samples: Sample[]; now: number; baselineSeconds: number; recording: boolean; active: boolean; syncState: string;
   floating: boolean; message: string; onClose: () => void; onReopen: () => void;
+  onPopup?: () => void;
   prepareScreenshot: (t: number) => Promise<string>; onSave: (note: JournalEntry) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ReflectionDraft | null>(null);
@@ -50,6 +51,7 @@ export default function FloatingJournal({ session, samples, now, baselineSeconds
     {error && <p role="alert" className="ss-popup-status">{error}</p>}
     {status && <p role="status" className="ss-popup-status">{status}</p>}
     {!floating && active && <button className="ss-popup-write" onClick={onReopen}>Reopen floating dashboard</button>}
+    {!floating && onPopup && <button className="ss-popup-write" onClick={onPopup}>Open popup window</button>}
     <span className="sr-only" role="status">{syncState}</span>
   </div>;
 }

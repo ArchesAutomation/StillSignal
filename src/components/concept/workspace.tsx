@@ -206,9 +206,10 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
                 <button
                   className={cx("primary")}
+                  disabled={p.connectingWhoop}
                   onClick={() => void act(p.active ? p.stop : p.attachWhoop)}
                 >
-                  {p.active ? "End session" : "Start HR recording"}
+                  {p.connectingWhoop ? "Connecting WHOOP…" : p.active ? "End session" : "Start HR recording"}
                 </button>
               </>
             ) : page === "Stillness" ? (
@@ -316,7 +317,7 @@ export default function ConceptWorkspace(props: Props) {
           <button className={cx(p.active ? "ghost end-session" : "primary")} onClick={() => void act(async () => {
             if (p.active) { await p.stop(); review(); } else await p.start();
           })}>{p.active ? "End Session" : "Start Session"}</button>
-          {p.active && !p.recording && <button className={cx("ghost")} onClick={() => void act(p.attachWhoop)}>Connect heart rate</button>}
+          {p.active && !p.recording && <button className={cx("ghost")} disabled={p.connectingWhoop} onClick={() => void act(p.attachWhoop)}>{p.connectingWhoop ? "Connecting WHOOP…" : "Connect heart rate"}</button>}
           <button className={cx("ghost")} onClick={props.onCsv}>Import market data</button>
           <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "Market data missing"}</span>
         </section>

@@ -1660,13 +1660,13 @@ export default function Dashboard({
                   </div>
                   <button
                     className="button primary"
-                    disabled={busy || p.recording}
+                    disabled={busy || p.recording || p.connectingWhoop}
                     onClick={() => act(p.attachWhoop)}
                   >
                     <Bluetooth size={16} />
                     {p.recording
                       ? "Recording with " + p.device
-                      : "Attach WHOOP to journal"}
+                      : p.connectingWhoop ? "Connecting WHOOP…" : "Attach WHOOP to journal"}
                   </button>
                   {p.recording && (
                     <button
@@ -2240,6 +2240,7 @@ export default function Dashboard({
             onReopen={() => {
               void floatingJournal.open();
             }}
+            onPopup={floatingJournal.openPopup}
             prepareScreenshot={p.prepareScreenshot}
             onSave={p.addNote}
           />,

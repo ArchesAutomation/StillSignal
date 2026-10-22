@@ -64,6 +64,7 @@ test("floating journal preserves the editor and draft across PiP close and reope
     assert.equal(dom.window.document.querySelector("textarea"), editor);
     assert.equal(editor.value, "Keep this draft and screenshot");
     Object.defineProperty(dom.window, "documentPictureInPicture", { configurable: true, value: undefined });
+    Object.defineProperty(dom.window, "open", { configurable: true, value: () => null });
     await act(async () => controller.open());
     assert.match(controller.message, /unavailable/);
     assert.equal(controller.host?.hidden, false);
@@ -108,5 +109,76 @@ test("closing a session while PiP is opening cannot resurrect its window", async
       else Reflect.deleteProperty(globalThis, key);
     }
     dom.window.close();
+  }
+});
+
+test("a browser without document PiP opens a regular popup on the click and keeps the same draft on close", async () => {
+  const dom = new JSDOM('<head><style>body{color:red}</style></head><body><div id="root"></div></body>', { url: "https://still-signal.test" });
+  const popup = new JSDOM('<head></head><body></body>', { url: "https://still-signal.test" });
+  const originals = new Map<string, PropertyDescriptor | undefined>();
+  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true })) {
+    originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+  }
+  const popupWindow = popup.window as unknown as Window;
+  let clicks = 0, inClick = false, focuses = 0;
+  popupWindow.focus = () => { focuses++; };
+  const disposePopup = popup.window.close.bind(popup.window);
+  popupWindow.close = () => { popup.window.dispatchEvent(new popup.window.Event("pagehide")); };
+  Object.defineProperty(dom.window, "open", { configurable: true, value: () => { assert.equal(inClick, true); clicks++; return popupWindow; } });
+  let controller!: ReturnType<typeof useFloatingJournal>;
+  function Harness() {
+    controller = useFloatingJournal();
+    return controller.host ? createPortal(createElement("textarea", { defaultValue: "Keep my reflection" }), controller.host) : null;
+  }
+  const root = createRoot(document.getElementById("root")!);
+  try {
+    await act(async () => root.render(createElement(Harness)));
+    await act(async () => { inClick = true; const opening = controller.open(); assert.equal(clicks, 1); inClick = false; await opening; });
+    assert.equal(controller.floating, true); assert.match(controller.message, /not always on top/);
+    assert.equal(popup.window.document.querySelectorAll("style").length, 1);
+    const editor = popup.window.document.querySelector("textarea")!;
+    editor.value = "Do not lose these words";
+    await act(async () => controller.open());
+    assert.equal(clicks, 1); assert.equal(focuses, 1);
+    await act(async () => controller.close());
+    assert.equal(document.querySelector("textarea"), editor); assert.equal(editor.value, "Do not lose these words");
+    await act(async () => { inClick = true; controller.openPopup(); inClick = false; });
+    assert.equal(popup.window.document.querySelector("textarea"), editor);
+    await act(async () => dom.window.dispatchEvent(new dom.window.Event("pagehide")));
+    assert.equal(controller.floating, false);
+    assert.equal(document.querySelector("textarea"), editor);
+  } finally {
+    await act(async () => root.unmount());
+    for (const [key, value] of originals) { if (value) Object.defineProperty(globalThis, key, value); else Reflect.deleteProperty(globalThis, key); }
+    dom.window.close(); disposePopup();
+  }
+});
+
+test("a rejected PiP request waits for a fresh popup click instead of losing activation to another asynchronous request", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
+  const popup = new JSDOM('<body></body>', { url: "https://still-signal.test" });
+  const originals = new Map<string, PropertyDescriptor | undefined>();
+  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true })) {
+    originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+  }
+  let popups = 0;
+  Object.defineProperty(dom.window, "documentPictureInPicture", { configurable: true, value: { requestWindow: async () => { throw new Error("Not allowed"); } } });
+  Object.defineProperty(dom.window, "open", { configurable: true, value: () => { popups++; return popup.window; } });
+  let controller!: ReturnType<typeof useFloatingJournal>;
+  function Harness() { controller = useFloatingJournal(); return null; }
+  const root = createRoot(document.getElementById("root")!);
+  try {
+    await act(async () => root.render(createElement(Harness)));
+    await act(async () => controller.open());
+    assert.equal(popups, 0); assert.equal(controller.floating, false);
+    assert.match(controller.message, /click Open popup window/);
+    await act(async () => controller.openPopup());
+    assert.equal(popups, 1); assert.equal(controller.floating, true);
+  } finally {
+    await act(async () => root.unmount());
+    for (const [key, value] of originals) { if (value) Object.defineProperty(globalThis, key, value); else Reflect.deleteProperty(globalThis, key); }
+    dom.window.close(); popup.window.close();
   }
 });
