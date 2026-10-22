@@ -10,12 +10,14 @@ import { money, type TradeEvent } from "@/lib/model";
 import { isOct20Demo, oct20DemoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { timelinePhase } from "@/lib/timeline-phase";
+import { noteTime, isTradeSection, sectionName, sessionTrades } from "@/lib/journal-routing";
 import { Screenshot } from "../reflection-editor";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
 import Writing from "./writing";
 import Review from "./review";
 import Patterns from "./patterns";
+import LoadMetric from "./load-metric";
 import {
   cx,
   Metric,
@@ -35,6 +37,7 @@ export default function Journal(
   const { pulse: p, session: s, history, view, setView } = props;
   const [selected, setSelected] = useState<Moment | null>(null),
     [range, setRange] = useState(0),
+    [showPrice, setShowPrice] = useState(false),
     [filter, setFilter] = useState("All moments"),
     [filters, setFilters] = useState(false),
     [expanded, setExpanded] = useState(""),
@@ -49,7 +52,7 @@ export default function Journal(
         s.endedAt || s.startedAt,
         p.samples.at(-1)?.t || 0,
         ...s.events.map((e) => e.t),
-        ...s.journal.map((n) => n.t),
+        ...s.journal.map((n) => noteTime(n) ?? 0),
       );
   const demo = isOct20Demo(s);
   const marketSymbols = [...new Set(s.events.filter((e) => !e.voided).map((e) => e.symbol))];
@@ -125,7 +128,7 @@ export default function Journal(
   );
   const notes = liveNotes(s.journal).filter(
     (n) =>
-      n.t <= cutoff && (position === 100 || (n.updatedAt || n.t) <= cutoff),
+      (noteTime(n) === null || noteTime(n)! <= cutoff) && (position === 100 || (n.updatedAt || n.t) <= cutoff),
   );
   const events = s.events.filter(
     (e) =>
@@ -153,22 +156,22 @@ export default function Journal(
       event: e,
       bpm: nearest(samples, e.t)?.bpm ?? null,
     })),
-    ...notes.map((n) => ({
+    ...notes.filter(n => noteTime(n) !== null || (n.tradeId && isTradeSection(n.section))).map((n) => ({
       id: n.id,
-      t: n.t,
+      t: noteTime(n) ?? n.t,
       phase: "REFLECTION",
       label: n.label,
       text: n.text || "A moment marked for reflection.",
       note: n,
-      bpm: nearest(samples, n.t)?.bpm ?? n.context?.bpm ?? null,
+      bpm: noteTime(n) === null ? null : nearest(samples, noteTime(n)!)?.bpm ?? n.context?.bpm ?? null,
     })),
   ].sort((a, b) => a.t - b.t);
-  const trades = reconstructTrades(events.filter(isActualExecution));
+  const trades = sessionTrades({ ...s, events });
   const trade =
-    trades.find(
+    trades.find(t => t.id === selected?.note?.tradeId || t.entryEventId === selected?.event?.id || t.exitEventId === selected?.event?.id) || trades.find(
       (t) => t.symbol === symbol && selected && t.entry <= selected.t && (t.exit || end) >= selected.t,
     ) || trades.find((t) => t.symbol === symbol) || trades[0];
-  const phaseDefs = trade
+  const phaseDefs = trade && !events.some(e => e.id === trade.entryEventId && e.timePrecision === "day")
     ? [
         {
           name: "BEFORE",
@@ -178,17 +181,17 @@ export default function Journal(
         },
         { name: "ENTRY", t: trade.entry },
         { name: "MANAGEMENT", t: Math.round((trade.entry + (trade.exit || cutoff)) / 2) },
-        { name: "EXIT", t: trade.exit ?? cutoff },
+        ...(trade.exit === undefined ? [] : [{ name: "EXIT", t: trade.exit },
         {
           name: "AFTER",
           t:
             notes.find((n) => n.t > (trade.exit || cutoff))?.t ??
             Math.min(cutoff, (trade.exit || cutoff) + 60000),
-        },
+        }]),
       ]
     : [];
   const phases: Moment[] = phaseDefs.map(({ name, t }) => {
-    const n = notes.find((n) => n.t === t);
+    const n = notes.find((n) => n.tradeId === trade?.id && n.section === name.toLowerCase()) || notes.find((n) => !n.section && n.t === t);
     const pts =
       name === "MANAGEMENT"
         ? samples.filter(
@@ -209,7 +212,7 @@ export default function Journal(
     };
   });
   const current =
-    selected && selected.t <= cutoff
+    selected && (selected.t <= cutoff || (selected.note && noteTime(selected.note) === null))
       ? selected
       : phases.find((m) => m.phase === "ENTRY") ||
         rows[0] || {
@@ -250,6 +253,8 @@ export default function Journal(
     ).entries(),
   ];
   const chartRows = rows.filter((row) => {
+    if (row.note && noteTime(row.note) === null) return false;
+    if (row.event?.timePrecision === "day") return false;
     if (row.event) return row.event.symbol === symbol;
     const linked = row.note?.context?.eventId;
     return !linked || s.events.find((event) => event.id === linked)?.symbol === symbol;
@@ -265,6 +270,27 @@ export default function Journal(
       ]),
     ).entries(),
   ];
+  const selectedPhase = current.note?.section || (isTradeSection(current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"])
+    ? current.phase.toLowerCase() : timelinePhase(current.phase, current.t, trades));
+  const phaseWindow: [number, number] | undefined = !trade ? undefined
+    : selectedPhase === "before" ? [Math.max(start, trade.entry - 600000), trade.entry]
+    : selectedPhase === "management" ? [trade.entry, trade.exit ?? cutoff]
+    : selectedPhase === "after" && trade.exit !== undefined ? [trade.exit, Math.min(cutoff, trade.exit + 600000)]
+    : selectedPhase === "entry" ? [trade.entry - 10000, trade.entry + 10000]
+    : selectedPhase === "exit" && trade.exit !== undefined ? [trade.exit - 10000, trade.exit + 10000] : undefined;
+  const rowTrade = (row: Moment) => trades.findIndex(t => row.note?.tradeId === t.id || row.event?.id === t.entryEventId || row.event?.id === t.exitEventId);
+  const rowPhase = (row: Moment) => row.note?.section || timelinePhase(row.phase, row.t, trades);
+  const phaseOrder = ["before", "entry", "management", "exit", "after", "reflection"];
+  const orderedRows = [...rows].sort((a, b) => rowTrade(a) - rowTrade(b)
+    || phaseOrder.indexOf(rowPhase(a)) - phaseOrder.indexOf(rowPhase(b))
+    || (a.note?.order ?? a.t) - (b.note?.order ?? b.t));
+  function editMoment(row: Moment) {
+    const target = trades[rowTrade(row)];
+    props.onReflect({ t: row.note ? noteTime(row.note) ?? row.t : row.t,
+      eventTime: row.note ? noteTime(row.note) : row.event?.timePrecision === "day" ? null : row.t,
+      section: row.note?.section || (target ? rowPhase(row) as import("@/lib/model").JournalEntry["section"] : "day-review"),
+      tradeId: target?.id, ...(row.note ? { entry: row.note } : {}) });
+  }
   return (
     <>
       <section className={cx("metrics")}>
@@ -306,14 +332,9 @@ export default function Journal(
               : "No heart-rate samples"
           }
         />
-        <Metric
-          label="Session load"
-          value={
-            samples.length ? (moments.length > 0 ? "Elevated" : "Steady") : "—"
-          }
-          detail={`${moments.filter((m) => m.kind === "rise").length} spikes · ${moments.filter((m) => m.kind === "elevation").length} sustained rises`}
-          subtle
-        />
+        <LoadMetric samples={samples} session={s} history={history} settings={p.settings} onInspect={t => {
+          setSelected({ id: `hr-${t}`, t, phase: "MOMENT", label: "Recorded rise", text: "Inspect this recorded heart-rate window.", bpm: nearest(samples, t)?.bpm ?? null });
+        }} />
       </section>
       <div className={cx("sectiontabs")} aria-label="Journal views">
         {(["story", "patterns", "review"] as const).map((v, i) => (
@@ -333,9 +354,10 @@ export default function Journal(
             <div className={cx("timeline-head")}>
               <div>
                 <h2>The rhythm of your session</h2>
-                <p>Price and heart rate on the same timeline. Select or drag to inspect a moment.</p>
+                <p>{showPrice ? "Price and heart rate on the same timeline." : "Select a moment or drag across a range to add context."}</p>
               </div>
               <div className={cx("ranges")}>
+                <button className={cx(showPrice && "active")} aria-pressed={showPrice} onClick={() => setShowPrice(v => !v)}>Price</button>
                 {[
                   [15, "15m"],
                   [60, "1h"],
@@ -351,7 +373,7 @@ export default function Journal(
                 ))}
               </div>
             </div>
-            <div className={cx("price-controls")}>
+            <div className={cx("price-controls")} hidden={!showPrice}>
               <label>
                 Instrument
                 <select
@@ -372,7 +394,7 @@ export default function Journal(
               </span>
             </div>
             <div className={cx("chartlegend")}>
-              <span className={cx("price-legend")}>
+              <span className={cx("price-legend")} hidden={!showPrice}>
                 <i className={cx("legend-candle", "rising")} />
                 <i className={cx("legend-candle", "falling")} />
                 {symbol || "Price"} candles
@@ -388,11 +410,11 @@ export default function Journal(
                   : Math.round(stats.baseline)}{" "}
                 baseline
               </span>
-              <span style={{ color: "var(--green)" }}>● Entry</span>
-              <span style={{ color: "var(--purple)" }}>● Reflection</span>
+              {["before", "entry", "management", "exit", "after"].map(phase => <span key={phase} style={{ color: `var(--${phase})` }}>● {phase[0].toUpperCase() + phase.slice(1)}</span>)}
             </div>
             <Chart
-              key={s.id + ":" + symbol + ":" + range}
+              key={s.id + ":" + symbol + ":" + range + ":" + showPrice}
+              showPrice={showPrice}
               samples={samples}
               baseline={stats.baseline}
               start={start}
@@ -403,12 +425,14 @@ export default function Journal(
               demo={demo}
               moments={chartRows}
               selected={current.id}
+              selectedPhase={selectedPhase}
+              phaseWindow={phaseWindow}
               onSelect={pick}
             />
             <div className={cx("phases")}>
               {phases.map((m) => (
                 <button
-                  className={cx("phase", current.id === m.id && "active")}
+                  className={cx("phase", selectedPhase === m.phase.toLowerCase() && "active")}
                   data-phase={m.phase.toLowerCase()}
                   key={m.id}
                   onClick={() => pick(m)}
@@ -435,7 +459,7 @@ export default function Journal(
             <div className={cx("moment-accent")} />
             <div className={cx("momentbody")}>
               <div className={cx("momenttitle")}>
-                <h3>Trade context</h3>
+                <h3>{showPrice ? "Trade context" : "Selected moment"}</h3>
                 <button
                   aria-label="Clear selected moment"
                   onClick={() => setSelected(null)}
@@ -443,7 +467,7 @@ export default function Journal(
                   ×
                 </button>
               </div>
-              {trade && (
+              {showPrice && trade && (
                 <>
                   <div className={cx("context-symbol")}>
                     <strong>{trade.symbol}</strong>
@@ -470,8 +494,7 @@ export default function Journal(
                   </div>
                 </>
               )}
-              <div className={cx("context-divider")} />
-              <span className={cx("context-section")}>Selected moment</span>
+              {showPrice && <><div className={cx("context-divider")} /><span className={cx("context-section")}>Selected moment</span></>}
               <div className={cx("bigbpm")}>
                 <strong>{current.bpm ?? "—"}</strong>
                 <span>BPM</span>
@@ -482,16 +505,16 @@ export default function Journal(
                   : `${signed(delta)} above your baseline`}
               </div>
               <div className={cx("momenttime")}>
-                {time(current.t)} · {current.phase}
+                {current.note && noteTime(current.note) === null ? "Untimed" : time(current.t)} · {current.note?.section || current.phase}
               </div>
               <span className={cx("tag")}>{current.label}</span>
               <p className={cx("quote")}>“{current.text}”</p>
               <div className={cx("contextactions")}>
                 <button
                   className={cx("ghost")}
-                  onClick={() => props.onAdvanced(current.event)}
+                  onClick={() => setShowPrice(v => !v)}
                 >
-                  View price
+                  {showPrice ? "Heart rate" : "View price"}
                 </button>
                 <button
                   className={cx("ghost")}
@@ -533,8 +556,8 @@ export default function Journal(
         </div>
         <div className={cx("journalflow")}>
           <Title
-            title="The day, in order"
-            description="Execution, physiology and your own words on one continuous timeline."
+            title="Session timeline"
+            description="What happened, when it happened and the HR recorded at that moment. Select a phase to add or edit its note."
           >
             <button
               className={cx("ghost")}
@@ -622,16 +645,19 @@ export default function Journal(
             </div>
           )}
           <div className={cx("flow")}>
-            {rows
+            {orderedRows
               .filter(
                 (r) =>
                   filter === "All moments" ||
                   (filter === "Trades" ? r.event : r.note),
               )
-              .map((row) => {
-                const phase = timelinePhase(row.phase, row.t, trades);
+              .map((row, rowIndex, visibleRows) => {
+                const phase = row.note?.section || timelinePhase(row.phase, row.t, trades);
                 return (
                 <div key={row.id}>
+                  {(rowIndex === 0 || rowTrade(visibleRows[rowIndex - 1]) !== rowTrade(row)) && <h3 className={cx("timeline-group")}>
+                    {rowTrade(row) < 0 ? "Session moments" : `Trade ${rowTrade(row) + 1} · ${trades[rowTrade(row)].symbol}`}
+                  </h3>}
                   <div
                     role="button"
                     data-phase={phase}
@@ -641,19 +667,21 @@ export default function Journal(
                         e.preventDefault();
                         pick(row);
                         setExpanded((v) => (v === row.id ? "" : row.id));
+                        editMoment(row);
                       }
                     }}
                     className={cx(
                       "entryrow",
-                      current.id === row.id && "selected-row",
+                      (current.id === row.id || selectedPhase === phase) && "selected-row",
                     )}
                     aria-expanded={expanded === row.id}
                     onClick={() => {
                       pick(row);
                       setExpanded((v) => (v === row.id ? "" : row.id));
+                      editMoment(row);
                     }}
                   >
-                    <time>{time(row.t)}</time>
+                    <time>{row.note && noteTime(row.note) === null ? "Untimed" : row.event?.timePrecision === "day" ? "Date only" : time(row.t)}</time>
                     <span className={cx("phasepill")}>
                       {row.phase === "FILL"
                         ? "Fill"
@@ -667,7 +695,7 @@ export default function Journal(
                                 ? "Reflection"
                                 : phase === "entry"
                                   ? "Entry"
-                                  : "Exit"}
+                                  : phase === "exit" ? "Exit" : row.note?.section ? sectionName(row.note.section) : "Reflection"}
                     </span>
                     <div className={cx("hrvalue")}>
                       {row.bpm ?? "—"}
@@ -678,7 +706,7 @@ export default function Journal(
                       </small>
                     </div>
                     <div className={cx("entrytext")}>
-                      <em>{row.label.toUpperCase()}</em> {row.text}
+                      <em>{row.label.toUpperCase()}</em> {row.text.slice(0, 160)}{row.text.length > 160 ? "…" : ""}
                     </div>
                     {row.note?.screenshot ? (
                       <div
@@ -774,7 +802,10 @@ export default function Journal(
         </div>
         <Writing
           key={s.id}
+          session={s}
           time={Math.min(current.t, cutoff)}
+          selection={selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
+            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined}
           onSave={p.addNote}
           onReflect={props.onReflect}
           onReview={() => setView("review")}

@@ -84,6 +84,46 @@ export function eventWindow(
     at: nearest(samples, event.t)?.bpm ?? null,
   };
 }
+// A position runs from its first known entry until all its quantity is closed.
+// Partial exits and scale-ins remain in that window; accounts never cross-pair.
+export function positionWindow(samples: Sample[], events: TradeEvent[], selected: TradeEvent, seconds: number, viewEnd: number) {
+  const usable = (e: TradeEvent) => !e.voided && e.kind !== "fill" &&
+    e.timePrecision !== "day" && !["alert", "strategy", "backtest"].includes(e.provenance || "");
+  if (!usable(selected)) return null;
+  const account = (e: TradeEvent) => e.broker?.accountId || e.account || "";
+  const instrument = (e: TradeEvent) => e.instrument?.id || e.symbol;
+  const rows = events.filter((e) => usable(e) && e.t <= viewEnd &&
+    account(e) === account(selected) && instrument(e) === instrument(selected) && e.side === selected.side)
+    .sort((a, b) => a.t - b.t);
+  let quantity = 0, start: number | undefined, contains = false, approximate = false;
+  let closedAt: number | undefined;
+  for (const row of rows) {
+    if (row.kind === "entry") {
+      if (quantity === 0) { start = row.t; contains = false; approximate = false; }
+      quantity += row.quantity;
+    } else {
+      if (quantity === 0) continue;
+      // Incomplete position history cannot establish a reliable holding window.
+      if (row.quantity > quantity + 1e-8) return null;
+      quantity = Math.max(0, quantity - row.quantity);
+    }
+    contains ||= row.id === selected.id;
+    approximate ||= row.timestampSource === "order-update";
+    if (quantity < 1e-8) {
+      quantity = 0;
+      if (contains) { closedAt = row.t; break; }
+      start = undefined;
+    }
+  }
+  if (!contains || start === undefined) return null;
+  const end = closedAt ?? viewEnd;
+  const before = samples.filter((p) => p.t >= start - seconds * 1000 && p.t < start);
+  const during = samples.filter((p) => p.t >= start && p.t <= end);
+  const after = closedAt === undefined ? [] : samples.filter((p) => p.t > end && p.t <= end + seconds * 1000);
+  const mean = (points: Sample[]) => points.length ? points.reduce((sum, p) => sum + p.bpm, 0) / points.length : null;
+  return { start, end, closed: closedAt !== undefined, approximate, before: mean(before), during: mean(during), after: mean(after), count: during.length };
+}
+
 export function decodeHeartRate(value: DataView): number | null {
   if (value.byteLength < 2) return null;
   const is16 = (value.getUint8(0) & 1) !== 0;

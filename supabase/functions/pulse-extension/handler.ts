@@ -196,7 +196,7 @@ export async function POST(request: Request) {
     const message = e instanceof Error ? e.message : "";
     if (/unauthorized/i.test(message))
       return response(
-        { error: "Connection expired or revoked. Reconnect Trade Pulse." },
+        { error: "Connection expired or revoked. Reconnect Still Signal." },
         401,
       );
     if (/session deleted|session not found|note not found/.test(message))

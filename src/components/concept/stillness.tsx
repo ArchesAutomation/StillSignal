@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { JournalEntry } from "@/lib/model";
+import type { JournalEntry, Session } from "@/lib/model";
+import { destination, isTradeSection, validateDestination } from "@/lib/journal-routing";
+import { useJournalDraft } from "../use-journal-draft";
+import Destination from "./destination";
+import PostSession from "./post-session";
 import type { ReflectionDraft } from "../reflection-editor";
 import { cx } from "./shared";
 const steps = [
@@ -33,20 +37,25 @@ export default function Stillness({
   onSave,
   onReflect,
   startSignal,
+  session,
 }: {
   time: number;
   onSave: (n: JournalEntry) => Promise<void>;
   onReflect: (d: ReflectionDraft) => void;
   startSignal: number;
+  session: Session;
 }) {
-  const [text, setText] = useState(""),
-    [topic, setTopic] = useState<keyof typeof topics>("Thought"),
+  const [text, setText] = useJournalDraft(`ss-stillness:${session.owner}:${session.id}`);
+  const [topic, setTopic] = useState<keyof typeof topics>("Thought"),
     [index, setIndex] = useState(0),
     [running, setRunning] = useState(false),
     [elapsed, setElapsed] = useState(0),
     [begun, setBegun] = useState(false),
     [busy, setBusy] = useState(false),
     [status, setStatus] = useState("");
+  const [link, setLink] = useState(false), [timed, setTimed] = useState(false);
+  const [section, setSection] = useState<JournalEntry["section"]>("day-review"), [tradeId, setTradeId] = useState(""), [custom, setCustom] = useState("");
+  const route = { section: link ? section : "stillness" as const, tradeId: link && isTradeSection(section) ? tradeId || undefined : undefined, customSection: custom || undefined };
   const elapsedRef = useRef(0);
   function begin() {
     if (elapsedRef.current >= 60) {
@@ -84,7 +93,7 @@ export default function Stillness({
           <div className={cx("eyebrow")}>A private mindfulness note</div>
           <h2>What are you noticing?</h2>
           <p>
-            Saved to your selected journal, with your own words and timestamp.
+            Private in Stillness until you choose to link it.
           </p>
           <textarea
             aria-label="Mindfulness note"
@@ -94,6 +103,9 @@ export default function Stillness({
             onChange={(e) => setText(e.target.value)}
             placeholder="A thought, feeling, sensation or urge—without needing to make it sound clever..."
           />
+          <label className={cx("time-link")}><input type="checkbox" checked={link} onChange={e => setLink(e.target.checked)} /> Add to main journal</label>
+          {link && <Destination session={session} section={section} tradeId={tradeId} custom={custom} onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />}
+          <label className={cx("time-link")}><input type="checkbox" checked={timed} onChange={e => setTimed(e.target.checked)} /> Link to current HR window</label>
           <div className={cx("noticeactions")}>
             <button
               className={cx("primary")}
@@ -101,15 +113,19 @@ export default function Stillness({
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await onSave({
+                  const note: JournalEntry = {
                     id: crypto.randomUUID(),
-                    t: time,
-                    label: "Other",
+                    t: Date.now(),
+                    eventTime: timed ? time : null,
+                    ...route,
+                    label: "Unlabelled",
                     text,
                     source: "typed",
-                  });
+                  };
+                  validateDestination(note, session);
+                  await onSave(note);
                   setText("");
-                  setStatus("Moment saved to your journal.");
+                  setStatus(link ? `Saved to ${destination(note, session)} and today's journal.` : "Saved privately in Stillness.");
                 } catch (e) {
                   setStatus(
                     e instanceof Error
@@ -128,6 +144,8 @@ export default function Stillness({
               onClick={() =>
                 onReflect({
                   t: time,
+                  eventTime: timed ? time : null,
+                  ...route,
                   source: "voice",
                   autoListen: true,
                   initialText: text,
@@ -138,12 +156,18 @@ export default function Stillness({
             </button>
             <button
               className={cx("ghost")}
-              onClick={() => onReflect({ t: time, initialText: text })}
+              onClick={() => { setTimed(true); setStatus("HR window selected. Save this moment to confirm the link."); }}
             >
               Link to current HR
             </button>
           </div>
           {status && <p role="status">{status}</p>}
+          <div className={cx("private-notes")}>
+            {session.journal.filter(n => !n.deletedAt && n.section === "stillness").map(note =>
+              <article key={note.id}><p>{note.text}</p><button className={cx("textlink")} onClick={() => {
+                setText(note.text); setLink(true); setStatus("Choose a destination, then save a copy to your journal.");
+              }}>Link a copy to journal</button></article>)}
+          </div>
         </section>
         <section className={cx("returncard", begun && "active")}>
           <div className={cx("eyebrow")}>60 seconds</div>
@@ -235,6 +259,7 @@ export default function Stillness({
           </button>
         </div>
       </div>
+      <PostSession session={session} onSave={onSave} />
     </div>
   );
 }

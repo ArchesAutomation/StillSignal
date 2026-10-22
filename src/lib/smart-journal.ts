@@ -17,7 +17,7 @@ export type HrMoment = {
   kind: "rise" | "elevation";
 };
 export const liveNotes = (notes: JournalEntry[]) =>
-  notes.filter((n) => !n.deletedAt);
+  notes.filter((n) => !n.deletedAt && n.section !== "stillness");
 const revision = (n: JournalEntry) =>
   Math.max(n.updatedAt || n.t, n.deletedAt || 0);
 export function mergeNotes(...sets: JournalEntry[][]) {

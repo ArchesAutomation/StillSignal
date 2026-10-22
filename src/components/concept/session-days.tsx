@@ -9,6 +9,7 @@ import { getSamples } from "@/lib/storage";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { Screenshot } from "../reflection-editor";
 import { cx, time } from "./shared";
+import { noteTime } from "@/lib/journal-routing";
 
 const count = (n: number, singular: string) =>
   `${n.toLocaleString()} ${singular}${n === 1 ? "" : "s"}`;
@@ -53,7 +54,7 @@ function EntryModule({
   return (
     <details className={cx("entry-module")}>
       <summary>
-        <span className={cx("entry-time")}>{time(entry.t, false)}</span>
+        <span className={cx("entry-time")}>{noteTime(entry) === null ? "Untimed" : time(noteTime(entry)!, false)}</span>
         <span className={cx("entry-label")}>{entry.label || "Reflection"}</span>
         <span className={cx("entry-preview")}>{preview}</span>
         <span className={cx("module-chevron")} aria-hidden="true">⌄</span>
@@ -61,7 +62,7 @@ function EntryModule({
       <div className={cx("entry-module-body")}>
         <p>{entry.text || "No written reflection was saved."}</p>
         <div className={cx("entry-context")}>
-          <span>{new Date(entry.t).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span>
+          <span>{noteTime(entry) === null ? "No event time supplied" : new Date(noteTime(entry)!).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span>
           {entry.context?.bpm !== undefined && <span>{entry.context.bpm} BPM</span>}
           {entry.context?.baseline !== undefined && <span>Baseline {Math.round(entry.context.baseline)} BPM</span>}
           {entry.context?.delta !== undefined && (

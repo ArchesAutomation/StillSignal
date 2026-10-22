@@ -27,6 +27,7 @@ import { connectHeartRate } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
 import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
+import { noteTime, validateDestination } from "@/lib/journal-routing";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -53,9 +54,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     writing = useRef(Promise.resolve()),
     insightLast = useRef(0);
   const sessionLoad = useRef(0);
+  const noteWrites = useRef(Promise.resolve());
   const save = useCallback(async (s: Session) => {
-    current.current = s;
-    setSession(s);
     if (s.id !== "workspace") {
       await storage.saveSession(s);
       setHistory((h) =>
@@ -64,6 +64,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         ),
       );
     }
+    current.current = s;
+    setSession(s);
   }, []);
   const refreshHistory = useCallback(
     async () => setHistory(await storage.listSessions(owner)),
@@ -190,6 +192,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     connection.current = null;
     setDevice("");
     await writing.current;
+    await noteWrites.current;
     const s = current.current;
     if (s && s.id !== "workspace") {
       await save({
@@ -227,6 +230,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       events: [],
       journal: [],
       sampleCount: 0,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     await save(s);
     raw.current = [];
@@ -505,6 +509,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     );
   }
   async function addNote(note: JournalEntry) {
+    const task = noteWrites.current.then(() => persistNote(note));
+    noteWrites.current = task.catch(() => {});
+    return task;
+  }
+  async function persistNote(note: JournalEntry) {
     if (current.current?.id === "workspace")
       await start(undefined, Math.min(Date.now(), note.t));
     const s = current.current;
@@ -514,19 +523,21 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       if (s.journal.length >= 1000 && !s.journal.some((j) => j.id === note.id))
         throw new Error("This session supports up to 1,000 journal entries.");
       const old = s.journal.find((j) => j.id === note.id);
+      validateDestination(note, s);
+      const occurredAt = noteTime(note);
       if (
-        note.t < Math.min(s.startedAt, s.events[0]?.t ?? Infinity) ||
-        (s.endedAt && note.t > Math.max(s.endedAt, s.events.at(-1)?.t ?? 0)) ||
-        note.t > Date.now() + 300000
+        occurredAt !== null && (
+          occurredAt < Math.min(s.startedAt, s.events[0]?.t ?? Infinity) ||
+          (s.endedAt && occurredAt > Math.max(s.endedAt, s.events.at(-1)?.t ?? 0)) ||
+          occurredAt > Date.now() + 300000)
       )
         throw new Error("Choose a moment inside this journal's time range.");
       const updated = {
         ...note,
-        context: note.deletedAt
+        context: note.deletedAt || occurredAt === null || note.section === "stillness"
           ? undefined
           : {
-              ...(old?.context ||
-                reflectionContext(raw.current, note.t, settings, s.events)),
+              ...reflectionContext(raw.current, occurredAt, settings, s.events),
               ...note.context,
             },
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),

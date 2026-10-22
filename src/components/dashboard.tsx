@@ -2257,6 +2257,7 @@ export default function Dashboard({
           }}
         >
           <ReflectionEditor
+            session={s}
             draft={noteDraft || { t: selected?.t || viewEnd }}
             owner={p.owner}
             prepareScreenshot={p.prepareScreenshot}

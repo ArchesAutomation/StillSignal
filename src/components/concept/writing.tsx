@@ -1,243 +1,123 @@
 "use client";
-import { useState } from "react";
-import type { JournalEntry } from "@/lib/model";
+import { useEffect, useState } from "react";
+import type { JournalEntry, Session } from "@/lib/model";
 import type { ReflectionDraft } from "../reflection-editor";
-import { cx, Title } from "./shared";
+import { liveNotes } from "@/lib/smart-journal";
+import { destination, isTradeSection, noteTime, sections, sectionName, validateDestination } from "@/lib/journal-routing";
+import { useJournalDraft } from "../use-journal-draft";
+import Destination from "./destination";
+import { cx, Title, time as displayTime } from "./shared";
 const prompts = [
-  "What were you feeling before the setup appeared?",
-  "When did the physical response begin—before or after the thought?",
-  "While managing the position, what held most of your attention?",
-  "Did your behaviour still match the plan?",
-  "What remained in your body after the exit?",
-];
-export default function Writing({
-  time,
-  onSave,
-  onReflect,
-  onReview,
-}: {
-  time: number;
-  onSave: (n: JournalEntry) => Promise<void>;
-  onReflect: (d: ReflectionDraft) => void;
-  onReview: () => void;
+  { section: "before", text: "What did you notice before this setup appeared?" },
+  { section: "entry", text: "Why did you take this entry, and did it follow your plan?" },
+  { section: "management", text: "While managing this position, what held most of your attention?" },
+  { section: "exit", text: "What led to this exit, and did it follow your plan?" },
+  { section: "after", text: "What did you notice yourself wanting to do after the exit?" },
+] as const;
+type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean };
+const empty: Draft = { text: "", answer: "", deep: "", prompt: 0, section: "day-review", tradeId: "", custom: "", choice: "", timed: false };
+export default function Writing({ time, session, onSave, onReflect, onReview, selection }: {
+  time: number; session: Session; onSave: (n: JournalEntry) => Promise<void>;
+  onReflect: (d: ReflectionDraft) => void; onReview: () => void;
+  selection?: { section: JournalEntry["section"]; tradeId: string };
 }) {
-  const [text, setText] = useState(""),
-    [prompt, setPrompt] = useState(0),
-    [answering, setAnswering] = useState(false),
-    [answer, setAnswer] = useState(""),
-    [choice, setChoice] = useState(""),
-    [deep, setDeep] = useState(""),
-    [busy, setBusy] = useState(false),
-    [status, setStatus] = useState(""),
-    [error, setError] = useState(false);
-  async function save(value: string, clear: () => void) {
+  const [stored, store, ready] = useJournalDraft(`ss-v4-writing:${session.owner}:${session.id}`);
+  let draft = empty;
+  try { draft = { ...empty, ...JSON.parse(stored || "{}") }; } catch {}
+  const [busy, setBusy] = useState(false), [status, setStatus] = useState(""), [focus, setFocus] = useState(false);
+  useEffect(() => {
+    if (!focus) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setFocus(false); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [focus]);
+  const change = (patch: Partial<Draft>) => { store(JSON.stringify({ ...draft, ...patch })); setStatus(""); };
+  useEffect(() => {
+    if (ready && selection) change({ section: selection.section, tradeId: selection.tradeId });
+  // Selection changes deliberately choose a journal destination across panes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection?.section, selection?.tradeId, ready]);
+  const target = (section = draft.section) => ({
+    section, tradeId: isTradeSection(section) ? draft.tradeId || undefined : undefined,
+    customSection: section === "custom" ? draft.custom : undefined,
+  });
+  async function save(value: string, kind: "text" | "answer" | "deep") {
     if (!value.trim() || busy) return;
-    setBusy(true);
-    setStatus("");
+    const question = prompts[draft.prompt];
+    const section = kind === "answer" ? question.section : draft.section;
+    setBusy(true); setStatus("Saving…");
     try {
-      await onSave({
-        id: crypto.randomUUID(),
-        t: time,
-        label: "Other",
-        text: value.trim().slice(0, 2000),
-        source: "typed",
-      });
-      clear();
-      setError(false);
-      setStatus("Reflection saved to your journal.");
-    } catch (e) {
-      setError(true);
-      setStatus(
-        e instanceof Error
-          ? e.message
-          : "Could not save. Your draft is still here.",
-      );
-    } finally {
-      setBusy(false);
-    }
+      const note: JournalEntry = {
+        id: crypto.randomUUID(), t: Date.now(), eventTime: draft.timed ? time : null,
+        label: "Unlabelled", text: value, source: "typed", ...target(section),
+        ...(kind === "answer" ? { prompt: { id: `phase-${draft.prompt}`, question: question.text } } : {}),
+        ...(kind === "deep" ? { prompt: { id: "deeper", question: "What happened immediately before the action?", ...(draft.choice && draft.choice !== "Something else" ? { choice: draft.choice } : {}) } } : {}),
+      };
+      validateDestination(note, session);
+      await onSave(note);
+      change({ [kind]: "", ...(kind === "answer" ? { prompt: (draft.prompt + 1) % prompts.length } : {}) });
+      setStatus(`Saved to ${destination(note, session)} and today's journal.`);
+    } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save. Your draft is still here."); }
+    finally { setBusy(false); }
   }
-  return (
-    <>
-      <div className={cx("reflection")}>
-        <div className={cx("paper")}>
-          <Title
-            title="My journal"
-            description="Write freely first. Keep your own words at the centre of the trade."
-          >
-            <div className={cx("journaltools")}>
-              <button
-                className={cx("ghost")}
-                onClick={() => onReflect({ t: time, initialText: text })}
-              >
-                Add screenshot
-              </button>
-              <button className={cx("ghost", "aiassist")} onClick={onReview}>
-                ✦ Organise your review
-              </button>
-            </div>
-          </Title>
-          <textarea
-            aria-label="Journal reflection"
-            value={text}
-            maxLength={2000}
-            disabled={busy}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="What was happening before you entered? What changed while you were in the trade?"
-          />
-          <div className={cx("writing-actions")}>
-            <button
-              className={cx("primary")}
-              disabled={busy || !text.trim()}
-              onClick={() => void save(text, () => setText(""))}
-            >
-              Save to journal
-            </button>
-            <button
-              className={cx("ghost")}
-              onClick={() =>
-                onReflect({
-                  t: time,
-                  source: "voice",
-                  autoListen: true,
-                  initialText: text,
-                })
-              }
-            >
-              ● Speak instead
-            </button>
-          </div>
+  function dictate(value: string) {
+    onReflect({ t: time, eventTime: draft.timed ? time : null, ...target(), source: "voice", autoListen: true, initialText: value });
+  }
+  const records = liveNotes(session.journal);
+  return <section className={cx("writing-workspace", focus && "writing-focus")} aria-label="Main journal">
+    <div className={cx("paper")}>
+      <Title title="My journal" description="Your words, organised by trade and phase.">
+        <div className={cx("journaltools")}>
+          <button className={cx("ghost")} onClick={() => setFocus(v => !v)}>{focus ? "Close focus" : "Expand journal"}</button>
+          <button className={cx("ghost")} onClick={onReview}>Review session</button>
         </div>
-        <div className={cx("prompts")}>
-          <div className={cx("promptcarousel")}>
-            <div>
-              <h3>One question at a time</h3>
-              <div className={cx("promptquestion")}>{prompts[prompt]}</div>
-              {answering && (
-                <textarea
-                  autoFocus
-                  className={cx("promptanswer", "show")}
-                  aria-label="Prompt answer"
-                  value={answer}
-                  maxLength={1700}
-                  disabled={busy}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="Answer here, or add this question to your journal..."
-                />
-              )}
-            </div>
-            <div>
-              <div className={cx("promptnav")}>
-                <button
-                  className={cx("ghost")}
-                  aria-label="Previous prompt"
-                  onClick={() => setPrompt((n) => (n + 4) % 5)}
-                >
-                  ←
-                </button>
-                <div className={cx("promptdots")}>
-                  {prompts.map((_, i) => (
-                    <i key={i} className={cx(i === prompt && "active")} />
-                  ))}
-                </div>
-                <button
-                  className={cx("primary")}
-                  disabled={busy}
-                  onClick={() =>
-                    answering
-                      ? void save(prompts[prompt] + "\n\n" + answer, () => {
-                          setAnswer("");
-                          setAnswering(false);
-                        })
-                      : setAnswering(true)
-                  }
-                >
-                  {answering ? "Save answer" : "Answer this"}
-                </button>
-                <button
-                  className={cx("ghost")}
-                  aria-label="Next prompt"
-                  onClick={() => setPrompt((n) => (n + 1) % 5)}
-                >
-                  →
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      </Title>
+      <Destination session={session} section={draft.section} tradeId={draft.tradeId} custom={draft.custom}
+        onSection={section => change({ section })} onTrade={tradeId => change({ tradeId })} onCustom={custom => change({ custom })} />
+      <label className={cx("time-link")}><input type="checkbox" checked={draft.timed} onChange={e => change({ timed: e.target.checked })} />
+        Link to selected time {displayTime(time)} and recorded HR
+      </label>
+      <textarea className={cx("journal-text")} aria-label="Journal reflection" maxLength={2000} disabled={!ready || busy} value={draft.text} onChange={e => change({ text: e.target.value })} placeholder="Write what happened, in your own words…" />
+      <div className={cx("writing-actions")}>
+        <button className={cx("primary")} disabled={busy || !draft.text.trim()} onClick={() => void save(draft.text, "text")}>Save to journal</button>
+        <button className={cx("ghost")} onClick={() => dictate(draft.text)}>● Speak instead</button>
+        <button className={cx("ghost")} onClick={() => onReflect({ t: time, eventTime: draft.timed ? time : null, ...target(), initialText: draft.text })}>Add screenshot</button>
+        <span role="status">{status || (draft.text || draft.answer || draft.deep ? "Unsaved changes · draft kept on this device" : "Ready to write")}</span>
       </div>
-      <div className={cx("coachdrill")}>
-        <div className={cx("eyebrow")}>Reflection guide · one layer deeper</div>
-        <h3>What specifically came before the action?</h3>
-        <p>
-          Choose the closest starting point. Then describe what you actually
-          noticed.
-        </p>
-        <div className={cx("choicechips")}>
-          {[
-            "Fear of missing the move",
-            "Frustration after the loss",
-            "Urgency after waiting",
-            "Something else",
-          ].map((c) => (
-            <button
-              key={c}
-              className={cx(c === choice && "active")}
-              onClick={() => setChoice(c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <div
-          className={cx("followup")}
-          style={{ display: choice ? "block" : "none" }}
-        >
-          <strong>Where did you first notice it?</strong>
-          <br />
-          <span className={cx("empty-note")}>
-            Body sensation, thought, attention or behaviour.
-          </span>
-          <textarea
-            aria-label="Deeper reflection"
-            value={deep}
-            disabled={busy}
-            maxLength={1800}
-            onChange={(e) => setDeep(e.target.value)}
-            placeholder="For example: I started watching unrealised P&L, my chest tightened, and I stopped waiting for candle confirmation..."
-          />
-          <div className={cx("followupactions")}>
-            <button
-              className={cx("primary")}
-              disabled={busy || !deep.trim()}
-              onClick={() =>
-                void save((choice ? choice + "\n\n" : "") + deep, () =>
-                  setDeep(""),
-                )
-              }
-            >
-              Save to this HR window
-            </button>
-            <button
-              className={cx("ghost")}
-              onClick={() =>
-                onReflect({
-                  t: time,
-                  source: "voice",
-                  autoListen: true,
-                  initialText: deep,
-                })
-              }
-            >
-              ● Speak answer
-            </button>
-          </div>
-        </div>
-      </div>
-      {status && (
-        <p className={cx("save-status")} role={error ? "alert" : "status"}>
-          {status}
-        </p>
-      )}
-    </>
-  );
+    </div>
+    <section className={cx("promptcarousel")} aria-label="Phase question">
+      <div><div className={cx("eyebrow")}>One question · one location</div>
+      <h3>{prompts[draft.prompt].text}</h3>
+      <p>Destination: {sectionName(prompts[draft.prompt].section)}. Choose the trade above before answering.</p>
+      <Destination session={session} section={prompts[draft.prompt].section} tradeId={draft.tradeId} custom=""
+        onSection={section => { const index = prompts.findIndex(p => p.section === section); if (index >= 0) change({ prompt: index }); }} onTrade={tradeId => change({ tradeId })} onCustom={() => {}} />
+      <textarea aria-label="Prompt answer" maxLength={2000} disabled={busy} value={draft.answer} onChange={e => change({ answer: e.target.value })} />
+      </div><div><div className={cx("promptnav")}><button className={cx("ghost")} aria-label="Previous prompt" disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + prompts.length - 1) % prompts.length })}>←</button>
+      <button className={cx("primary")} disabled={busy || !draft.answer.trim()} onClick={() => void save(draft.answer, "answer")}>Save answer</button>
+      <button className={cx("ghost")} disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + 1) % prompts.length })}>Next prompt →</button>
+      </div><p className={cx("timeline-note")}>The question guides you. It is not copied into the journal.</p></div>
+    </section>
+    <details className={cx("journalquestions")}><summary>Explore a little deeper</summary>
+      <h3>What happened immediately before the action?</h3>
+      <div className={cx("choicechips")}>{["Fear of missing the move", "Frustration after the loss", "Urgency after waiting", "Something else"].map(choice =>
+        <button key={choice} className={cx(choice === draft.choice && "active")} onClick={() => change({ choice })}>{choice}</button>)}</div>
+      <textarea aria-label="Deeper reflection" maxLength={2000} value={draft.deep} onChange={e => change({ deep: e.target.value })} placeholder="Which rule, sensation or thought was present?" />
+      <button className={cx("primary")} disabled={busy || !draft.deep.trim()} onClick={() => void save(draft.deep, "deep")}>Save reflection</button>
+    </details>
+    <div className={cx("journal-sections")}>
+      {[...sections, ...(!records.every(n => n.section) ? ["legacy" as const] : [])].map(section => {
+        const notes = records.filter(n => section === "legacy" ? !n.section : n.section === section)
+          .sort((a, b) => (a.order ?? a.t) - (b.order ?? b.t));
+        if (!notes.length) return null;
+        return <section key={section} data-phase={section} aria-label={section === "legacy" ? "Earlier notes" : sectionName(section)}>
+          <h3>{section === "legacy" ? "Earlier notes · choose a destination when editing" : sectionName(section)}</h3>
+          {notes.map(note => <article key={note.id} className={cx("journal-record")} data-phase={note.section}>
+            <small>{destination(note, session)} · {noteTime(note) === null ? "Untimed" : displayTime(noteTime(note)!)}</small>
+            <p>{note.text}</p>
+            <button className={cx("textlink")} onClick={() => onReflect({ t: note.t, entry: note })}>Edit note</button>
+          </article>)}
+        </section>;
+      })}
+    </div>
+  </section>;
 }

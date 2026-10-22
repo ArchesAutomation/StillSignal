@@ -52,7 +52,7 @@ export function useFloatingJournal() {
     const request = ++generation.current;
     try {
       // This must run before session storage/network awaits consume the click.
-      const pip = await api.requestWindow({ width: 380, height: 640 });
+      const pip = await api.requestWindow({ width: 320, height: 430 });
       if (!alive.current || request !== generation.current) {
         pip.close();
         return;

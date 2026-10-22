@@ -42,7 +42,15 @@ export type TradeEvent = {
 };
 export type JournalEntry = {
   id: string;
+  /** Creation time for V4 entries; legacy entries also used this as event time. */
   t: number;
+  eventTime?: number | null;
+  section?: "before" | "entry" | "management" | "exit" | "after" | "day-review" | "post-session" | "stillness" | "custom";
+  customSection?: string;
+  tradeId?: string;
+  order?: number;
+  prompt?: { id: string; question: string; choice?: string };
+  support?: { outcome: "loss" | "profit" | "breakeven"; adherence: "followed" | "broken" | "partly" };
   label: string;
   text: string;
   updatedAt?: number;
@@ -79,6 +87,8 @@ export type Session = {
   journal: JournalEntry[];
   owner: string;
   sampleCount: number;
+  timezone?: string;
+  demo?: boolean;
 };
 export type Settings = {
   cadence: number;

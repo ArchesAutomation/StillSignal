@@ -2,6 +2,7 @@ import { nearest } from "./analytics";
 import type { JournalEntry, Sample, Session, TradeEvent } from "./model";
 import { liveNotes, mergeNotes, reconstructTrades } from "./smart-journal";
 import { isActualExecution, mergeEvents } from "./trade-context";
+import { noteTime } from "./journal-routing";
 
 export type JourneyStage = {
   key: "before" | "entry" | "management" | "exit" | "after";
@@ -68,19 +69,25 @@ export function buildTradeJourneys(session: Session, samples: Sample[]): TradeJo
     const end = exit ?? Math.max(entry, latest);
     const instrumentId = entryEvent?.instrument?.id || exitEvent?.instrument?.id;
     const around = dayOnly ? [] : notes.filter((note) => {
-      if (note.t < entry - 600000 || note.t > (standalone ? entry + 600000 : exit === undefined ? end : exit + 600000)) return false;
+      if (note.tradeId) return note.tradeId === entryEvent?.id;
+      const timestamp = noteTime(note);
+      if (timestamp === null) return false;
+      if (timestamp < entry - 600000 || timestamp > (standalone ? entry + 600000 : exit === undefined ? end : exit + 600000)) return false;
       if (note.captureScope?.instrumentId && instrumentId && note.captureScope.instrumentId !== instrumentId) return false;
       const linkedEvent = note.context?.eventId && events.find((event) => event.id === note.context?.eventId);
       if (linkedEvent && (linkedEvent.instrument?.id || linkedEvent.symbol) !== (instrumentId || symbol)) return false;
       return true;
     });
     const byStage = (key: JourneyStage["key"]) => around.filter((note) => {
-      if (standalone) return key === "before" ? note.t < entry : key === "entry" ? note.t === entry : key === "after" && note.t > entry;
-      if (key === "before") return note.t < entry;
-      if (key === "entry") return note.t === entry;
-      if (key === "management") return note.t > entry && note.t < end;
-      if (key === "exit") return exit !== undefined && note.t === exit;
-      return exit !== undefined && note.t > exit;
+      if (note.section) return note.section === key;
+      const timestamp = noteTime(note);
+      if (timestamp === null) return false;
+      if (standalone) return key === "before" ? timestamp < entry : key === "entry" ? timestamp === entry : key === "after" && timestamp > entry;
+      if (key === "before") return timestamp < entry;
+      if (key === "entry") return timestamp === entry;
+      if (key === "management") return timestamp > entry && timestamp < end;
+      if (key === "exit") return exit !== undefined && timestamp === exit;
+      return exit !== undefined && timestamp > exit;
     });
     const stage = (key: JourneyStage["key"], title: string, reading: ReturnType<typeof mean>): JourneyStage => ({
       key, title, bpm: dayOnly ? null : reading.bpm,
