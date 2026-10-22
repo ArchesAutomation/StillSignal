@@ -1,4 +1,5 @@
 "use client";
+import { dailyJournalSession } from "@/lib/journal-collection";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
@@ -2223,7 +2224,7 @@ export default function Dashboard({
         createPortal(
           <FloatingJournal
             key={s.id}
-            session={s}
+            session={dailyJournalSession(s, p.history)}
             samples={p.samples}
             now={p.now}
             baselineSeconds={p.settings.baselineSeconds}
@@ -2257,7 +2258,7 @@ export default function Dashboard({
           }}
         >
           <ReflectionEditor
-            session={s}
+            session={dailyJournalSession(s, p.history)}
             draft={noteDraft || { t: selected?.t || viewEnd }}
             owner={p.owner}
             prepareScreenshot={p.prepareScreenshot}

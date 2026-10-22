@@ -43,7 +43,7 @@ export default function FloatingJournal({ session, samples, now, baselineSeconds
           newEntry({ t, screenshotFile });
         } catch (err) { newEntry({ t }); setError((err as Error).message); }
       }} />
-    {draft ? <div className="ss-popup-editor"><ReflectionEditor draft={draft} owner={session.owner} question="Capture this moment." compact prepareScreenshot={prepareScreenshot} onSave={onSave}
+    {draft ? <div className="ss-popup-editor"><ReflectionEditor session={session} draft={draft} owner={session.owner} question="Capture this moment." compact prepareScreenshot={prepareScreenshot} onSave={onSave}
       onDone={() => { setDraft(null); setStatus("Journal entry saved."); }} onCancel={() => setDraft(null)} /></div>
       : <button className="ss-popup-write" onClick={() => newEntry()}>Write a note →</button>}
     {message && <p role="status" className="ss-popup-status">{message}</p>}

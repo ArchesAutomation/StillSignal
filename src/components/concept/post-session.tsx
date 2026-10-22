@@ -1,7 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
-import { supportResponse } from "@/lib/journal-routing";
+import { supportResponse, sessionTrades, validateDestination } from "@/lib/journal-routing";
 import { useJournalDraft } from "../use-journal-draft";
 import { cx } from "./shared";
 export default function PostSession({ session, onSave }: { session: Session; onSave: (n: JournalEntry) => Promise<void> }) {
@@ -10,6 +10,7 @@ export default function PostSession({ session, onSave }: { session: Session; onS
   const [adherence, setAdherence] = useState<"followed" | "broken" | "partly" | null>(null);
   const [answer, setAnswer] = useJournalDraft(`ss-support:${session.owner}:${session.id}`);
   const [busy, setBusy] = useState(false), [status, setStatus] = useState("");
+  const [tradeId, setTradeId] = useState("");
   return <section className={cx("outcomesupport")} aria-label="Post-session support">
     <div className={cx("outcomesupport-head")}><div><div className={cx("eyebrow")}>After the result</div>
       <h2>The outcome and your discipline are different questions.</h2>
@@ -29,13 +30,16 @@ export default function PostSession({ session, onSave }: { session: Session; onS
       <p role="status">{outcome && adherence && supportResponse(outcome, adherence)}</p>
       <div className={cx("supportmantra")}>I am not here to prove that I am right. I am here to execute what I have tested.</div>
       <div className={cx("selfsupport")}><div><label htmlFor={answerId}>If another trader had followed the same process, what would you say to them?</label>
+        <label>Trade<select aria-label="Support trade" value={tradeId} onChange={e => setTradeId(e.target.value)}><option value="">Choose a trade</option>{sessionTrades(session).map((trade, i) => <option value={trade.id} key={trade.id}>Trade {i + 1} · {trade.symbol}</option>)}</select></label>
         <textarea id={answerId} aria-label="Post-session answer" value={answer} maxLength={2000} disabled={busy} onChange={e => setAnswer(e.target.value)} placeholder="Speak to yourself with honesty, without turning the result into an identity…" />
       </div><button className={cx("primary")} disabled={busy || !answer.trim() || !outcome || !adherence} onClick={async () => {
         if (!outcome || !adherence) return;
         setBusy(true); setStatus("Saving…");
         try {
-          await onSave({ id: crypto.randomUUID(), t: Date.now(), eventTime: null, section: "post-session", label: "Unlabelled", text: answer, source: "typed", support: { outcome, adherence }, prompt: { id: "post-session-support", question: "What would you say to another trader who followed the same process?" } });
-          setAnswer(""); setStatus("Saved to today's journal · Post-session support.");
+          const note: JournalEntry = { id: crypto.randomUUID(), t: Date.now(), eventTime: null, section: "post-session", tradeId: tradeId || undefined, label: "Unlabelled", text: answer, source: "typed", support: { outcome, adherence }, prompt: { id: "post-session-support", question: "What would you say to another trader who followed the same process?" } };
+          validateDestination(note, session);
+          await onSave(note);
+          setAnswer(""); setStatus("Saved to My Journal · Post-session support.");
         } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save. Your answer is still here."); }
         finally { setBusy(false); }
       }}>{busy ? "Saving…" : "Save reflection"}</button></div>

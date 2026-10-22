@@ -28,6 +28,7 @@ import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
 import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
+import { dailyJournalSession } from "@/lib/journal-collection";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -475,6 +476,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       setSession(loaded);
       setSamples(pts);
       setInsightTime(Date.now());
+      return loaded;
     } catch {
       setError("Could not open this saved session.");
     }
@@ -523,7 +525,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       if (s.journal.length >= 1000 && !s.journal.some((j) => j.id === note.id))
         throw new Error("This session supports up to 1,000 journal entries.");
       const old = s.journal.find((j) => j.id === note.id);
-      validateDestination(note, s);
+      validateDestination(note, dailyJournalSession(s, history));
       const occurredAt = noteTime(note);
       if (
         occurredAt !== null && (
@@ -534,12 +536,15 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         throw new Error("Choose a moment inside this journal's time range.");
       const updated = {
         ...note,
-        context: note.deletedAt || occurredAt === null || note.section === "stillness"
+        context: note.deletedAt || occurredAt === null
           ? undefined
           : {
               ...reflectionContext(raw.current, occurredAt, settings, s.events),
               ...note.context,
             },
+        ...(occurredAt !== null && !note.deletedAt ? {
+          captureScope: { ...note.captureScope, windowSeconds: note.captureScope?.windowSeconds ?? settings.windowSeconds },
+        } : {}),
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });

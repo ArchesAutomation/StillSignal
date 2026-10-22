@@ -22,11 +22,13 @@ function valuesOf(text = "") {
 }
 export default function Review({
   session,
+  routingSession,
   time: timestamp,
   onSave,
   onReflect,
 }: {
   session: Session;
+  routingSession?: Session;
   time: number;
   onSave: (n: JournalEntry) => Promise<void>;
   onReflect: (t: number) => void;
@@ -157,7 +159,7 @@ export default function Review({
           {status}
         </p>
       )}
-      <PostSession session={session} onSave={onSave} />
+      <PostSession session={routingSession || session} onSave={onSave} />
     </section>
   );
 }

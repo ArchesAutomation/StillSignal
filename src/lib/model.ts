@@ -56,6 +56,7 @@ export type JournalEntry = {
   updatedAt?: number;
   deletedAt?: number;
   source?: "typed" | "voice" | "hr-checkin";
+  origin?: "free-writing" | "timeline" | "stillness" | "capture";
   activationAt?: number;
   recordingStartedAt?: number;
   captureScope?: {

@@ -11,6 +11,7 @@ import { isDemoSession, demoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { timelinePhase } from "@/lib/timeline-phase";
 import { noteTime, isTradeSection, sectionName, sessionTrades } from "@/lib/journal-routing";
+import { dailyJournalSession, journalDaySessions } from "@/lib/journal-collection";
 import { Screenshot } from "../reflection-editor";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
@@ -35,6 +36,15 @@ export default function Journal(
   },
 ) {
   const { pulse: p, session: s, history, view, setView } = props;
+  const daySession = dailyJournalSession(s, history);
+  async function editCollected(note: import("@/lib/model").JournalEntry) {
+    const original = journalDaySessions(s, history).find(item => item.journal.some(n => n.id === note.id));
+    if (original && original.id !== s.id) {
+      if (p.active) { p.setError("End your active session before editing a note from another recording."); return; }
+      if (!await p.openSession(original)) return;
+    }
+    props.onReflect({ t: note.t, entry: note });
+  }
   const [selected, setSelected] = useState<Moment | null>(null),
     [range, setRange] = useState(0),
     [showPrice, setShowPrice] = useState(false),
@@ -244,6 +254,9 @@ export default function Journal(
   const reflect = (voice = false) =>
     props.onReflect({
       t: current.t,
+      origin: "timeline",
+      section: current.note?.section || (current.id.startsWith("phase-") ? current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"] : current.event?.kind === "entry" ? "entry" : current.event?.kind === "exit" ? "exit" : undefined),
+      tradeId: current.note?.tradeId || (current.id.startsWith("phase-") ? trade?.id : trades.find(t => t.entryEventId === current.event?.id || t.exitEventId === current.event?.id)?.id),
       source: voice ? "voice" : "typed",
       autoListen: voice,
     });
@@ -288,8 +301,8 @@ export default function Journal(
     const target = trades[rowTrade(row)];
     props.onReflect({ t: row.note ? noteTime(row.note) ?? row.t : row.t,
       eventTime: row.note ? noteTime(row.note) : row.event?.timePrecision === "day" ? null : row.t,
-      section: row.note?.section || (target ? rowPhase(row) as import("@/lib/model").JournalEntry["section"] : "day-review"),
-      tradeId: target?.id, ...(row.note ? { entry: row.note } : {}) });
+      section: row.note?.section || (target ? rowPhase(row) as import("@/lib/model").JournalEntry["section"] : undefined),
+      origin: "timeline", tradeId: row.note?.tradeId || target?.id, ...(row.note ? { entry: row.note } : {}) });
   }
   return (
     <>
@@ -555,6 +568,19 @@ export default function Journal(
             </div>
           </aside>
         </div>
+        <Writing
+          key={s.id}
+          session={daySession}
+          time={Math.min(current.t, cutoff)}
+          selection={selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
+            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined}
+          onSave={p.addNote}
+          onReflect={props.onReflect}
+          onReview={() => setView("review")}
+          samples={p.samples}
+          sampleNoteIds={new Set(s.journal.map(n => n.id))}
+          onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
+        />
         <div className={cx("journalflow")}>
           <Title
             title="Session timeline"
@@ -801,16 +827,6 @@ export default function Journal(
             </p>
           )}
         </div>
-        <Writing
-          key={s.id}
-          session={s}
-          time={Math.min(current.t, cutoff)}
-          selection={selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
-            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined}
-          onSave={p.addNote}
-          onReflect={props.onReflect}
-          onReview={() => setView("review")}
-        />
       </section>
       <section hidden={view !== "patterns"}>
         <Patterns
@@ -846,6 +862,7 @@ export default function Journal(
         <Review
           key={s.id}
           session={s}
+          routingSession={daySession}
           time={cutoff}
           onSave={p.addNote}
           onReflect={(t) => props.onReflect({ t })}

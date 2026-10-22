@@ -271,6 +271,7 @@ function DayModule({
             <div><span>Closed trades</span><strong>{day.closedTrades}</strong></div>
             <div><span>HR samples</span><strong>{day.sampleCount.toLocaleString()}</strong></div>
           </div>
+          <button className={cx("primary")} disabled={active && !day.sessions.some(item => item.id === selected.id)} onClick={() => onOpen(day.sessions.find(item => item.id === selected.id) || day.sessions[0])}>Open Trading Journal</button>
           <div className={cx("day-feeling")}>
             <div>
               <span className={cx("eyebrow")}>How you described the day</span>
