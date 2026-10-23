@@ -29,6 +29,7 @@ import { removeSessionScreenshots } from "@/lib/screenshots";
 import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
 import { dailyJournalSession } from "@/lib/journal-collection";
+import { journalDayRange } from "@/lib/journal-day";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -454,6 +455,37 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     }
     return sorted.length;
   }
+  async function openJournalDay(date: string) {
+    if (rec.current) throw new Error("End your active session before opening another day.");
+    const { start, end } = journalDayRange(date);
+    const request = ++sessionLoad.current;
+    await noteWrites.current;
+    const saved = await storage.listSessions(owner);
+    if (request !== sessionLoad.current || rec.current) return;
+    const selected = current.current;
+    const sameDay = (s: Session) => s.owner === owner && s.id !== "workspace" && s.startedAt >= start && s.startedAt <= end;
+    const existing = selected && sameDay(selected) ? selected
+      : saved.filter(sameDay).sort((a, b) => b.sampleCount - a.sampleCount || b.startedAt - a.startedAt)[0];
+    if (existing) return openSession(existing);
+    const day: Session = {
+      id: crypto.randomUUID(), owner, source: "journal",
+      name: new Date(start).toLocaleDateString() + " · Daily journal",
+      startedAt: start, endedAt: end, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      events: [], journal: [], sampleCount: 0,
+    };
+    await storage.saveSession(day);
+    await refreshHistory();
+    if (request !== sessionLoad.current || rec.current) return;
+    current.current = day;
+    raw.current = [];
+    setSession(day);
+    setSamples([]);
+    setError("");
+    setInsightTime(Date.now());
+    setNotice("Journal opened. No trades or CSV required. Heart rate appears only when recorded.");
+    void sync(owner).catch(() => setSyncState(cloudConfigured ? "Sync paused · saved locally" : "On this device"));
+    return day;
+  }
   async function openSession(s: Session) {
     if (s.owner !== owner)
       throw new Error("That session belongs to another workspace.");
@@ -705,6 +737,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     stop,
     resetWorkspace,
     openSession,
+    openJournalDay,
     addEvents,
     addNote,
     removeNote,

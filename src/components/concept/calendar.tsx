@@ -4,6 +4,7 @@ import { money, type Session } from "@/lib/model";
 import { pnlByCurrency } from "@/lib/trade-context";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, dateKey } from "./shared";
+import { journalDateValue } from "@/lib/journal-day";
 export const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 export function weekStart(t: number, offset = 0) {
   const d = new Date(t);
@@ -17,6 +18,7 @@ export function Calendar({
   offset = 0,
   month = false,
   onOpen,
+  onEmptyDay,
   disabled,
 }: {
   sessions: Session[];
@@ -24,6 +26,7 @@ export function Calendar({
   offset?: number;
   month?: boolean;
   onOpen: (s: Session) => void;
+  onEmptyDay?: (date: string) => void;
   disabled: boolean;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
@@ -102,12 +105,12 @@ export function Calendar({
                 active && (month ? "active" : "selected"),
                 month && d.getMonth() !== anchor.getMonth() && "empty",
               )}
-              disabled={disabled || !target}
+              disabled={disabled || (!target && (!onEmptyDay || new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() > Date.now()))}
               aria-label={
                 d.toLocaleDateString("en-US", { dateStyle: "full" }) +
-                (rows.length ? ` · ${rows.length} sessions` : " · No session")
+                (rows.length ? ` · ${rows.length} sessions` : onEmptyDay ? " · Start a journal" : " · No session")
               }
-              onClick={() => target && onOpen(target)}
+              onClick={() => target ? onOpen(target) : onEmptyDay?.(journalDateValue(d.getTime()))}
             >
               {month ? (
                 <>

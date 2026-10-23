@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { JournalEntry, Sample, Session } from "@/lib/model";
 import type { ReflectionDraft } from "../reflection-editor";
-import { destination, validateDestination } from "@/lib/journal-routing";
+import { destination, sessionTrades, validateDestination } from "@/lib/journal-routing";
 import CollectedNotes from "./collected-notes";
 import { useJournalDraft } from "../use-journal-draft";
 import Destination from "./destination";
@@ -14,6 +14,11 @@ const prompts = [
   { section: "exit", text: "What led to this exit, and did it follow your plan?" },
   { section: "after", text: "What did you notice yourself wanting to do after the exit?" },
 ] as const;
+const dayPrompts = [
+  { section: undefined, text: "How are you feeling today, even without taking a trade?" },
+  { section: undefined, text: "What do you notice in your body right now?" },
+  { section: undefined, text: "What is on your mind, and what would support you today?" },
+] as const;
 type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean };
 const empty: Draft = { text: "", answer: "", deep: "", prompt: 0, section: undefined, tradeId: "", custom: "", choice: "", timed: false };
 export default function Writing({ time, session, onSave, onReflect, onReview, selection, samples, sampleNoteIds, onEdit }: {
@@ -23,6 +28,8 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
   samples: Sample[]; sampleNoteIds: Set<string>; onEdit: (note: JournalEntry) => void;
 }) {
   const [stored, store, ready] = useJournalDraft(`ss-v4-writing:${session.owner}:${session.id}`);
+  const hasTrades = sessionTrades(session).length > 0;
+  const questions = hasTrades ? prompts : dayPrompts;
   let draft = empty;
   try { draft = { ...empty, ...JSON.parse(stored || "{}") }; } catch {}
   const [busy, setBusy] = useState(false), [status, setStatus] = useState(""), [focus, setFocus] = useState(false);
@@ -44,19 +51,19 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
   });
   async function save(value: string, kind: "text" | "answer" | "deep") {
     if (!value.trim() || busy) return;
-    const question = prompts[draft.prompt];
-    const section = kind === "answer" ? question.section : draft.section;
+    const question = questions[draft.prompt % questions.length];
+    const section = kind === "answer" && hasTrades ? question.section : draft.section;
     setBusy(true); setStatus("Saving…");
     try {
       const note: JournalEntry = {
         id: crypto.randomUUID(), t: Date.now(), eventTime: draft.timed ? time : null,
         label: "Unlabelled", text: value, source: "typed", origin: "free-writing", ...target(section),
-        ...(kind === "answer" ? { prompt: { id: `phase-${draft.prompt}`, question: question.text } } : {}),
+        ...(kind === "answer" ? { prompt: { id: `${hasTrades ? "phase" : "day"}-${draft.prompt % questions.length}`, question: question.text } } : {}),
         ...(kind === "deep" ? { prompt: { id: "deeper", question: "What happened immediately before the action?", ...(draft.choice && draft.choice !== "Something else" ? { choice: draft.choice } : {}) } } : {}),
       };
       validateDestination(note, session);
       await onSave(note);
-      change({ [kind]: "", ...(kind === "answer" ? { prompt: (draft.prompt + 1) % prompts.length } : {}) });
+      change({ [kind]: "", ...(kind === "answer" ? { prompt: (draft.prompt + 1) % questions.length } : {}) });
       setStatus(`Saved to My Journal · ${destination(note, session)}.`);
     } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save. Your draft is still here."); }
     finally { setBusy(false); }
@@ -88,14 +95,14 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
     </div>
     <section className={cx("promptcarousel")} aria-label="Phase question">
       <div><div className={cx("eyebrow")}>One question · one location</div>
-      <h3>{prompts[draft.prompt].text}</h3>
-      <p>Destination: {destination({ section: prompts[draft.prompt].section, tradeId: draft.tradeId }, session)}. Choose a trade before saving.</p>
-      <Destination session={session} section={prompts[draft.prompt].section} tradeId={draft.tradeId} custom=""
-        onSection={section => { const index = prompts.findIndex(p => p.section === section); if (index >= 0) change({ prompt: index }); }} onTrade={tradeId => change({ tradeId })} onCustom={() => {}} />
+      <h3>{questions[draft.prompt % questions.length].text}</h3>
+      <p>{hasTrades ? `Destination: ${destination({ section: questions[draft.prompt % questions.length].section, tradeId: draft.tradeId }, session)}. Choose a trade before saving.` : "Your feelings matter on days without trades too. Save here without a trade or CSV."}</p>
+      {hasTrades && <Destination session={session} section={questions[draft.prompt % questions.length].section} tradeId={draft.tradeId} custom=""
+        onSection={section => { const index = prompts.findIndex(p => p.section === section); if (index >= 0) change({ prompt: index }); }} onTrade={tradeId => change({ tradeId })} onCustom={() => {}} />}
       <textarea aria-label="Prompt answer" maxLength={2000} disabled={busy} value={draft.answer} onChange={e => change({ answer: e.target.value })} />
-      </div><div><div className={cx("promptnav")}><button className={cx("ghost")} aria-label="Previous prompt" disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + prompts.length - 1) % prompts.length })}>←</button>
+      </div><div><div className={cx("promptnav")}><button className={cx("ghost")} aria-label="Previous prompt" disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + questions.length - 1) % questions.length })}>←</button>
       <button className={cx("primary")} disabled={busy || !draft.answer.trim()} onClick={() => void save(draft.answer, "answer")}>Save answer</button>
-      <button className={cx("ghost")} disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + 1) % prompts.length })}>Next prompt →</button>
+      <button className={cx("ghost")} disabled={!!draft.answer || busy} onClick={() => change({ prompt: (draft.prompt + 1) % questions.length })}>Next prompt →</button>
       </div><p className={cx("timeline-note")}>The question guides you. It is not copied into the journal.</p></div>
     </section>
     <details className={cx("journalquestions")}><summary>Explore a little deeper</summary>
