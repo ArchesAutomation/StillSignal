@@ -13,6 +13,11 @@ import CollectedNotes from "../src/components/concept/collected-notes";
 import ReflectionEditor from "../src/components/reflection-editor";
 import { usePulse } from "../src/components/use-pulse";
 import { saveSession, listSessions, appendSamples } from "../src/lib/storage";
+import { journalDayRange, journalDateValue } from "../src/lib/journal-day";
+import { groupSessionDays } from "../src/lib/session-days";
+import { Calendar } from "../src/components/concept/calendar";
+import Writing from "../src/components/concept/writing";
+import JournalDayPicker from "../src/components/concept/journal-day-picker";
 
 const fixture = reviewFixtures();
 const session = fixture.session;
@@ -142,5 +147,95 @@ test("saving a note about another recording's trade retains the correct day and 
     assert.equal(saved.tradeId, capture.tradeId); assert.equal(saved.origin, "stillness");
     assert.equal(saved.context!.bpm, fixture.samples[60].bpm);
     assert.equal((await listSessions(second.owner)).find(s => s.id === second.id)!.journal.length, 0);
+  } finally { await ui.close(); }
+});
+
+test("calendar dates use local day boundaries and reject invalid or future dates", () => {
+  const now = new Date(2026, 9, 23, 14).getTime();
+  assert.deepEqual(journalDayRange("2026-10-22", now), {
+    start: new Date(2026, 9, 22).getTime(), end: new Date(2026, 9, 23).getTime() - 1,
+  });
+  assert.equal(journalDayRange("2026-10-23", now).end, now);
+  assert.throws(() => journalDayRange("2026-02-30", now), /valid journal date/);
+  assert.throws(() => journalDayRange("2026-10-24", now), /today or an earlier/);
+  assert.equal(journalDateValue(new Date(2026, 9, 22, 23).getTime()), "2026-10-22");
+});
+
+test("a day without trades can be created, reopened and saved with feelings and recorded HR, without a CSV", async () => {
+  const ui = setup(); let pulse!: ReturnType<typeof usePulse>;
+  const owner = crypto.randomUUID();
+  function Harness() { pulse = usePulse({ id: owner }); return null; }
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(12, 0, 0, 0);
+  const date = journalDateValue(yesterday.getTime());
+  try {
+    await act(async () => ui.root.render(createElement(Harness)));
+    await act(async () => { await pulse.openJournalDay(date); });
+    const day = pulse.session!;
+    assert.equal(journalDateValue(day.startedAt), date);
+    assert.equal(day.source, "journal"); assert.deepEqual(day.events, []);
+    assert.equal(pulse.active, false); assert.equal(pulse.recording, false);
+    const samples = [{ t: yesterday.getTime(), bpm: 83 }];
+    await appendSamples(day.id, samples, owner, false);
+    await act(async () => { await pulse.openJournalDay(date); });
+    assert.equal(pulse.session!.id, day.id); assert.equal(pulse.samples[0].bpm, 83);
+    await act(async () => pulse.addNote({ id: "no-trade-feelings", t: Date.now(), eventTime: yesterday.getTime(), label: "Calm", text: "I sat out today and felt calm.", source: "voice", origin: "capture" }));
+    const saved = (await listSessions(owner))[0];
+    assert.equal(saved.journal[0].context!.bpm, 83);
+    assert.equal(saved.journal[0].tradeId, undefined);
+    assert.equal(saved.journal[0].section, undefined, "unknown stage stays unassigned");
+    assert.equal(collectedNotes(saved)[0].text, "I sat out today and felt calm.");
+    assert.equal(groupSessionDays([saved])[0].executedOrders, 0);
+    await act(async () => { await pulse.openJournalDay(date); });
+    assert.equal((await listSessions(owner)).length, 1, "reopening must not duplicate the day");
+    assert.equal(pulse.session!.journal.length, 1);
+    await act(async () => { await pulse.openJournalDay(journalDateValue(Date.now())); });
+    assert.deepEqual(pulse.samples, [], "another day's HR must not leak into a blank day");
+    await act(async () => pulse.addNote({ id: "untimed-feelings", t: Date.now(), eventTime: null, label: "Hesitant", text: "No HR recorded yet.", source: "typed" }));
+    assert.equal(pulse.session!.journal[0].context, undefined);
+    await act(async () => pulse.start());
+    await assert.rejects(pulse.openJournalDay(date), /End your active session/);
+    await act(async () => pulse.stop());
+  } finally { await ui.close(); }
+});
+
+test("empty past calendar days can open a journal while future dates and active-session switching stay disabled", async () => {
+  const ui = setup(); let chosen = "";
+  const selected = { ...session, startedAt: Date.now() };
+  const props = { sessions: [], selected, disabled: false, offset: -1, onOpen: () => {}, onEmptyDay: (date: string) => { chosen = date; } };
+  try {
+    await act(async () => ui.root.render(createElement(Calendar, props)));
+    const button = document.querySelector("button") as HTMLButtonElement;
+    assert.equal(button.disabled, false);
+    await act(async () => button.click());
+    assert.match(chosen, /^\d{4}-\d{2}-\d{2}$/);
+    await act(async () => ui.root.render(createElement(Calendar, { ...props, offset: 1 })));
+    assert.ok([...document.querySelectorAll("button")].every(button => button.disabled));
+    await act(async () => ui.root.render(createElement(Calendar, { ...props, disabled: true })));
+    assert.ok([...document.querySelectorAll("button")].every(button => button.disabled));
+  } finally { await ui.close(); }
+});
+
+test("journals without trades offer feelings prompts without requiring a trade destination", async () => {
+  const ui = setup();
+  try {
+    await act(async () => ui.root.render(createElement(Writing, {
+      time: session.startedAt, session: { ...session, id: crypto.randomUUID(), events: [], journal: [] },
+      onSave: async () => {}, onReflect: () => {}, onReview: () => {}, onEdit: () => {}, samples: [], sampleNoteIds: new Set<string>(),
+    })));
+    assert.match(document.body.textContent!, /How are you feeling today/);
+    assert.doesNotMatch(document.body.textContent!, /Choose a trade before saving/);
+    assert.ok(document.querySelector('[aria-label="Journal reflection"]'));
+    assert.ok(document.querySelector('[aria-label="Collected journal notes"]'));
+  } finally { await ui.close(); }
+});
+
+test("date picker submits the visible chosen day rather than the previously selected journal", async () => {
+  const ui = setup(); let opened = "";
+  try {
+    await act(async () => ui.root.render(createElement(JournalDayPicker, { date: Date.now(), disabled: false, onOpen: async date => { opened = date; } })));
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    input.value = "2026-01-12";
+    await act(async () => document.querySelector("form")!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })));
+    assert.equal(opened, "2026-01-12");
   } finally { await ui.close(); }
 });

@@ -597,3 +597,7 @@
 .ss-app .ss-timeline-group { color:var(--muted); font-size:13px; margin:25px 0 12px; }
 @media(min-width:1101px) { .ss-app .ss-sidebar { position:fixed; width:236px; left:0; top:0; overflow-y:auto; } .ss-app > main { grid-column:2; } }
 @media(max-width:700px) { .ss-app .ss-price-chart { height:390px; } .ss-app .ss-writing-workspace .ss-paper { padding:16px; } .ss-app .ss-writing-focus { inset:6px; padding:10px; } .ss-app .ss-destinations label { min-width:140px; } .ss-app .ss-session-controls .ss-primary { padding:12px 18px; } }
+.ss-app .ss-journal-day-picker { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.ss-app .ss-journal-day-picker label { display:flex; flex-direction:column; gap:4px; color:var(--muted); font-size:11px; }
+.ss-app .ss-journal-day-picker input { color-scheme:dark; background:var(--panel,#101a1c); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font:inherit; }
+.ss-app .ss-journal-day-picker small { flex-basis:100%; color:var(--muted); font-size:11px; }

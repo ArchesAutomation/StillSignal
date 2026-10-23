@@ -8,6 +8,7 @@ import { cx, type Page, type Props } from "./shared";
 import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
 import SessionDays from "./session-days";
+import JournalDayPicker from "./journal-day-picker";
 import Overview from "./overview";
 import Stillness, { reflections } from "./stillness";
 const navigation: [Page, string, string][] = [
@@ -27,6 +28,7 @@ export default function ConceptWorkspace(props: Props) {
     [startSignal, setStartSignal] = useState(0),
     [whisper, setWhisper] = useState(""),
     [widget, setWidget] = useState(false),
+    [openingDay, setOpeningDay] = useState(false),
     [focusTime, setFocusTime] = useState<number | undefined>();
   const welcomeRef = useRef<HTMLDialogElement>(null),
     widgetRef = useRef<HTMLElement>(null),
@@ -66,6 +68,17 @@ export default function ConceptWorkspace(props: Props) {
   const review = () => {
     setView("review");
     props.onPage("Journal");
+  };
+  const openDay = async (date: string) => {
+    if (openingDay) return;
+    setOpeningDay(true);
+    try {
+      await act(async () => {
+        if (!await p.openJournalDay(date)) return;
+        setFocusTime(undefined);
+        go("Journal");
+      });
+    } finally { setOpeningDay(false); }
   };
   const quiet = () => {
     setWhisper(reflections[Math.floor(Math.random() * reflections.length)]);
@@ -302,13 +315,15 @@ export default function ConceptWorkspace(props: Props) {
               </div>
             </section>
           )}
+          {journal && <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay} onOpen={openDay} />}
           {journal && (
             <Calendar
               sessions={history}
               selected={s}
               offset={week}
-              disabled={p.active}
+              disabled={p.active || openingDay}
               onOpen={(target) => void act(() => p.openSession(target))}
+              onEmptyDay={date => void openDay(date)}
             />
           )}
         <section className={cx("session-controls", "v4-sessionbar", !p.active && "idle")} aria-label="Session controls">
@@ -319,7 +334,7 @@ export default function ConceptWorkspace(props: Props) {
           })}>{p.active ? "End Session" : "Start Session"}</button>
           {p.active && !p.recording && <button className={cx("ghost")} disabled={p.connectingWhoop} onClick={() => void act(p.attachWhoop)}>{p.connectingWhoop ? "Connecting WHOOP…" : "Connect heart rate"}</button>}
           <button className={cx("ghost")} onClick={props.onCsv}>Import market data</button>
-          <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "Market data missing"}</span>
+          <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "No trades recorded · journal ready"}</span>
         </section>
           <Journal
             {...viewProps}
@@ -359,6 +374,7 @@ export default function ConceptWorkspace(props: Props) {
                 </p>
               </div>
               <div className={cx("topactions")}>
+                <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay} onOpen={openDay} />
                 <button
                   className={cx("ghost")}
                   onClick={() =>
@@ -409,7 +425,7 @@ export default function ConceptWorkspace(props: Props) {
             />
             {!history.length && (
               <p className={cx("empty-note")}>
-                Start a session or import your trades to begin.
+                Choose a journal date to begin. Trades and CSV uploads are optional.
               </p>
             )}
           </>
