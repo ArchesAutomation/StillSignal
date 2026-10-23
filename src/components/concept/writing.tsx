@@ -5,6 +5,8 @@ import type { ReflectionDraft } from "../reflection-editor";
 import { destination, sessionTrades, validateDestination } from "@/lib/journal-routing";
 import CollectedNotes from "./collected-notes";
 import { useJournalDraft } from "../use-journal-draft";
+import { journalPhaseLink } from "@/lib/journal-phases";
+import { nearest } from "@/lib/analytics";
 import Destination from "./destination";
 import { cx, Title, time as displayTime } from "./shared";
 const prompts = [
@@ -19,7 +21,7 @@ const dayPrompts = [
   { section: undefined, text: "What do you notice in your body right now?" },
   { section: undefined, text: "What is on your mind, and what would support you today?" },
 ] as const;
-type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean };
+type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean; manualTime?: string; manualTarget?: string };
 const empty: Draft = { text: "", answer: "", deep: "", prompt: 0, section: undefined, tradeId: "", custom: "", choice: "", timed: false };
 export default function Writing({ time, session, onSave, onReflect, onReview, selection, samples, sampleNoteIds, onEdit }: {
   time: number; session: Session; onSave: (n: JournalEntry) => Promise<void>;
@@ -33,6 +35,7 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
   let draft = empty;
   try { draft = { ...empty, ...JSON.parse(stored || "{}") }; } catch {}
   const [busy, setBusy] = useState(false), [status, setStatus] = useState(""), [focus, setFocus] = useState(false);
+  const [savedId, setSavedId] = useState("");
   useEffect(() => {
     if (!focus) return;
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setFocus(false); };
@@ -49,6 +52,13 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
     section, tradeId: draft.tradeId || undefined,
     customSection: section === "custom" ? draft.custom : undefined,
   });
+  const targetKey = `${draft.tradeId}:${draft.section || ""}`;
+  const manual = draft.manualTarget === targetKey && draft.manualTime ? new Date(draft.manualTime).getTime() : NaN;
+  const phaseLink = journalPhaseLink(session, draft.tradeId, draft.section, samples);
+  const linkedTime = Number.isFinite(manual) ? manual : phaseLink?.t ?? null;
+  const linkedPoint = linkedTime === null ? null : nearest(samples, linkedTime);
+  const selectedTime = (section: JournalEntry["section"]) => section === draft.section ? linkedTime
+    : journalPhaseLink(session, draft.tradeId, section, samples)?.t ?? null;
   async function save(value: string, kind: "text" | "answer" | "deep") {
     if (!value.trim() || busy) return;
     const question = questions[draft.prompt % questions.length];
@@ -56,20 +66,21 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
     setBusy(true); setStatus("Saving…");
     try {
       const note: JournalEntry = {
-        id: crypto.randomUUID(), t: Date.now(), eventTime: draft.timed ? time : null,
+        id: crypto.randomUUID(), t: Date.now(), eventTime: draft.timed ? selectedTime(section) : null,
         label: "Unlabelled", text: value, source: "typed", origin: "free-writing", ...target(section),
         ...(kind === "answer" ? { prompt: { id: `${hasTrades ? "phase" : "day"}-${draft.prompt % questions.length}`, question: question.text } } : {}),
         ...(kind === "deep" ? { prompt: { id: "deeper", question: "What happened immediately before the action?", ...(draft.choice && draft.choice !== "Something else" ? { choice: draft.choice } : {}) } } : {}),
       };
       validateDestination(note, session);
       await onSave(note);
+      setSavedId(note.id);
       change({ [kind]: "", ...(kind === "answer" ? { prompt: (draft.prompt + 1) % questions.length } : {}) });
       setStatus(`Saved to My Journal · ${destination(note, session)}.`);
     } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save. Your draft is still here."); }
     finally { setBusy(false); }
   }
   function dictate(value: string) {
-    onReflect({ t: time, eventTime: draft.timed ? time : null, ...target(), origin: "free-writing", source: "voice", autoListen: true, initialText: value });
+    onReflect({ t: linkedTime ?? time, eventTime: draft.timed ? linkedTime : null, ...target(), origin: "free-writing", source: "voice", autoListen: true, initialText: value });
   }
   return <section className={cx("writing-workspace", focus && "writing-focus")} aria-label="Main journal">
     <div className={cx("paper")}>
@@ -81,17 +92,22 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
       </Title>
       <Destination session={session} section={draft.section} tradeId={draft.tradeId} custom={draft.custom}
         onSection={section => change({ section })} onTrade={tradeId => change({ tradeId })} onCustom={custom => change({ custom })} />
-      <label className={cx("time-link")}><input type="checkbox" checked={draft.timed} onChange={e => change({ timed: e.target.checked })} />
-        Link to selected time {displayTime(time)} and recorded HR
+      <label className={cx("time-link")}><input type="checkbox" checked={draft.timed && linkedTime !== null} disabled={linkedTime === null} onChange={e => change({ timed: e.target.checked })} />
+        <span aria-live="polite">{linkedTime === null ? "No linked time yet" : `Link to selected time ${displayTime(linkedTime)} · ${linkedPoint ? `${linkedPoint.bpm} BPM recorded HR` : "No recorded HR at this time"}`}</span>
       </label>
+      <details className={cx("manual-time")}><summary>Choose a linked time</summary>
+        <label>Time in this journal day<input type="datetime-local" step="1" aria-label="Journal linked time"
+          value={draft.manualTarget === targetKey ? draft.manualTime || "" : ""}
+          onChange={e => change({ manualTime: e.target.value, manualTarget: targetKey, timed: !!e.target.value })} /></label>
+      </details>
       <textarea className={cx("journal-text")} aria-label="Journal reflection" maxLength={2000} disabled={!ready || busy} value={draft.text} onChange={e => change({ text: e.target.value })} placeholder="Write what happened, in your own words…" />
       <div className={cx("writing-actions")}>
         <button className={cx("primary")} disabled={busy || !draft.text.trim()} onClick={() => void save(draft.text, "text")}>Save to journal</button>
         <button className={cx("ghost")} onClick={() => dictate(draft.text)}>● Speak instead</button>
-        <button className={cx("ghost")} onClick={() => onReflect({ t: time, eventTime: draft.timed ? time : null, ...target(), origin: "free-writing", initialText: draft.text })}>Add screenshot</button>
+        <button className={cx("ghost")} onClick={() => onReflect({ t: linkedTime ?? time, eventTime: draft.timed ? linkedTime : null, ...target(), origin: "free-writing", initialText: draft.text })}>Add screenshot</button>
         <span role="status">{status || (draft.text || draft.answer || draft.deep ? "Unsaved changes · draft kept on this device" : "Ready to write")}</span>
       </div>
-      <CollectedNotes session={session} samples={samples} sampleNoteIds={sampleNoteIds} onEdit={onEdit} />
+      <CollectedNotes session={session} samples={samples} sampleNoteIds={sampleNoteIds} onEdit={onEdit} revealNoteId={savedId} />
     </div>
     <section className={cx("promptcarousel")} aria-label="Phase question">
       <div><div className={cx("eyebrow")}>One question · one location</div>
