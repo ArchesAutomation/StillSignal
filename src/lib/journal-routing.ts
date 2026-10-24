@@ -22,13 +22,10 @@ export function destination(note: Pick<JournalEntry, "section" | "customSection"
 }
 export function validateDestination(note: JournalEntry, session: Session) {
   if (note.deletedAt) return;
-  if (sessionTrades(session).length > 1 && !note.tradeId &&
-    (note.prompt || (note.origin && note.origin !== "free-writing") || note.source === "voice"))
-    throw new Error("Choose Trade 1, Trade 2, or the trade this reflection belongs to before saving.");
+  // Unknown ownership is a valid Unsorted record; never lose someone's words
+  // or infer a trade from the nearest execution.
   if (note.tradeId && !sessionTrades(session).some(t => t.id === note.tradeId))
     throw new Error("Choose a trade from this journal day.");
-  if (isTradeSection(note.section) && !sessionTrades(session).some(t => t.id === note.tradeId))
-    throw new Error("Choose the trade this answer belongs to.");
   if (note.section === "custom" && !note.customSection?.trim())
     throw new Error("Name your journal section.");
 }

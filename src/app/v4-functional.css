@@ -92,3 +92,24 @@
 @media(max-width:900px) { .ss-app .ss-presencegrid { grid-template-columns:1fr; } .ss-app .ss-price-chart { height:430px; } }
 @media(max-width:720px) { .ss-app { padding-left:0; } .ss-app .ss-presencegrid { grid-template-columns:1fr; } .ss-app .ss-widgetpanel { width:min(304px,calc(100vw - 24px)); } .ss-app .ss-journaltools { margin-top:10px; } .ss-app .ss-paper .ss-sectiontitle { align-items:start;flex-direction:column; } .ss-app .ss-writing-workspace .ss-paper { padding:20px; } .ss-app .ss-session-controls { gap:9px; } .ss-app .ss-session-controls > div { flex-basis:100%; } .ss-app .ss-entryrow { grid-template-columns:77px 80px 60px minmax(0,1fr);gap:8px;padding:14px 4px; } .ss-app .ss-journalflow { padding:0 10px 6px; } }
 @media(prefers-reduced-motion:reduce) { .ss-app *, .ss-app *::before, .ss-app *::after { animation:none!important;transition:none!important;scroll-behavior:auto!important; } }
+
+/* Daily Journal trade cards reuse the analytics journey pattern. */
+.ss-app .ss-journal-trades { display:grid;gap:16px;margin-top:18px; }
+.ss-app details.ss-journal-trade { display:block; }
+.ss-app .ss-journal-trade > summary { cursor:pointer;list-style:none;align-items:center; }
+.ss-app .ss-journal-trade > summary::-webkit-details-marker { display:none; }
+.ss-app .ss-journal-trade .ss-journey-stages { gap:10px; }
+.ss-app .ss-journal-execution,.ss-app .ss-journal-phase-actions { display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0; }
+.ss-app .ss-journal-execution { font-size:11px;justify-content:space-between; }
+.ss-app .ss-journal-phase-actions .ss-ghost { font-size:10px;padding:7px 10px; }
+.ss-app .ss-journal-phase-note { padding:12px 0;border-top:1px solid var(--line);font-size:12px;min-width:0; }
+.ss-app .ss-journal-phase-note > div { display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px; }
+.ss-app .ss-journal-phase-note small { color:var(--muted);font-size:10px; }
+.ss-app .ss-journal-phase-note p { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8; }
+.ss-app .ss-journal-phase-note .journal-screenshot { max-width:min(100%,360px);max-height:220px;object-fit:contain; }
+.ss-app .ss-journal-day-notes { border:1px solid var(--line);border-radius:12px;padding:16px;font-size:12px; }
+.ss-app .ss-journal-day-notes > p { color:var(--muted); }
+.ss-app .ss-manual-time { margin:0 0 14px;color:var(--muted);font-size:11px; }
+.ss-app .ss-manual-time summary { cursor:pointer; }
+.ss-app .ss-manual-time label { display:grid;gap:8px;margin-top:12px;max-width:320px; }
+.ss-app .ss-journal-trades .ss-journey-date { text-align:right;line-height:1.8; }

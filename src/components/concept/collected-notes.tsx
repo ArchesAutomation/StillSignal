@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JournalEntry, Sample, Session } from "@/lib/model";
 import { nearest } from "@/lib/analytics";
 import { collectedNotes, journalPlacement, journalSources } from "@/lib/journal-collection";
@@ -7,11 +7,13 @@ import { destination, noteTime, sectionName, sessionTrades } from "@/lib/journal
 import { Screenshot } from "../reflection-editor";
 import { cx, time } from "./shared";
 
-export default function CollectedNotes({ session, samples, sampleNoteIds, onEdit }: {
+export default function CollectedNotes({ session, samples, sampleNoteIds, onEdit, revealNoteId }: {
   session: Session; samples: Sample[]; sampleNoteIds: Set<string>;
   onEdit: (note: JournalEntry) => void;
+  revealNoteId?: string;
 }) {
   const [tradeId, setTradeId] = useState(""), [stage, setStage] = useState(""), [limit, setLimit] = useState(6);
+  useEffect(() => { if (revealNoteId) { setTradeId(""); setStage(""); setLimit(6); } }, [revealNoteId]);
   const notes = collectedNotes(session, tradeId, stage);
   const trades = sessionTrades(session);
   const placements = new Map(notes.map(note => [note.id, journalPlacement(note, session, trades)]));
@@ -22,7 +24,7 @@ export default function CollectedNotes({ session, samples, sampleNoteIds, onEdit
     const occurredAt = noteTime(note);
     const bpm = note.context?.bpm ?? (occurredAt !== null && sampleNoteIds.has(note.id) ? nearest(samples, occurredAt)?.bpm : undefined);
     return <article key={note.id} className={cx("journal-record")} data-phase={note.section}>
-      <div className={cx("record-heading")}><strong>{destination(note, session)}</strong>
+      <div className={cx("record-heading")}><strong>{!note.tradeId ? "Day-level · " : ""}{destination(note, session)}</strong>
         <button className={cx("textlink")} onClick={() => onEdit(note)}>{placements.get(note.id)!.unsorted ? "Assign / edit" : "Edit note"}</button></div>
       <small>{journalSources(note).join(" · ")} · {occurredAt === null ? `Saved ${time(note.t)} · No event time linked` : time(occurredAt)}
         {bpm !== undefined ? ` · ${Math.round(bpm)} BPM` : " · No linked HR"}
@@ -47,7 +49,7 @@ export default function CollectedNotes({ session, samples, sampleNoteIds, onEdit
     </div>
     {visible.map(record)}
     {sorted.length > limit && <button className={cx("textlink")} onClick={() => setLimit(v => v + 6)}>Show more notes ({sorted.length - limit})</button>}
-    {!!unsorted.length && <details className={cx("unsorted-notes")} open={stage === "unsorted" || undefined}>
+    {!!unsorted.length && <details className={cx("unsorted-notes")} open>
       <summary>Unsorted · {unsorted.length}</summary><p>Choose a trade or stage when you know where these belong.</p>
       {unsorted.slice(0, limit).map(record)}
       {unsorted.length > limit && <button className={cx("textlink")} onClick={() => setLimit(v => v + 6)}>Show more unsorted notes</button>}

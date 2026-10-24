@@ -19,6 +19,8 @@ import Writing from "./writing";
 import Review from "./review";
 import Patterns from "./patterns";
 import LoadMetric from "./load-metric";
+import JournalTrades from "./journal-trades";
+import { useJournalSamples } from "../use-journal-samples";
 import {
   cx,
   Metric,
@@ -36,7 +38,10 @@ export default function Journal(
   },
 ) {
   const { pulse: p, session: s, history, view, setView } = props;
-  const daySession = dailyJournalSession(s, history);
+  const daySession = useMemo(() => dailyJournalSession(s, history), [s, history]);
+  const daySamples = useJournalSamples(s, history, p.samples);
+  const [timelineView, setTimelineView] = useState(false);
+  const [writingSelection, setWritingSelection] = useState<{ section: import("@/lib/model").JournalEntry["section"]; tradeId: string }>();
   async function editCollected(note: import("@/lib/model").JournalEntry) {
     const original = journalDaySessions(s, history).find(item => item.journal.some(n => n.id === note.id));
     if (original && original.id !== s.id) {
@@ -107,6 +112,7 @@ export default function Journal(
     setReplay(false);
     setPosition(100);
     setExpanded("");
+    setWritingSelection(undefined);
   }, [s.id]);
   useEffect(() => {
     if (!replay) return;
@@ -249,6 +255,7 @@ export default function Journal(
   const totals = pnlByCurrency(events),
     exits = events.filter((e) => e.kind === "exit" && isActualExecution(e));
   const pick = (m: Moment) => {
+    setWritingSelection(undefined);
     setSelected(m);
   };
   const reflect = (voice = false) =>
@@ -572,20 +579,21 @@ export default function Journal(
           key={s.id}
           session={daySession}
           time={Math.min(current.t, cutoff)}
-          selection={selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
-            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined}
+          selection={writingSelection || (selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
+            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined)}
           onSave={p.addNote}
           onReflect={props.onReflect}
           onReview={() => setView("review")}
-          samples={p.samples}
+          samples={daySamples}
           sampleNoteIds={new Set(s.journal.map(n => n.id))}
           onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
         />
         <div className={cx("journalflow")}>
           <Title
-            title="Session timeline"
-            description="What happened, when it happened and the HR recorded at that moment. Select a phase to add or edit its note."
+            title="Trade journal"
+            description="Each trade in sequence: Before, Entry, Management, Exit and After."
           >
+            <button className={cx("ghost")} onClick={() => setTimelineView(v => !v)}>{timelineView ? "Trade cards" : "All session moments"}</button>
             <button
               className={cx("ghost")}
               onClick={() => setFilters((v) => !v)}
@@ -671,7 +679,11 @@ export default function Journal(
               )}
             </div>
           )}
-          <div className={cx("flow")}>
+          {!timelineView && <JournalTrades session={daySession} account={account} instrument={instrument}
+            samples={daySamples} onReflect={props.onReflect} onInspect={props.onSelectTrade}
+            onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
+            onSelect={(tradeId, section) => setWritingSelection({ tradeId, section })} />}
+          {timelineView && <div className={cx("flow")}>
             {orderedRows
               .filter(
                 (r) =>
@@ -820,8 +832,8 @@ export default function Journal(
                 </div>
                 );
               })}
-          </div>
-          {!rows.length && (
+          </div>}
+          {timelineView && !rows.length && (
             <p className={cx("empty-note")}>
               Start a session, add a trade, or write your first reflection.
             </p>

@@ -69,11 +69,11 @@ test("one day combines recordings with stable trade numbering and excludes other
   assert.equal(session.journal.some(n => n.id === "second-note"), false, "aggregation does not mutate stored recordings");
 });
 
-test("multi-trade prompts and captures require a chosen trade; time, source and context survive validation", () => {
+test("unassigned captures remain Unsorted; time, source and context survive validation", () => {
   const doubled = dailyJournalSession(session, [{ ...session, id: "second", events: session.events.map(e => ({ ...e, id: "b-" + e.id, t: e.t + 3600000 })) }]);
-  assert.throws(() => validateDestination(note("prompt", { prompt: { id: "p", question: "Notice?" } }), doubled), /Choose Trade/);
-  assert.throws(() => validateDestination(note("voice", { source: "voice" }), doubled), /Choose Trade/);
-  assert.throws(() => validateDestination(note("before", { section: "before" }), session), /Choose the trade/);
+  assert.doesNotThrow(() => validateDestination(note("prompt", { prompt: { id: "p", question: "Notice?" } }), doubled));
+  assert.doesNotThrow(() => validateDestination(note("voice", { source: "voice" }), doubled));
+  assert.ok(journalPlacement(note("before", { section: "before" }), session).unsorted);
   const captured = note("context", { eventTime: session.startedAt + 1000, section: "before", tradeId: trades[0].id, origin: "stillness", source: "voice", context: { bpm: 86, baseline: 70 }, captureScope: { windowSeconds: 60 } });
   validateDestination(captured, doubled);
   const parsed = sessionSchema.parse({ ...session, journal: [captured] }).journal[0];
@@ -237,5 +237,66 @@ test("date picker submits the visible chosen day rather than the previously sele
     input.value = "2026-01-12";
     await act(async () => document.querySelector("form")!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })));
     assert.equal(opened, "2026-01-12");
+  } finally { await ui.close(); }
+});
+
+test("writing selectors recalculate the link and save raw words to a durable record with the chosen trade/time", async () => {
+  const ui = setup(); let pulse!: ReturnType<typeof usePulse>; let saving: Promise<void> | undefined;
+  const current = { ...session, id: crypto.randomUUID(), journal: [] };
+  localStorage.setItem(`ss-v4-writing:${current.owner}:${current.id}`, JSON.stringify({ text: "I followed my exit plan.", tradeId: trades[0].id, section: "entry", timed: true }));
+  function Harness() {
+    pulse = usePulse({ id: session.owner });
+    return pulse.session?.id === current.id ? createElement(Writing, {
+      time: trades[0].entry, session: pulse.session, samples: pulse.samples, sampleNoteIds: new Set<string>(),
+      onSave: n => { saving = pulse.addNote(n); return saving; }, onReflect: () => {}, onReview: () => {}, onEdit: () => {},
+    }) : null;
+  }
+  try {
+    await saveSession(current); await appendSamples(current.id, fixture.samples, current.owner, false);
+    await act(async () => ui.root.render(createElement(Harness)));
+    await act(async () => { await pulse.openSession(current); });
+    const linkText = () => document.querySelector('.ss-time-link')!.textContent;
+    const firstTime = linkText();
+    await select("Journal trade", trades[1].id);
+    assert.notEqual(linkText(), firstTime);
+    await select("Journal section", "exit");
+    assert.match(linkText()!, new RegExp(new Date(trades[1].exit!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    await act(async () => { [...document.querySelectorAll("button")].find(b => b.textContent === "Save to journal")!.click(); await saving; });
+    const persisted = (await listSessions(current.owner)).find(s => s.id === current.id)!;
+    assert.equal(persisted.journal.length, 1);
+    assert.equal(persisted.journal[0].text, "I followed my exit plan.");
+    assert.equal(persisted.journal[0].tradeId, trades[1].id);
+    assert.equal(persisted.journal[0].section, "exit");
+    assert.equal(persisted.journal[0].eventTime, trades[1].exit);
+    assert.ok(persisted.journal[0].context?.bpm);
+    assert.match(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
+    await select("Filter journal trade", trades[0].id);
+    assert.doesNotMatch(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
+    await select("Filter journal trade", trades[1].id); await select("Filter journal stage", "exit");
+    assert.match(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
+    await act(async () => { await pulse.openSession(persisted); });
+    assert.equal(pulse.session!.journal[0].text, "I followed my exit plan.");
+    await select("Journal trade", "");
+    assert.match(linkText()!, /No linked time yet/);
+  } finally { await ui.close(); }
+});
+
+test("timed notes can link another recording on the same day without borrowing current HR", async () => {
+  const ui = setup(); let pulse!: ReturnType<typeof usePulse>;
+  const owner = crypto.randomUUID();
+  const current = { ...session, owner, id: crypto.randomUUID(), journal: [] };
+  const second = { ...current, id: crypto.randomUUID(), startedAt: session.startedAt + 3600000,
+    endedAt: session.endedAt! + 3600000, events: session.events.map(e => ({ ...e, id: "late-" + e.id, t: e.t + 3600000 })), sampleCount: 1 };
+  const laterTrade = sessionTrades(second)[0];
+  function Harness() { pulse = usePulse({ id: owner }); return null; }
+  try {
+    await saveSession(current); await saveSession(second);
+    await appendSamples(second.id, [{ t: laterTrade.entry, bpm: 99 }], owner, false);
+    await act(async () => ui.root.render(createElement(Harness)));
+    await act(async () => { await pulse.refreshHistory(); await pulse.openSession(current); });
+    await act(async () => pulse.addNote({ ...note("later"), eventTime: laterTrade.entry, tradeId: laterTrade.id, section: "entry" }));
+    assert.equal(pulse.session!.journal[0].context!.bpm, 99);
+    assert.equal(pulse.session!.journal[0].context!.eventId, laterTrade.id);
+    assert.equal((await listSessions(owner)).find(s => s.id === current.id)!.journal[0].eventTime, laterTrade.entry);
   } finally { await ui.close(); }
 });

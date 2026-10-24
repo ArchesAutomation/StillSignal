@@ -28,8 +28,8 @@ import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
 import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
-import { dailyJournalSession } from "@/lib/journal-collection";
-import { journalDayRange } from "@/lib/journal-day";
+import { dailyJournalSession, journalDaySessions } from "@/lib/journal-collection";
+import { journalDayRange, journalDateValue } from "@/lib/journal-day";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -583,19 +583,35 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       const old = s.journal.find((j) => j.id === note.id);
       validateDestination(note, dailyJournalSession(s, history));
       const occurredAt = noteTime(note);
+      const dayRange = journalDayRange(journalDateValue(s.startedAt));
       if (
         occurredAt !== null && (
-          occurredAt < Math.min(s.startedAt, s.events[0]?.t ?? Infinity) ||
-          (s.endedAt && occurredAt > Math.max(s.endedAt, s.events.at(-1)?.t ?? 0)) ||
+          occurredAt < dayRange.start || occurredAt > dayRange.end ||
           occurredAt > Date.now() + 300000)
       )
         throw new Error("Choose a moment inside this journal's time range.");
+      let contextSamples = raw.current;
+      if (occurredAt !== null && !note.deletedAt) {
+        const siblings = journalDaySessions(s, history).filter(item => item.id !== s.id && item.sampleCount &&
+          occurredAt >= item.startedAt && occurredAt <= (item.endedAt ?? Date.now()));
+        const groups = await Promise.all(siblings.map(async item => {
+          let points = await storage.getSamples(item.id, owner);
+          if (points.length < item.sampleCount && cloudConfigured && navigator.onLine) {
+            try { const remote = await pullSession(item.id);
+              if (remote.session.owner === owner && remote.session.id === item.id) points = [...points, ...remote.samples];
+            } catch { /* Save words even if remote HR is unavailable. */ }
+          }
+          return points;
+        }));
+        contextSamples = [...new Map([...groups.flat(), ...raw.current].map(point => [point.t, point])).values()].sort((a, b) => a.t - b.t);
+        if (current.current?.id !== s.id) throw new Error("The open journal changed. Reopen this day to save your draft.");
+      }
       const updated = {
         ...note,
         context: note.deletedAt || occurredAt === null
           ? undefined
           : {
-              ...reflectionContext(raw.current, occurredAt, settings, s.events),
+              ...reflectionContext(contextSamples, occurredAt, settings, dailyJournalSession(s, history).events),
               ...note.context,
             },
         ...(occurredAt !== null && !note.deletedAt ? {
