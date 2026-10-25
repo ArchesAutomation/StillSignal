@@ -88,11 +88,14 @@ test("manual instrument resolution cannot override toolbar selection or another 
 
 test("Daily journal keeps a single exact instrument when All instruments is selected and after tab navigation", async () => {
   const ui = setup();
+  localStorage.setItem("pulse-settings:"+reviewOwner, JSON.stringify({startWithStillness:false}));
   try {
     const { session } = reviewFixtures();
     await act(async () => ui.root.render(createElement(Dashboard, {
       user: { id: reviewOwner, email: "review@example.test" }, initialSession: session,
     })));
+    const skip = [...document.querySelectorAll("button")].find(b => b.textContent?.includes("Skip for this session"));
+    if (skip) await act(async () => skip.click());
     await until(() => status().includes("Synthetic review feed"));
     const select = document.querySelector('[aria-label="Workspace instrument"]') as HTMLSelectElement;
     await act(async () => {

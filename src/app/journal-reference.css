@@ -1,0 +1,1201 @@
+/* October journal reference: the shared application keeps its existing services. */
+.ss-app.ss-reference-app {
+  --bg: #0b1112;
+  --panel: #111a1c;
+  --surface: #111a1c;
+  --surface2: #172225;
+  --line: #293639;
+  --text: #edf1e9;
+  --ink: #edf1e9;
+  --muted: #93a5a5;
+  --coral: #ee957d;
+  --orange: #ee957d;
+  --green: #a8c6b2;
+  --accent: #a8c6b2;
+  --blue: #89b7d2;
+  --gold: #d4bd83;
+  --purple: #b6a3cb;
+  display: block;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 36px;
+  background: var(--bg);
+  font:
+    14px/1.6 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: var(--ink);
+  min-height: 100vh;
+}
+body:has(.ss-reference-app) {
+  background: #0b1112;
+}
+.ss-reference-app :where(*:not(svg *)) {
+  box-sizing: border-box;
+}
+.ss-reference-app p {
+  color: var(--muted);
+  margin: 5px 0 14px;
+}
+.ss-reference-app h1,
+.ss-reference-app h2,
+.ss-reference-app h3 {
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: -0.35px;
+}
+.ss-reference-app h1 {
+  font-size: 32px;
+  line-height: 1.25;
+  letter-spacing: -1px;
+}
+.ss-reference-app h2 {
+  font-size: 19px;
+}
+.ss-reference-app h3 {
+  font-size: 14px;
+}
+.ss-reference-app button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 15px;
+  background: var(--surface2);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+.ss-reference-app button:hover {
+  background: #233035;
+  border-color: var(--muted);
+}
+.ss-reference-app button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ss-reference-app button.ss-primary {
+  color: #181d1b;
+  background: var(--coral);
+  border-color: var(--coral);
+  font-weight: 650;
+}
+.ss-reference-app .ss-quiet,
+.ss-reference-app .ss-textlink {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.ss-reference-app input,
+.ss-reference-app select,
+.ss-reference-app textarea {
+  font: inherit;
+  color: var(--ink);
+  background: #0d1618;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.ss-reference-app textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.ss-reference-app input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+  flex: none;
+}
+.ss-reference-app label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 12px 0;
+}
+.ss-reference-app small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.ss-reference-app :focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 4px;
+}
+.ss-reference-app fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ss-reference-app .ss-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--green);
+  font-weight: 600;
+}
+.ss-reference-app > .ss-sidebar,
+.ss-reference-app > .ss-mobilebar,
+.ss-reference-app > main > .ss-topbar {
+  display: none;
+}
+.ss-app.ss-reference-app > main {
+  margin: 0;
+  padding: 38px 0 75px;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+.ss-reference-app .ss-reference-topbar {
+  height: 81px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.ss-reference-app .ss-reference-brand {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+.ss-reference-brand svg {
+  width: 27px;
+  height: 27px;
+  color: var(--green);
+}
+.ss-reference-brand > span {
+  color: var(--coral);
+}
+.ss-reference-app .ss-reference-nav {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+.ss-reference-app .ss-reference-nav button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 12px;
+}
+.ss-reference-app .ss-reference-nav button.ss-active {
+  color: var(--ink);
+  box-shadow: inset 0 -2px var(--coral);
+}
+.ss-reference-app .ss-reference-top-actions {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.ss-reference-top-actions > button {
+  font-size: 12px;
+}
+.ss-reference-app .ss-reference-avatar {
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ss-reference-app .ss-reference-tools {
+  position: relative;
+}
+.ss-reference-tools > summary {
+  cursor: pointer;
+  padding: 8px;
+  list-style: none;
+}
+.ss-reference-app .ss-reference-tools > div {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  width: 220px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px #0005;
+  display: grid;
+  gap: 5px;
+}
+.ss-reference-app .ss-reference-tools button {
+  text-align: left;
+  font-size: 12px;
+}
+.ss-reference-app .ss-reference-journal-grid {
+  display: grid;
+  grid-template-columns: 235px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.ss-reference-app .ss-reference-day {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ss-reference-app .ss-reference-history {
+  display: grid;
+  gap: 16px;
+}
+.ss-reference-app .ss-reference-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+.ss-reference-history .ss-reference-card {
+  padding: 17px;
+  margin: 0;
+}
+.ss-reference-app .ss-month-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ss-reference-app .ss-month-controls button {
+  border: 0;
+  padding: 4px 8px;
+  background: transparent;
+}
+.ss-month-controls strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ss-reference-app .ss-mini-month {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.ss-reference-app .ss-mini-month button {
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 5px 0;
+  position: relative;
+  min-height: 32px;
+}
+.ss-mini-month small {
+  font-size: 10px;
+  color: var(--green);
+}
+.ss-reference-app .ss-mini-month button[aria-current="date"] {
+  background: #273634;
+  border-color: #779185;
+}
+.ss-mini-month i {
+  position: absolute;
+  bottom: 2px;
+  left: calc(50% - 1px);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.ss-reference-app .ss-reference-history p {
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 10px 0 0;
+}
+.ss-reference-app .ss-reference-history button {
+  font-size: 11px;
+}
+.ss-reference-history > .ss-reference-card > .ss-eyebrow {
+  margin: 5px 0 10px;
+}
+.ss-reference-app .ss-search-results {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.ss-reference-app .ss-search-results button {
+  text-align: left;
+  font-size: 11px;
+}
+.ss-search-results small {
+  display: block;
+  margin-bottom: 4px;
+}
+.ss-reference-app .ss-reference-day > .ss-week {
+  order: -2;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 25px;
+}
+.ss-reference-app .ss-day {
+  min-width: 0;
+  background: #172225;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.ss-reference-app .ss-day strong {
+  font:
+    21px Georgia,
+    serif;
+  display: block;
+  margin-top: 6px;
+  color: var(--ink);
+}
+.ss-reference-app .ss-day.ss-selected {
+  border-color: var(--green);
+  background: #151f1d;
+}
+.ss-reference-app .ss-hero {
+  margin: 0 0 25px;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+.ss-reference-app .ss-hero h1 {
+  font-size: 28px;
+  margin: 7px 0;
+}
+.ss-reference-app .ss-hero p {
+  font-size: 12px;
+  margin: 0;
+}
+.ss-reference-app .ss-hero > .ss-datecontrols {
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-currentdate {
+  font-size: 10px;
+}
+.ss-reference-app .ss-journal-day-picker {
+  display: none;
+}
+.ss-reference-app .ss-session-controls {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 24px;
+}
+.ss-reference-app .ss-session-controls .ss-session-state {
+  flex: 1;
+  min-width: 150px;
+}
+.ss-session-controls strong {
+  font-size: 11px;
+}
+.ss-reference-app .ss-session-controls button {
+  font-size: 11px;
+  padding: 8px 12px;
+}
+.ss-reference-app .ss-session-controls small,
+.ss-reference-app .ss-session-controls > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-metrics,
+.ss-reference-app .ss-sectiontabs {
+  display: none;
+}
+.ss-reference-app .ss-timeline-layout {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  background: var(--panel);
+  margin-bottom: 16px;
+}
+.ss-reference-app .ss-timeline-layout > div {
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+}
+.ss-reference-app .ss-timeline-layout > .ss-moment {
+  display: none;
+}
+.ss-reference-app .ss-timeline-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ss-reference-app .ss-timeline-head h2 {
+  font-size: 19px;
+}
+.ss-reference-app .ss-timeline-head p {
+  font-size: 11px;
+  margin: 3px 0;
+}
+.ss-reference-app .ss-ranges {
+  display: flex;
+  gap: 5px;
+}
+.ss-reference-app .ss-ranges button {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.ss-reference-app .ss-chartwrap {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.ss-reference-app .ss-chart {
+  height: 220px;
+  max-width: 100%;
+  width: 100%;
+}
+.ss-reference-app .ss-chartlegend {
+  font-size: 10px;
+  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-phases {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.ss-reference-app .ss-phase {
+  border-radius: 9px;
+  padding: 11px;
+  border-top: 2px solid var(--phase-color, var(--green));
+  background: transparent;
+  transform: none;
+}
+.ss-reference-app .ss-phase > span {
+  font-size: 9px;
+}
+.ss-reference-app .ss-phase strong {
+  font-size: 12px;
+}
+.ss-reference-app .ss-phase small {
+  font-size: 10px;
+}
+.ss-reference-app .ss-phase:hover,
+.ss-reference-app .ss-phase.ss-active {
+  transform: none;
+  background: #ffffff08;
+}
+.ss-reference-app .ss-pnl-panel {
+  margin: 16px 0;
+  padding: 20px;
+}
+.ss-reference-app .ss-reference-context {
+  margin: 16px 0;
+}
+.ss-reference-app .ss-reference-context > summary {
+  cursor: pointer;
+  padding: 14px 17px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  background: var(--panel);
+}
+.ss-reference-app .ss-reference-context[open] > summary {
+  margin-bottom: 16px;
+}
+.ss-reference-app .ss-reference-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ss-reference-app .ss-reference-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.ss-reference-app .ss-row-actions,
+.ss-reference-app .ss-inline-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.ss-inline-form input {
+  flex: 1;
+  min-width: 140px;
+}
+.ss-reference-app .ss-commitment-row,
+.ss-reference-app .ss-context-event {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  padding: 10px 0;
+}
+.ss-reference-app .ss-commitment-row label {
+  display: flex;
+  gap: 10px;
+  color: var(--ink);
+  margin: 0;
+}
+.ss-reference-app .ss-commitment-row button {
+  border: 0;
+  background: transparent;
+}
+.ss-reference-app .ss-quiet-copy {
+  font-size: 11px;
+  line-height: 1.7;
+}
+.ss-reference-app .ss-reference-context details > summary {
+  cursor: pointer;
+  margin-top: 15px;
+  font-size: 12px;
+  color: var(--green);
+}
+.ss-reference-app .ss-reference-composer {
+  border: 1px solid #3e514c;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 22px;
+  margin: 16px 0 26px;
+}
+.ss-reference-app .ss-reference-composer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ss-reference-composer-head h2 {
+  font-size: 19px;
+  margin-top: 7px;
+}
+.ss-reference-composer-head button {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ss-reference-app .ss-time-link {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+}
+.ss-reference-app .ss-writing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.ss-reference-app .ss-writing-actions span {
+  font-size: 11px;
+  color: var(--green);
+}
+.ss-reference-app .ss-writing-actions button {
+  font-size: 12px;
+}
+.ss-reference-app .ss-reflection-stream {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  margin: 28px 0;
+}
+.ss-reference-app .ss-stream-note {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  margin-bottom: 8px;
+  padding: 0 15px;
+}
+.ss-reference-app .ss-stream-note > summary {
+  padding: 13px 0;
+  gap: 12px;
+}
+.ss-reference-app .ss-stream-note b {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--purple);
+}
+.ss-reference-app .ss-stream-detail {
+  padding: 6px 0 20px;
+}
+.ss-reference-app .ss-stream-detail blockquote {
+  margin-left: 0;
+  color: var(--green);
+  font-size: 13px;
+}
+.ss-reference-app .ss-stream-detail p {
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.ss-reference-app .ss-emotion-summary {
+  margin-top: 20px;
+}
+.ss-reference-app .ss-emotion-summary > span {
+  border-radius: 7px;
+}
+.ss-reference-app .ss-sectiontitle {
+  margin: 0 0 14px;
+}
+.ss-reference-app .ss-sectiontitle p {
+  font-size: 11px;
+}
+.ss-reference-app .ss-sectiontitle button {
+  font-size: 11px;
+}
+.ss-reference-app .ss-journalflow {
+  margin: 26px 0;
+}
+.ss-reference-app .ss-journal-trade {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin: 0 0 16px;
+  padding: 20px;
+  background: var(--panel);
+}
+.ss-reference-app .ss-journey-card-head {
+  cursor: pointer;
+  margin-bottom: 15px;
+  padding: 0;
+}
+.ss-reference-app .ss-journey-stages.ss-compact-stages {
+  display: block;
+}
+.ss-reference-app .ss-compact-stages > .ss-journey-stage {
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--phase-color, var(--green));
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 0 14px;
+}
+.ss-reference-app .ss-compact-stages .ss-journey-stage-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-compact-stages .ss-journey-stage-head > span {
+  font-size: 12px;
+  min-width: 85px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ss-reference-app .ss-compact-stages .ss-journey-stage-head strong {
+  font-size: 12px;
+}
+.ss-reference-app .ss-compact-stages .ss-journey-stage-head p {
+  font-size: 11px;
+  flex: 1;
+  min-width: 90px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ss-reference-app .ss-journey-stage > p,
+.ss-reference-app .ss-journey-stage > div {
+  font-size: 12px;
+}
+.ss-reference-app .ss-grouping-tools {
+  font-size: 12px;
+  margin: 20px 0;
+}
+.ss-reference-app .ss-grouping-tools summary {
+  cursor: pointer;
+}
+.ss-reference-app .ss-week-actuals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+}
+.ss-week-actuals span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ss-week-actuals b {
+  display: block;
+  font:
+    26px Georgia,
+    serif;
+  color: var(--ink);
+  margin-top: 7px;
+}
+.ss-reference-app .ss-original-image img,
+.ss-reference-app .ss-capture-original {
+  max-width: 100%;
+  max-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ss-original-image a {
+  display: block;
+  color: var(--green);
+  font-size: 12px;
+}
+.ss-reference-app .ss-moment-evidence > summary {
+  cursor: pointer;
+  color: var(--green);
+}
+.ss-reference-app .ss-widgetpanel {
+  max-height: 75vh;
+  overflow: auto;
+  position: relative;
+  inset: auto;
+  margin-bottom: 8px;
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+}
+.ss-reference-app .ss-livewidget:not(.ss-expanded) > .ss-widgetpanel {
+  display: none;
+}
+.ss-reference-app .ss-livewidget {
+  width: 320px;
+  right: 25px;
+  bottom: 20px;
+}
+.ss-reference-app .ss-widgetpill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  touch-action: none;
+  background: var(--surface2);
+  border: 1px solid #51645b;
+  border-radius: 16px;
+  padding: 9px 13px;
+}
+.ss-reference-app .ss-widgetpanel textarea {
+  min-height: 80px;
+  font-size: 12px;
+}
+.ss-reference-app .ss-widgetpanel label {
+  font-size: 11px;
+}
+.ss-reference-app .ss-widgetpanel button {
+  font-size: 11px;
+  padding: 7px 10px;
+}
+.ss-reference-app .ss-widgetpanel small,
+.ss-reference-app .ss-capture-evidence small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-widgetpanel audio {
+  width: 100%;
+}
+.ss-reference-app .ss-widgetpanel .ss-widgetpanelhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+.ss-reference-app .ss-widgetpanel h3 {
+  font-size: 17px;
+}
+.ss-reference-app .ss-reset {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  max-width: none;
+  padding: 25px 0;
+}
+.ss-reference-app .ss-reset h1 {
+  font:
+    48px/1.15 Georgia,
+    serif;
+  max-width: 540px;
+  letter-spacing: -1.4px;
+}
+.ss-reference-app .ss-reset > p {
+  margin: 20px 0;
+  max-width: 500px;
+}
+.ss-reference-app .ss-reset .ss-breathing-square {
+  margin: 30px auto;
+}
+.ss-reference-app .ss-reset-modules,
+.ss-reference-app .ss-reset-controls {
+  justify-content: flex-start;
+}
+.ss-reference-app .ss-reset-choices {
+  justify-content: flex-start;
+}
+.ss-reference-app .ss-stillcanvas {
+  border-top: 1px solid var(--line);
+  padding-top: 25px;
+}
+.ss-reference-app .ss-stillhead,
+.ss-reference-app .ss-presencegrid ~ * {
+  display: none;
+}
+.ss-reference-app .ss-presencegrid {
+  display: block;
+}
+.ss-reference-app .ss-noticecard {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px;
+}
+.ss-reference-app .ss-presencegrid > section:not(.ss-noticecard) {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .ss-app.ss-reference-app {
+    padding: 0 22px;
+  }
+  .ss-reference-app .ss-reference-topbar {
+    gap: 14px;
+  }
+  .ss-reference-app .ss-reference-nav button {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+  .ss-reference-avatar {
+    display: none;
+  }
+  .ss-reference-app .ss-reference-journal-grid {
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .ss-reference-app .ss-reference-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ss-reference-app .ss-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ss-reference-app .ss-phases {
+    gap: 5px;
+  }
+  .ss-reference-app .ss-phase {
+    padding: 8px;
+  }
+  .ss-reference-app .ss-phase strong {
+    font-size: 10px;
+  }
+}
+@media (max-width: 760px) {
+  .ss-app.ss-reference-app {
+    padding: 0 16px;
+  }
+  .ss-reference-app .ss-reference-topbar {
+    height: auto;
+    min-height: 72px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    gap: 8px;
+  }
+  .ss-reference-app .ss-reference-brand {
+    flex: 1;
+  }
+  .ss-reference-app .ss-reference-nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+  .ss-reference-app .ss-reference-nav button {
+    font-size: 12px;
+    padding: 13px 8px;
+  }
+  .ss-reference-app > main {
+    padding-top: 24px;
+  }
+  .ss-reference-app .ss-reference-journal-grid {
+    display: block;
+  }
+  .ss-reference-app .ss-reference-history {
+    grid-template-columns: 1fr;
+    margin-bottom: 20px;
+  }
+  .ss-reference-app
+    .ss-reference-history
+    > .ss-reference-card:not(:first-child) {
+    display: none;
+  }
+  .ss-reference-app .ss-reference-history > .ss-reference-card:first-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    padding: 14px;
+  }
+  .ss-reference-app .ss-reference-history .ss-month-controls {
+    grid-column: 1;
+    margin: 0;
+  }
+  .ss-reference-app .ss-reference-history .ss-mini-month {
+    grid-column: 1;
+    grid-row: 2/5;
+    margin: 0;
+  }
+  .ss-reference-app .ss-reference-history label {
+    grid-column: 2;
+    margin: 0;
+  }
+  .ss-reference-app .ss-reference-history input[type="search"] {
+    grid-column: 2;
+    align-self: start;
+  }
+  .ss-reference-app .ss-search-results {
+    grid-column: 1/-1;
+  }
+  .ss-reference-app .ss-reference-columns {
+    grid-template-columns: 1fr;
+  }
+  .ss-reference-app .ss-hero h1 {
+    font-size: 25px;
+  }
+  .ss-reference-app .ss-timeline-layout {
+    padding: 15px;
+  }
+  .ss-reference-app .ss-chart {
+    height: 190px;
+    min-height: 0;
+  }
+  .ss-reference-app .ss-timeline-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ss-reference-app .ss-reference-composer-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ss-reference-app .ss-stream-note > summary {
+    flex-wrap: wrap;
+  }
+  .ss-reference-app .ss-stream-note > summary > span:last-child {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+  .ss-reference-app .ss-reference-card,
+  .ss-reference-app .ss-reference-composer {
+    padding: 17px;
+  }
+  .ss-reference-app .ss-livewidget {
+    right: 12px;
+    bottom: 12px;
+    width: min(320px, calc(100vw - 24px));
+  }
+  .ss-reference-app .ss-livewidget .ss-widgetpanel {
+    max-height: 70vh;
+  }
+  .ss-reference-app .ss-reset h1 {
+    font-size: 38px;
+  }
+  .ss-reference-app .ss-phases {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ss-reference-app .ss-phase > span {
+    font-size: 8px;
+  }
+  .ss-reference-app .ss-phase strong {
+    font-size: 9px;
+  }
+  .ss-reference-app .ss-phase small {
+    font-size: 8px;
+  }
+}
+.ss-reference-app .ss-reference-chart-tools {
+  font-size: 11px;
+  margin: 4px 0 12px;
+}
+.ss-reference-chart-tools > summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 5px 0;
+}
+.ss-reference-app .ss-rhythm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-rhythm-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 20px;
+  overflow: visible;
+}
+.ss-reference-app .ss-rhythm-inspector {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ss-rhythm-inspector summary {
+  cursor: pointer;
+}
+.ss-reference-app .ss-rhythm-svg g[role="button"] {
+  cursor: pointer;
+  outline-offset: 4px;
+}
+.ss-reference-app .ss-rhythm-svg g[role="button"]:focus {
+  outline: 2px solid var(--green);
+}
+.ss-reference-app .ss-final-review-chart {
+  margin-top: 15px;
+  font-size: 12px;
+}
+.ss-final-review-chart summary {
+  cursor: pointer;
+  padding: 10px 0;
+}
+.ss-reference-app p,
+.ss-reference-app small {
+  font-family: inherit;
+}
+.ss-reference-app {
+  --before: #89b7d2;
+  --entry: #a8c6b2;
+  --management: #d4bd83;
+  --exit: #ee957d;
+  --after: #b6a3cb;
+}
+.ss-reference-app [data-phase="before"] {
+  --phase-color: #89b7d2;
+}
+.ss-reference-app [data-phase="entry"] {
+  --phase-color: #a8c6b2;
+}
+.ss-reference-app [data-phase="management"] {
+  --phase-color: #d4bd83;
+}
+.ss-reference-app [data-phase="exit"] {
+  --phase-color: #ee957d;
+}
+.ss-reference-app [data-phase="after"] {
+  --phase-color: #b6a3cb;
+}
+.ss-reference-app .ss-mobile-week-open {
+  display: none;
+}
+@media (max-width: 760px) {
+  .ss-reference-app .ss-reference-history .ss-mobile-week-open {
+    display: block;
+    grid-column: 2;
+    font-size: 10px;
+    align-self: start;
+  }
+}
+.ss-reference-app .ss-analysis-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.ss-reference-app .ss-reference-table-wrap {
+  overflow: auto;
+  margin-top: 15px;
+}
+.ss-reference-app .ss-reference-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+.ss-reference-table-wrap th {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ss-reference-app .ss-reference-table-wrap td,
+.ss-reference-app .ss-reference-table-wrap th {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.ss-reference-app .ss-reference-patterns details > summary {
+  cursor: pointer;
+  padding: 10px 0;
+  color: var(--green);
+  font-size: 12px;
+}
+.ss-reference-app .ss-analysis-evidence {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.ss-reference-app .ss-analysis-evidence strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--green);
+}
+.ss-reference-app .ss-reference-patterns .ss-reference-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.ss-reference-app .ss-perspective-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 20px;
+}
+.ss-reference-app .ss-perspective-pair blockquote {
+  border-left: 2px solid var(--green);
+  padding: 10px 16px;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.ss-perspective-pair small {
+  display: block;
+}
+.ss-reference-app .ss-perspective-pair button {
+  grid-column: 1/-1;
+  justify-self: start;
+}
+@media (max-width: 760px) {
+  .ss-reference-app .ss-analysis-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ss-reference-app .ss-perspective-pair {
+    grid-template-columns: 1fr;
+  }
+  .ss-reference-app .ss-reference-patterns .ss-reference-page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-reference-app * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

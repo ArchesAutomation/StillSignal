@@ -4,9 +4,10 @@ export default function Privacy() {
       <a href="/">← Still Signal</a>
       <h1>Your data, in context.</h1>
       <p>
-        Still Signal stores heart-rate samples, trading events, session metadata,
-        preferences, and self-reported journal entries. Every account starts
-        empty. The isolated UI review uses separately labeled synthetic data.
+        Still Signal stores heart-rate samples, trading events, session
+        metadata, preferences, and self-reported journal entries. Every account
+        starts empty. The isolated UI review uses separately labeled synthetic
+        data.
       </p>
       <h2>Your private workspace</h2>
       <p>
@@ -58,23 +59,47 @@ export default function Privacy() {
       </p>
       <h2>Controls</h2>
       <p>
-        The optional Chrome voice journal extension uses a revocable journal-only
-        credential paired through your signed-in account. Activated recordings
-        are sent to the configured remote transcription provider (Groq or
-        OpenAI). Unclear speech requires review.
-        Raw audio stays only in extension storage during capture and retry and is
-        removed after successful transcription or cancellation. Pending notes
-        stay separated by account. Optional “Hey Journal” detection runs locally
-        and requires a licensed custom model; listening is never restored after
-        a browser restart or account change. Revoke an installation in Settings.
+        The optional Chrome voice journal extension uses a revocable
+        journal-only credential paired through your signed-in account. Activated
+        recordings are sent to the configured remote transcription provider
+        (Groq or OpenAI). Unclear speech requires review. Raw audio stays only
+        in extension storage during capture and retry and is removed after
+        successful transcription or cancellation. Pending notes stay separated
+        by account. Optional “Hey Journal” detection runs locally and requires a
+        licensed custom model; listening is never restored after a browser
+        restart or account change. Revoke an installation in Settings.
       </p>
       <p>
         Voice dictation starts only when you use the shortcut or choose to
         answer a check-in. Your browser's speech service may process audio
-        remotely; Still Signal stores the reviewed transcript, not an audio
-        recording. Screenshots are stored in a private account-owned bucket and
-        displayed using short-lived links. Screenshot contents are not sent for
-        AI interpretation.
+        remotely. Still Signal stores the reviewed transcript and preserves its
+        original wording when you edit it. Separately opting into original audio
+        records a copy on this device only. That copy is unavailable after seven
+        days and is removed the next time you open Still Signal; you can play,
+        download or delete it earlier. Screenshots are stored in a private
+          account-owned bucket and displayed using short-lived links. Original
+          chart frames captured from a surface you explicitly share stay on the
+          capturing device until you delete the reflection. Their originals can
+          be downloaded from the moment evidence view. JSON exports include
+          media references, not those original image or audio files. Screenshot
+        contents are not sent for AI interpretation.
+      </p>
+      <h2>Optional context and physiology</h2>
+      <p>
+        Environment uses labels you choose, without exact GPS. Commitments and
+        their adherence assessments are entered by you. Physiology is an
+        optional, dated snapshot; caffeine and medication require separate
+        consent. Session data controls choose whether audio markers,
+        transcripts, HR, P&amp;L, profile and environment may be combined for
+        new pattern analysis. Profile snapshots and P&amp;L can be deleted in
+        the app. Original CSVs remain on the importing device; their references,
+        selected events and timezone metadata synchronize with the session.
+      </p>
+      <p>
+        Environment comparisons show date ranges and sample sizes, using at
+        least five distinct session days for an early signal and ten for more
+        established evidence. These are personal associations, not causal
+        findings or medical or trade instructions.
       </p>
       <p>
         Personal insights count your confirmed labels, HR context and proximity

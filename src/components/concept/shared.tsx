@@ -12,6 +12,7 @@ export const cx = (...names: (string | false | undefined)[]) =>
     .join(" ");
 export type Page =
   | "Overview"
+  | "Prepare"
   | "Journal"
   | "Patterns"
   | "Sessions"

@@ -10,16 +10,34 @@ import { money, type TradeEvent } from "@/lib/model";
 import { isDemoSession, demoCandles } from "@/lib/demo-market";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
 import { timelinePhase } from "@/lib/timeline-phase";
-import { noteTime, isTradeSection, sectionName, sessionTrades } from "@/lib/journal-routing";
-import { dailyJournalSession, journalDaySessions } from "@/lib/journal-collection";
+import {
+  noteTime,
+  isTradeSection,
+  sectionName,
+  sessionTrades,
+} from "@/lib/journal-routing";
+import {
+  dailyJournalSession,
+  journalDaySessions,
+} from "@/lib/journal-collection";
 import { Screenshot } from "../reflection-editor";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
 import Writing from "./writing";
+import ReferenceContext from "./reference-context";
+import ReferenceDaily from "./reference-daily";
+import ReferenceRhythm from "./reference-rhythm";
+import ReferencePatterns from "./reference-patterns";
 import Review from "./review";
 import Patterns from "./patterns";
 import LoadMetric from "./load-metric";
 import JournalTrades from "./journal-trades";
+import ReflectionStream, { DayLabelSummary } from "./reflection-stream";
+import SessionContext from "./session-context";
+import PnlTimeline from "./pnl-timeline";
+import EnvironmentPatterns from "./environment-patterns";
+import IdeaGrouping from "./idea-grouping";
+import SessionObservations from "./session-observations";
 import { useJournalSamples } from "../use-journal-samples";
 import {
   cx,
@@ -38,17 +56,44 @@ export default function Journal(
   },
 ) {
   const { pulse: p, session: s, history, view, setView } = props;
-  const daySession = useMemo(() => dailyJournalSession(s, history), [s, history]);
+  const daySession = useMemo(
+    () => dailyJournalSession(s, history),
+    [s, history],
+  );
   const daySamples = useJournalSamples(s, history, p.samples);
   const [timelineView, setTimelineView] = useState(false);
-  const [writingSelection, setWritingSelection] = useState<{ section: import("@/lib/model").JournalEntry["section"]; tradeId: string }>();
+  const [writingSelection, setWritingSelection] = useState<{
+    section: import("@/lib/model").JournalEntry["section"];
+    tradeId: string;
+  }>();
   async function editCollected(note: import("@/lib/model").JournalEntry) {
-    const original = journalDaySessions(s, history).find(item => item.journal.some(n => n.id === note.id));
+    const original = journalDaySessions(s, history).find((item) =>
+      item.journal.some((n) => n.id === note.id),
+    );
     if (original && original.id !== s.id) {
-      if (p.active) { p.setError("End your active session before editing a note from another recording."); return; }
-      if (!await p.openSession(original)) return;
+      if (p.active) {
+        p.setError(
+          "End your active session before editing a note from another recording.",
+        );
+        return;
+      }
+      if (!(await p.openSession(original))) return;
     }
     props.onReflect({ t: note.t, entry: note });
+  }
+  async function saveCollected(note: import("@/lib/model").JournalEntry) {
+    const original = journalDaySessions(s, history).find((item) =>
+      item.journal.some((n) => n.id === note.id),
+    );
+    if (original && original.id !== s.id) {
+      if (p.active)
+        throw new Error(
+          "End your active session before changing another recording.",
+        );
+      if (!(await p.openSession(original)))
+        throw new Error("Could not open the original recording.");
+    }
+    await p.addNote(note);
   }
   const [selected, setSelected] = useState<Moment | null>(null),
     [range, setRange] = useState(0),
@@ -70,10 +115,13 @@ export default function Journal(
         ...s.journal.map((n) => noteTime(n) ?? 0),
       );
   const demo = isDemoSession(s);
-  const marketSymbols = [...new Set(s.events.filter((e) => !e.voided).map((e) => e.symbol))];
-  const symbol = chartSymbol && marketSymbols.includes(chartSymbol)
-    ? chartSymbol
-    : marketSymbols[0] || "";
+  const marketSymbols = [
+    ...new Set(s.events.filter((e) => !e.voided).map((e) => e.symbol)),
+  ];
+  const symbol =
+    chartSymbol && marketSymbols.includes(chartSymbol)
+      ? chartSymbol
+      : marketSymbols[0] || "";
   const marketEvent = s.events.find((e) => e.symbol === symbol && e.instrument);
   const { feed, loading: marketLoading } = useMarketData(
     !demo && marketEvent?.instrument
@@ -99,7 +147,9 @@ export default function Journal(
         : symbol
           ? "Trade fills are shown; price candles need an available market feed."
           : "Add a trade to select an instrument.";
-  const cutoff = Math.round(s.startedAt + ((end - s.startedAt) * position) / 100);
+  const cutoff = Math.round(
+    s.startedAt + ((end - s.startedAt) * position) / 100,
+  );
   const start = range
     ? Math.max(s.startedAt, cutoff - range * 60000)
     : s.startedAt;
@@ -144,7 +194,8 @@ export default function Journal(
   );
   const notes = liveNotes(s.journal).filter(
     (n) =>
-      (noteTime(n) === null || noteTime(n)! <= cutoff) && (position === 100 || (n.updatedAt || n.t) <= cutoff),
+      (noteTime(n) === null || noteTime(n)! <= cutoff) &&
+      (position === 100 || (n.updatedAt || n.t) <= cutoff),
   );
   const events = s.events.filter(
     (e) =>
@@ -172,42 +223,75 @@ export default function Journal(
       event: e,
       bpm: nearest(samples, e.t)?.bpm ?? null,
     })),
-    ...notes.filter(n => noteTime(n) !== null || (n.tradeId && isTradeSection(n.section))).map((n) => ({
-      id: n.id,
-      t: noteTime(n) ?? n.t,
-      phase: "REFLECTION",
-      label: n.label,
-      text: n.text || "A moment marked for reflection.",
-      note: n,
-      bpm: noteTime(n) === null ? null : nearest(samples, noteTime(n)!)?.bpm ?? n.context?.bpm ?? null,
-    })),
+    ...notes
+      .filter(
+        (n) => noteTime(n) !== null || (n.tradeId && isTradeSection(n.section)),
+      )
+      .map((n) => ({
+        id: n.id,
+        t: noteTime(n) ?? n.t,
+        phase: "REFLECTION",
+        label: n.label,
+        text: n.text || "A moment marked for reflection.",
+        note: n,
+        bpm:
+          noteTime(n) === null
+            ? null
+            : (nearest(samples, noteTime(n)!)?.bpm ?? n.context?.bpm ?? null),
+      })),
   ].sort((a, b) => a.t - b.t);
   const trades = sessionTrades({ ...s, events });
   const trade =
-    trades.find(t => t.id === selected?.note?.tradeId || t.entryEventId === selected?.event?.id || t.exitEventId === selected?.event?.id) || trades.find(
-      (t) => t.symbol === symbol && selected && t.entry <= selected.t && (t.exit || end) >= selected.t,
-    ) || trades.find((t) => t.symbol === symbol) || trades[0];
-  const phaseDefs = trade && !events.some(e => e.id === trade.entryEventId && e.timePrecision === "day")
-    ? [
-        {
-          name: "BEFORE",
-          t:
-            notes.filter((n) => n.t < trade.entry).at(-1)?.t ??
-            Math.max(s.startedAt, trade.entry - 60000),
-        },
-        { name: "ENTRY", t: trade.entry },
-        { name: "MANAGEMENT", t: Math.round((trade.entry + (trade.exit || cutoff)) / 2) },
-        ...(trade.exit === undefined ? [] : [{ name: "EXIT", t: trade.exit },
-        {
-          name: "AFTER",
-          t:
-            notes.find((n) => n.t > (trade.exit || cutoff))?.t ??
-            Math.min(cutoff, (trade.exit || cutoff) + 60000),
-        }]),
-      ]
-    : [];
+    trades.find(
+      (t) =>
+        t.id === selected?.note?.tradeId ||
+        t.entryEventId === selected?.event?.id ||
+        t.exitEventId === selected?.event?.id,
+    ) ||
+    trades.find(
+      (t) =>
+        t.symbol === symbol &&
+        selected &&
+        t.entry <= selected.t &&
+        (t.exit || end) >= selected.t,
+    ) ||
+    trades.find((t) => t.symbol === symbol) ||
+    trades[0];
+  const phaseDefs =
+    trade &&
+    !events.some(
+      (e) => e.id === trade.entryEventId && e.timePrecision === "day",
+    )
+      ? [
+          {
+            name: "BEFORE",
+            t:
+              notes.filter((n) => n.t < trade.entry).at(-1)?.t ??
+              Math.max(s.startedAt, trade.entry - 60000),
+          },
+          { name: "ENTRY", t: trade.entry },
+          {
+            name: "MANAGEMENT",
+            t: Math.round((trade.entry + (trade.exit || cutoff)) / 2),
+          },
+          ...(trade.exit === undefined
+            ? []
+            : [
+                { name: "EXIT", t: trade.exit },
+                {
+                  name: "AFTER",
+                  t:
+                    notes.find((n) => n.t > (trade.exit || cutoff))?.t ??
+                    Math.min(cutoff, (trade.exit || cutoff) + 60000),
+                },
+              ]),
+        ]
+      : [];
   const phases: Moment[] = phaseDefs.map(({ name, t }) => {
-    const n = notes.find((n) => n.tradeId === trade?.id && n.section === name.toLowerCase()) || notes.find((n) => !n.section && n.t === t);
+    const n =
+      notes.find(
+        (n) => n.tradeId === trade?.id && n.section === name.toLowerCase(),
+      ) || notes.find((n) => !n.section && n.t === t);
     const pts =
       name === "MANAGEMENT"
         ? samples.filter(
@@ -228,7 +312,9 @@ export default function Journal(
     };
   });
   const current =
-    selected && (selected.t <= cutoff || (selected.note && noteTime(selected.note) === null))
+    selected &&
+    (selected.t <= cutoff ||
+      (selected.note && noteTime(selected.note) === null))
       ? selected
       : phases.find((m) => m.phase === "ENTRY") ||
         rows[0] || {
@@ -262,8 +348,24 @@ export default function Journal(
     props.onReflect({
       t: current.t,
       origin: "timeline",
-      section: current.note?.section || (current.id.startsWith("phase-") ? current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"] : current.event?.kind === "entry" ? "entry" : current.event?.kind === "exit" ? "exit" : undefined),
-      tradeId: current.note?.tradeId || (current.id.startsWith("phase-") ? trade?.id : trades.find(t => t.entryEventId === current.event?.id || t.exitEventId === current.event?.id)?.id),
+      section:
+        current.note?.section ||
+        (current.id.startsWith("phase-")
+          ? (current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"])
+          : current.event?.kind === "entry"
+            ? "entry"
+            : current.event?.kind === "exit"
+              ? "exit"
+              : undefined),
+      tradeId:
+        current.note?.tradeId ||
+        (current.id.startsWith("phase-")
+          ? trade?.id
+          : trades.find(
+              (t) =>
+                t.entryEventId === current.event?.id ||
+                t.exitEventId === current.event?.id,
+            )?.id),
       source: voice ? "voice" : "typed",
       autoListen: voice,
     });
@@ -277,10 +379,18 @@ export default function Journal(
     if (row.event?.timePrecision === "day") return false;
     if (row.event) return row.event.symbol === symbol;
     const linked = row.note?.context?.eventId;
-    return !linked || s.events.find((event) => event.id === linked)?.symbol === symbol;
+    return (
+      !linked ||
+      s.events.find((event) => event.id === linked)?.symbol === symbol
+    );
   });
   const tradeExit = trade?.exit
-    ? events.find((event) => event.kind === "exit" && event.symbol === trade.symbol && event.t === trade.exit)
+    ? events.find(
+        (event) =>
+          event.kind === "exit" &&
+          event.symbol === trade.symbol &&
+          event.t === trade.exit,
+      )
     : undefined;
   const accounts = [
     ...new Map(
@@ -290,26 +400,67 @@ export default function Journal(
       ]),
     ).entries(),
   ];
-  const selectedPhase = current.note?.section || (isTradeSection(current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"])
-    ? current.phase.toLowerCase() : timelinePhase(current.phase, current.t, trades));
-  const phaseWindow: [number, number] | undefined = !trade ? undefined
-    : selectedPhase === "before" ? [Math.max(start, trade.entry - 600000), trade.entry]
-    : selectedPhase === "management" ? [trade.entry, trade.exit ?? cutoff]
-    : selectedPhase === "after" && trade.exit !== undefined ? [trade.exit, Math.min(cutoff, trade.exit + 600000)]
-    : selectedPhase === "entry" ? [trade.entry - 10000, trade.entry + 10000]
-    : selectedPhase === "exit" && trade.exit !== undefined ? [trade.exit - 10000, trade.exit + 10000] : undefined;
-  const rowTrade = (row: Moment) => trades.findIndex(t => row.note?.tradeId === t.id || row.event?.id === t.entryEventId || row.event?.id === t.exitEventId);
-  const rowPhase = (row: Moment) => row.note?.section || timelinePhase(row.phase, row.t, trades);
-  const phaseOrder = ["before", "entry", "management", "exit", "after", "reflection"];
-  const orderedRows = [...rows].sort((a, b) => rowTrade(a) - rowTrade(b)
-    || phaseOrder.indexOf(rowPhase(a)) - phaseOrder.indexOf(rowPhase(b))
-    || (a.note?.order ?? a.t) - (b.note?.order ?? b.t));
+  const selectedPhase =
+    current.note?.section ||
+    (isTradeSection(
+      current.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"],
+    )
+      ? current.phase.toLowerCase()
+      : timelinePhase(current.phase, current.t, trades));
+  const phaseWindow: [number, number] | undefined = !trade
+    ? undefined
+    : selectedPhase === "before"
+      ? [Math.max(start, trade.entry - 600000), trade.entry]
+      : selectedPhase === "management"
+        ? [trade.entry, trade.exit ?? cutoff]
+        : selectedPhase === "after" && trade.exit !== undefined
+          ? [trade.exit, Math.min(cutoff, trade.exit + 600000)]
+          : selectedPhase === "entry"
+            ? [trade.entry - 10000, trade.entry + 10000]
+            : selectedPhase === "exit" && trade.exit !== undefined
+              ? [trade.exit - 10000, trade.exit + 10000]
+              : undefined;
+  const rowTrade = (row: Moment) =>
+    trades.findIndex(
+      (t) =>
+        row.note?.tradeId === t.id ||
+        row.event?.id === t.entryEventId ||
+        row.event?.id === t.exitEventId,
+    );
+  const rowPhase = (row: Moment) =>
+    row.note?.section || timelinePhase(row.phase, row.t, trades);
+  const phaseOrder = [
+    "before",
+    "entry",
+    "management",
+    "exit",
+    "after",
+    "reflection",
+  ];
+  const orderedRows = [...rows].sort(
+    (a, b) =>
+      rowTrade(a) - rowTrade(b) ||
+      phaseOrder.indexOf(rowPhase(a)) - phaseOrder.indexOf(rowPhase(b)) ||
+      (a.note?.order ?? a.t) - (b.note?.order ?? b.t),
+  );
   function editMoment(row: Moment) {
     const target = trades[rowTrade(row)];
-    props.onReflect({ t: row.note ? noteTime(row.note) ?? row.t : row.t,
-      eventTime: row.note ? noteTime(row.note) : row.event?.timePrecision === "day" ? null : row.t,
-      section: row.note?.section || (target ? rowPhase(row) as import("@/lib/model").JournalEntry["section"] : undefined),
-      origin: "timeline", tradeId: row.note?.tradeId || target?.id, ...(row.note ? { entry: row.note } : {}) });
+    props.onReflect({
+      t: row.note ? (noteTime(row.note) ?? row.t) : row.t,
+      eventTime: row.note
+        ? noteTime(row.note)
+        : row.event?.timePrecision === "day"
+          ? null
+          : row.t,
+      section:
+        row.note?.section ||
+        (target
+          ? (rowPhase(row) as import("@/lib/model").JournalEntry["section"])
+          : undefined),
+      origin: "timeline",
+      tradeId: row.note?.tradeId || target?.id,
+      ...(row.note ? { entry: row.note } : {}),
+    });
   }
   return (
     <>
@@ -326,7 +477,7 @@ export default function Journal(
                 ))
               : "—"
           }
-          detail={`${exits.length} closed trade${exits.length === 1 ? "" : "s"}`}
+          detail={`${trades.filter((t) => t.exit !== undefined).length} closed trade ideas`}
         />
         <Metric
           label="Session baseline"
@@ -352,9 +503,22 @@ export default function Journal(
               : "No heart-rate samples"
           }
         />
-        <LoadMetric samples={samples} session={s} history={history} settings={p.settings} onInspect={t => {
-          setSelected({ id: `hr-${t}`, t, phase: "MOMENT", label: "Recorded rise", text: "Inspect this recorded heart-rate window.", bpm: nearest(samples, t)?.bpm ?? null });
-        }} />
+        <LoadMetric
+          samples={samples}
+          session={s}
+          history={history}
+          settings={p.settings}
+          onInspect={(t) => {
+            setSelected({
+              id: `hr-${t}`,
+              t,
+              phase: "MOMENT",
+              label: "Recorded rise",
+              text: "Inspect this recorded heart-rate window.",
+              bpm: nearest(samples, t)?.bpm ?? null,
+            });
+          }}
+        />
       </section>
       <div className={cx("sectiontabs")} aria-label="Journal views">
         {(["story", "patterns", "review"] as const).map((v, i) => (
@@ -369,231 +533,396 @@ export default function Journal(
         ))}
       </div>
       <section hidden={view !== "story"}>
-        <div className={cx("timeline-layout")}>
-          <div>
-            <div className={cx("timeline-head")}>
-              <div>
-                <h2>The rhythm of your session</h2>
-                <p>{showPrice ? "Price and heart rate on the same timeline." : "Select a moment or drag across a range to add context."}</p>
-              </div>
-              <div className={cx("ranges")}>
-                <button className={cx(showPrice && "active")} aria-pressed={showPrice} onClick={() => setShowPrice(v => !v)}>Price</button>
-                {[
-                  [15, "15m"],
-                  [60, "1h"],
-                  [0, "All"],
-                ].map(([v, l]) => (
+        <ReferenceRhythm
+          session={daySession}
+          samples={daySamples}
+          baselineSeconds={p.settings.baselineSeconds}
+          phases={phases}
+          selected={selectedPhase}
+          onSelect={(m) => {
+            pick(m);
+            if (m.note) {
+              const element = document.getElementById(
+                "moment-" + m.note.id,
+              ) as HTMLDetailsElement | null;
+              if (element) {
+                element.open = true;
+                element.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }
+          }}
+        />
+        <details className={cx("reference-chart-tools")}>
+          <summary>Price chart & detailed moment inspector</summary>
+          <div className={cx("timeline-layout")}>
+            <div>
+              <div className={cx("timeline-head")}>
+                <div>
+                  <h2>The rhythm of your session</h2>
+                  <p>
+                    {showPrice
+                      ? "Price and heart rate on the same timeline."
+                      : "Select a moment or drag across a range to add context."}
+                  </p>
+                </div>
+                <div className={cx("ranges")}>
                   <button
-                    key={v}
-                    className={cx(range === v && "active")}
-                    onClick={() => setRange(Number(v))}
+                    className={cx(showPrice && "active")}
+                    aria-pressed={showPrice}
+                    onClick={() => setShowPrice((v) => !v)}
                   >
-                    {l}
+                    Price
+                  </button>
+                  {[
+                    [15, "15m"],
+                    [60, "1h"],
+                    [0, "All"],
+                  ].map(([v, l]) => (
+                    <button
+                      key={v}
+                      className={cx(range === v && "active")}
+                      onClick={() => setRange(Number(v))}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={cx("price-controls")} hidden={!showPrice}>
+                <label>
+                  Instrument
+                  <select
+                    aria-label="Chart instrument"
+                    value={symbol}
+                    onChange={(event) => {
+                      setChartSymbol(event.target.value);
+                      setSelected(null);
+                    }}
+                  >
+                    {marketSymbols.length ? (
+                      marketSymbols.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No instrument</option>
+                    )}
+                  </select>
+                </label>
+                <span className={cx("price-source")} role="status">
+                  {demo
+                    ? "DEMO · simulated 1m candles · New York time"
+                    : marketLoading
+                      ? "Loading market prices"
+                      : feed.state === "ready"
+                        ? `${feed.provider} · ${feed.granularity}`
+                        : "Recorded HR · market price when available"}
+                </span>
+              </div>
+              <div className={cx("chartlegend")}>
+                <span className={cx("price-legend")} hidden={!showPrice}>
+                  <i className={cx("legend-candle", "rising")} />
+                  <i className={cx("legend-candle", "falling")} />
+                  {symbol || "Price"} candles
+                </span>
+                <span>
+                  <i className={cx("legendline")} />
+                  Heart rate
+                </span>
+                <span>
+                  <i className={cx("legenddash")} />
+                  {stats.baseline === null
+                    ? "—"
+                    : Math.round(stats.baseline)}{" "}
+                  baseline
+                </span>
+                {["before", "entry", "management", "exit", "after"].map(
+                  (phase) => (
+                    <span key={phase} style={{ color: `var(--${phase})` }}>
+                      ● {phase[0].toUpperCase() + phase.slice(1)}
+                    </span>
+                  ),
+                )}
+              </div>
+              <Chart
+                key={s.id + ":" + symbol + ":" + range + ":" + showPrice}
+                showPrice={showPrice}
+                samples={samples}
+                baseline={stats.baseline}
+                start={start}
+                end={cutoff}
+                candles={candles}
+                symbol={symbol || "Price"}
+                priceStatus={priceStatus}
+                demo={demo}
+                moments={chartRows}
+                phaseForMoment={rowPhase}
+                selected={current.id}
+                selectedPhase={selectedPhase}
+                phaseWindow={phaseWindow}
+                onSelect={pick}
+              />
+              <div className={cx("phases")}>
+                {phases.map((m) => (
+                  <button
+                    className={cx(
+                      "phase",
+                      selectedPhase === m.phase.toLowerCase() && "active",
+                    )}
+                    data-phase={m.phase.toLowerCase()}
+                    key={m.id}
+                    onClick={() => pick(m)}
+                  >
+                    <span>{m.phase}</span>
+                    <strong>
+                      {m.phase === "MANAGEMENT" && trade
+                        ? `${time(trade.entry, false)}–${time(trade.exit || cutoff, false)}`
+                        : time(m.t).replace(/ [AP]M/, "")}
+                    </strong>
+                    <small>
+                      {m.bpm ?? "—"} {m.phase === "MANAGEMENT" ? "avg" : "BPM"}{" "}
+                      <b className={cx("up")}>
+                        {m.bpm !== null && stats.baseline !== null
+                          ? signed(m.bpm - stats.baseline)
+                          : ""}
+                      </b>
+                    </small>
                   </button>
                 ))}
               </div>
             </div>
-            <div className={cx("price-controls")} hidden={!showPrice}>
-              <label>
-                Instrument
-                <select
-                  aria-label="Chart instrument"
-                  value={symbol}
-                  onChange={(event) => {
-                    setChartSymbol(event.target.value);
-                    setSelected(null);
-                  }}
-                >
-                  {marketSymbols.length ? marketSymbols.map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  )) : <option value="">No instrument</option>}
-                </select>
-              </label>
-              <span className={cx("price-source")} role="status">
-                {demo ? "DEMO · simulated 1m candles · New York time" : marketLoading ? "Loading market prices" : feed.state === "ready" ? `${feed.provider} · ${feed.granularity}` : "Recorded HR · market price when available"}
-              </span>
-            </div>
-            <div className={cx("chartlegend")}>
-              <span className={cx("price-legend")} hidden={!showPrice}>
-                <i className={cx("legend-candle", "rising")} />
-                <i className={cx("legend-candle", "falling")} />
-                {symbol || "Price"} candles
-              </span>
-              <span>
-                <i className={cx("legendline")} />
-                Heart rate
-              </span>
-              <span>
-                <i className={cx("legenddash")} />
-                {stats.baseline === null
-                  ? "—"
-                  : Math.round(stats.baseline)}{" "}
-                baseline
-              </span>
-              {["before", "entry", "management", "exit", "after"].map(phase => <span key={phase} style={{ color: `var(--${phase})` }}>● {phase[0].toUpperCase() + phase.slice(1)}</span>)}
-            </div>
-            <Chart
-              key={s.id + ":" + symbol + ":" + range + ":" + showPrice}
-              showPrice={showPrice}
-              samples={samples}
-              baseline={stats.baseline}
-              start={start}
-              end={cutoff}
-              candles={candles}
-              symbol={symbol || "Price"}
-              priceStatus={priceStatus}
-              demo={demo}
-              moments={chartRows}
-              phaseForMoment={rowPhase}
-              selected={current.id}
-              selectedPhase={selectedPhase}
-              phaseWindow={phaseWindow}
-              onSelect={pick}
-            />
-            <div className={cx("phases")}>
-              {phases.map((m) => (
-                <button
-                  className={cx("phase", selectedPhase === m.phase.toLowerCase() && "active")}
-                  data-phase={m.phase.toLowerCase()}
-                  key={m.id}
-                  onClick={() => pick(m)}
-                >
-                  <span>{m.phase}</span>
-                  <strong>
-                    {m.phase === "MANAGEMENT" && trade
-                      ? `${time(trade.entry, false)}–${time(trade.exit || cutoff, false)}`
-                      : time(m.t).replace(/ [AP]M/, "")}
-                  </strong>
-                  <small>
-                    {m.bpm ?? "—"} {m.phase === "MANAGEMENT" ? "avg" : "BPM"}{" "}
-                    <b className={cx("up")}>
-                      {m.bpm !== null && stats.baseline !== null
-                        ? signed(m.bpm - stats.baseline)
-                        : ""}
-                    </b>
-                  </small>
-                </button>
-              ))}
-            </div>
-          </div>
-          <aside className={cx("moment")}>
-            <div className={cx("moment-accent")} />
-            <div className={cx("momentbody")}>
-              <div className={cx("momenttitle")}>
-                <h3>{showPrice ? "Trade context" : "Selected moment"}</h3>
-                <button
-                  aria-label="Clear selected moment"
-                  onClick={() => setSelected(null)}
-                >
-                  ×
-                </button>
-              </div>
-              {showPrice && trade && (
-                <>
-                  <div className={cx("context-symbol")}>
-                    <strong>{trade.symbol}</strong>
-                    <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
-                  </div>
-                  <p className={cx("context-caption")}>
-                    {demo ? "Simulated trade" : "Recorded trade"} · {trade.quantity} shares
-                  </p>
-                  <div className={cx("context-facts")}>
-                    <div><span>Entry price</span><strong>{trade.entryPrice.toFixed(2)}</strong></div>
-                    <div><span>Exit price</span><strong>{trade.exitPrice?.toFixed(2) ?? "Open"}</strong></div>
-                    <div><span>Realised P&L</span><strong className={cx((tradeExit?.pnl || 0) >= 0 ? "positive" : "negative")}>
-                      {tradeExit?.pnl === undefined ? "—" : money(tradeExit.pnl, tradeExit.currency || "USD")}
-                    </strong></div>
-                  </div>
-                  <div className={cx("context-heart")}>
-                    <span>Heart rate around this trade</span>
-                    <div>
-                      <label>Before <b>{nearest(samples, trade.entry - 60000)?.bpm ?? "—"}</b></label>
-                      <label>At entry <b>{nearest(samples, trade.entry)?.bpm ?? "—"}</b></label>
-                      <label>After <b>{nearest(samples, (trade.exit || cutoff) + 60000)?.bpm ?? "—"}</b></label>
+            <aside className={cx("moment")}>
+              <div className={cx("moment-accent")} />
+              <div className={cx("momentbody")}>
+                <div className={cx("momenttitle")}>
+                  <h3>{showPrice ? "Trade context" : "Selected moment"}</h3>
+                  <button
+                    aria-label="Clear selected moment"
+                    onClick={() => setSelected(null)}
+                  >
+                    ×
+                  </button>
+                </div>
+                {showPrice && trade && (
+                  <>
+                    <div className={cx("context-symbol")}>
+                      <strong>{trade.symbol}</strong>
+                      <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
                     </div>
-                    <small>BPM · synced to the price timeline</small>
-                  </div>
-                </>
-              )}
-              {showPrice && <><div className={cx("context-divider")} /><span className={cx("context-section")}>Selected moment</span></>}
-              <div className={cx("bigbpm")}>
-                <strong>{current.bpm ?? "—"}</strong>
-                <span>BPM</span>
-              </div>
-              <div className={cx("delta")}>
-                {delta === null
-                  ? "No heart-rate context"
-                  : `${signed(delta)} above your baseline`}
-              </div>
-              <div className={cx("momenttime")}>
-                {current.note && noteTime(current.note) === null ? "Untimed" : time(current.t)} · {current.note?.section || current.phase}
-              </div>
-              <span className={cx("tag")}>{current.label}</span>
-              <p className={cx("quote")}>“{current.text}”</p>
-              <div className={cx("contextactions")}>
+                    <p className={cx("context-caption")}>
+                      {demo ? "Simulated trade" : "Recorded trade"} ·{" "}
+                      {trade.quantity} shares
+                    </p>
+                    <div className={cx("context-facts")}>
+                      <div>
+                        <span>Entry price</span>
+                        <strong>{trade.entryPrice.toFixed(2)}</strong>
+                      </div>
+                      <div>
+                        <span>Exit price</span>
+                        <strong>{trade.exitPrice?.toFixed(2) ?? "Open"}</strong>
+                      </div>
+                      <div>
+                        <span>Realised P&L</span>
+                        <strong
+                          className={cx(
+                            (tradeExit?.pnl || 0) >= 0
+                              ? "positive"
+                              : "negative",
+                          )}
+                        >
+                          {tradeExit?.pnl === undefined
+                            ? "—"
+                            : money(tradeExit.pnl, tradeExit.currency || "USD")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className={cx("context-heart")}>
+                      <span>Heart rate around this trade</span>
+                      <div>
+                        <label>
+                          Before{" "}
+                          <b>
+                            {nearest(samples, trade.entry - 60000)?.bpm ?? "—"}
+                          </b>
+                        </label>
+                        <label>
+                          At entry{" "}
+                          <b>{nearest(samples, trade.entry)?.bpm ?? "—"}</b>
+                        </label>
+                        <label>
+                          After{" "}
+                          <b>
+                            {nearest(samples, (trade.exit || cutoff) + 60000)
+                              ?.bpm ?? "—"}
+                          </b>
+                        </label>
+                      </div>
+                      <small>BPM · synced to the price timeline</small>
+                    </div>
+                  </>
+                )}
+                {showPrice && (
+                  <>
+                    <div className={cx("context-divider")} />
+                    <span className={cx("context-section")}>
+                      Selected moment
+                    </span>
+                  </>
+                )}
+                <div className={cx("bigbpm")}>
+                  <strong>{current.bpm ?? "—"}</strong>
+                  <span>BPM</span>
+                </div>
+                <div className={cx("delta")}>
+                  {delta === null
+                    ? "No heart-rate context"
+                    : `${signed(delta)} above your baseline`}
+                </div>
+                <div className={cx("momenttime")}>
+                  {current.note && noteTime(current.note) === null
+                    ? "Untimed"
+                    : time(current.t)}{" "}
+                  · {current.note?.section || current.phase}
+                </div>
+                <span className={cx("tag")}>{current.label}</span>
+                <p className={cx("quote")}>“{current.text}”</p>
+                <div className={cx("contextactions")}>
+                  <button
+                    className={cx("ghost")}
+                    onClick={() => setShowPrice((v) => !v)}
+                  >
+                    {showPrice ? "Heart rate" : "View price"}
+                  </button>
+                  <button
+                    className={cx("ghost")}
+                    onClick={() =>
+                      props.onReflect({
+                        t: current.t,
+                        initialLabel: "Other",
+                        initialText: "Possible sensor anomaly: ",
+                      })
+                    }
+                  >
+                    Mark anomaly
+                  </button>
+                </div>
+                <div className={cx("capture")}>
+                  <button className={cx("ghost")} onClick={() => reflect()}>
+                    Write
+                  </button>
+                  <button
+                    className={cx("ghost", "mic")}
+                    onClick={() => reflect(true)}
+                  >
+                    ● Speak now
+                  </button>
+                </div>
                 <button
-                  className={cx("ghost")}
-                  onClick={() => setShowPrice(v => !v)}
-                >
-                  {showPrice ? "Heart rate" : "View price"}
-                </button>
-                <button
-                  className={cx("ghost")}
+                  className={cx("textlink")}
                   onClick={() =>
                     props.onReflect({
                       t: current.t,
-                      initialLabel: "Other",
-                      initialText: "Possible sensor anomaly: ",
+                      ...(current.note ? { entry: current.note } : {}),
                     })
                   }
                 >
-                  Mark anomaly
+                  Edit emotion or timestamp
                 </button>
               </div>
-              <div className={cx("capture")}>
-                <button className={cx("ghost")} onClick={() => reflect()}>
-                  Write
-                </button>
-                <button
-                  className={cx("ghost", "mic")}
-                  onClick={() => reflect(true)}
-                >
-                  ● Speak now
-                </button>
-              </div>
-              <button
-                className={cx("textlink")}
-                onClick={() =>
-                  props.onReflect({
-                    t: current.t,
-                    ...(current.note ? { entry: current.note } : {}),
-                  })
-                }
-              >
-                Edit emotion or timestamp
-              </button>
-            </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        </details>
+        <details className={cx("reference-chart-tools")}>
+          <summary>P&L data sources & account selection</summary>
+          <PnlTimeline
+            session={daySession}
+            samples={daySamples}
+            onSave={p.updateBlueprint}
+          />
+        </details>
+        <ReferenceContext
+          key={"reference-context:" + s.id}
+          {...props}
+          compact
+        />
         <Writing
           key={s.id}
           session={daySession}
           time={Math.min(current.t, cutoff)}
-          selection={writingSelection || (selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
-            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined)}
+          selection={
+            writingSelection ||
+            (selected &&
+            isTradeSection(
+              selectedPhase as import("@/lib/model").JournalEntry["section"],
+            ) &&
+            trade
+              ? {
+                  section:
+                    selectedPhase as import("@/lib/model").JournalEntry["section"],
+                  tradeId: trade.id,
+                }
+              : undefined)
+          }
           onSave={p.addNote}
           onReflect={props.onReflect}
           onReview={() => setView("review")}
+          labels={p.settings.phaseLabels}
           samples={daySamples}
-          sampleNoteIds={new Set(s.journal.map(n => n.id))}
-          onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
+          sampleNoteIds={new Set(s.journal.map((n) => n.id))}
+          onEdit={(note) => {
+            void editCollected(note).catch((error) =>
+              p.setError(
+                error instanceof Error
+                  ? error.message
+                  : "Could not open this note.",
+              ),
+            );
+          }}
         />
+        <ReflectionStream
+          session={daySession}
+          onEdit={(note) => {
+            void editCollected(note).catch((error) =>
+              p.setError(
+                error instanceof Error
+                  ? error.message
+                  : "Could not open this note.",
+              ),
+            );
+          }}
+          onSave={saveCollected}
+          onRevisit={(n) =>
+            props.onReflect({
+              t: noteTime(n) ?? n.t,
+              eventTime: noteTime(n),
+              tradeId: n.tradeId,
+              section: n.section,
+              revisitsId: n.id,
+              captureMode: "post-session",
+              origin: "timeline",
+            })
+          }
+        />
+        <SessionObservations
+          session={daySession}
+          samples={daySamples}
+          baselineSeconds={p.settings.baselineSeconds}
+          smallPauses={p.settings.smallPauses !== false}
+        />
+        <IdeaGrouping session={daySession} onSave={p.updateBlueprint} />
         <div className={cx("journalflow")}>
           <Title
             title="Trade journal"
             description="Each trade in sequence: Before, Entry, Management, Exit and After."
           >
-            <button className={cx("ghost")} onClick={() => setTimelineView(v => !v)}>{timelineView ? "Trade cards" : "All session moments"}</button>
+            <button
+              className={cx("ghost")}
+              onClick={() => setTimelineView((v) => !v)}
+            >
+              {timelineView ? "Trade cards" : "All session moments"}
+            </button>
             <button
               className={cx("ghost")}
               onClick={() => setFilters((v) => !v)}
@@ -679,196 +1008,240 @@ export default function Journal(
               )}
             </div>
           )}
-          {!timelineView && <JournalTrades session={daySession} account={account} instrument={instrument}
-            samples={daySamples} onReflect={props.onReflect} onInspect={props.onSelectTrade}
-            onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
-            onSelect={(tradeId, section) => setWritingSelection({ tradeId, section })} />}
-          {timelineView && <div className={cx("flow")}>
-            {orderedRows
-              .filter(
-                (r) =>
-                  filter === "All moments" ||
-                  (filter === "Trades" ? r.event : r.note),
-              )
-              .map((row, rowIndex, visibleRows) => {
-                const phase = row.note?.section || timelinePhase(row.phase, row.t, trades);
-                return (
-                <div key={row.id}>
-                  {(rowIndex === 0 || rowTrade(visibleRows[rowIndex - 1]) !== rowTrade(row)) && <h3 className={cx("timeline-group")}>
-                    {rowTrade(row) < 0 ? "Session moments" : `Trade ${rowTrade(row) + 1} · ${trades[rowTrade(row)].symbol}`}
-                  </h3>}
-                  <div
-                    role="button"
-                    data-phase={phase}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        pick(row);
-                        setExpanded((v) => (v === row.id ? "" : row.id));
-                        editMoment(row);
-                      }
-                    }}
-                    className={cx(
-                      "entryrow",
-                      (current.id === row.id || selectedPhase === phase) && "selected-row",
-                    )}
-                    aria-expanded={expanded === row.id}
-                    onClick={() => {
-                      pick(row);
-                      setExpanded((v) => (v === row.id ? "" : row.id));
-                      editMoment(row);
-                    }}
-                  >
-                    <time>{row.note && noteTime(row.note) === null ? "Untimed" : row.event?.timePrecision === "day" ? "Date only" : time(row.t)}</time>
-                    <span className={cx("phasepill")}>
-                      {row.phase === "FILL"
-                        ? "Fill"
-                        : phase === "before"
-                          ? "Before trade"
-                          : phase === "management"
-                            ? "Management"
-                            : phase === "after"
-                              ? "After trade"
-                              : phase === "reflection"
-                                ? "Reflection"
-                                : phase === "entry"
-                                  ? "Entry"
-                                  : phase === "exit" ? "Exit" : row.note?.section ? sectionName(row.note.section) : "Reflection"}
-                    </span>
-                    <div className={cx("hrvalue")}>
-                      {row.bpm ?? "—"}
-                      <small>
-                        {row.bpm !== null && stats.baseline !== null
-                          ? signed(row.bpm - stats.baseline) + " BPM"
-                          : "No HR"}
-                      </small>
-                    </div>
-                    <div className={cx("entrytext")}>
-                      <em>{row.label.toUpperCase()}</em> {row.text.slice(0, 160)}{row.text.length > 160 ? "…" : ""}
-                    </div>
-                    {row.note?.screenshot ? (
-                      <div
-                        className={cx("thumb")}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        <Screenshot {...row.note.screenshot} />
-                      </div>
-                    ) : (
-                      <div className={cx("thumb", "empty-thumb")} />
-                    )}
-                    <span className={cx("chev")}>›</span>
-                  </div>
-                  {expanded === row.id && (
-                    <div className={cx("momentdetail", "open")}>
-                      <div>
-                        <h4>WHAT THE DATA ADDS</h4>
-                        <p>
-                          {row.bpm === null
-                            ? "No heart-rate sample is available at this timestamp."
-                            : `Recorded heart rate at this moment: ${row.bpm} BPM${stats.baseline === null ? "" : `, ${signed(row.bpm - stats.baseline)} from the opening baseline`}.`}
-                        </p>
-                        <div className={cx("interpretation")}>
-                          <b>Invitation:</b> What did you notice in your body,
-                          thoughts or behaviour?
-                        </div>
-                        {row.event && (
-                          <button
-                            className={cx("ghost")}
-                            onClick={() => props.onSelectTrade(row.event!)}
-                          >
-                            Inspect trade context
-                          </button>
-                        )}
-                      </div>
-                      <div>
-                        <label>Your interpretation</label>
-                        <p>
-                          {row.note?.text ||
-                            "Add your own words to this moment."}
-                        </p>
-                        <button
-                          className={cx("ghost")}
-                          onClick={() =>
-                            props.onReflect({
-                              t: row.t,
-                              ...(row.note ? { entry: row.note } : {}),
-                            })
-                          }
-                        >
-                          {row.note ? "Edit reflection" : "Add reflection"}
-                        </button>
-                        {row.note && (
-                          <button
-                            className={cx("textlink")}
-                            onClick={async () => {
-                              try {
-                                await p.removeNote(row.note!.id);
-                                if (row.note!.screenshot) {
-                                  const { removeScreenshot } = await import(
-                                    "@/lib/screenshots"
-                                  );
-                                  await removeScreenshot(
-                                    row.note!.screenshot.path,
-                                  );
-                                }
-                                setExpanded("");
-                              } catch (e) {
-                                p.setError(
-                                  e instanceof Error
-                                    ? e.message
-                                    : "Could not delete reflection.",
-                                );
-                              }
-                            }}
-                          >
-                            Delete reflection
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {!timelineView && (
+            <JournalTrades
+              onSaveBlueprint={p.updateBlueprint}
+              prepareScreenshot={p.prepareScreenshot}
+              session={daySession}
+              account={account}
+              instrument={instrument}
+              samples={daySamples}
+              onReflect={props.onReflect}
+              onInspect={props.onSelectTrade}
+              onEdit={(note) => {
+                void editCollected(note).catch((error) =>
+                  p.setError(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not open this note.",
+                  ),
                 );
-              })}
-          </div>}
+              }}
+              onSelect={(tradeId, section) =>
+                setWritingSelection({ tradeId, section })
+              }
+            />
+          )}
+          {timelineView && (
+            <div className={cx("flow")}>
+              {orderedRows
+                .filter(
+                  (r) =>
+                    filter === "All moments" ||
+                    (filter === "Trades" ? r.event : r.note),
+                )
+                .map((row, rowIndex, visibleRows) => {
+                  const phase =
+                    row.note?.section ||
+                    timelinePhase(row.phase, row.t, trades);
+                  return (
+                    <div key={row.id}>
+                      {(rowIndex === 0 ||
+                        rowTrade(visibleRows[rowIndex - 1]) !==
+                          rowTrade(row)) && (
+                        <h3 className={cx("timeline-group")}>
+                          {rowTrade(row) < 0
+                            ? "Session moments"
+                            : `Trade ${rowTrade(row) + 1} · ${trades[rowTrade(row)].symbol}`}
+                        </h3>
+                      )}
+                      <div
+                        role="button"
+                        data-phase={phase}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            pick(row);
+                            setExpanded((v) => (v === row.id ? "" : row.id));
+                            editMoment(row);
+                          }
+                        }}
+                        className={cx(
+                          "entryrow",
+                          (current.id === row.id || selectedPhase === phase) &&
+                            "selected-row",
+                        )}
+                        aria-expanded={expanded === row.id}
+                        onClick={() => {
+                          pick(row);
+                          setExpanded((v) => (v === row.id ? "" : row.id));
+                          editMoment(row);
+                        }}
+                      >
+                        <time>
+                          {row.note && noteTime(row.note) === null
+                            ? "Untimed"
+                            : row.event?.timePrecision === "day"
+                              ? "Date only"
+                              : time(row.t)}
+                        </time>
+                        <span className={cx("phasepill")}>
+                          {row.phase === "FILL"
+                            ? "Fill"
+                            : phase === "before"
+                              ? "Before trade"
+                              : phase === "management"
+                                ? "Management"
+                                : phase === "after"
+                                  ? "After trade"
+                                  : phase === "reflection"
+                                    ? "Reflection"
+                                    : phase === "entry"
+                                      ? "Entry"
+                                      : phase === "exit"
+                                        ? "Exit"
+                                        : row.note?.section
+                                          ? sectionName(row.note.section)
+                                          : "Reflection"}
+                        </span>
+                        <div className={cx("hrvalue")}>
+                          {row.bpm ?? "—"}
+                          <small>
+                            {row.bpm !== null && stats.baseline !== null
+                              ? signed(row.bpm - stats.baseline) + " BPM"
+                              : "No HR"}
+                          </small>
+                        </div>
+                        <div className={cx("entrytext")}>
+                          <em>{row.label.toUpperCase()}</em>{" "}
+                          {row.text.slice(0, 160)}
+                          {row.text.length > 160 ? "…" : ""}
+                        </div>
+                        {row.note?.screenshot ? (
+                          <div
+                            className={cx("thumb")}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            <Screenshot {...row.note.screenshot} />
+                          </div>
+                        ) : (
+                          <div className={cx("thumb", "empty-thumb")} />
+                        )}
+                        <span className={cx("chev")}>›</span>
+                      </div>
+                      {expanded === row.id && (
+                        <div className={cx("momentdetail", "open")}>
+                          <div>
+                            <h4>WHAT THE DATA ADDS</h4>
+                            <p>
+                              {row.bpm === null
+                                ? "No heart-rate sample is available at this timestamp."
+                                : `Recorded heart rate at this moment: ${row.bpm} BPM${stats.baseline === null ? "" : `, ${signed(row.bpm - stats.baseline)} from the opening baseline`}.`}
+                            </p>
+                            <div className={cx("interpretation")}>
+                              <b>Invitation:</b> What did you notice in your
+                              body, thoughts or behaviour?
+                            </div>
+                            {row.event && (
+                              <button
+                                className={cx("ghost")}
+                                onClick={() => props.onSelectTrade(row.event!)}
+                              >
+                                Inspect trade context
+                              </button>
+                            )}
+                          </div>
+                          <div>
+                            <label>Your interpretation</label>
+                            <p>
+                              {row.note?.text ||
+                                "Add your own words to this moment."}
+                            </p>
+                            <button
+                              className={cx("ghost")}
+                              onClick={() =>
+                                props.onReflect({
+                                  t: row.t,
+                                  ...(row.note ? { entry: row.note } : {}),
+                                })
+                              }
+                            >
+                              {row.note ? "Edit reflection" : "Add reflection"}
+                            </button>
+                            {row.note && (
+                              <button
+                                className={cx("textlink")}
+                                onClick={async () => {
+                                  try {
+                                    await p.removeNote(row.note!.id);
+                                    if (row.note!.screenshot) {
+                                      const { removeScreenshot } = await import(
+                                        "@/lib/screenshots"
+                                      );
+                                      await removeScreenshot(
+                                        row.note!.screenshot.path,
+                                      );
+                                    }
+                                    setExpanded("");
+                                  } catch (e) {
+                                    p.setError(
+                                      e instanceof Error
+                                        ? e.message
+                                        : "Could not delete reflection.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Delete reflection
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
           {timelineView && !rows.length && (
             <p className={cx("empty-note")}>
               Start a session, add a trade, or write your first reflection.
             </p>
           )}
         </div>
+
+        <DayLabelSummary
+          session={daySession}
+          sources={journalDaySessions(s, history)}
+        />
+        <ReferenceDaily
+          key={"daily:" + s.id}
+          session={daySession}
+          onSave={p.updateBlueprint}
+        />
       </section>
       <section hidden={view !== "patterns"}>
-        <Patterns
-          sessions={history}
-          selected={s}
-          selectedSamples={p.samples}
-          owner={p.owner}
-          onOpen={(target, t) => {
-            void p.openSession(target).then(() => {
-              setView("story");
-              props.onPage("Journal");
-              if (t !== undefined) {
-                const note = liveNotes(target.journal).find((item) => item.t === t);
-                const event = target.events.find((item) => item.t === t && !item.voided);
-                const row: Moment = {
-                  id: note?.id || event?.id || `moment-${t}`,
-                  t,
-                  phase: note ? "REFLECTION" : event?.kind.toUpperCase() || "MOMENT",
-                  label: note?.label || event?.kind.toUpperCase() || "Moment",
-                  text: note?.text || (event ? `${event.symbol} · ${event.side} · ${event.quantity} at ${event.price}` : ""),
-                  bpm: note?.context?.bpm ?? null,
-                  note,
-                  event,
-                };
-                setSelected(row);
-                setExpanded(row.id);
-              }
-            }).catch((error: unknown) => p.setError(error instanceof Error ? error.message : "Could not open that session."));
-          }}
-        />
+        {view === "patterns" && (
+          <ReferencePatterns
+            sessions={history}
+            selected={s}
+            selectedSamples={p.samples}
+            baselineSeconds={p.settings.baselineSeconds}
+            onOpen={(target, t) => {
+              void p
+                .openSession(target)
+                .then(() => {
+                  setView("story");
+                  props.onPage("Journal");
+                  const n = target.journal.find((n) => n.t === t);
+                  if (n) props.onReflect({ t: n.t, entry: n });
+                })
+                .catch((error) => p.setError(error.message));
+            }}
+          />
+        )}
       </section>
       <section hidden={view !== "review"}>
         <Review

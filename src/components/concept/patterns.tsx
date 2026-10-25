@@ -32,20 +32,38 @@ export default function Patterns({
     [sessions, selected.startedAt, days],
   );
   const records = useMemo(
-    () => rangeSessions.flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n }))),
+    () =>
+      rangeSessions.flatMap((s) =>
+        liveNotes(s.journal).map((n) => ({
+          s,
+          n:
+            s.blueprint?.combine?.hr && s.blueprint.combine.transcript
+              ? n
+              : { ...n, context: undefined },
+        })),
+      ),
     [rangeSessions],
   );
-  const labels = [...new Set(records.filter(r => r.n.label !== "Unlabelled").map((r) => r.n.label))]
+  const labels = [
+    ...new Set(
+      records.filter((r) => r.n.label !== "Unlabelled").map((r) => r.n.label),
+    ),
+  ]
     .map((label) => {
       const rows = records.filter((r) => r.n.label === label),
         hr = rows.filter((r) => r.n.context?.delta !== undefined);
+      const evidenceDays = new Set(
+        hr.map((r) => new Date(r.s.startedAt).toISOString().slice(0, 10)),
+      ).size;
       return {
         label,
         rows,
         hr,
-        mean: hr.length
-          ? hr.reduce((n, r) => n + r.n.context!.delta!, 0) / hr.length
-          : null,
+        evidenceDays,
+        mean:
+          hr.length && evidenceDays >= 5
+            ? hr.reduce((n, r) => n + r.n.context!.delta!, 0) / hr.length
+            : null,
       };
     })
     .sort((a, b) => (b.mean ?? -999) - (a.mean ?? -999));
@@ -71,10 +89,28 @@ export default function Patterns({
       </Title>
       <div className={cx("analytics-intro")}>
         {[
-          ["1 · YOU LABEL", "You describe the moment", "Still Signal does not decide whether you felt FOMO, confidence or frustration."],
-          ["2 · WE COMPARE", "Similar recorded moments are grouped", "HR change, timing, execution and outcomes are shown beside one another."],
-          ["3 · YOU INTERPRET", "A pattern becomes a question", "The result is evidence to investigate—not a prediction or instruction."],
-        ].map(([step, title, description]) => <div className={cx("analytics-step")} key={step}><b>{step}</b><strong>{title}</strong><span>{description}</span></div>)}
+          [
+            "1 · YOU LABEL",
+            "You describe the moment",
+            "Still Signal does not decide whether you felt FOMO, confidence or frustration.",
+          ],
+          [
+            "2 · WE COMPARE",
+            "Similar recorded moments are grouped",
+            "HR change, timing, execution and outcomes are shown beside one another.",
+          ],
+          [
+            "3 · YOU INTERPRET",
+            "A pattern becomes a question",
+            "The result is evidence to investigate—not a prediction or instruction.",
+          ],
+        ].map(([step, title, description]) => (
+          <div className={cx("analytics-step")} key={step}>
+            <b>{step}</b>
+            <strong>{title}</strong>
+            <span>{description}</span>
+          </div>
+        ))}
       </div>
       <div className={cx("visualinsight")}>
         <div className={cx("insightnumber")}>
@@ -159,7 +195,12 @@ export default function Patterns({
               <strong>{l.label} in your journal</strong>
               <p>
                 {l.rows.length} self-reported moments, {l.hr.length} with
-                recorded heart-rate context.
+                consented heart-rate context across {l.evidenceDays} days.
+                {l.evidenceDays < 5
+                  ? " Collect at least 5 days before comparing."
+                  : l.evidenceDays < 10
+                    ? " Early signal."
+                    : " More established evidence."}
               </p>
               <button
                 onClick={() => {
@@ -172,12 +213,22 @@ export default function Patterns({
           ))}
         </div>
       </div>
-      <p className={cx("datacaveat")}>Average response means recorded BPM minus the opening session baseline. Each bar uses only reflections with both measurements. Small samples suggest questions; they do not confirm a pattern.</p>
+      <p className={cx("datacaveat")}>
+        Average response means recorded BPM minus the opening session baseline.
+        Each bar uses only reflections with both measurements. Small samples
+        suggest questions; they do not confirm a pattern.
+      </p>
       <Title
         title="Trade journeys"
         description="Every recorded execution, session by session. Follow heart rate from ten minutes before through the trade and read your own reflections beside it. Missing measurements stay blank."
       />
-      <TradeJourneys sessions={rangeSessions} selected={selected} selectedSamples={selectedSamples} owner={owner} onOpen={onOpen} />
+      <TradeJourneys
+        sessions={rangeSessions}
+        selected={selected}
+        selectedSamples={selectedSamples}
+        owner={owner}
+        onOpen={onOpen}
+      />
       <div className={cx("patternlens")} id="ss-pattern-evidence">
         <div className={cx("patternlens-top")}>
           <div>
@@ -212,7 +263,8 @@ export default function Patterns({
           {evidence.slice(0, 8).map(({ s, n }) => (
             <button key={s.id + n.id} onClick={() => onOpen(s, n.t)}>
               <span>
-                {new Date(s.startedAt).toLocaleDateString()} · {noteTime(n) === null ? "Untimed" : time(noteTime(n)!)}
+                {new Date(s.startedAt).toLocaleDateString()} ·{" "}
+                {noteTime(n) === null ? "Untimed" : time(noteTime(n)!)}
               </span>
               <b>{n.label}</b>
               <span>{n.text.slice(0, 150)}</span>

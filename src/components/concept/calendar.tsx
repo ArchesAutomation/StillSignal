@@ -17,6 +17,7 @@ export function Calendar({
   selected,
   offset = 0,
   month = false,
+  weekdaysOnly = false,
   onOpen,
   onEmptyDay,
   disabled,
@@ -25,6 +26,7 @@ export function Calendar({
   selected: Session;
   offset?: number;
   month?: boolean;
+  weekdaysOnly?: boolean;
   onOpen: (s: Session) => void;
   onEmptyDay?: (date: string) => void;
   disabled: boolean;
@@ -42,7 +44,9 @@ export function Calendar({
           new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()) /
           7,
       ) * 7
-    : 7;
+    : weekdaysOnly
+      ? 5
+      : 7;
   return (
     <>
       {month && (
@@ -105,12 +109,29 @@ export function Calendar({
                 active && (month ? "active" : "selected"),
                 month && d.getMonth() !== anchor.getMonth() && "empty",
               )}
-              disabled={disabled || (!target && (!onEmptyDay || new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() > Date.now()))}
+              disabled={
+                disabled ||
+                (!target &&
+                  (!onEmptyDay ||
+                    new Date(
+                      d.getFullYear(),
+                      d.getMonth(),
+                      d.getDate(),
+                    ).getTime() > Date.now()))
+              }
               aria-label={
                 d.toLocaleDateString("en-US", { dateStyle: "full" }) +
-                (rows.length ? ` · ${rows.length} sessions` : onEmptyDay ? " · Start a journal" : " · No session")
+                (rows.length
+                  ? ` · ${rows.length} sessions`
+                  : onEmptyDay
+                    ? " · Start a journal"
+                    : " · No session")
               }
-              onClick={() => target ? onOpen(target) : onEmptyDay?.(journalDateValue(d.getTime()))}
+              onClick={() =>
+                target
+                  ? onOpen(target)
+                  : onEmptyDay?.(journalDateValue(d.getTime()))
+              }
             >
               {month ? (
                 <>

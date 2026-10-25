@@ -6,6 +6,8 @@ import "./concept.css";
 import "./concept-integration.css";
 import "./v4-reference.css";
 import "./v4-functional.css";
+import "./blueprint.css";
+import "./journal-reference.css";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:

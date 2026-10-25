@@ -26,10 +26,20 @@ import { eventSchema, sessionSchema } from "@/lib/validation";
 import { connectHeartRate, requestHeartRateDevice } from "@/lib/bluetooth";
 import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
 import { removeSessionScreenshots } from "@/lib/screenshots";
-import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-session";
+import {
+  mergeCsvEvents,
+  planCsvSessions,
+  type CsvDestination,
+} from "@/lib/csv-session";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
-import { dailyJournalSession, journalDaySessions } from "@/lib/journal-collection";
+import {
+  dailyJournalSession,
+  journalDaySessions,
+} from "@/lib/journal-collection";
 import { journalDayRange, journalDateValue } from "@/lib/journal-day";
+import type { SessionBlueprint } from "@/lib/blueprint-schema";
+import { cleanPrivateFiles, removePrivateFile } from "@/lib/private-files";
+import type { ImportSource } from "@/lib/import-selection";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -58,7 +68,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     insightLast = useRef(0);
   const sessionLoad = useRef(0);
   const noteWrites = useRef(Promise.resolve());
-  const wearableRequest = useRef(0), wearablePending = useRef(false);
+  const wearableRequest = useRef(0),
+    wearablePending = useRef(false);
   const save = useCallback(async (s: Session) => {
     if (s.id !== "workspace") {
       await storage.saveSession(s);
@@ -87,6 +98,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   }, [owner]);
   useEffect(() => {
     resetWorkspace();
+    void cleanPrivateFiles(owner).catch(() => {});
     try {
       const saved = localStorage.getItem("pulse-settings:" + owner);
       if (saved) setSettings({ ...defaults, ...JSON.parse(saved) });
@@ -95,11 +107,21 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
+      const request = sessionLoad.current;
       try {
-        const sessions = await pullSessions(owner);
+        try {
+          await pullSessions(owner);
+        } catch {
+          /* Recover the account's local journal index when offline. */
+        }
+        const sessions = await storage.listSessions(owner);
         if (!alive) return;
         await refreshHistory();
-        if (current.current?.id === "workspace" && !rec.current) {
+        if (
+          request === sessionLoad.current &&
+          current.current?.id === "workspace" &&
+          !rec.current
+        ) {
           const latest = sessions.find(
             (s) => s.events.length || s.journal.length,
           );
@@ -211,7 +233,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       setInsightTime(Date.now());
     }
   }
-  async function start(name?: string, startedAt = Date.now(), openDashboard = true) {
+  async function start(
+    name?: string,
+    startedAt = Date.now(),
+    openDashboard = true,
+  ) {
     if (rec.current) return;
     if (openDashboard) onSessionStart?.();
     sessionLoad.current++;
@@ -232,6 +258,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         name || new Date(startedAt).toLocaleDateString() + " · Trading journal",
       startedAt,
       source: "journal",
+      blueprint:
+        selected &&
+        journalDateValue(selected.startedAt) === journalDateValue(startedAt)
+          ? selected.blueprint
+          : undefined,
       owner,
       events: [],
       journal: [],
@@ -263,7 +294,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     try {
       // The chooser must precede both IndexedDB awaits and the PiP request in start().
       const selectedDevice = await requestHeartRateDevice();
-      if (request !== wearableRequest.current || journalVersion !== sessionLoad.current) return;
+      if (
+        request !== wearableRequest.current ||
+        journalVersion !== sessionLoad.current
+      )
+        return;
       if (!rec.current) await start(undefined, Date.now(), false);
       if (request !== wearableRequest.current || !rec.current) return;
       const targetSession = current.current?.id;
@@ -276,7 +311,9 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
             p.t - (raw.current[0]?.t ?? p.t) > 43200000
           ) {
             void stop();
-            setNotice("Session limit reached. Start a new session to continue.");
+            setNotice(
+              "Session limit reached. Start a new session to continue.",
+            );
             return;
           }
           const sample = { ...p, provider: "whoop" as const };
@@ -311,7 +348,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         },
         selectedDevice,
       );
-      if (request !== wearableRequest.current || !rec.current || current.current?.id !== targetSession) {
+      if (
+        request !== wearableRequest.current ||
+        !rec.current ||
+        current.current?.id !== targetSession
+      ) {
         c.disconnect();
         return;
       }
@@ -346,7 +387,33 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     name: string,
     destination: CsvDestination = "daily",
     timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+    source?: ImportSource,
   ) {
+    const withSource = (s: Session): Session =>
+      !source
+        ? s
+        : {
+            ...s,
+            timezone: s.timezone || timezone,
+            blueprint: {
+              ...s.blueprint,
+              updatedAt: Math.max(
+                Date.now(),
+                (s.blueprint?.updatedAt || 0) + 1,
+              ),
+              imports: [
+                ...(s.blueprint?.imports || []).filter(
+                  (i) => i.id !== source.id,
+                ),
+                {
+                  ...source,
+                  eventIds: source.eventIds.filter((id) =>
+                    s.events.some((e) => e.id === id),
+                  ),
+                },
+              ].slice(-50),
+            },
+          };
     if (!events.length) throw new Error("There are no trade rows to import.");
     events.forEach((e) => eventSchema.parse(e));
     if (events.some((e) => e.t > Date.now() + 300000))
@@ -358,22 +425,45 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       // Refresh the user's own journal index before matching dates. This never
       // connects a broker or sends the source CSV to a provider.
       if (cloudConfigured && navigator.onLine) {
-        try { await pullSessions(owner); }
-        catch { throw new Error("Could not refresh your saved sessions. Retry when cloud sync is available; your CSV is still here."); }
+        try {
+          await pullSessions(owner);
+        } catch {
+          throw new Error(
+            "Could not refresh your saved sessions. Retry when cloud sync is available; your CSV is still here.",
+          );
+        }
       }
       const saved = await storage.listSessions(owner);
       const selected = current.current;
-      const sessions = selected && selected.id !== "workspace"
-        ? [selected, ...saved.filter((s) => s.id !== selected.id)] : saved;
-      const plans = planCsvSessions(events, sessions, owner, timezone, selected?.id, rec.current ? selected?.id : undefined);
+      const sessions =
+        selected && selected.id !== "workspace"
+          ? [selected, ...saved.filter((s) => s.id !== selected.id)]
+          : saved;
+      const plans = planCsvSessions(
+        events,
+        sessions,
+        owner,
+        timezone,
+        selected?.id,
+        rec.current ? selected?.id : undefined,
+      );
       const updates = new Map<string, Session>();
       for (const plan of plans) {
         const base = plan.session || {
-          id: crypto.randomUUID(), owner, name: `Trading day · ${plan.day}`,
-          source: "csv" as const, startedAt: plan.events[0].t,
-          endedAt: plan.events.at(-1)!.t, sampleCount: 0, events: [], journal: [],
+          id: crypto.randomUUID(),
+          owner,
+          name: `Trading day · ${plan.day}`,
+          source: "csv" as const,
+          startedAt: plan.events[0].t,
+          endedAt: plan.events.at(-1)!.t,
+          sampleCount: 0,
+          events: [],
+          journal: [],
         };
-        updates.set(base.id, mergeCsvEvents(updates.get(base.id) || base, plan.events));
+        updates.set(
+          base.id,
+          withSource(mergeCsvEvents(updates.get(base.id) || base, plan.events)),
+        );
       }
       // Validate every date before writing any import. Preserve recording refs
       // and their original sample timestamps when the active session matches.
@@ -381,22 +471,32 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       await writing.current;
       for (const update of updates.values()) {
         if (rec.current && update.id === current.current?.id) {
-          const live = mergeCsvEvents(current.current, update.events);
+          const live = withSource(
+            mergeCsvEvents(current.current, update.events),
+          );
           await save(live);
         } else await storage.saveSession(update);
       }
       const importedHistory = await storage.listSessions(owner);
       setHistory(importedHistory);
       if (!rec.current) {
-        const target = updates.get(selected?.id || "") || [...updates.values()].at(-1)!;
-        await openSession(importedHistory.find((s) => s.id === target.id) || target);
+        const target =
+          updates.get(selected?.id || "") || [...updates.values()].at(-1)!;
+        await openSession(
+          importedHistory.find((s) => s.id === target.id) || target,
+        );
       }
       if (cloudConfigured)
-        void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+        void sync(owner).catch(() =>
+          setSyncState("Sync paused · saved locally"),
+        );
       return events.length;
     }
-    if (destination === "current" && current.current?.id !== "workspace")
-      return addEvents(events);
+    if (destination === "current" && current.current?.id !== "workspace") {
+      const count = await addEvents(events);
+      if (source) await save(withSource(current.current!));
+      return count;
+    }
     if (rec.current)
       throw new Error(
         "End the current session or import into it before creating another journal.",
@@ -441,7 +541,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
             "This execution already exists with different P&L. Keep its original values or supply a different execution ID.",
           );
       }
-    await save(mergeSessions(existing, imported));
+    await save(withSource(mergeSessions(existing, imported)));
     raw.current = [];
     setSamples([]);
     setInsightTime(Date.now());
@@ -456,22 +556,40 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     return sorted.length;
   }
   async function openJournalDay(date: string) {
-    if (rec.current) throw new Error("End your active session before opening another day.");
+    if (rec.current)
+      throw new Error("End your active session before opening another day.");
     const { start, end } = journalDayRange(date);
     const request = ++sessionLoad.current;
     await noteWrites.current;
     const saved = await storage.listSessions(owner);
     if (request !== sessionLoad.current || rec.current) return;
     const selected = current.current;
-    const sameDay = (s: Session) => s.owner === owner && s.id !== "workspace" && s.startedAt >= start && s.startedAt <= end;
-    const existing = selected && sameDay(selected) ? selected
-      : saved.filter(sameDay).sort((a, b) => b.sampleCount - a.sampleCount || b.startedAt - a.startedAt)[0];
+    const sameDay = (s: Session) =>
+      s.owner === owner &&
+      s.id !== "workspace" &&
+      s.startedAt >= start &&
+      s.startedAt <= end;
+    const existing =
+      selected && sameDay(selected)
+        ? selected
+        : saved
+            .filter(sameDay)
+            .sort(
+              (a, b) =>
+                b.sampleCount - a.sampleCount || b.startedAt - a.startedAt,
+            )[0];
     if (existing) return openSession(existing);
     const day: Session = {
-      id: crypto.randomUUID(), owner, source: "journal",
+      id: crypto.randomUUID(),
+      owner,
+      source: "journal",
       name: new Date(start).toLocaleDateString() + " · Daily journal",
-      startedAt: start, endedAt: end, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      events: [], journal: [], sampleCount: 0,
+      startedAt: start,
+      endedAt: end,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      events: [],
+      journal: [],
+      sampleCount: 0,
     };
     await storage.saveSession(day);
     await refreshHistory();
@@ -482,8 +600,14 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     setSamples([]);
     setError("");
     setInsightTime(Date.now());
-    setNotice("Journal opened. No trades or CSV required. Heart rate appears only when recorded.");
-    void sync(owner).catch(() => setSyncState(cloudConfigured ? "Sync paused · saved locally" : "On this device"));
+    setNotice(
+      "Journal opened. No trades or CSV required. Heart rate appears only when recorded.",
+    );
+    void sync(owner).catch(() =>
+      setSyncState(
+        cloudConfigured ? "Sync paused · saved locally" : "On this device",
+      ),
+    );
     return day;
   }
   async function openSession(s: Session) {
@@ -498,7 +622,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     setError("");
     try {
       let pts = await storage.getSamples(s.id, owner);
-      let loaded = s;
+      let loaded = mergeSessions(await storage.getSession(s.id, owner), s);
       if (navigator.onLine) {
         try {
           const cloud = await pullSession(s.id);
@@ -507,11 +631,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
           const map = new Map([...pts, ...cloud.samples].map((p) => [p.t, p]));
           pts = [...map.values()].sort((a, b) => a.t - b.t);
           loaded = {
-            ...s,
-            journal: mergeNotes(s.journal, cloud.session.journal),
+            ...mergeSessions(loaded, cloud.session),
+            journal: mergeNotes(loaded.journal, cloud.session.journal),
             events: [
               ...new Map(
-                [...s.events, ...cloud.events].map((e) => [e.id, e]),
+                [...loaded.events, ...cloud.events].map((e) => [e.id, e]),
               ).values(),
             ].sort((a, b) => a.t - b.t),
           };
@@ -521,6 +645,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       }
       // A delayed history load must never replace a session started or selected
       // after this request began. This also discards older overlapping opens.
+      loaded = mergeSessions(await storage.getSession(s.id, owner), loaded);
       if (
         request !== sessionLoad.current ||
         rec.current ||
@@ -585,38 +710,120 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       const occurredAt = noteTime(note);
       const dayRange = journalDayRange(journalDateValue(s.startedAt));
       if (
-        occurredAt !== null && (
-          occurredAt < dayRange.start || occurredAt > dayRange.end ||
+        occurredAt !== null &&
+        (occurredAt < dayRange.start ||
+          occurredAt > dayRange.end ||
           occurredAt > Date.now() + 300000)
       )
         throw new Error("Choose a moment inside this journal's time range.");
       let contextSamples = raw.current;
       if (occurredAt !== null && !note.deletedAt) {
-        const siblings = journalDaySessions(s, history).filter(item => item.id !== s.id && item.sampleCount &&
-          occurredAt >= item.startedAt && occurredAt <= (item.endedAt ?? Date.now()));
-        const groups = await Promise.all(siblings.map(async item => {
-          let points = await storage.getSamples(item.id, owner);
-          if (points.length < item.sampleCount && cloudConfigured && navigator.onLine) {
-            try { const remote = await pullSession(item.id);
-              if (remote.session.owner === owner && remote.session.id === item.id) points = [...points, ...remote.samples];
-            } catch { /* Save words even if remote HR is unavailable. */ }
-          }
-          return points;
-        }));
-        contextSamples = [...new Map([...groups.flat(), ...raw.current].map(point => [point.t, point])).values()].sort((a, b) => a.t - b.t);
-        if (current.current?.id !== s.id) throw new Error("The open journal changed. Reopen this day to save your draft.");
+        const siblings = journalDaySessions(s, history).filter(
+          (item) =>
+            item.id !== s.id &&
+            item.sampleCount &&
+            occurredAt >= item.startedAt &&
+            occurredAt <= (item.endedAt ?? Date.now()),
+        );
+        const groups = await Promise.all(
+          siblings.map(async (item) => {
+            let points = await storage.getSamples(item.id, owner);
+            if (
+              points.length < item.sampleCount &&
+              cloudConfigured &&
+              navigator.onLine
+            ) {
+              try {
+                const remote = await pullSession(item.id);
+                if (
+                  remote.session.owner === owner &&
+                  remote.session.id === item.id
+                )
+                  points = [...points, ...remote.samples];
+              } catch {
+                /* Save words even if remote HR is unavailable. */
+              }
+            }
+            return points;
+          }),
+        );
+        contextSamples = [
+          ...new Map(
+            [...groups.flat(), ...raw.current].map((point) => [point.t, point]),
+          ).values(),
+        ].sort((a, b) => a.t - b.t);
+        if (current.current?.id !== s.id)
+          throw new Error(
+            "The open journal changed. Reopen this day to save your draft.",
+          );
       }
+      const hrWindow =
+        occurredAt === null
+          ? []
+          : contextSamples.filter(
+              (point) => Math.abs(point.t - occurredAt) <= 30000,
+            );
       const updated = {
         ...note,
-        context: note.deletedAt || occurredAt === null
+        capture: note.deletedAt ? undefined : (old?.capture ?? note.capture),
+        capturedAt:
+          old?.capturedAt ?? note.capturedAt ?? (old ? old.t : Date.now()),
+        captureMode:
+          old?.captureMode ??
+          note.captureMode ??
+          (rec.current ? ("live" as const) : ("post-session" as const)),
+        inputMethod:
+          old?.inputMethod ??
+          note.inputMethod ??
+          (note.source === "voice"
+            ? ("voice" as const)
+            : note.prompt
+              ? ("prompt" as const)
+              : ("text" as const)),
+        reflectionScope: note.tradeId
+          ? note.section &&
+            ["before", "entry", "management", "exit", "after"].includes(
+              note.section,
+            )
+            ? ("stage" as const)
+            : ("idea" as const)
+          : ("day" as const),
+        originalTranscript: note.deletedAt
           ? undefined
-          : {
-              ...reflectionContext(contextSamples, occurredAt, settings, dailyJournalSession(s, history).events),
-              ...note.context,
-            },
-        ...(occurredAt !== null && !note.deletedAt ? {
-          captureScope: { ...note.captureScope, windowSeconds: note.captureScope?.windowSeconds ?? settings.windowSeconds },
-        } : {}),
+          : (old?.originalTranscript ??
+            note.originalTranscript ??
+            (note.source === "voice" ? note.text : undefined)),
+        context:
+          note.deletedAt || occurredAt === null
+            ? undefined
+            : {
+                ...reflectionContext(
+                  contextSamples,
+                  occurredAt,
+                  settings,
+                  dailyJournalSession(s, history).events,
+                ),
+                ...note.context,
+                ...(hrWindow.length
+                  ? {
+                      hrWindowMean:
+                        hrWindow.reduce((sum, point) => sum + point.bpm, 0) /
+                        hrWindow.length,
+                      hrWindowCount: hrWindow.length,
+                      hrWindowHalfSeconds: 30,
+                      hrWindowComplete: Date.now() >= occurredAt! + 30000,
+                    }
+                  : {}),
+              },
+        ...(occurredAt !== null && !note.deletedAt
+          ? {
+              captureScope: {
+                ...note.captureScope,
+                windowSeconds:
+                  note.captureScope?.windowSeconds ?? settings.windowSeconds,
+              },
+            }
+          : {}),
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
@@ -640,6 +847,15 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       updatedAt: revision,
       deletedAt: revision,
     });
+    const cleanup = await Promise.allSettled(
+      [old.audio?.path, old.capture?.imagePath]
+        .filter((path): path is string => !!path)
+        .map((path) => removePrivateFile(path, owner)),
+    );
+    if (cleanup.some((result) => result.status === "rejected"))
+      setNotice(
+        "Reflection deleted. Some original files could not be removed from this device; retry cleanup in Settings.",
+      );
   }
   async function prepareScreenshot(t: number) {
     if (current.current?.id === "workspace")
@@ -658,6 +874,9 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       ),
     );
     await storage.removeSession(s.id, owner);
+    for (const source of s.blueprint?.imports || [])
+      await removePrivateFile("local-csv:" + owner + ":" + source.id, owner);
+    await cleanPrivateFiles(owner, s.id);
     await refreshHistory();
     resetWorkspace();
   }
@@ -727,6 +946,32 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       void client.removeChannel(channel);
     };
   }, [owner, save, refreshHistory]);
+  async function updateBlueprint(patch: Partial<SessionBlueprint>) {
+    const targetId = current.current?.id;
+    const task = noteWrites.current.then(async () => {
+      if (current.current?.id === "workspace")
+        await openJournalDay(journalDateValue(Date.now()));
+      const s = current.current;
+      if (!s || s.owner !== owner) throw new Error("Open your journal first.");
+      if (targetId !== "workspace" && s.id !== targetId)
+        throw new Error(
+          "The open journal changed. Reopen the original day to save this draft.",
+        );
+      const next = {
+        ...s,
+        blueprint: {
+          ...s.blueprint,
+          ...patch,
+          updatedAt: Math.max(Date.now(), (s.blueprint?.updatedAt || 0) + 1),
+        },
+      };
+      sessionSchema.parse(next);
+      await save(next);
+      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    });
+    noteWrites.current = task.catch(() => {});
+    return task;
+  }
   return {
     session,
     samples,
@@ -743,6 +988,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     syncState,
     settings,
     configure,
+    updateBlueprint,
     now,
     insightTime,
     start,

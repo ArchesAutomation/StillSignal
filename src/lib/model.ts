@@ -45,12 +45,24 @@ export type JournalEntry = {
   /** Creation time for V4 entries; legacy entries also used this as event time. */
   t: number;
   eventTime?: number | null;
-  section?: "before" | "entry" | "management" | "exit" | "after" | "day-review" | "post-session" | "stillness" | "custom";
+  section?:
+    | "before"
+    | "entry"
+    | "management"
+    | "exit"
+    | "after"
+    | "day-review"
+    | "post-session"
+    | "stillness"
+    | "custom";
   customSection?: string;
   tradeId?: string;
   order?: number;
   prompt?: { id: string; question: string; choice?: string };
-  support?: { outcome: "loss" | "profit" | "breakeven"; adherence: "followed" | "broken" | "partly" };
+  support?: {
+    outcome: "loss" | "profit" | "breakeven";
+    adherence: "followed" | "broken" | "partly";
+  };
   label: string;
   text: string;
   updatedAt?: number;
@@ -59,6 +71,43 @@ export type JournalEntry = {
   origin?: "free-writing" | "timeline" | "stillness" | "capture";
   activationAt?: number;
   recordingStartedAt?: number;
+  capturedAt?: number;
+  captureMode?: "live" | "post-session";
+  inputMethod?: "voice" | "text" | "prompt";
+  reflectionScope?: "day" | "idea" | "stage";
+  originalTranscript?: string;
+  revisitsId?: string;
+  triggerEventId?: string;
+  capture?: {
+    pressedAt: number;
+    confirmedAt: number;
+    imageCapturedAt?: number;
+    imagePath?: string;
+    width?: number;
+    height?: number;
+    imageMissing?: string;
+    quoteMissing?: string;
+    quote?: {
+      price: number;
+      symbol: string;
+      source: string;
+      observedAt: number;
+      currency: string;
+    };
+    environment?: {
+      location: string;
+      country: string;
+      social: string;
+      setup: string;
+      interruptions: string;
+    };
+  };
+  audio?: {
+    path: string;
+    expiresAt: number;
+    durationSeconds: number;
+    mimeType: string;
+  };
   captureScope?: {
     instrumentId?: string;
     accountId?: string;
@@ -66,6 +115,10 @@ export type JournalEntry = {
     windowSeconds?: number;
   };
   context?: {
+    hrWindowMean?: number;
+    hrWindowCount?: number;
+    hrWindowHalfSeconds?: number;
+    hrWindowComplete?: boolean;
     bpm?: number;
     baseline?: number;
     delta?: number;
@@ -90,6 +143,7 @@ export type Session = {
   sampleCount: number;
   timezone?: string;
   demo?: boolean;
+  blueprint?: import("./blueprint-schema").SessionBlueprint;
 };
 export type Settings = {
   cadence: number;
@@ -102,6 +156,11 @@ export type Settings = {
   cooldownSeconds: number;
   shortcutKey: string;
   personalize: boolean;
+  startWithStillness?: boolean;
+  smallPauses?: boolean;
+  phaseLabels?: Partial<
+    Record<"before" | "entry" | "management" | "exit" | "after", string[]>
+  >;
 };
 export const defaults: Settings = {
   cadence: 30,
@@ -114,6 +173,7 @@ export const defaults: Settings = {
   cooldownSeconds: 120,
   shortcutKey: "j",
   personalize: true,
+  startWithStillness: true,
 };
 export const cadenceOptions = [15, 30, 60, 300, 600, 1200, 3600];
 export function money(n: number, currency = "USD") {

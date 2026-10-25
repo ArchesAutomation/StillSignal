@@ -98,6 +98,18 @@ export async function POST(request: Request) {
       if (
         p.session.journal.some(
           (n) =>
+            (n.capture?.imagePath &&
+              !n.capture.imagePath.startsWith(`local-image:${user.id}:`)) ||
+            (n.audio && !n.audio.path.startsWith(`local-audio:${user.id}:`)),
+        ) ||
+        Object.values(p.session.blueprint?.finalCharts || {}).some(
+          (c) => !c.path.startsWith(`${user.id}/${p.session.id}/`),
+        )
+      )
+        throw new Error("UNAUTHORIZED");
+      if (
+        p.session.journal.some(
+          (n) =>
             n.screenshot &&
             !n.screenshot.path.startsWith(`${user.id}/${p.session.id}/`),
         )

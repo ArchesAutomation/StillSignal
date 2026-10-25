@@ -6,6 +6,7 @@ import {
   personalQuestion,
   reconstructTrades,
 } from "@/lib/smart-journal";
+import { sessionIdeas } from "@/lib/position-ideas";
 import { isActualExecution } from "@/lib/trade-context";
 import { Calendar } from "./calendar";
 import { cx, Metric, Title, type Props } from "./shared";
@@ -13,10 +14,26 @@ export default function Overview(props: Props & { onReview: () => void }) {
   const { history, session: s, pulse: p } = props,
     [period, setPeriod] = useState<"day" | "week">("day"),
     [snooze, setSnooze] = useState(false);
-  const profile = personalProfile(history, p.owner),
-    matched = history
-      .flatMap((s) => reconstructTrades(s.events.filter(isActualExecution)))
-      .filter((t) => t.exit),
+  const profile = personalProfile(
+      history.map((h) =>
+        h.demo
+          ? h
+          : {
+              ...h,
+              events:
+                h.blueprint?.combine?.pnl && h.blueprint.combine.transcript
+                  ? h.events
+                  : [],
+              journal: h.journal.map((n) =>
+                h.blueprint?.combine?.hr && h.blueprint.combine.transcript
+                  ? n
+                  : { ...n, context: undefined },
+              ),
+            },
+      ),
+      p.owner,
+    ),
+    matched = history.flatMap((s) => sessionIdeas(s)).filter((t) => t.exit),
     top = profile.patterns[0];
   const periodStart = new Date(s.startedAt);
   periodStart.setHours(0, 0, 0, 0);
