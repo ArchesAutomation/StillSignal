@@ -469,7 +469,7 @@ test("current metadata migration keeps newer context when an older client upload
     );
     await db.exec(
       readFileSync(
-        "supabase/migrations/20261025223114_journal_reference_metadata.sql",
+        "supabase/migrations/20261025231150_journal_reference_metadata.sql",
         "utf8",
       ),
     );

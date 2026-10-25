@@ -21,7 +21,7 @@ The visual reference was the supplied `Still_Signal_Journal_Example_v2.html` (SH
 
 ## Persistence and rollout
 
-The new structured fields use the existing session JSON, schema validation, IndexedDB and authenticated sync. Session IDs continue to separate recordings on the same day. The additive migration `20261025223114_journal_reference_metadata.sql` preserves newer metadata when an older client uploads a note. It retains the existing broker projection, tombstones, bounds and service-role-only write function.
+The new structured fields use the existing session JSON, schema validation, IndexedDB and authenticated sync. Session IDs continue to separate recordings on the same day. The additive migration `20261025231150_journal_reference_metadata.sql` preserves newer metadata when an older client uploads a note. It retains the existing broker projection, tombstones, bounds and service-role-only write function.
 
 Apply that migration and deploy the six source-generated Edge Functions before releasing the frontend. Regenerate with `npm run prepare:edge` after source/schema edits. Do not rerun the original initial migration or the previously rolled-back October migrations. This branch does not apply any remote migration or deploy a function/site.
 
