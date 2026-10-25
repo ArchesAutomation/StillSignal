@@ -11,6 +11,8 @@ import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
 import Overview from "./overview";
 import Stillness, { reflections } from "./stillness";
+import SessionReset from "./session-reset";
+import SessionContext from "./session-context";
 const navigation: [Page, string, string][] = [
   ["Overview", "⌂", "Overview"],
   ["Journal", "▣", "Daily journal"],
@@ -22,6 +24,16 @@ const navigation: [Page, string, string][] = [
 export default function ConceptWorkspace(props: Props) {
   const { pulse: p, session: s, history, page } = props;
   const daySession = dailyJournalSession(s, history);
+  const resetSeen = useRef(new Set<string>());
+  useEffect(()=>{
+    if(page === "Journal" && !p.active && s.endedAt && p.settings.startWithStillness !== false && !resetSeen.current.has(s.id)) props.onPage("Stillness");
+  },[s.id,s.endedAt,p.active,p.settings.startWithStillness,page,props.onPage]);
+  function finishReset(choice: "voice" | "structured" | "journal") {
+    resetSeen.current.add(s.id);
+    setView(choice === "structured" ? "review" : "story");
+    props.onPage("Journal");
+    if(choice === "voice") props.onReflect({t:s.endedAt||s.startedAt,eventTime:null,origin:"stillness",source:"voice",autoListen:true});
+  }
   const [view, setView] = useState<"story" | "patterns" | "review">("story"),
     [week, setWeek] = useState(0),
     [welcome, setWelcome] = useState(false),
@@ -232,7 +244,7 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
                 <button
                   className={cx("primary")}
-                  onClick={() => setStartSignal((n) => n + 1)}
+                  onClick={() => finishReset("journal")}
                 >
                   Return to choice
                 </button>
@@ -265,6 +277,7 @@ export default function ConceptWorkspace(props: Props) {
           </div>
         )}
         {page === "Overview" && <Overview {...viewProps} onReview={review} />}
+        {page === "Overview" && <SessionContext key={s.id} session={s} history={history} onSave={p.updateBlueprint} />}
         <div hidden={!journal}>
           {journal && (
             <section className={cx("hero")}>
@@ -431,14 +444,7 @@ export default function ConceptWorkspace(props: Props) {
           </>
         )}
         <div hidden={page !== "Stillness"}>
-          <Stillness
-            key={s.id}
-            session={daySession}
-            time={captureTime}
-            onSave={p.addNote}
-            onReflect={props.onReflect}
-            startSignal={startSignal}
-          />
+          <SessionReset key={s.id} active={page === "Stillness"} onChoice={finishReset} />
         </div>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">

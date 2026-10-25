@@ -59,6 +59,12 @@ export type JournalEntry = {
   origin?: "free-writing" | "timeline" | "stillness" | "capture";
   activationAt?: number;
   recordingStartedAt?: number;
+  capturedAt?: number;
+  captureMode?: "live" | "post-session";
+  inputMethod?: "voice" | "text" | "prompt";
+  reflectionScope?: "day" | "idea" | "stage";
+  originalTranscript?: string;
+  audio?: { path: string; expiresAt: number; durationSeconds: number; mimeType: string };
   captureScope?: {
     instrumentId?: string;
     accountId?: string;
@@ -90,6 +96,7 @@ export type Session = {
   sampleCount: number;
   timezone?: string;
   demo?: boolean;
+  blueprint?: import("./blueprint-schema").SessionBlueprint;
 };
 export type Settings = {
   cadence: number;
@@ -102,6 +109,7 @@ export type Settings = {
   cooldownSeconds: number;
   shortcutKey: string;
   personalize: boolean;
+  startWithStillness?: boolean;
 };
 export const defaults: Settings = {
   cadence: 30,
@@ -114,6 +122,7 @@ export const defaults: Settings = {
   cooldownSeconds: 120,
   shortcutKey: "j",
   personalize: true,
+  startWithStillness: true,
 };
 export const cadenceOptions = [15, 30, 60, 300, 600, 1200, 3600];
 export function money(n: number, currency = "USD") {

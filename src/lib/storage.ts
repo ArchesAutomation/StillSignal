@@ -51,6 +51,11 @@ export async function listSessions(owner: string) {
     (a, b) => b.startedAt - a.startedAt,
   );
 }
+export async function getSession(id: string, owner: string) {
+  const session = await (await db()).get("sessions",id);
+  if (session && session.owner !== owner) throw new Error("Workspace identity mismatch.");
+  return session;
+}
 export async function appendSamples(
   sessionId: string,
   samples: Sample[],

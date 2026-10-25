@@ -8,7 +8,7 @@ export type TradePhase = typeof tradePhases[number];
 
 /** A destination owns its time. A chart selection is never a fallback for another trade. */
 export function journalPhaseLink(session: Session, tradeId: string, phase: JournalEntry["section"], samples: Sample[], now = Date.now(), knownTrade?: ReturnType<typeof sessionTrades>[number]) {
-  const trade = knownTrade ?? sessionTrades(session).find(t => t.id === tradeId);
+  const trade = knownTrade ?? sessionTrades(session).find(t => t.id === tradeId || t.entryIds.includes(tradeId));
   if (!trade || !tradePhases.includes(phase as TradePhase)) return null;
   const entry = session.events.find(e => e.id === trade.entryEventId);
   const exit = session.events.find(e => e.id === trade.exitEventId);
@@ -51,9 +51,9 @@ export function journalTradeGroups(session: Session) {
   const trades = sessionTrades(session);
   return {
     trades: trades.map(trade => ({ trade, phases: tradePhases.map(phase => ({ phase,
-      notes: notes.filter(n => n.tradeId === trade.id && n.section === phase).reverse(),
+      notes: notes.filter(n => (n.tradeId === trade.id || !!n.tradeId && trade.entryIds.includes(n.tradeId)) && n.section === phase).reverse(),
       executions: session.events.filter(e => !e.voided &&
-        (phase === "entry" ? e.id === trade.entryEventId : phase === "exit" && e.id === trade.exitEventId)),
+        (phase === "entry" ? trade.entryIds.includes(e.id) : phase === "exit" && trade.exitIds.includes(e.id))).map(e=>trade.allocations?.[e.id]===undefined?e:{...e,quantity:trade.allocations[e.id]}),
     })) })),
     ungrouped: notes.filter(n => { const placement = journalPlacement(n, session, trades);
       return placement.unsorted || !placement.trade || !tradePhases.includes(n.section as TradePhase);

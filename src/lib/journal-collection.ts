@@ -21,7 +21,7 @@ export function dailyJournalSession(current: Session, history: Session[]): Sessi
 }
 
 export function journalPlacement(note: JournalEntry, session: Session, trades = sessionTrades(session)) {
-  const trade = trades.find(t => t.id === note.tradeId);
+  const trade = trades.find(t => t.id === note.tradeId || !!note.tradeId && t.entryIds.includes(note.tradeId));
   // Only explicit destinations are authoritative. A nearby fill is HR context,
   // and does not establish which trade or stage the trader was writing about.
   const section = note.section === "stillness" ? undefined : note.section;

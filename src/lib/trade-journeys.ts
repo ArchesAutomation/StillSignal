@@ -3,6 +3,7 @@ import type { JournalEntry, Sample, Session, TradeEvent } from "./model";
 import { liveNotes, mergeNotes, reconstructTrades } from "./smart-journal";
 import { isActualExecution, mergeEvents } from "./trade-context";
 import { noteTime } from "./journal-routing";
+import { sessionIdeas } from "./position-ideas";
 
 export type JourneyStage = {
   key: "before" | "entry" | "management" | "exit" | "after";
@@ -54,7 +55,7 @@ const at = (samples: Sample[], t: number) => {
 export function buildTradeJourneys(session: Session, samples: Sample[]): TradeJourney[] {
   const events = mergeEvents(session.events).filter(isActualExecution);
   const notes = liveNotes(mergeNotes(session.journal));
-  const positions = reconstructTrades(events);
+  const positions = sessionIdeas(session);
   const covered = new Set<string>();
   const journeys: TradeJourney[] = [];
   const add = (
@@ -118,8 +119,10 @@ export function buildTradeJourneys(session: Session, samples: Sample[]): TradeJo
     const exitEvent = events.find((event) => event.id === trade.exitEventId);
     if (entryEvent) covered.add(entryEvent.id);
     if (exitEvent) covered.add(exitEvent.id);
+    trade.fillIds.forEach(id=>covered.add(id));
     add(`position-${index}`, trade.symbol, trade.side, trade.quantity, trade.entry, trade.exit,
       trade.entryPrice, trade.exitPrice, entryEvent, exitEvent, false);
+    journeys.at(-1)!.pnl=trade.pnl;
   }
   for (const event of events) {
     if (covered.has(event.id)) continue;

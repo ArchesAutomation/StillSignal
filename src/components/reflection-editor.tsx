@@ -6,6 +6,8 @@ import type { JournalEntry, Session } from "@/lib/model";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
 import Destination from "./concept/destination";
 import { clock } from "@/lib/model";
+import AudioCapture, { AudioPlayback } from "./reflection-audio";
+import { removePrivateFile } from "@/lib/private-files";
 import {
   uploadScreenshot,
   removeScreenshot,
@@ -130,6 +132,11 @@ export default function ReflectionEditor({
   const [custom, setCustom] = useState(draft.entry?.customSection || draft.customSection || "");
   const [timed, setTimed] = useState((draft.entry ? noteTime(draft.entry) : draft.eventTime) !== null);
   const [preview, setPreview] = useState("");
+  const [audio, setAudio] = useState(draft.entry?.audio);
+  const [audioRecording, setAudioRecording] = useState(false);
+  const currentAudio=useRef(audio),committedAudio=useRef(draft.entry?.audio?.path);
+  currentAudio.current=audio;
+  useEffect(()=>()=>{const original=currentAudio.current;if(original&&original.path!==committedAudio.current)void removePrivateFile(original.path,owner).catch(()=>{});},[owner]);
   useEffect(() => {
     if (!file) { setPreview(""); return; }
     const url = URL.createObjectURL(file);
@@ -139,6 +146,7 @@ export default function ReflectionEditor({
   const form = useRef<HTMLFormElement>(null),
     recognition = useRef<Recognition | null>(null),
     textRef = useRef(text),
+    originalTranscript = useRef(draft.entry?.originalTranscript),
     mounted = useRef(true);
   textRef.current = text;
   const start = useCallback(() => {
@@ -167,6 +175,7 @@ export default function ReflectionEditor({
           e.results[i][0].transcript,
         );
       setText([base, ...finals].filter(Boolean).join(" ").slice(0, 2000));
+      originalTranscript.current = [base, ...finals].filter(Boolean).join(" ").slice(0,2000);
       setInterim(pending.join(" "));
       setUsedVoice(true);
     };
@@ -255,7 +264,10 @@ export default function ReflectionEditor({
             text,
             source:
               draft.source ||
-              (usedVoice ? "voice" : draft.entry?.source || "typed"),
+              (usedVoice || audio ? "voice" : draft.entry?.source || "typed"),
+            capturedAt: draft.entry?.capturedAt ?? (draft.entry ? draft.entry.t : Date.now()),
+            audio,
+            originalTranscript: draft.entry?.originalTranscript ?? originalTranscript.current,
             context: draft.entry?.context && noteTime(draft.entry) === (timed ? t : null)
               ? draft.entry.context : draft.hrEventId ? { hrEventId: draft.hrEventId } : undefined,
             ...(uploaded || attachment
@@ -264,6 +276,7 @@ export default function ReflectionEditor({
           };
           if (session) validateDestination(note, session);
           await onSave(note);
+          committedAudio.current=note.audio?.path;
           if (
             draft.entry?.screenshot &&
             draft.entry.screenshot.path !== note.screenshot?.path
@@ -317,6 +330,7 @@ export default function ReflectionEditor({
             "Focused",
             "Calm",
             "Confident",
+            "Following plan / model",
             "Impatient",
             "FOMO",
             "Hesitant",
@@ -344,6 +358,8 @@ export default function ReflectionEditor({
               : "Type or use device dictation"}
         </span>
       </div>
+      {!draft.entry?.audio && <AudioCapture owner={owner} sessionId={session?.id} onAudio={setAudio} onRecording={setAudioRecording} />}
+      {audio && <AudioPlayback audio={audio} owner={owner} onDelete={async()=>setAudio(undefined)} />}
       <label>
         Reflection
         <textarea
@@ -399,11 +415,11 @@ export default function ReflectionEditor({
       <p className="form-intro" hidden={compact}>
         Your confirmed labels and history shape your personal insights.
         Dictation uses your browser's speech service, which may process audio
-        remotely. Still Signal saves the reviewed text, not an audio recording.
+        remotely. Original audio is saved only if you separately record it above.
       </p>
       <button
         className="button primary full"
-        disabled={busy || listening || (!text.trim() && !file && !attachment)}
+        disabled={busy || listening || audioRecording || (!text.trim() && !file && !attachment && !audio)}
       >
         {" "}
         {busy ? "Saving…" : compact ? "Save journal entry" : "Save reflection"}

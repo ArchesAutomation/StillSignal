@@ -23,6 +23,7 @@ export function mergeSessions(
     throw new Error("Workspace identity mismatch.");
   return {
     ...remote,
+    blueprint: (local.blueprint?.updatedAt || 0) > (remote.blueprint?.updatedAt || 0) ? local.blueprint : remote.blueprint || local.blueprint,
     sampleCount: Math.max(local.sampleCount, remote.sampleCount),
     endedAt: local.endedAt || remote.endedAt,
     events: mergeEvents(remote.events, local.events),

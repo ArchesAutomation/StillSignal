@@ -1,6 +1,7 @@
 import type { JournalEntry, Session } from "./model";
 import { reconstructTrades } from "./smart-journal";
 import { isActualExecution } from "./trade-context";
+import { sessionIdeas } from "./position-ideas";
 
 export const sections = ["before", "entry", "management", "exit", "after", "day-review", "post-session", "custom"] as const;
 export const sectionName = (section?: JournalEntry["section"], custom?: string) =>
@@ -13,18 +14,16 @@ export const isTradeSection = (section?: JournalEntry["section"]) =>
 export const noteTime = (note: JournalEntry): number | null =>
   note.eventTime === undefined ? note.t : note.eventTime;
 export const sessionTrades = (session: Session) =>
-  [...new Map(reconstructTrades(session.events.filter(isActualExecution))
-    .map(t => [t.entryEventId!, { ...t, id: t.entryEventId! }])).values()]
-    .sort((a, b) => a.entry - b.entry || a.id.localeCompare(b.id));
+  sessionIdeas(session);
 export function destination(note: Pick<JournalEntry, "section" | "customSection" | "tradeId">, session: Session) {
-  const index = sessionTrades(session).findIndex(t => t.id === note.tradeId);
+  const index = sessionTrades(session).findIndex(t => t.id === note.tradeId || !!note.tradeId && t.entryIds.includes(note.tradeId));
   return (index >= 0 ? `Trade ${index + 1} · ` : isTradeSection(note.section) ? "Trade unassigned · " : "") + (!note.section || note.section === "stillness" ? "Unsorted" : sectionName(note.section, note.customSection));
 }
 export function validateDestination(note: JournalEntry, session: Session) {
   if (note.deletedAt) return;
   // Unknown ownership is a valid Unsorted record; never lose someone's words
   // or infer a trade from the nearest execution.
-  if (note.tradeId && !sessionTrades(session).some(t => t.id === note.tradeId))
+  if (note.tradeId && !sessionTrades(session).some(t => t.id === note.tradeId || t.entryIds.includes(note.tradeId!)))
     throw new Error("Choose a trade from this journal day.");
   if (note.section === "custom" && !note.customSection?.trim())
     throw new Error("Name your journal section.");

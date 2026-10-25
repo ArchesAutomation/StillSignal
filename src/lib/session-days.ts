@@ -1,3 +1,4 @@
+import { positionIdeas } from "./position-ideas";
 import type { JournalEntry, Session, TradeEvent } from "./model";
 import { liveNotes, mergeNotes, reconstructTrades } from "./smart-journal";
 import { isActualExecution, mergeEvents } from "./trade-context";
@@ -43,7 +44,7 @@ export function groupSessionDays(sessions: Session[]): SessionDay[] {
         events,
         sampleCount: ordered.reduce((count, session) => count + session.sampleCount, 0),
         executedOrders: events.filter(isActualExecution).length,
-        closedTrades: reconstructTrades(events.filter(isActualExecution)).filter((trade) => trade.exit).length,
+        closedTrades: positionIdeas(events).filter((trade) => trade.exit).length,
         labels: [...labels.entries()]
           .map(([name, count]) => ({ name, count }))
           .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),

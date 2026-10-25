@@ -225,7 +225,7 @@ test("journals without trades offer feelings prompts without requiring a trade d
     assert.match(document.body.textContent!, /How are you feeling today/);
     assert.doesNotMatch(document.body.textContent!, /Choose a trade before saving/);
     assert.ok(document.querySelector('[aria-label="Journal reflection"]'));
-    assert.ok(document.querySelector('[aria-label="Collected journal notes"]'));
+    assert.equal(document.querySelector('[aria-label="Collected journal notes"]'), null);
   } finally { await ui.close(); }
 });
 
@@ -269,11 +269,8 @@ test("writing selectors recalculate the link and save raw words to a durable rec
     assert.equal(persisted.journal[0].section, "exit");
     assert.equal(persisted.journal[0].eventTime, trades[1].exit);
     assert.ok(persisted.journal[0].context?.bpm);
-    assert.match(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
-    await select("Filter journal trade", trades[0].id);
-    assert.doesNotMatch(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
-    await select("Filter journal trade", trades[1].id); await select("Filter journal stage", "exit");
-    assert.match(document.querySelector('[aria-label="Collected journal notes"]')!.textContent!, /I followed my exit plan/);
+    assert.equal(document.querySelector('[aria-label="Collected journal notes"]'), null);
+    assert.match(document.querySelector('[role="status"]')!.textContent!, /Saved to My Journal/);
     await act(async () => { await pulse.openSession(persisted); });
     assert.equal(pulse.session!.journal[0].text, "I followed my exit plan.");
     await select("Journal trade", "");

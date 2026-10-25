@@ -20,6 +20,12 @@ import Review from "./review";
 import Patterns from "./patterns";
 import LoadMetric from "./load-metric";
 import JournalTrades from "./journal-trades";
+import ReflectionStream from "./reflection-stream";
+import SessionContext from "./session-context";
+import PnlTimeline from "./pnl-timeline";
+import EnvironmentPatterns from "./environment-patterns";
+import IdeaGrouping from "./idea-grouping";
+import SessionObservations from "./session-observations";
 import { useJournalSamples } from "../use-journal-samples";
 import {
   cx,
@@ -49,6 +55,14 @@ export default function Journal(
       if (!await p.openSession(original)) return;
     }
     props.onReflect({ t: note.t, entry: note });
+  }
+  async function saveCollected(note: import("@/lib/model").JournalEntry) {
+    const original = journalDaySessions(s,history).find(item=>item.journal.some(n=>n.id===note.id));
+    if(original && original.id!==s.id) {
+      if(p.active) throw new Error("End your active session before changing another recording.");
+      if(!await p.openSession(original)) throw new Error("Could not open the original recording.");
+    }
+    await p.addNote(note);
   }
   const [selected, setSelected] = useState<Moment | null>(null),
     [range, setRange] = useState(0),
@@ -326,7 +340,7 @@ export default function Journal(
                 ))
               : "—"
           }
-          detail={`${exits.length} closed trade${exits.length === 1 ? "" : "s"}`}
+          detail={`${trades.filter(t => t.exit !== undefined).length} closed trade ideas`}
         />
         <Metric
           label="Session baseline"
@@ -575,19 +589,10 @@ export default function Journal(
             </div>
           </aside>
         </div>
-        <Writing
-          key={s.id}
-          session={daySession}
-          time={Math.min(current.t, cutoff)}
-          selection={writingSelection || (selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
-            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined)}
-          onSave={p.addNote}
-          onReflect={props.onReflect}
-          onReview={() => setView("review")}
-          samples={daySamples}
-          sampleNoteIds={new Set(s.journal.map(n => n.id))}
-          onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
-        />
+        <PnlTimeline session={daySession} samples={daySamples} onSave={p.updateBlueprint} />
+        <ReflectionStream session={daySession} onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }} onSave={saveCollected} />
+        <SessionObservations session={daySession} samples={daySamples} baselineSeconds={p.settings.baselineSeconds} />
+        <IdeaGrouping session={daySession} onSave={p.updateBlueprint} />
         <div className={cx("journalflow")}>
           <Title
             title="Trade journal"
@@ -839,8 +844,23 @@ export default function Journal(
             </p>
           )}
         </div>
+        <Writing
+          key={s.id}
+          session={daySession}
+          time={Math.min(current.t, cutoff)}
+          selection={writingSelection || (selected && isTradeSection(selectedPhase as import("@/lib/model").JournalEntry["section"]) && trade
+            ? { section: selectedPhase as import("@/lib/model").JournalEntry["section"], tradeId: trade.id } : undefined)}
+          onSave={p.addNote}
+          onReflect={props.onReflect}
+          onReview={() => setView("review")}
+          samples={daySamples}
+          sampleNoteIds={new Set(s.journal.map(n => n.id))}
+          onEdit={note => { void editCollected(note).catch(error => p.setError(error instanceof Error ? error.message : "Could not open this note.")); }}
+        />
+        <SessionContext key={"context:"+s.id} session={s} history={history} onSave={p.updateBlueprint} />
       </section>
       <section hidden={view !== "patterns"}>
+        <EnvironmentPatterns sessions={history} selected={s} onOpen={target => { void p.openSession(target).then(() => setView("story")).catch(error => p.setError(error.message)); }} />
         <Patterns
           sessions={history}
           selected={s}
