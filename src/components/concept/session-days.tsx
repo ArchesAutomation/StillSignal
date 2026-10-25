@@ -4,7 +4,6 @@ import { summary, downsample } from "@/lib/analytics";
 import { cloudConfigured, pullSession } from "@/lib/cloud";
 import { money, type JournalEntry, type Sample, type Session } from "@/lib/model";
 import { groupSessionDays, type SessionDay } from "@/lib/session-days";
-import { sessionIdeas } from "@/lib/position-ideas";
 import { liveNotes, mergeNotes, reconstructTrades } from "@/lib/smart-journal";
 import { getSamples } from "@/lib/storage";
 import { isActualExecution, pnlByCurrency } from "@/lib/trade-context";
@@ -109,7 +108,7 @@ function RecordingModule({
   });
   const entries = liveNotes(mergeNotes(item.journal)).sort((a, b) => a.t - b.t);
   const events = item.events.filter((event) => !event.voided).sort((a, b) => a.t - b.t);
-  const trades = sessionIdeas(item).filter((trade) => trade.exit);
+  const trades = reconstructTrades(events.filter(isActualExecution)).filter((trade) => trade.exit);
   const samples = selected.id === item.id ? selectedSamples : loaded.samples;
   const stats = useMemo(
     () => summary(samples, item.startedAt, baselineSeconds),

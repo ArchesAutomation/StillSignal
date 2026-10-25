@@ -18,7 +18,6 @@ export async function extensionDatabase() {
     "20261013202920_smart_journal_screenshots.sql",
     "20261014064042_broker_workspace.sql",
     "20261014064205_voice_journal_extension.sql",
-    "20261025005854_reflection_provenance.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + f, "utf8"));
   return db;
@@ -273,10 +272,6 @@ test("atomic notes preserve records, timestamps, revisions, tombstones; retries 
     const first = await action(db, c, p);
     assert.deepEqual(await action(db, c, p), first);
     assert.equal(first.note.t, 2000);
-    assert.equal(first.note.captureMode,"live");
-    assert.equal(first.note.eventTime,2000);
-    assert.ok(first.note.capturedAt!>2000);
-    assert.equal(first.note.originalTranscript,note.text);
     assert.equal(first.note.recordingStartedAt, 2300);
     assert.equal(first.note.context?.eventId, "trade");
     assert.equal(first.note.context?.bpm, undefined);
@@ -316,7 +311,6 @@ test("atomic notes preserve records, timestamps, revisions, tombstones; retries 
     assert.equal(correction.note.t, note.t);
     assert.equal(correction.note.label, "FOMO");
     assert.equal(correction.note.text, "My exact replacement.");
-    assert.equal(correction.note.originalTranscript,note.text);
     await assert.rejects(
       action(db, c, {
         action: "mutate",

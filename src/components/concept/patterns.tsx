@@ -32,20 +32,18 @@ export default function Patterns({
     [sessions, selected.startedAt, days],
   );
   const records = useMemo(
-    () => rangeSessions.flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n: s.blueprint?.combine?.hr && s.blueprint.combine.transcript ? n : {...n,context:undefined} }))),
+    () => rangeSessions.flatMap((s) => liveNotes(s.journal).map((n) => ({ s, n }))),
     [rangeSessions],
   );
   const labels = [...new Set(records.filter(r => r.n.label !== "Unlabelled").map((r) => r.n.label))]
     .map((label) => {
       const rows = records.filter((r) => r.n.label === label),
         hr = rows.filter((r) => r.n.context?.delta !== undefined);
-      const evidenceDays = new Set(hr.map(r=>new Date(r.s.startedAt).toISOString().slice(0,10))).size;
       return {
         label,
         rows,
         hr,
-        evidenceDays,
-        mean: hr.length && evidenceDays >= 5
+        mean: hr.length
           ? hr.reduce((n, r) => n + r.n.context!.delta!, 0) / hr.length
           : null,
       };
@@ -161,8 +159,7 @@ export default function Patterns({
               <strong>{l.label} in your journal</strong>
               <p>
                 {l.rows.length} self-reported moments, {l.hr.length} with
-                consented heart-rate context across {l.evidenceDays} days.
-                {l.evidenceDays < 5 ? " Collect at least 5 days before comparing." : l.evidenceDays < 10 ? " Early signal." : " More established evidence."}
+                recorded heart-rate context.
               </p>
               <button
                 onClick={() => {

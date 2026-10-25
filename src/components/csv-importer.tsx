@@ -10,28 +10,22 @@ import {
 } from "@/lib/csv";
 import type { TradeEvent } from "@/lib/model";
 import type { CsvDestination } from "@/lib/csv-session";
-import { availableCsvSessions, cropCsv, missingOpeningFills, type ImportSource } from "@/lib/import-selection";
-import { positionIdeas } from "@/lib/position-ideas";
-import type { Session } from "@/lib/model";
 
 export default function CsvImporter({
   onImport,
   hasSession,
   active,
   onDone,
-  history = [],
 }: {
   onImport: (
     events: TradeEvent[],
     name: string,
     destination: CsvDestination,
     timezone: string,
-    source?: { csv: string; provenance: ImportSource },
   ) => Promise<unknown>;
   hasSession: boolean;
   active: boolean;
   onDone?: () => void;
-  history?: Session[];
 }) {
   const input = useRef<HTMLInputElement>(null);
   const readGeneration = useRef(0);
@@ -46,7 +40,6 @@ export default function CsvImporter({
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   const deferred = useDeferredValue(options);
-  const [day,setDay]=useState(""),[account,setAccount]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
   const inspection = useMemo(() => {
     try {
       return csv ? inspectCsv(csv) : null;
@@ -67,12 +60,6 @@ export default function CsvImporter({
       };
     }
   }, [csv, deferred]);
-  const sessions=useMemo(()=> { try { return availableCsvSessions(preview.events, options.timezone || "UTC"); } catch { return []; } },[preview.events,options.timezone]);
-  const selection=useMemo(()=> { try { return {events:cropCsv(preview.events,{day,account,start:from,end:to,timezone:options.timezone||"UTC"}),error:""}; }
-    catch { return {events:[] as TradeEvent[],error:"Choose an unambiguous time range in the CSV timezone. Use the full day around a daylight-saving change."}; } },[preview.events,day,account,from,to,options.timezone]);
-  const chosen=selection.events, ideas=positionIdeas(chosen);
-  const incomplete=missingOpeningFills(preview.events,chosen);
-  const matching=history.filter(s=>chosen.length&&s.startedAt<=chosen.at(-1)!.t&&(s.endedAt||s.startedAt)>=chosen[0].t);
   const timezoneNeeded = !!inspection?.rows.some(
     (r) =>
       !/(Z|[+-]\d\d:\d\d)$/i.test(
@@ -93,7 +80,6 @@ export default function CsvImporter({
         inspected = inspectCsv(text);
       if (readGeneration.current !== generation) return;
       setCsv(text);
-      setDay(""); setAccount(""); setFrom(""); setTo("");
       setName(file.name.replace(/\.csv$/i, ""));
       setDestination(inspected.backtest ? "new" : "daily");
       setOptions((o) => ({
@@ -176,24 +162,6 @@ export default function CsvImporter({
           <p>
             {inspection.rows.length.toLocaleString()} rows · {name}
           </p>
-          {!!sessions.length && <section className="ss-import-selection" aria-label="Choose session to import">
-            <h3>Choose your session</h3>
-            <p>Preview first. Only the selected date, account and time window will be saved.</p>
-            <div className="form-grid">
-              <label>Session suggestion<select aria-label="Session suggestion" value="" onChange={e=>{ const g=sessions.find(s=>s.id===e.target.value); if(g){setDay(g.day);setAccount(g.account);
-                const local=(t:number)=>new Intl.DateTimeFormat("sv-SE",{timeZone:options.timezone||"UTC",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).format(t).replace(" ","T"); setFrom(local(g.start));setTo(local(g.end)); } }}>
-                <option value="">Choose a suggested window</option>{sessions.map(g=><option key={g.id} value={g.id}>{g.day} · {new Date(g.start).toLocaleTimeString([], {timeZone:options.timezone})}–{new Date(g.end).toLocaleTimeString([], {timeZone:options.timezone})} · {g.account} · {g.events.length} fills</option>)}</select></label>
-              <label>Import date<select aria-label="Import date" value={day} onChange={e=>{setDay(e.target.value);setFrom("");setTo("");}}><option value="">All dates in file</option>{[...new Set(sessions.map(s=>s.day))].map(d=><option key={d}>{d}</option>)}</select></label>
-              <label>Account<select aria-label="Import account" value={account} onChange={e=>setAccount(e.target.value)}><option value="">All accounts</option>{[...new Set(sessions.map(s=>s.account))].map(a=><option key={a}>{a}</option>)}</select></label>
-              <label>From · CSV timezone<input type="datetime-local" step="1" aria-label="Import from" value={from} onChange={e=>setFrom(e.target.value)} /></label>
-              <label>To · CSV timezone<input type="datetime-local" step="1" aria-label="Import to" value={to} onChange={e=>setTo(e.target.value)} /></label>
-            </div>
-            <p role="status">{chosen.length} fills · {ideas.length} trade ideas · Source: {options.timezone || "UTC"} · Your timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. UTC timestamps are preserved.</p>
-            <p>{matching.length ? `${matching.length} overlapping saved recordings · ${matching.reduce((n,s)=>n+s.sampleCount,0)} recorded HR samples · ${matching.flatMap(s=>s.journal.filter(n=>n.source==="voice"&&!n.deletedAt)).length} voice reflections. Existing sources keep their original timestamps.` : "No overlapping saved recording. HR and voice matches remain empty."}</p>
-            {chosen.some(e=>e.kind==="exit") && !ideas.length && <p role="alert">This range has exits without their entries. Widen the range to include the position opening.</p>}
-            {selection.error && <p role="alert">{selection.error}</p>}
-            {!!incomplete.length && <p role="alert">This window starts partway through {incomplete.length} position(s). Widen it to include the opening fills before importing.</p>}
-          </section>}
           {inspection.backtest && (
             <p className="connection-note">
               Strategy Report exports are backtests, not broker executions.
@@ -351,7 +319,7 @@ export default function CsvImporter({
                     </tr>
                   </thead>
                   <tbody>
-                    {chosen.slice(0, 20).map((e) => (
+                    {preview.events.slice(0, 5).map((e) => (
                       <tr key={e.id}>
                         <td>{new Date(e.t).toISOString()}</td>
                         <td>{e.symbol}</td>
@@ -385,19 +353,13 @@ export default function CsvImporter({
               deferred !== options ||
               !!preview.error ||
               !preview.events.length ||
-              !chosen.length || !!selection.error ||
-              !!incomplete.length ||
               (inspection.fills && !options.mapping?.kind && !options.fillsStartFlat)
             }
             onClick={async () => {
               setBusy(true);
               setError("");
               try {
-                const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(csv));
-                const sha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
-                await onImport(chosen, name, destination, options.timezone || "UTC", {csv,provenance:{id:crypto.randomUUID(),filename:`${name}.csv`.slice(0,160),sha256,
-                  sourceTimezone:options.timezone||"UTC",userTimezone:Intl.DateTimeFormat().resolvedOptions().timeZone,importedAt:Date.now(),start:chosen[0].t,end:chosen.at(-1)!.t,
-                  account:account||"All accounts",eventIds:chosen.map(e=>e.id)}});
+                await onImport(preview.events, name, destination, options.timezone || "UTC");
                 setCsv("");
                 onDone?.();
               } catch (e) {
@@ -411,7 +373,7 @@ export default function CsvImporter({
               }
             }}
           >
-            {busy ? "Importing…" : `Confirm and import ${chosen.length} fills`}
+            {busy ? "Importing…" : `Import ${preview.events.length} events`}
           </button>
         </div>
       )}

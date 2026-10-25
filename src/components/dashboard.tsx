@@ -40,7 +40,6 @@ import {
   Menu,
 } from "lucide-react";
 import ConceptWorkspace from "./concept/workspace";
-import BlueprintPreferences from "./blueprint-preferences";
 import SignalCalendar from "./signal-calendar";
 import SignalOverview from "./signal-overview";
 import Stillness from "./stillness";
@@ -82,8 +81,6 @@ import TodayReview from "./today-review";
 import JournalInsights from "./journal-insights";
 import { removeScreenshot } from "@/lib/screenshots";
 import type { CsvDestination } from "@/lib/csv-session";
-import type { ImportSource } from "@/lib/import-selection";
-import { keepPrivateFile } from "@/lib/private-files";
 type Tab =
   | "Overview"
   | "Sessions"
@@ -376,10 +373,10 @@ export default function Dashboard({
           ? [s, ...p.history.filter((h) => h.id !== s.id)]
           : p.history
         )
-          .filter((h) => (h.demo || h.blueprint?.combine?.transcript) && (replayPosition >= 100 || h.startedAt <= viewEnd))
+          .filter((h) => replayPosition >= 100 || h.startedAt <= viewEnd)
           .map((h) =>
             replayPosition >= 100
-              ? {...h, journal:h.journal.map(n=>h.demo || h.blueprint?.combine?.hr ? n : {...n,context:undefined})}
+              ? h
               : {
                   ...h,
                   events: h.events.filter((e) => e.t <= viewEnd),
@@ -412,10 +409,8 @@ export default function Dashboard({
     name: string,
     destination: CsvDestination,
     timezone: string,
-    source?: {csv: string; provenance: ImportSource},
   ) {
-    if(source) await keepPrivateFile(p.owner,source.provenance.id,"csv",new Blob([source.csv],{type:"text/csv"}));
-    await p.importEvents(events, name, destination, timezone, source?.provenance);
+    await p.importEvents(events, name, destination, timezone);
     setAccountFilter("");
     setInstrumentFilter("");
     setRange(0);
@@ -426,7 +421,7 @@ export default function Dashboard({
     p.setNotice(
       `${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`,
     );
-    setTab(p.active || p.settings.startWithStillness === false ? "Journal" : "Stillness");
+    setTab("Journal");
   }
   async function openLiveReflection(draft: ReflectionDraft) {
     if (!p.active && !isWorkspace) await p.start();
@@ -1701,11 +1696,8 @@ export default function Dashboard({
           )}
           {tab === "Settings" && (
             <div className="settings-grid">
-              <BlueprintPreferences session={s} history={history} onSave={p.updateBlueprint} />
               <section className="glass settings-card">
                 <h2>Your session preferences</h2>
-                <label className="checkbox-label"><input type="checkbox" checked={p.settings.startWithStillness !== false} onChange={e => p.configure({...p.settings, startWithStillness:e.target.checked})}/>Start sessions with Stillness</label>
-                <small>Completed sessions open with a short reset. You can skip it for any session.</small>
                 <p>
                   Raw data collection always runs independently of these
                   settings.
@@ -2066,7 +2058,6 @@ export default function Dashboard({
       {modal === "csv" && (
         <Modal title="Import CSV" onClose={() => setModal(null)}>
           <CsvImporter
-            history={p.history}
             active={p.active}
             hasSession={!isWorkspace}
             onImport={importCsv}

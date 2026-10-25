@@ -30,9 +30,6 @@ import { mergeCsvEvents, planCsvSessions, type CsvDestination } from "@/lib/csv-
 import { noteTime, validateDestination } from "@/lib/journal-routing";
 import { dailyJournalSession, journalDaySessions } from "@/lib/journal-collection";
 import { journalDayRange, journalDateValue } from "@/lib/journal-day";
-import type { SessionBlueprint } from "@/lib/blueprint-schema";
-import { cleanPrivateFiles, removePrivateFile } from "@/lib/private-files";
-import type { ImportSource } from "@/lib/import-selection";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -90,7 +87,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   }, [owner]);
   useEffect(() => {
     resetWorkspace();
-    void cleanPrivateFiles(owner).catch(() => {});
     try {
       const saved = localStorage.getItem("pulse-settings:" + owner);
       if (saved) setSettings({ ...defaults, ...JSON.parse(saved) });
@@ -99,13 +95,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
-      const request = sessionLoad.current;
       try {
-        try { await pullSessions(owner); } catch { /* Recover the account's local journal index when offline. */ }
-        const sessions = await storage.listSessions(owner);
+        const sessions = await pullSessions(owner);
         if (!alive) return;
         await refreshHistory();
-        if (request === sessionLoad.current && current.current?.id === "workspace" && !rec.current) {
+        if (current.current?.id === "workspace" && !rec.current) {
           const latest = sessions.find(
             (s) => s.events.length || s.journal.length,
           );
@@ -352,11 +346,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     name: string,
     destination: CsvDestination = "daily",
     timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
-    source?: ImportSource,
   ) {
-    const withSource = (s: Session): Session => !source ? s : { ...s, timezone: s.timezone || timezone,
-      blueprint: { ...s.blueprint, updatedAt: Math.max(Date.now(),(s.blueprint?.updatedAt||0)+1),
-        imports: [...(s.blueprint?.imports||[]).filter(i=>i.id!==source.id),{...source,eventIds:source.eventIds.filter(id=>s.events.some(e=>e.id===id))}].slice(-50) } };
     if (!events.length) throw new Error("There are no trade rows to import.");
     events.forEach((e) => eventSchema.parse(e));
     if (events.some((e) => e.t > Date.now() + 300000))
@@ -383,7 +373,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
           source: "csv" as const, startedAt: plan.events[0].t,
           endedAt: plan.events.at(-1)!.t, sampleCount: 0, events: [], journal: [],
         };
-        updates.set(base.id, withSource(mergeCsvEvents(updates.get(base.id) || base, plan.events)));
+        updates.set(base.id, mergeCsvEvents(updates.get(base.id) || base, plan.events));
       }
       // Validate every date before writing any import. Preserve recording refs
       // and their original sample timestamps when the active session matches.
@@ -391,7 +381,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       await writing.current;
       for (const update of updates.values()) {
         if (rec.current && update.id === current.current?.id) {
-          const live = withSource(mergeCsvEvents(current.current, update.events));
+          const live = mergeCsvEvents(current.current, update.events);
           await save(live);
         } else await storage.saveSession(update);
       }
@@ -405,9 +395,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
       return events.length;
     }
-    if (destination === "current" && current.current?.id !== "workspace") {
-      const count=await addEvents(events); if(source) await save(withSource(current.current!)); return count;
-    }
+    if (destination === "current" && current.current?.id !== "workspace")
+      return addEvents(events);
     if (rec.current)
       throw new Error(
         "End the current session or import into it before creating another journal.",
@@ -452,7 +441,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
             "This execution already exists with different P&L. Keep its original values or supply a different execution ID.",
           );
       }
-    await save(withSource(mergeSessions(existing, imported)));
+    await save(mergeSessions(existing, imported));
     raw.current = [];
     setSamples([]);
     setInsightTime(Date.now());
@@ -509,7 +498,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     setError("");
     try {
       let pts = await storage.getSamples(s.id, owner);
-      let loaded = mergeSessions(await storage.getSession(s.id,owner),s);
+      let loaded = s;
       if (navigator.onLine) {
         try {
           const cloud = await pullSession(s.id);
@@ -518,11 +507,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
           const map = new Map([...pts, ...cloud.samples].map((p) => [p.t, p]));
           pts = [...map.values()].sort((a, b) => a.t - b.t);
           loaded = {
-            ...mergeSessions(loaded,cloud.session),
-            journal: mergeNotes(loaded.journal, cloud.session.journal),
+            ...s,
+            journal: mergeNotes(s.journal, cloud.session.journal),
             events: [
               ...new Map(
-                [...loaded.events, ...cloud.events].map((e) => [e.id, e]),
+                [...s.events, ...cloud.events].map((e) => [e.id, e]),
               ).values(),
             ].sort((a, b) => a.t - b.t),
           };
@@ -532,7 +521,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       }
       // A delayed history load must never replace a session started or selected
       // after this request began. This also discards older overlapping opens.
-      loaded = mergeSessions(await storage.getSession(s.id,owner),loaded);
       if (
         request !== sessionLoad.current ||
         rec.current ||
@@ -620,11 +608,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       }
       const updated = {
         ...note,
-        capturedAt: old?.capturedAt ?? note.capturedAt ?? (old ? old.t : Date.now()),
-        captureMode: old?.captureMode ?? note.captureMode ?? (rec.current ? "live" as const : "post-session" as const),
-        inputMethod: old?.inputMethod ?? note.inputMethod ?? (note.source === "voice" ? "voice" as const : note.prompt ? "prompt" as const : "text" as const),
-        reflectionScope: note.tradeId ? (note.section && ["before","entry","management","exit","after"].includes(note.section) ? "stage" as const : "idea" as const) : "day" as const,
-        originalTranscript: note.deletedAt ? undefined : old?.originalTranscript ?? note.originalTranscript ?? (note.source === "voice" ? note.text : undefined),
         context: note.deletedAt || occurredAt === null
           ? undefined
           : {
@@ -648,7 +631,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     const s = current.current,
       old = s?.journal.find((j) => j.id === id);
     if (!s || !old || old.deletedAt) return;
-    if (old.audio) await removePrivateFile(old.audio.path,owner);
     const revision = Math.max(Date.now(), (old.updatedAt || old.t) + 1);
     await addNote({
       id: old.id,
@@ -676,8 +658,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       ),
     );
     await storage.removeSession(s.id, owner);
-    for (const source of s.blueprint?.imports || []) await removePrivateFile("local-csv:"+owner+":"+source.id,owner);
-    await cleanPrivateFiles(owner,s.id);
     await refreshHistory();
     resetWorkspace();
   }
@@ -747,19 +727,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       void client.removeChannel(channel);
     };
   }, [owner, save, refreshHistory]);
-  async function updateBlueprint(patch: Partial<SessionBlueprint>) {
-    const task = noteWrites.current.then(async () => {
-      if (current.current?.id === "workspace") await openJournalDay(journalDateValue(Date.now()));
-      const s = current.current;
-      if (!s || s.owner !== owner) throw new Error("Open your journal first.");
-      const next = { ...s, blueprint: { ...s.blueprint, ...patch, updatedAt: Math.max(Date.now(),(s.blueprint?.updatedAt || 0)+1) } };
-      sessionSchema.parse(next);
-      await save(next);
-      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
-    });
-    noteWrites.current=task.catch(()=>{});
-    return task;
-  }
   return {
     session,
     samples,
@@ -776,7 +743,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     syncState,
     settings,
     configure,
-    updateBlueprint,
     now,
     insightTime,
     start,

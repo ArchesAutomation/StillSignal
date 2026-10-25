@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { blueprintSchema } from "./blueprint-schema";
 const ts = z.number().int().min(0).max(8640000000000000);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 export const instrumentSchema = z.object({
@@ -99,7 +98,6 @@ export const sessionSchema = z.object({
   sampleCount: z.number().int().min(0),
   timezone: z.string().max(80).optional(),
   demo: z.boolean().optional(),
-  blueprint: blueprintSchema.optional(),
   events: z.array(eventSchema).max(5000),
   journal: z
     .array(
@@ -121,12 +119,6 @@ export const sessionSchema = z.object({
         origin: z.enum(["free-writing", "timeline", "stillness", "capture"]).optional(),
         activationAt: ts.optional(),
         recordingStartedAt: ts.optional(),
-        capturedAt: ts.optional(),
-        captureMode: z.enum(["live", "post-session"]).optional(),
-        inputMethod: z.enum(["voice", "text", "prompt"]).optional(),
-        reflectionScope: z.enum(["day", "idea", "stage"]).optional(),
-        originalTranscript: z.string().max(2000).optional(),
-        audio: z.object({ path: z.string().max(300).regex(/^local-audio:[a-f0-9-]{36}:[a-f0-9-]{36}$/), expiresAt: ts, durationSeconds: z.number().min(0).max(600), mimeType: z.string().max(100) }).optional(),
         captureScope: z
           .object({
             instrumentId: z.string().min(1).max(160).optional(),

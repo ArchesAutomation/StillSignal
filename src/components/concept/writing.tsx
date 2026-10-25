@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import type { JournalEntry, Sample, Session } from "@/lib/model";
 import type { ReflectionDraft } from "../reflection-editor";
 import { destination, sessionTrades, validateDestination } from "@/lib/journal-routing";
+import CollectedNotes from "./collected-notes";
 import { useJournalDraft } from "../use-journal-draft";
 import { journalPhaseLink } from "@/lib/journal-phases";
 import { nearest } from "@/lib/analytics";
-import GentlePause from "../gentle-pause";
 import Destination from "./destination";
 import { cx, Title, time as displayTime } from "./shared";
 const prompts = [
@@ -21,7 +21,7 @@ const dayPrompts = [
   { section: undefined, text: "What do you notice in your body right now?" },
   { section: undefined, text: "What is on your mind, and what would support you today?" },
 ] as const;
-type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean; label?: string; manualTime?: string; manualTarget?: string };
+type Draft = { text: string; answer: string; deep: string; prompt: number; section: JournalEntry["section"]; tradeId: string; custom: string; choice: string; timed: boolean; manualTime?: string; manualTarget?: string };
 const empty: Draft = { text: "", answer: "", deep: "", prompt: 0, section: undefined, tradeId: "", custom: "", choice: "", timed: false };
 export default function Writing({ time, session, onSave, onReflect, onReview, selection, samples, sampleNoteIds, onEdit }: {
   time: number; session: Session; onSave: (n: JournalEntry) => Promise<void>;
@@ -67,7 +67,7 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
     try {
       const note: JournalEntry = {
         id: crypto.randomUUID(), t: Date.now(), eventTime: draft.timed ? selectedTime(section) : null,
-        label: draft.label || "Unlabelled", text: value, source: "typed", origin: "free-writing", ...target(section),
+        label: "Unlabelled", text: value, source: "typed", origin: "free-writing", ...target(section),
         ...(kind === "answer" ? { prompt: { id: `${hasTrades ? "phase" : "day"}-${draft.prompt % questions.length}`, question: question.text } } : {}),
         ...(kind === "deep" ? { prompt: { id: "deeper", question: "What happened immediately before the action?", ...(draft.choice && draft.choice !== "Something else" ? { choice: draft.choice } : {}) } } : {}),
       };
@@ -101,13 +101,13 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
           onChange={e => change({ manualTime: e.target.value, manualTarget: targetKey, timed: !!e.target.value })} /></label>
       </details>
       <textarea className={cx("journal-text")} aria-label="Journal reflection" maxLength={2000} disabled={!ready || busy} value={draft.text} onChange={e => change({ text: e.target.value })} placeholder="Write what happened, in your own words…" />
-      <label>Your label<select aria-label="Writing label" value={draft.label||"Unlabelled"} onChange={e=>change({label:e.target.value})}>{["Unlabelled","Following plan / model","Calm","Focused","Confident","Impatient","FOMO","Hesitant","Frustrated","Other"].map(l=><option key={l}>{l}</option>)}</select></label>
       <div className={cx("writing-actions")}>
         <button className={cx("primary")} disabled={busy || !draft.text.trim()} onClick={() => void save(draft.text, "text")}>Save to journal</button>
         <button className={cx("ghost")} onClick={() => dictate(draft.text)}>● Speak instead</button>
         <button className={cx("ghost")} onClick={() => onReflect({ t: linkedTime ?? time, eventTime: draft.timed ? linkedTime : null, ...target(), origin: "free-writing", initialText: draft.text })}>Add screenshot</button>
         <span role="status">{status || (draft.text || draft.answer || draft.deep ? "Unsaved changes · draft kept on this device" : "Ready to write")}</span>
       </div>
+      <CollectedNotes session={session} samples={samples} sampleNoteIds={sampleNoteIds} onEdit={onEdit} revealNoteId={savedId} />
     </div>
     <section className={cx("promptcarousel")} aria-label="Phase question">
       <div><div className={cx("eyebrow")}>One question · one location</div>
@@ -122,9 +122,8 @@ export default function Writing({ time, session, onSave, onReflect, onReview, se
       </div><p className={cx("timeline-note")}>The question guides you. It is not copied into the journal.</p></div>
     </section>
     <details className={cx("journalquestions")}><summary>Explore a little deeper</summary>
-      <GentlePause />
       <h3>What happened immediately before the action?</h3>
-      <div className={cx("choicechips")}>{["Following plan / model", "Fear of missing the move", "Frustration after the loss", "Urgency after waiting", "Something else"].map(choice =>
+      <div className={cx("choicechips")}>{["Fear of missing the move", "Frustration after the loss", "Urgency after waiting", "Something else"].map(choice =>
         <button key={choice} className={cx(choice === draft.choice && "active")} onClick={() => change({ choice })}>{choice}</button>)}</div>
       <textarea aria-label="Deeper reflection" maxLength={2000} value={draft.deep} onChange={e => change({ deep: e.target.value })} placeholder="Which rule, sensation or thought was present?" />
       <button className={cx("primary")} disabled={busy || !draft.deep.trim()} onClick={() => void save(draft.deep, "deep")}>Save reflection</button>

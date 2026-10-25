@@ -35,7 +35,7 @@ const config: NextConfig = {
               origin +
               " " +
               socket +
-              "; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+              "; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
           },
         ],
       },

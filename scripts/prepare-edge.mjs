@@ -10,7 +10,7 @@ const edgeServer = common
     /process\.env\.SUPABASE_SECRET_KEY\s*\|\|\s*process\.env\.SUPABASE_SERVICE_ROLE_KEY/g,
     '(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}").default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))',
   );
-const validation = (await readFile("src/lib/validation.ts", "utf8")).replace('"./blueprint-schema"', '"./blueprint-schema.ts"').replace(
+const validation = (await readFile("src/lib/validation.ts", "utf8")).replace(
   '"zod"',
   '"npm:zod@4.6.7"',
 );
@@ -31,12 +31,11 @@ for (const [name, source] of [
   await writeFile(`${directory}/tradingview.ts`, tradingview);
   await writeFile(
     `${directory}/model.ts`,
-    (await readFile("src/lib/model.ts", "utf8")).replace('"./blueprint-schema"', '"./blueprint-schema.ts"'),
+    await readFile("src/lib/model.ts", "utf8"),
   );
   await writeFile(`${directory}/handler.ts`, handler);
   await writeFile(`${directory}/server.ts`, edgeServer);
   await writeFile(`${directory}/validation.ts`, validation);
-  await writeFile(`${directory}/blueprint-schema.ts`, (await readFile("src/lib/blueprint-schema.ts", "utf8")).replace('"zod"', '"npm:zod@4.6.7"'));
   await writeFile(
     `${directory}/index.ts`,
     'import {POST} from "./handler.ts";\nDeno.serve((request:Request)=>{if(request.method!=="POST")return Response.json({error:"Method not allowed."},{status:405,headers:{Allow:"POST"}});return POST(request);});\n',
@@ -86,8 +85,8 @@ for (const [name, source] of [
   );
   await writeFile(directory + "/server.ts", edgeServer);
   for (const file of source === "extension"
-    ? ["model.ts", "validation.ts", "blueprint-schema.ts", "journal-command.ts"]
-    : ["model.ts", "validation.ts", "blueprint-schema.ts", "analytics.ts", "trade-context.ts"])
+    ? ["model.ts", "validation.ts", "journal-command.ts"]
+    : ["model.ts", "validation.ts", "analytics.ts", "trade-context.ts"])
     await writeFile(
       directory + "/" + file,
       edge(await readFile("src/lib/" + file, "utf8")),
