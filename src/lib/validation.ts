@@ -19,6 +19,8 @@ export const sampleSchema = z.object({
   t: ts,
   bpm: z.number().int().min(25).max(240),
   provider: z.enum(["whoop", "apple", "oura", "garmin"]).optional(),
+  quality: z.enum(["good", "uncertain", "artifact"]).optional(),
+  cadenceMs: z.number().positive().max(3600000).optional(),
 });
 export const eventSchema = z
   .object({
@@ -151,6 +153,11 @@ export const sessionSchema = z.object({
         inputMethod: z.enum(["voice", "text", "prompt"]).optional(),
         reflectionScope: z.enum(["day", "idea", "stage"]).optional(),
         originalTranscript: z.string().max(2000).optional(),
+        captureSessionId: z.uuid().optional(),
+        labelAddedAt: ts.optional(),
+        transcriptStatus: z
+          .enum(["available", "unavailable", "failed", "pending"])
+          .optional(),
         revisitsId: z.string().max(160).optional(),
         triggerEventId: z.string().max(160).optional(),
         capture: z
@@ -231,6 +238,7 @@ export const sessionSchema = z.object({
     .max(1000),
 });
 export const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("capabilities") }),
   z.object({ action: z.literal("connection-status") }),
   z.object({ action: z.literal("disconnect") }),
   z.object({

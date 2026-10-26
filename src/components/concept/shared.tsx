@@ -21,6 +21,7 @@ export type Page =
   | "Settings";
 export type Pulse = ReturnType<typeof usePulse>;
 export type Props = {
+  capture?: import("../use-moment-capture").MomentCapture;
   threshold: number;
   pulse: Pulse;
   session: Session;

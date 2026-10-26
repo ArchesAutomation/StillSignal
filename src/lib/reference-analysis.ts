@@ -1,3 +1,10 @@
+import {
+  contextAt,
+  contextMatches,
+  excludedAt,
+  unknown,
+  type ContextFilter,
+} from "./context-comparison";
 import type { JournalEntry, Sample, Session } from "./model";
 import { journalDateValue } from "./journal-day";
 import { noteTime } from "./journal-routing";
@@ -30,6 +37,7 @@ export type AnalysisFilter = {
   stage: string;
   scope: string;
   baselineSeconds: number;
+  context?: ContextFilter;
 };
 export function referenceAnalysis(
   sessions: Session[],
@@ -54,6 +62,14 @@ export function referenceAnalysis(
       .filter(
         (n) =>
           !n.deletedAt &&
+          !excludedAt(s, noteTime(n) ?? n.t) &&
+          contextMatches(
+            s,
+            noteTime(n) ?? s.startedAt,
+            filter.context,
+            n.capturedAt ?? Infinity,
+            n.capture,
+          ) &&
           (filter.origin === "all" || n.captureMode === filter.origin) &&
           (filter.stage === "all" ||
             (filter.stage === "neutral"
@@ -62,7 +78,9 @@ export function referenceAnalysis(
       )
       .map((n) => {
         const at = noteTime(n),
-          hr = samples[s.id] || [],
+          hr = (samples[s.id] || []).filter(
+            (p) => !excludedAt(s, p.t) && p.quality !== "artifact",
+          ),
           enabled = !!(
             s.blueprint?.combine?.hr && s.blueprint.combine.transcript
           ),
@@ -97,6 +115,12 @@ export function referenceAnalysis(
           environment: env
             ? { location: env.location, social: env.social, setup: env.setup }
             : null,
+          categories: contextAt(
+            s,
+            at ?? s.startedAt,
+            n.capturedAt ?? Infinity,
+            n.capture,
+          ),
           method: window.length
             ? "Loaded HR ±30s"
             : n.context?.hrWindowMean !== undefined
@@ -184,7 +208,9 @@ export function referenceAnalysis(
   if (scope)
     for (const s of rows) {
       if (!s.blueprint?.combine?.hr || !s.blueprint.combine.pnl) continue;
-      const hr = samples[s.id] || [],
+      const hr = (samples[s.id] || []).filter(
+          (p) => !excludedAt(s, p.t) && p.quality !== "artifact",
+        ),
         baseline = summary(
           hr,
           hr[0]?.t || s.startedAt,
@@ -194,6 +220,8 @@ export function referenceAnalysis(
       const pairs = (s.blueprint.pnl || [])
         .filter(
           (p) =>
+            !excludedAt(s, p.t) &&
+            contextMatches(s, p.t, filter.context) &&
             JSON.stringify([p.account, p.currency, p.symbol]) === scope &&
             p.unrealised !== undefined &&
             p.position !== undefined &&
@@ -263,8 +291,90 @@ export function referenceAnalysis(
       0,
     ),
   }));
+  const events = rows.flatMap((s) =>
+    s.events
+      .filter(
+        (e) =>
+          !e.voided &&
+          e.provenance !== "alert" &&
+          e.timePrecision !== "day" &&
+          !excludedAt(s, e.t) &&
+          contextMatches(s, e.t, filter.context),
+      )
+      .map((event) => {
+        const hr = s.blueprint?.combine?.hr
+          ? (samples[s.id] || []).filter(
+              (p) => !excludedAt(s, p.t) && p.quality !== "artifact",
+            )
+          : [];
+        const before = hr.filter(
+            (p) => p.t >= event.t - 30000 && p.t < event.t,
+          ),
+          after = hr.filter((p) => p.t > event.t && p.t <= event.t + 30000);
+        const eligible = before.length >= 3 && after.length >= 3;
+        return {
+          session: s,
+          event,
+          delta: eligible
+            ? mean(after.map((p) => p.bpm))! - mean(before.map((p) => p.bpm))!
+            : null,
+        };
+      }),
+  );
+  const responses = ["entry", "exit", "fill"].map((kind) => {
+    const group = events.filter((r) => r.event.kind === kind),
+      measured = group.filter((r) => r.delta !== null);
+    return {
+      kind,
+      count: group.length,
+      dates: new Set(group.map((r) => journalDateValue(r.event.t))).size,
+      matched: measured.length,
+      delta: mean(measured.map((r) => r.delta!)),
+      example: group[0],
+    };
+  });
+  const eligibleSessions = rows.filter(
+    (s) =>
+      records.some((r) => r.session.id === s.id) ||
+      events.some((r) => r.session.id === s.id) ||
+      (!s.journal.length &&
+        !s.events.length &&
+        contextMatches(s, s.startedAt, filter.context)),
+  );
+  const categories = [
+    ...new Set(
+      records.map((r) =>
+        filter.context?.lifestyle
+          ? r.categories.life.find(
+              (e) =>
+                (e.categoryLabel || e.category) === filter.context!.lifestyle,
+            )?.answer || "unknown"
+          : r.categories.location,
+      ),
+    ),
+  ];
+  const comparison = categories.map((name) => {
+    const group = records.filter(
+      (r) =>
+        (filter.context?.lifestyle
+          ? r.categories.life.find(
+              (e) =>
+                (e.categoryLabel || e.category) === filter.context!.lifestyle,
+            )?.answer || "unknown"
+          : r.categories.location) === name,
+    );
+    return {
+      name: name === "unknown" ? unknown : name,
+      notes: group.length,
+      sessions: new Set(group.map((r) => r.session.id)).size,
+      matched: group.filter((r) => r.delta !== null).length,
+      delta: mean(group.flatMap((r) => (r.delta === null ? [] : [r.delta]))),
+    };
+  });
   return {
-    sessions: rows,
+    sessions: eligibleSessions,
+    responses,
+    comparison,
     records,
     labels,
     environments,

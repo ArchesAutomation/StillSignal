@@ -1,4 +1,5 @@
 "use client";
+import { useMomentCapture } from "./use-moment-capture";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -237,6 +238,13 @@ export default function Dashboard({
       setLegacyOpen(true);
     }
   }, []);
+  const capture = useMomentCapture({
+    session: p.session,
+    active: p.active,
+    shortcut: p.settings.shortcutKey,
+    onSave: p.addNote,
+    onSaveBlueprint: p.updateBlueprint,
+  });
   const s = p.session,
     isWorkspace = s?.id === "workspace";
   const history = useMemo(
@@ -562,6 +570,7 @@ export default function Dashboard({
   return (
     <div className="dashboard-shell">
       <ConceptWorkspace
+        capture={capture}
         pulse={p}
         session={s}
         history={history}
@@ -1840,6 +1849,19 @@ export default function Dashboard({
                     settings={p.settings}
                     onChange={p.configure}
                   />
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={p.settings.weeklyReminders !== false}
+                      onChange={(e) =>
+                        p.configure({
+                          ...p.settings,
+                          weeklyReminders: e.target.checked,
+                        })
+                      }
+                    />
+                    Gentle weekly review reminders
+                  </label>
                   <BlueprintPreferences
                     session={s}
                     history={history}
@@ -2398,6 +2420,7 @@ export default function Dashboard({
       {floatingJournal.host &&
         createPortal(
           <FloatingJournal
+            capture={capture}
             labels={p.settings.phaseLabels}
             key={s.id}
             session={dailyJournalSession(s, p.history)}

@@ -15,6 +15,62 @@ export const pnlPointSchema = z.object({
 export const blueprintSchema = z
   .object({
     updatedAt: timestamp,
+    measurementPauses: z
+      .array(z.object({ start: timestamp, end: timestamp.optional() }))
+      .max(500)
+      .optional(),
+    chartFrames: z
+      .array(
+        z.object({
+          id: text,
+          t: timestamp,
+          path: z.string().max(400),
+          width: z.number(),
+          height: z.number(),
+        }),
+      )
+      .max(600)
+      .optional(),
+    groupingVersions: z
+      .array(
+        z.object({
+          id: text,
+          at: timestamp,
+          action: text,
+          before: z.object({
+            splits: z.array(text),
+            merges: z.array(z.array(text)),
+            groups: z
+              .array(
+                z.object({
+                  id: text,
+                  fillIds: z.array(text).max(5000),
+                  allocations: z
+                    .record(text, z.number().finite().nonnegative())
+                    .optional(),
+                }),
+              )
+              .optional(),
+          }),
+          after: z.object({
+            splits: z.array(text),
+            merges: z.array(z.array(text)),
+            groups: z
+              .array(
+                z.object({
+                  id: text,
+                  fillIds: z.array(text).max(5000),
+                  allocations: z
+                    .record(text, z.number().finite().nonnegative())
+                    .optional(),
+                }),
+              )
+              .optional(),
+          }),
+        }),
+      )
+      .max(100)
+      .optional(),
     plan: z
       .object({
         start: z.string().regex(/^\d{2}:\d{2}$/),
@@ -70,6 +126,8 @@ export const blueprintSchema = z
             "Other",
           ]),
           text: z.string().max(2000),
+          answer: z.enum(["yes", "no"]).optional(),
+          categoryLabel: z.string().max(80).optional(),
           start: timestamp,
           end: timestamp.optional(),
           linkedDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -188,6 +246,18 @@ export const blueprintSchema = z
       .optional(),
     grouping: z
       .object({
+        groups: z
+          .array(
+            z.object({
+              id: text,
+              fillIds: z.array(text).max(5000),
+              allocations: z
+                .record(text, z.number().finite().nonnegative())
+                .optional(),
+            }),
+          )
+          .max(500)
+          .optional(),
         splits: z.array(text).max(100),
         merges: z.array(z.array(text).min(2).max(100)).max(100),
       })

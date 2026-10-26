@@ -23,7 +23,9 @@ export default function FloatingJournal({
   prepareScreenshot,
   onSave,
   labels,
+  capture,
 }: {
+  capture?: import("./use-moment-capture").MomentCapture;
   session: Session;
   samples: Sample[];
   now: number;
@@ -62,14 +64,42 @@ export default function FloatingJournal({
         if (draft) setDraft(null);
         else onClose();
       }
-      if (event.altKey && event.key.toLowerCase() === "j") {
+      if (
+        !event.defaultPrevented &&
+        !event.repeat &&
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "j"
+      ) {
         event.preventDefault();
-        newEntry({ source: "voice", autoListen: true });
+        if (capture) capture.toggle();
+        else newEntry({ source: "voice", autoListen: true });
       }
     };
     doc?.addEventListener("keydown", key);
     return () => doc?.removeEventListener("keydown", key);
-  }, [draft, floating, onClose, active, session.endedAt, session.startedAt]);
+  }, [
+    draft,
+    floating,
+    onClose,
+    active,
+    session.endedAt,
+    session.startedAt,
+    capture,
+  ]);
+  useEffect(() => {
+    const view = root.current?.ownerDocument.defaultView;
+    if (floating && view && view !== window) {
+      try {
+        view.resizeTo(
+          capture?.menu || capture?.pendingCapture ? 340 : 230,
+          capture?.menu || capture?.pendingCapture ? 530 : 120,
+        );
+      } catch {}
+    }
+  }, [floating, capture?.menu, capture?.pendingCapture]);
   function paste(event: ClipboardEvent<HTMLElement>) {
     const file = Array.from(event.clipboardData.files).find((value) =>
       value.type.startsWith("image/"),
@@ -90,6 +120,7 @@ export default function FloatingJournal({
       onPaste={paste}
     >
       <CapturePanel
+        controller={capture}
         labels={labels}
         key={session.id}
         session={session}

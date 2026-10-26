@@ -82,19 +82,9 @@ export default function Journal(
     props.onReflect({ t: note.t, entry: note });
   }
   async function saveCollected(note: import("@/lib/model").JournalEntry) {
-    const original = journalDaySessions(s, history).find((item) =>
-      item.journal.some((n) => n.id === note.id),
-    );
-    if (original && original.id !== s.id) {
-      if (p.active)
-        throw new Error(
-          "End your active session before changing another recording.",
-        );
-      if (!(await p.openSession(original)))
-        throw new Error("Could not open the original recording.");
-    }
-    await p.addNote(note);
+    await p.saveJournalNote(note);
   }
+
   const [selected, setSelected] = useState<Moment | null>(null),
     [range, setRange] = useState(0),
     [showPrice, setShowPrice] = useState(false),
@@ -905,12 +895,6 @@ export default function Journal(
             })
           }
         />
-        <SessionObservations
-          session={daySession}
-          samples={daySamples}
-          baselineSeconds={p.settings.baselineSeconds}
-          smallPauses={p.settings.smallPauses !== false}
-        />
         <IdeaGrouping session={daySession} onSave={p.updateBlueprint} />
         <div className={cx("journalflow")}>
           <Title
@@ -1010,6 +994,7 @@ export default function Journal(
           )}
           {!timelineView && (
             <JournalTrades
+              onSaveNote={saveCollected}
               onSaveBlueprint={p.updateBlueprint}
               prepareScreenshot={p.prepareScreenshot}
               session={daySession}
@@ -1177,9 +1162,8 @@ export default function Journal(
                                   try {
                                     await p.removeNote(row.note!.id);
                                     if (row.note!.screenshot) {
-                                      const { removeScreenshot } = await import(
-                                        "@/lib/screenshots"
-                                      );
+                                      const { removeScreenshot } =
+                                        await import("@/lib/screenshots");
                                       await removeScreenshot(
                                         row.note!.screenshot.path,
                                       );
@@ -1225,6 +1209,7 @@ export default function Journal(
       <section hidden={view !== "patterns"}>
         {view === "patterns" && (
           <ReferencePatterns
+            onConnect={() => props.onPage("Connections")}
             sessions={history}
             selected={s}
             selectedSamples={p.samples}

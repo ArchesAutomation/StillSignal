@@ -101,8 +101,11 @@ export function weekKey(t: number) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return journalDateValue(d.getTime());
 }
-export function weeklyActuals(sessions: Session[], selected: Session) {
-  const key = weekKey(selected.startedAt);
+export function weeklyActuals(
+  sessions: Session[],
+  selected: Session,
+  key = weekKey(selected.startedAt),
+) {
   const rows = [
     ...new Map(
       [...sessions, selected]

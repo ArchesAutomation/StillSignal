@@ -5,12 +5,14 @@ import { weekKey, weeklyActuals } from "@/lib/journal-reference";
 import type { Props } from "./shared";
 import { cx } from "./shared";
 export default function ReferenceWeek({
-  session: s,
+  session,
+  week,
   history,
   pulse: p,
-}: Pick<Props, "session" | "history" | "pulse">) {
-  const key = weekKey(s.startedAt),
-    actual = weeklyActuals(history, s);
+}: Pick<Props, "session" | "history" | "pulse"> & { week?: string }) {
+  const s = session;
+  const key = week || weekKey(s.startedAt),
+    actual = weeklyActuals(history, s, key);
   const saved = [...history, s]
     .filter((r) => r.owner === s.owner)
     .map((r) => r.blueprint?.weeks?.[key])
