@@ -15,7 +15,37 @@ export function authClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
   ));
 }
+export function requiresV4Save(payload: unknown) {
+  const value = payload as { action?: string; session?: Session };
+  const s = value?.session;
+  return (
+    value?.action === "save" &&
+    !!s &&
+    (s.journal.some(
+      (n) => n.captureSessionId || n.labelAddedAt || n.transcriptStatus,
+    ) ||
+      !!s.blueprint?.measurementPauses ||
+      !!s.blueprint?.chartFrames ||
+      !!s.blueprint?.groupingVersions ||
+      !!s.blueprint?.grouping?.groups ||
+      !!s.blueprint?.lifestyle?.some((e) => e.answer || e.categoryLabel))
+  );
+}
 export async function api<T>(payload: unknown): Promise<T> {
+  if (requiresV4Save(payload)) {
+    // Never send new evidence to an older validator that would silently strip it.
+    let capability: { journalSchema?: string } | undefined;
+    try {
+      capability = await api<{ journalSchema?: string }>({
+        action: "capabilities",
+      });
+    } catch {}
+    if (capability?.journalSchema !== "still-signal-v4.1")
+      throw new Error(
+        "Cloud update required for v4 capture. Your full journal is saved on this device; sync will retry after the backend update.",
+      );
+  }
+
   const s = await authClient()?.auth.getSession();
   const token = s?.data.session?.access_token;
   if (!token) throw new Error("Sign in to use cloud sync.");
@@ -36,7 +66,9 @@ export async function api<T>(payload: unknown): Promise<T> {
 }
 let syncing = false;
 const uploaded = new Map<string, string>();
-export function clearSyncCache(){uploaded.clear();}
+export function clearSyncCache() {
+  uploaded.clear();
+}
 export async function sync(owner: string) {
   if (syncing || !navigator.onLine) return 0;
   syncing = true;

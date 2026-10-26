@@ -1,4 +1,5 @@
 "use client";
+import { excludedAt } from "@/lib/context-comparison";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   emptyWorkspace,
@@ -700,6 +701,10 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     if (current.current?.id === "workspace")
       await start(undefined, Math.min(Date.now(), note.t));
     const s = current.current;
+    if (note.captureSessionId && s?.id !== note.captureSessionId)
+      throw new Error(
+        "Reopen the original capture session to save this recording.",
+      );
     if (!s) throw new Error("Open a journal before adding a reflection.");
     if (s.owner !== owner) throw new Error("Workspace identity mismatch.");
     if (s) {
@@ -716,7 +721,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
           occurredAt > Date.now() + 300000)
       )
         throw new Error("Choose a moment inside this journal's time range.");
-      let contextSamples = raw.current;
+      let contextSamples = raw.current.filter((p) => !excludedAt(s, p.t));
       if (occurredAt !== null && !note.deletedAt) {
         const siblings = journalDaySessions(s, history).filter(
           (item) =>
@@ -765,7 +770,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
             );
       const updated = {
         ...note,
-        capture: note.deletedAt ? undefined : (old?.capture ?? note.capture),
+        capture: note.deletedAt ? note.capture : (old?.capture ?? note.capture),
         capturedAt:
           old?.capturedAt ?? note.capturedAt ?? (old ? old.t : Date.now()),
         captureMode:
@@ -789,13 +794,15 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
             : ("idea" as const)
           : ("day" as const),
         originalTranscript: note.deletedAt
-          ? undefined
+          ? note.originalTranscript
           : (old?.originalTranscript ??
             note.originalTranscript ??
             (note.source === "voice" ? note.text : undefined)),
         context:
           note.deletedAt || occurredAt === null
-            ? undefined
+            ? note.deletedAt
+              ? note.context
+              : undefined
             : {
                 ...reflectionContext(
                   contextSamples,
@@ -833,6 +840,38 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         ),
       );
     }
+  }
+  async function saveJournalNote(note: JournalEntry) {
+    const original = [current.current, ...history].find((item) =>
+      item?.journal.some((n) => n.id === note.id),
+    );
+    if (!original || original.id === current.current?.id) return addNote(note);
+    const task = noteWrites.current.then(async () => {
+      const latest =
+        (await storage.listSessions(owner)).find(
+          (item) => item.id === original.id,
+        ) || original;
+      validateDestination(note, dailyJournalSession(latest, history));
+      const old = latest.journal.find((n) => n.id === note.id)!;
+      const updated = {
+        ...note,
+        t: old.t,
+        capturedAt: old.capturedAt,
+        captureMode: old.captureMode,
+        capture: old.capture,
+        originalTranscript: old.originalTranscript,
+        recordingStartedAt: old.recordingStartedAt,
+        updatedAt: Math.max(Date.now(), (old.updatedAt || old.t) + 1),
+      };
+      await storage.saveSession({
+        ...latest,
+        journal: mergeNotes(latest.journal, [updated]),
+      });
+      await refreshHistory();
+      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    });
+    noteWrites.current = task.catch(() => {});
+    return task;
   }
   async function removeNote(id: string) {
     const s = current.current,
@@ -1002,6 +1041,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     openJournalDay,
     addEvents,
     addNote,
+    saveJournalNote,
     removeNote,
     prepareScreenshot,
     deleteSession,

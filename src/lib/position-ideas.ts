@@ -11,6 +11,7 @@ export type TradeIdea = CompletedTrade & {
   openQuantity: number;
   pnl?: number;
   allocations?: Record<string, number>;
+  incomplete?: boolean;
 };
 const epsilon = 1e-8;
 const accountOf = (e: TradeEvent) =>
@@ -114,6 +115,83 @@ export function positionIdeas(events: TradeEvent[]): TradeIdea[] {
 export function sessionIdeas(session: Session): TradeIdea[] {
   let ideas = positionIdeas(session.events);
   const grouping = session.blueprint?.grouping;
+  if (grouping?.groups) {
+    const assigned = new Set(grouping.groups.flatMap((g) => g.fillIds));
+    const manual = grouping.groups.flatMap((g) => {
+      const fills = g.fillIds
+        .map((id) => session.events.find((e) => e.id === id && !e.voided))
+        .filter((e): e is TradeEvent => !!e)
+        .map((e) => ({ ...e, quantity: g.allocations?.[e.id] ?? e.quantity }));
+      if (!fills.length) return [];
+      const original = ideas.find((i) =>
+        i.fillIds.some((id) => g.fillIds.includes(id)),
+      );
+      if (!original) return [];
+      const entries = fills.filter((e) => e.kind !== "exit"),
+        exits = fills.filter((e) => e.kind === "exit");
+      const net = fills.reduce(
+        (n, e) =>
+          n +
+          e.quantity *
+            (e.action
+              ? e.action === "buy"
+                ? 1
+                : -1
+              : e.kind === "exit"
+                ? e.side === "long"
+                  ? -1
+                  : 1
+                : e.side === "long"
+                  ? 1
+                  : -1),
+        0,
+      );
+      return [
+        {
+          ...original,
+          id: g.id,
+          fillIds: fills.map((e) => e.id),
+          entryIds: entries.map((e) => e.id),
+          exitIds: exits.map((e) => e.id),
+          entry: fills[0].t,
+          entryEventId: fills[0].id,
+          exit:
+            Math.abs(net) < 1e-8 && fills[0].kind !== "exit"
+              ? fills.at(-1)!.t
+              : undefined,
+          exitEventId: exits.at(-1)?.id,
+          openQuantity: Math.abs(net),
+          incomplete: fills[0].kind === "exit" || Math.abs(net) > 1e-8,
+          quantity: entries.reduce((n, e) => n + e.quantity, 0),
+          allocations: g.allocations,
+          entryPrice: entries.length
+            ? entries.reduce((n, e) => n + e.price * e.quantity, 0) /
+              entries.reduce((n, e) => n + e.quantity, 0)
+            : original.entryPrice,
+          exitPrice: exits.length
+            ? exits.reduce((n, e) => n + e.price * e.quantity, 0) /
+              exits.reduce((n, e) => n + e.quantity, 0)
+            : undefined,
+          pnl:
+            exits.length && exits.every((e) => e.pnl !== undefined)
+              ? exits.reduce(
+                  (n, e) =>
+                    n +
+                    e.pnl! *
+                      (e.quantity /
+                        (session.events.find((raw) => raw.id === e.id)
+                          ?.quantity || e.quantity)),
+                  0,
+                )
+              : undefined,
+        },
+      ];
+    });
+    return [
+      ...manual,
+      ...positionIdeas(session.events.filter((e) => !assigned.has(e.id))),
+    ].sort((a, b) => a.entry - b.entry);
+  }
   for (const split of grouping?.splits || []) {
     const index = ideas.findIndex(
       (i) => i.entryIds.includes(split) && i.id !== split,

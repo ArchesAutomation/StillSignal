@@ -7,6 +7,11 @@ export async function POST(request: Request) {
     const { db, user } = await authenticated(request);
     await rate(db, "user:" + user.id);
     const p = actionSchema.parse(await boundedJson(request));
+    if (p.action === "capabilities")
+      return Response.json(
+        { journalSchema: "still-signal-v4.1" },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     if (p.action === "connection-status") {
       const { data, error } = await db
         .from("pulse_connections")
@@ -101,6 +106,9 @@ export async function POST(request: Request) {
             (n.capture?.imagePath &&
               !n.capture.imagePath.startsWith(`local-image:${user.id}:`)) ||
             (n.audio && !n.audio.path.startsWith(`local-audio:${user.id}:`)),
+        ) ||
+        (p.session.blueprint?.chartFrames || []).some(
+          (f) => !f.path.startsWith(`local-image:${user.id}:`),
         ) ||
         Object.values(p.session.blueprint?.finalCharts || {}).some(
           (c) => !c.path.startsWith(`${user.id}/${p.session.id}/`),

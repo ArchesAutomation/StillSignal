@@ -415,6 +415,13 @@ export default function ReferenceContext({
                         SessionBlueprint["lifestyle"]
                       >[number]["category"],
                       text: String(f.get("words")),
+                      answer:
+                        f.get("answer") === "yes" || f.get("answer") === "no"
+                          ? (String(f.get("answer")) as "yes" | "no")
+                          : undefined,
+                      categoryLabel:
+                        String(f.get("customCategory") || "").trim() ||
+                        undefined,
                       start,
                       end,
                       linkedDay: day,
@@ -463,6 +470,24 @@ export default function ReferenceContext({
             <label>
               Until · optional
               <input type="datetime-local" name="until" />
+            </label>
+          </div>
+          <div className={cx("reference-fields")}>
+            <label>
+              Category answer
+              <select name="answer" aria-label="Context category answer">
+                <option value="">Unknown / not recorded</option>
+                <option value="yes">Yes / present</option>
+                <option value="no">No / explicitly absent</option>
+              </select>
+            </label>
+            <label>
+              Your category · optional
+              <input
+                name="customCategory"
+                maxLength={80}
+                placeholder="Caffeine, exercise, or your own category"
+              />
             </label>
           </div>
           <label>

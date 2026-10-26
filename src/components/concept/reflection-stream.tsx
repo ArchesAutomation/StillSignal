@@ -1,4 +1,5 @@
 "use client";
+import InlineMoment from "./inline-moment";
 import { useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
 import { captureMode } from "@/lib/session-timeline";
@@ -22,7 +23,7 @@ export default function ReflectionStream({
 }) {
   const [filter, setFilter] = useState("all");
   const allNotes = session.journal
-    .filter((n) => !n.deletedAt)
+    .filter((n) => !n.deletedAt || Date.now() - n.deletedAt < 600000)
     .sort(
       (a, b) =>
         (noteTime(a) ?? a.capturedAt ?? a.t) -
@@ -62,137 +63,14 @@ export default function ReflectionStream({
         </label>
       </div>
       {notes.map((n) => (
-        <details id={"moment-" + n.id} key={n.id} className={cx("stream-note")}>
-          <summary>
-            <time>
-              {noteTime(n) === null ? "Day note" : time(noteTime(n)!)}
-            </time>
-            <span
-              className={cx("provenance-badge")}
-              data-origin={n.captureMode}
-            >
-              {captureMode(n)}
-            </span>
-            <span aria-label={n.inputMethod || n.source || "text"}>
-              {n.source === "voice" || n.inputMethod === "voice"
-                ? "● Voice"
-                : n.prompt
-                  ? "◇ Prompt"
-                  : "✎ Text"}
-            </span>
-            <b>{n.label}</b>
-            <span>
-              {n.text.slice(0, 130)}
-              {n.text.length > 130 ? "…" : ""}
-            </span>
-          </summary>
-          <div className={cx("stream-detail")}>
-            <small>
-              Captured {new Date(n.capturedAt ?? n.t).toLocaleString()} ·{" "}
-              {noteTime(n) === null
-                ? "Neutral day reflection"
-                : `Session time ${time(noteTime(n)!)}`}{" "}
-              · {n.tradeId ? sectionName(n.section) : "Day scope"}
-            </small>
-            {n.prompt && (
-              <blockquote>
-                {n.prompt.question}
-                {n.prompt.choice && <small>{n.prompt.choice}</small>}
-              </blockquote>
-            )}
-            <p>{n.text}</p>
-            <div className={cx("moment-recorded-context")}>
-              <small>
-                {n.context?.hrWindowMean === undefined
-                  ? `Recorded HR at linked time: ${n.context?.bpm === undefined ? "unavailable" : `${n.context.bpm.toFixed(1)} BPM`}`
-                  : `HR ±${n.context.hrWindowHalfSeconds || 30}s: ${n.context.hrWindowMean.toFixed(1)} BPM · ${n.context.hrWindowCount} samples${n.context.hrWindowComplete === false ? " · provisional window" : ""}`}
-                {n.context?.baseline === undefined
-                  ? ""
-                  : ` · baseline ${n.context.baseline.toFixed(1)} BPM`}
-              </small>
-              {(() => {
-                const value = momentPnl(session, n);
-                return (
-                  <small>
-                    Review P&L context:{" "}
-                    {value ? (
-                      <>
-                        open{" "}
-                        {value.unrealised === undefined
-                          ? "unavailable"
-                          : money(value.unrealised, value.currency)}{" "}
-                        · realised {money(value.realised, value.currency)} ·
-                        position {value.position ?? "unknown"} · {value.account}{" "}
-                        · {value.source} at{" "}
-                        {new Date(value.t).toLocaleTimeString()}
-                      </>
-                    ) : (
-                      "No matching timestamped position/P&L snapshot."
-                    )}
-                  </small>
-                );
-              })()}
-            </div>
-            {n.capture && (
-              <details className={cx("moment-evidence")}>
-                <summary>View original moment & evidence</summary>
-                <p>
-                  Record pressed{" "}
-                  {new Date(n.capture.pressedAt).toLocaleString()} · confirmed{" "}
-                  {new Date(n.capture.confirmedAt).toLocaleString()}
-                </p>
-                {n.capture.imagePath ? (
-                  <PrivateImage
-                    owner={session.owner}
-                    path={n.capture.imagePath}
-                  />
-                ) : (
-                  <p>{n.capture.imageMissing || "No original chart image."}</p>
-                )}
-                {n.capture.quote ? (
-                  <p>
-                    {n.capture.quote.symbol} · {n.capture.quote.price}{" "}
-                    {n.capture.quote.currency} · {n.capture.quote.source} ·
-                    quote observed{" "}
-                    {new Date(n.capture.quote.observedAt).toLocaleString()}
-                  </p>
-                ) : (
-                  <p>{n.capture.quoteMissing}</p>
-                )}
-                {n.capture.environment && (
-                  <p>
-                    Environment known at record press:{" "}
-                    {Object.values(n.capture.environment)
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-              </details>
-            )}
-            {n.originalTranscript && n.originalTranscript !== n.text && (
-              <details>
-                <summary>Original transcript</summary>
-                <p>{n.originalTranscript}</p>
-              </details>
-            )}
-            {n.audio && (
-              <AudioPlayback
-                audio={n.audio}
-                owner={session.owner}
-                onDelete={() => onSave({ ...n, audio: undefined })}
-              />
-            )}
-            {n.screenshot && <Screenshot {...n.screenshot} />}
-            <button className={cx("textlink")} onClick={() => onEdit(n)}>
-              Edit reflection
-            </button>
-            {onRevisit && (
-              <button className={cx("textlink")} onClick={() => onRevisit(n)}>
-                Reflect on this moment later
-              </button>
-            )}
-          </div>
-        </details>
+        <InlineMoment
+          key={n.id}
+          note={n}
+          session={session}
+          onSave={onSave}
+          onEdit={onEdit}
+          onRevisit={onRevisit}
+        />
       ))}
       {!notes.length && (
         <p className={cx("empty-note")}>

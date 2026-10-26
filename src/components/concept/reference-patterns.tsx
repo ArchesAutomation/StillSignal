@@ -1,4 +1,5 @@
 "use client";
+import { unknown, type ContextFilter } from "@/lib/context-comparison";
 import { useEffect, useMemo, useState } from "react";
 import type { Sample, Session } from "@/lib/model";
 import { referenceAnalysis } from "@/lib/reference-analysis";
@@ -13,13 +14,16 @@ export default function ReferencePatterns({
   selectedSamples,
   baselineSeconds,
   onOpen,
+  onConnect,
 }: {
   sessions: Session[];
   selected: Session;
   selectedSamples: Sample[];
   baselineSeconds: number;
   onOpen: (s: Session, t?: number) => void;
+  onConnect?: () => void;
 }) {
+  const [context, setContext] = useState<ContextFilter>({});
   const [from, setFrom] = useState(
       journalDateValue(selected.startedAt).slice(0, 7) + "-01",
     ),
@@ -92,12 +96,16 @@ export default function ReferencePatterns({
     return () => {
       alive = false;
     };
-  }, [ids, selected.id]);
+  }, [
+    ids,
+    selected.id,
+    rows.map((s) => (s.blueprint?.combine?.hr ? 1 : 0)).join(""),
+  ]);
   const availableSamples = useMemo(
     () => ({ ...samples, [selected.id]: selectedSamples }),
     [samples, selected.id, selectedSamples],
   );
-  const filter = { from, to, origin, stage, scope, baselineSeconds };
+  const filter = { from, to, origin, stage, scope, baselineSeconds, context };
   const data = useMemo(
     () => referenceAnalysis(rows, selected.owner, availableSamples, filter),
     [
@@ -110,6 +118,7 @@ export default function ReferencePatterns({
       stage,
       scope,
       baselineSeconds,
+      context,
     ],
   );
   const number = (v: number | null, digits = 1) =>
@@ -121,11 +130,11 @@ export default function ReferencePatterns({
         [
           JSON.stringify(
             {
-              methodVersion: "journal-reference-1",
+              methodVersion: "still-signal-v4.1",
               filter,
               scope: data.scope,
               noteFilterAppliesTo:
-                "Labels, environment notes and linked reflections; continuous open-profit series uses the date range only",
+                "Origin/stage apply to notes. Date and context filters apply to notes, event responses and open-profit observations.",
               sessions: data.sessions.map((s) => ({
                 id: s.id,
                 timezone: s.timezone,
@@ -140,6 +149,10 @@ export default function ReferencePatterns({
                 ...record,
               })),
               samples: availableSamples,
+              exclusions: rows.map((s) => ({
+                sessionId: s.id,
+                pauses: s.blueprint?.measurementPauses,
+              })),
             },
             null,
             2,
@@ -212,13 +225,195 @@ export default function ReferencePatterns({
           </label>
         </div>
         <p className={cx("quiet-copy")}>
-          {data.sessions.length} sessions · {data.records.length} matching notes
-          ·{" "}
+          {from} – {to} · {data.sessions.length} eligible sessions ·{" "}
+          {data.records.length} matching notes ·{" "}
           {loading
             ? "Loading available HR…"
             : "Available source records loaded"}
           . Combining sources follows each session’s data choices in Settings.
         </p>
+      </section>
+      <section className={cx("reference-card")} aria-label="Context filters">
+        <h2>Choose the context to compare</h2>
+        <div className={cx("analysis-controls")}>
+          {(
+            [
+              ["location", "Location"],
+              ["setup", "Setup"],
+              ["social", "People nearby"],
+              ["country", "Country / environment"],
+            ] as const
+          ).map(([key, label]) => {
+            const values = [
+              ...new Set(
+                rows
+                  .flatMap((s) => [
+                    ...(s.blueprint?.environmentHistory || []).map(
+                      (e) => e[key],
+                    ),
+                    ...s.journal.map((n) =>
+                      key === "setup" ||
+                      key === "location" ||
+                      key === "social" ||
+                      key === "country"
+                        ? n.capture?.environment?.[key]
+                        : undefined,
+                    ),
+                  ])
+                  .filter((v): v is string => !!v),
+              ),
+            ];
+            return (
+              <label key={key}>
+                {label}
+                <select
+                  aria-label={`Pattern ${label}`}
+                  value={context[key] || ""}
+                  onChange={(e) =>
+                    setContext((v) => ({ ...v, [key]: e.target.value }))
+                  }
+                >
+                  <option value="">All recorded groups</option>
+                  {[...values, unknown].map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          })}
+          <label>
+            Lifestyle category
+            <select
+              aria-label="Pattern lifestyle category"
+              value={context.lifestyle || ""}
+              onChange={(e) =>
+                setContext((v) => ({ ...v, lifestyle: e.target.value }))
+              }
+            >
+              <option value="">All categories</option>
+              {[
+                ...new Set(
+                  rows.flatMap((s) =>
+                    (s.blueprint?.lifestyle || []).map(
+                      (e) => e.categoryLabel || e.category,
+                    ),
+                  ),
+                ),
+              ].map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Category answer
+            <select
+              aria-label="Pattern category answer"
+              value={context.answer || ""}
+              disabled={!context.lifestyle}
+              onChange={(e) =>
+                setContext((v) => ({ ...v, answer: e.target.value }))
+              }
+            >
+              <option value="">All answers + Unknown</option>
+              <option value="yes">Yes / present</option>
+              <option value="no">No / explicitly absent</option>
+              <option value="unknown">Unknown / not recorded</option>
+            </select>
+          </label>
+          <label>
+            Nearby commitment
+            <select
+              aria-label="Pattern nearby commitment"
+              value={context.commitment || ""}
+              onChange={(e) =>
+                setContext((v) => ({ ...v, commitment: e.target.value }))
+              }
+            >
+              <option value="">All groups</option>
+              <option value="yes">Declared nearby</option>
+              <option value="no">Explicitly none</option>
+              <option value="unknown">Unknown / not recorded</option>
+            </select>
+          </label>
+          <button
+            onClick={() => {
+              setContext({});
+              setOrigin("all");
+              setStage("all");
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+        <p>
+          {from} – {to} · {data.records.length} eligible notes ·{" "}
+          {data.sessions.length} eligible sessions. Missing context stays
+          Unknown.
+        </p>
+        <div className={cx("comparison-groups")}>
+          {data.comparison.map((g) => (
+            <article key={g.name}>
+              <h3>{g.name}</h3>
+              <b>
+                {g.notes} notes · {g.sessions} sessions
+              </b>
+              <p>
+                {g.matched} with matched HR ·{" "}
+                {g.delta === null
+                  ? "HR unavailable"
+                  : `${signed(g.delta)} BPM from baseline`}
+              </p>
+              {g.matched < 3 && (
+                <small>
+                  Not enough comparable data yet. Review the original records.
+                </small>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className={cx("reference-card")} aria-label="Event responses">
+        <h2>What changed around executions?</h2>
+        <p>
+          {from} – {to}. The comparison recomputes across every eligible date.
+        </p>
+        <div className={cx("comparison-groups")}>
+          {data.responses.map((r) => (
+            <article key={r.kind}>
+              <h3>
+                {r.kind === "fill"
+                  ? "Other fills"
+                  : r.kind === "entry"
+                    ? "Entries / additions"
+                    : "Partial / final exits"}
+              </h3>
+              <b>
+                {r.count} events · {r.dates} dates
+              </b>
+              <p>
+                {r.matched} with before-and-after HR ·{" "}
+                {r.delta === null
+                  ? "Not enough comparable data yet"
+                  : `${signed(r.delta)} BPM average observed change`}
+              </p>
+              {r.example && (
+                <details>
+                  <summary>One recorded example</summary>
+                  <button
+                    onClick={() =>
+                      onOpen(r.example!.session, r.example!.event.t)
+                    }
+                  >
+                    {new Date(r.example.event.t).toLocaleString()} ·{" "}
+                    {r.example.event.symbol}
+                  </button>
+                </details>
+              )}
+            </article>
+          ))}
+        </div>
       </section>
       <section className={cx("reference-card")}>
         <h2>HR alongside your own labels</h2>
@@ -255,7 +450,7 @@ export default function ReferencePatterns({
         {!data.labels.length && <p>No matching notes in this range.</p>}
         <details>
           <summary>Inspect matching moments</summary>
-          {data.records.map((r) => (
+          {data.records.slice(0, 8).map((r) => (
             <button
               className={cx("analysis-evidence")}
               key={r.session.id + r.note.id}
@@ -277,61 +472,121 @@ export default function ReferencePatterns({
           ))}
         </details>
       </section>
-      <section className={cx("reference-card")}>
-        <h2>Holding open profit</h2>
-        <p>
-          While a measured position is open, how does recorded HR differ from
-          its opening baseline?
-        </p>
-        <label>
-          Account · currency · instrument
-          <select
-            aria-label="Open-profit account scope"
-            value={data.scope || ""}
-            onChange={(e) => setScope(e.target.value)}
-          >
-            {data.scopes.length ? (
-              data.scopes.map((s) => (
-                <option key={s} value={s}>
-                  {(JSON.parse(s) as string[]).join(" · ")}
-                </option>
-              ))
-            ) : (
-              <option value="">No timestamped open-position snapshots</option>
-            )}
-          </select>
-        </label>
-        <div className={cx("reference-table-wrap")}>
-          <table>
-            <thead>
-              <tr>
-                <th>Open P&L band</th>
-                <th>Sessions</th>
-                <th>Matched points</th>
-                <th>Mean HR above baseline</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.bins.map((b) => (
-                <tr key={b.name}>
-                  <td>{b.name}</td>
-                  <td>{b.sessions}</td>
-                  <td>{b.points}</td>
-                  <td>{signed(b.delta)} BPM</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className={cx("quiet-copy")}>
-          Mean per session, then equally across sessions. Median within-session
-          correlation: {number(data.medianCorrelation, 2)} ·{" "}
-          {data.correlationSessions} eligible sessions. {data.matchedPoints}{" "}
-          matched points. This panel uses the date range; stage/origin filters
-          apply to note panels. Missing marks, positions and HR stay
-          unavailable.
-        </p>
-      </section>
+      {rows.some((s) =>
+        s.blueprint?.pnl?.some(
+          (p) =>
+            p.unrealised !== undefined &&
+            p.position !== undefined &&
+            p.position !== 0,
+        ),
+      ) ? (
+        <>
+          <section className={cx("reference-card")}>
+            <h2>Holding open profit</h2>
+            <p>
+              While a measured position is open, how does recorded HR differ
+              from its opening baseline?
+            </p>
+            <label>
+              Account · currency · instrument
+              <select
+                aria-label="Open-profit account scope"
+                value={data.scope || ""}
+                onChange={(e) => setScope(e.target.value)}
+              >
+                {data.scopes.length ? (
+                  data.scopes.map((s) => (
+                    <option key={s} value={s}>
+                      {(JSON.parse(s) as string[]).join(" · ")}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">
+                    No timestamped open-position snapshots
+                  </option>
+                )}
+              </select>
+            </label>
+            <div className={cx("reference-table-wrap")}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Open P&L band</th>
+                    <th>Sessions</th>
+                    <th>Matched points</th>
+                    <th>Mean HR above baseline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.bins.map((b) => (
+                    <tr key={b.name}>
+                      <td>{b.name}</td>
+                      <td>{b.sessions}</td>
+                      <td>{b.points}</td>
+                      <td>{signed(b.delta)} BPM</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className={cx("quiet-copy")}>
+              Mean per session, then equally across sessions. Median
+              within-session correlation: {number(data.medianCorrelation, 2)} ·{" "}
+              {data.correlationSessions} eligible sessions. {data.matchedPoints}{" "}
+              matched points. This panel uses the date range; stage/origin
+              filters apply to note panels. Missing marks, positions and HR stay
+              unavailable.
+            </p>
+          </section>
+          {!data.matchedPoints && (
+            <p className={cx("quiet-copy")}>
+              Timestamped source records are available, but there is not enough
+              comparable HR and open-position data yet. Check coverage and your
+              source choices in Settings.
+            </p>
+          )}
+        </>
+      ) : (
+        <section className={cx("reference-card", "profit-preview")}>
+          <h2>Explore how holding open profit relates to your session</h2>
+          <p>
+            A timestamped open-position P&L feed or executions plus valid
+            historical market marks can show what changed while you held profit.
+            CSV fills alone cannot supply that path.
+          </p>
+          <button onClick={onConnect}>Connect a supported source</button>
+          <details>
+            <summary>Preview what this could show · example data</summary>
+            <strong>ILLUSTRATIVE EXAMPLE · not your data or a finding</strong>
+            <svg
+              viewBox="0 0 600 130"
+              role="img"
+              aria-label="Illustrative example of open profit beside HR, not your data"
+            >
+              <path
+                d="M20 100 L120 70 L220 80 L320 25 L420 50 L580 90"
+                stroke="var(--green)"
+                fill="none"
+                strokeWidth="3"
+              />
+              <path
+                d="M20 90 L120 85 L220 65 L320 60 L420 35 L580 80"
+                stroke="var(--coral)"
+                fill="none"
+                strokeWidth="3"
+              />
+              <text x="20" y="125" fill="var(--muted)">
+                Example only: open profit (green), heart rate (coral)
+              </text>
+            </svg>
+            <p>
+              Example questions: did HR change as profit grew? What was recorded
+              around a partial exit or giveback? Actual results require valid
+              samples in the selected dates.
+            </p>
+          </details>
+        </section>
+      )}
       <section className={cx("reference-card")}>
         <h2>Where you trade</h2>
         <p>
@@ -408,9 +663,9 @@ export default function ReferencePatterns({
         </p>
       </section>
       <details className={cx("reference-card")}>
-        <summary>Sources and method</summary>
+        <summary>How is this comparison made?</summary>
         <p>
-          Version journal-reference-1. HR windows use available samples ±30s;
+          Version still-signal-v4.1. HR windows use available samples ±30s;
           counts remain attached to their source moments. Opening baseline
           follows your {baselineSeconds / 60}-minute recording setting. Legacy
           notes may only contain the nearest recorded sample. Continuous-profit

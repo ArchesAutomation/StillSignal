@@ -1,4 +1,6 @@
 "use client";
+import PrivateImage from "../private-image";
+import InlineMoment from "./inline-moment";
 import { useMemo } from "react";
 import type { JournalEntry, Sample, Session, TradeEvent } from "@/lib/model";
 import type { ReflectionDraft } from "../reflection-editor";
@@ -23,6 +25,7 @@ export default function JournalTrades({
   onInspect,
   account = "",
   instrument = "",
+  onSaveNote,
   onSaveBlueprint,
   prepareScreenshot,
 }: {
@@ -34,6 +37,7 @@ export default function JournalTrades({
   onInspect: (event: TradeEvent) => void;
   account?: string;
   instrument?: string;
+  onSaveNote?: (n: JournalEntry) => Promise<void>;
   onSaveBlueprint?: (p: Partial<SessionBlueprint>) => Promise<void>;
   prepareScreenshot?: (t: number) => Promise<string>;
 }) {
@@ -58,6 +62,7 @@ export default function JournalTrades({
               <div>
                 <span className={cx("eyebrow")}>
                   Trade idea {index + 1} · {trade.fillIds.length} fills
+                  {trade.incomplete ? " · incomplete position" : ""}
                 </span>
                 <h3>
                   {trade.symbol} <small>{trade.side}</small>
@@ -123,6 +128,28 @@ export default function JournalTrades({
                             : "Recorded execution"}{" "}
                           · {event.quantity} @ {event.price}
                         </span>
+                        {(() => {
+                          const frame = session.blueprint?.chartFrames
+                            ?.filter((f) => f.t <= event.t)
+                            .sort((a, b) => b.t - a.t)[0];
+                          return frame ? (
+                            <details>
+                              <summary>
+                                Stored chart · {time(frame.t)} ·{" "}
+                                {Math.round((event.t - frame.t) / 1000)}s before
+                                execution
+                              </summary>
+                              <PrivateImage
+                                path={frame.path}
+                                owner={session.owner}
+                              />
+                              <small>
+                                This periodic frame is the actual stored view,
+                                not a tick replay.
+                              </small>
+                            </details>
+                          ) : null;
+                        })()}
                         <button
                           className={cx("textlink")}
                           onClick={() => onInspect(event)}
@@ -133,33 +160,18 @@ export default function JournalTrades({
                     ))}
                     <div className={cx("journey-notes")}>
                       {notes.map((note) => (
-                        <article
+                        <InlineMoment
                           key={note.id}
-                          className={cx("journal-phase-note")}
-                        >
-                          <div>
-                            <b>{note.label}</b>
-                            <small>
-                              {noteTime(note) === null
-                                ? "Untimed"
-                                : time(noteTime(note)!)}{" "}
-                              · {journalSources(note).join(" · ")}
-                            </small>
-                          </div>
-                          {note.prompt && (
-                            <blockquote>{note.prompt.question}</blockquote>
-                          )}
-                          <p>{note.text}</p>
-                          {note.screenshot && (
-                            <Screenshot {...note.screenshot} />
-                          )}
-                          <button
-                            className={cx("textlink")}
-                            onClick={() => onEdit(note)}
-                          >
-                            Edit note / screenshot
-                          </button>
-                        </article>
+                          note={note}
+                          session={session}
+                          onSave={
+                            onSaveNote ||
+                            (async () => {
+                              throw Error("Saving unavailable");
+                            })
+                          }
+                          onEdit={onEdit}
+                        />
                       ))}
                     </div>
                     <div className={cx("journal-phase-actions")}>

@@ -1,5 +1,11 @@
 export type WearableProvider = "whoop" | "apple" | "oura" | "garmin";
-export type Sample = { t: number; bpm: number; provider?: WearableProvider };
+export type Sample = {
+  t: number;
+  bpm: number;
+  provider?: WearableProvider;
+  quality?: "good" | "uncertain" | "artifact";
+  cadenceMs?: number;
+};
 export type Instrument = {
   id: string;
   symbol: string;
@@ -76,6 +82,9 @@ export type JournalEntry = {
   inputMethod?: "voice" | "text" | "prompt";
   reflectionScope?: "day" | "idea" | "stage";
   originalTranscript?: string;
+  captureSessionId?: string;
+  labelAddedAt?: number;
+  transcriptStatus?: "available" | "unavailable" | "failed" | "pending";
   revisitsId?: string;
   triggerEventId?: string;
   capture?: {
@@ -158,6 +167,7 @@ export type Settings = {
   personalize: boolean;
   startWithStillness?: boolean;
   smallPauses?: boolean;
+  weeklyReminders?: boolean;
   phaseLabels?: Partial<
     Record<"before" | "entry" | "management" | "exit" | "after", string[]>
   >;

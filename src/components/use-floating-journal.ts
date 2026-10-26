@@ -3,7 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type PictureWindow = Window & {
   documentPictureInPicture?: {
-    requestWindow: (options: { width: number; height: number }) => Promise<Window>;
+    requestWindow: (options: {
+      width: number;
+      height: number;
+    }) => Promise<Window>;
   };
 };
 
@@ -28,7 +31,10 @@ export function useFloatingJournal() {
       document.body.append(node);
     }
     pipRef.current = null;
-    if (alive.current) { setFloating(false); setMessage(""); }
+    if (alive.current) {
+      setFloating(false);
+      setMessage("");
+    }
   }, []);
 
   const ensureHost = useCallback(() => {
@@ -44,43 +50,67 @@ export function useFloatingJournal() {
     return node;
   }, []);
 
-  const adoptWindow = useCallback((target: Window, popup: boolean) => {
-    const node = ensureHost();
-    pipRef.current = target;
-    target.document.title = "Still Signal · Session dashboard";
-    const base = target.document.createElement("base");
-    base.href = document.baseURI;
-    target.document.head.append(base);
-    for (const style of document.querySelectorAll('style, link[rel="stylesheet"]'))
-      target.document.head.append(style.cloneNode(true));
-    target.document.documentElement.lang = document.documentElement.lang;
-    node.dataset.floating = "true";
-    target.document.body.append(node);
-    const restore = () => { if (pipRef.current === target) dock(); };
-    target.addEventListener("pagehide", restore, { once: true });
-    const timer = popup ? window.setInterval(() => { if (target.closed) restore(); }, 500) : undefined;
-    windowCleanup.current = () => {
-      target.removeEventListener("pagehide", restore);
-      if (timer !== undefined) window.clearInterval(timer);
-    };
-    setFloating(true);
-    setMessage(popup ? "Opened in a regular popup. Keep this tab open; this window is not always on top." : "");
-  }, [dock, ensureHost]);
+  const adoptWindow = useCallback(
+    (target: Window, popup: boolean) => {
+      const node = ensureHost();
+      pipRef.current = target;
+      target.document.title = "Still Signal · Session dashboard";
+      const base = target.document.createElement("base");
+      base.href = document.baseURI;
+      target.document.head.append(base);
+      for (const style of document.querySelectorAll(
+        'style, link[rel="stylesheet"]',
+      ))
+        target.document.head.append(style.cloneNode(true));
+      target.document.documentElement.lang = document.documentElement.lang;
+      node.dataset.floating = "true";
+      target.document.body.append(node);
+      const restore = () => {
+        if (pipRef.current === target) dock();
+      };
+      target.addEventListener("pagehide", restore, { once: true });
+      const timer = popup
+        ? window.setInterval(() => {
+            if (target.closed) restore();
+          }, 500)
+        : undefined;
+      windowCleanup.current = () => {
+        target.removeEventListener("pagehide", restore);
+        if (timer !== undefined) window.clearInterval(timer);
+      };
+      setFloating(true);
+      setMessage(
+        popup
+          ? "Opened in a regular popup. Keep this tab open; this window is not always on top."
+          : "",
+      );
+    },
+    [dock, ensureHost],
+  );
 
   const openPopup = useCallback(() => {
-    if (pipRef.current && !pipRef.current.closed) { pipRef.current.focus(); return; }
+    if (pipRef.current && !pipRef.current.closed) {
+      pipRef.current.focus();
+      return;
+    }
     if (pending.current) return;
     ensureHost();
     let popup: Window | null = null;
     try {
       // Called on this click, never after a rejected PiP promise consumes activation.
-      popup = window.open("about:blank", "_blank", "popup,width=320,height=430");
+      popup = window.open(
+        "about:blank",
+        "_blank",
+        "popup,width=230,height=120",
+      );
       if (!popup) throw new Error("Popup blocked");
       adoptWindow(popup, true);
     } catch {
       popup?.close();
       dock();
-      setMessage("Floating windows are unavailable or blocked. Your dashboard works here; click Open popup window to retry, or use Chrome or Edge for an always-on-top window.");
+      setMessage(
+        "Floating windows are unavailable or blocked. Your dashboard works here; click Open popup window to retry, or use Chrome or Edge for an always-on-top window.",
+      );
     }
   }, [adoptWindow, dock, ensureHost]);
 
@@ -100,7 +130,7 @@ export function useFloatingJournal() {
     const request = ++generation.current;
     try {
       // This must run before session storage/network awaits consume the click.
-      const pip = await api.requestWindow({ width: 320, height: 430 });
+      const pip = await api.requestWindow({ width: 230, height: 120 });
       if (!alive.current || request !== generation.current) {
         pip.close();
         return;
@@ -109,7 +139,9 @@ export function useFloatingJournal() {
     } catch {
       if (alive.current && request === generation.current) {
         dock();
-        setMessage("The floating window could not open. Your dashboard works here; click Open popup window to use a regular window.");
+        setMessage(
+          "The floating window could not open. Your dashboard works here; click Open popup window to use a regular window.",
+        );
       }
     } finally {
       pending.current = false;

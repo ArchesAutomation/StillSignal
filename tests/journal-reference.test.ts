@@ -512,7 +512,7 @@ test("current metadata migration keeps newer context when an older client upload
     await db.close();
   }
 });
-test("capture creates no note before confirmation; discard and failed retries retain correct origin and identity", async () => {
+test("capture recovery discards cleanly and failed saves retain the same origin and identity", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://still-signal.test",
   });
@@ -558,19 +558,19 @@ test("capture creates no note before confirmation; discard and failed retries re
   };
   try {
     await act(async () => root.render(createElement(CapturePanel, props)));
-    await click("● Record moment");
+    await click("●");
     assert.equal(attempts.length, 0);
-    await click("Discard draft");
+    await click("Discard capture");
     assert.equal(saved.length, 0);
-    await click("● Record moment");
-    await click("Confirm save");
+    await click("●");
+    await click("Retry / save moment");
     assert.equal(saved.length, 0);
     assert.match(document.body.textContent!, /Simulated storage failure/);
     // Ending/changing active state before confirmation cannot relabel the frozen draft.
     await act(async () =>
       root.render(createElement(CapturePanel, { ...props, active: true })),
     );
-    await click("Confirm save");
+    await click("Retry / save moment");
     assert.equal(saved.length, 1);
     assert.equal(saved[0].captureMode, "post-session");
     assert.equal(attempts[0].id, attempts[1].id);

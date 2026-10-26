@@ -16,6 +16,7 @@ import SessionContext from "./session-context";
 import ReferenceContext from "./reference-context";
 import ReferenceHistory from "./reference-history";
 import ReferenceWeek from "./reference-week";
+import WeeklyReminder from "./weekly-reminder";
 const navigation: [Page, string, string][] = [
   ["Stillness", "◌", "Stillness"],
   ["Journal", "▣", "Daily journal"],
@@ -31,7 +32,8 @@ export default function ConceptWorkspace(props: Props) {
   const daySession = dailyJournalSession(s, history);
   const resetSeen = useRef(new Set<string>());
   const [weekly, setWeekly] = useState(false);
-  const [capturePending, setCapturePending] = useState(false);
+  const [reviewWeek, setReviewWeek] = useState<string>();
+  const capturePending = props.capture?.pendingCapture || false;
   const previousActive = useRef(p.active);
   useEffect(() => {
     if (
@@ -418,6 +420,22 @@ export default function ConceptWorkspace(props: Props) {
             </button>
           </div>
         )}
+        {(page === "Overview" || page === "Journal") && (
+          <WeeklyReminder
+            sessions={[s, ...history]}
+            owner={s.owner}
+            active={p.active || capturePending}
+            enabled={p.settings.weeklyReminders !== false}
+            onOpen={(key) => {
+              setReviewWeek(key);
+              setWeekly(true);
+              props.onPage("Journal");
+            }}
+            onPreference={(enabled) =>
+              p.configure({ ...p.settings, weeklyReminders: enabled })
+            }
+          />
+        )}
         {page === "Overview" && <Overview {...viewProps} onReview={review} />}
         {page === "Overview" && (
           <SessionContext
@@ -463,7 +481,16 @@ export default function ConceptWorkspace(props: Props) {
           />
           <div className={cx("reference-day")}>
             {weekly ? (
-              <ReferenceWeek key={s.id} {...viewProps} />
+              <>
+                <button onClick={() => setWeekly(false)}>
+                  Back to journal
+                </button>
+                <ReferenceWeek
+                  key={s.id + reviewWeek}
+                  {...viewProps}
+                  week={reviewWeek}
+                />
+              </>
             ) : (
               <>
                 {journal && (
@@ -760,107 +787,24 @@ export default function ConceptWorkspace(props: Props) {
       </div>
       <aside
         ref={widgetRef}
-        className={cx(
-          "livewidget",
-          delta !== null && delta >= props.threshold && "elevated",
-          widget && "expanded",
-        )}
+        className={cx("compact-widget-host")}
         aria-label="Still Signal live widget"
       >
-        {widget && (
-          <CapturePanel
-            key={s.id}
-            session={daySession}
-            samples={p.samples}
-            baselineSeconds={p.settings.baselineSeconds}
-            now={p.now}
-            active={p.active}
-            recording={p.recording}
-            shortcut={p.settings.shortcutKey}
-            labels={p.settings.phaseLabels}
-            onPending={setCapturePending}
-            onClose={() => setWidget(false)}
-            onReflect={props.onReflect}
-            onSave={p.addNote}
-          />
-        )}
-        <div
-          className={cx("widgetpill")}
-          title="Drag the widget anywhere"
-          onPointerDown={(event) => {
-            if ((event.target as HTMLElement).closest("button")) return;
-            const element = widgetRef.current!;
-            const rect = element.getBoundingClientRect();
-            dragRef.current = {
-              x: event.clientX - rect.left,
-              y: event.clientY - rect.top,
-            };
-            element.style.right = "auto";
-            element.style.bottom = "auto";
-            element.style.left = rect.left + "px";
-            element.style.top = rect.top + "px";
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={(event) => {
-            if (!dragRef.current || !widgetRef.current) return;
-            const element = widgetRef.current;
-            element.style.left =
-              Math.max(
-                8,
-                Math.min(
-                  innerWidth - element.offsetWidth - 8,
-                  event.clientX - dragRef.current.x,
-                ),
-              ) + "px";
-            element.style.top =
-              Math.max(
-                widget ? 360 : 8,
-                Math.min(
-                  innerHeight - element.offsetHeight - 8,
-                  event.clientY - dragRef.current.y,
-                ),
-              ) + "px";
-          }}
-          onPointerUp={() => {
-            dragRef.current = null;
-          }}
-          onPointerCancel={() => {
-            dragRef.current = null;
-          }}
-        >
-          <span className={cx("widgetlogo")}>⌁</span>
-          <i
-            className={cx("widgetstatus")}
-            style={p.recording ? undefined : { background: "var(--muted)" }}
-          />
-          <span className={cx("widgetreading")}>
-            {latest?.bpm ?? "—"} BPM{" "}
-            <small>
-              {delta === null ? "" : `${delta >= 0 ? "+" : ""}${delta}`}
-            </small>
-          </span>
-          <button
-            className={cx("roundbtn")}
-            aria-label="Capture voice reflection"
-            onClick={() =>
-              props.onReflect({
-                t: captureTime,
-                source: "voice",
-                autoListen: true,
-              })
-            }
-          >
-            ●
-          </button>
-          <button
-            className={cx("widgetexpand")}
-            disabled={capturePending}
-            aria-label={widget ? "Collapse widget" : "Expand widget"}
-            onClick={() => setWidget((v) => !v)}
-          >
-            ⌃
-          </button>
-        </div>
+        <CapturePanel
+          key={s.id}
+          controller={props.capture}
+          session={daySession}
+          samples={p.samples}
+          baselineSeconds={p.settings.baselineSeconds}
+          now={p.now}
+          active={p.active}
+          recording={p.recording}
+          shortcut={p.settings.shortcutKey}
+          onClose={() => setWidget(false)}
+          onReflect={props.onReflect}
+          onSave={p.addNote}
+          onSaveBlueprint={p.updateBlueprint}
+        />
       </aside>
     </div>
   );
