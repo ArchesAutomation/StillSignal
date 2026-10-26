@@ -85,7 +85,7 @@ export default function FloatingJournal({
   return (
     <div
       ref={root}
-      className="ss-app ss-popup-root"
+      className="ss-app ss-reference-app ss-popup-root"
       aria-label="Session dashboard"
       onPaste={paste}
     >
