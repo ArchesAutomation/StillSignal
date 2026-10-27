@@ -10,6 +10,7 @@ import {
 } from "@/lib/journal-space";
 import { noteTime, sectionName, sessionTrades } from "@/lib/journal-routing";
 import { momentPnl } from "@/lib/journal-reference";
+import { phaseColors } from "@/lib/phase-colors";
 import { detectHrMoments } from "@/lib/smart-journal";
 import InlineMoment from "./inline-moment";
 import Writing from "./writing";
@@ -60,16 +61,26 @@ export default function JournalSpace({
     setReviewText("");
   }, [session.id]);
   useEffect(() => {
-    if (reveal) {
-      setFilters({
-        ...empty,
-        trade: reveal.tradeId,
-        stage: reveal.section || "",
-      });
-    } else if (selected?.note) setFilters(empty);
+    if (reveal || selected?.note) setFilters(empty);
   }, [reveal, selected?.id]);
   const notes = filterMoments(session, filters);
   const all = session.journal.filter((n) => !n.deletedAt);
+  const highlighted = new Set(reveal ? all.filter(n=>{
+    const trade=trades.find(t=>t.id===reveal.tradeId);
+    return n.section===reveal.section && (n.tradeId===reveal.tradeId || (!!n.tradeId && !!trade?.entryIds.includes(n.tradeId)));
+  }).map(n=>n.id) : []);
+  // A chart marker can point at an unassigned live capture. Highlight that
+  // source moment without silently assigning it to a trade or stage.
+  if(reveal && selected?.note && all.some(n=>n.id===selected.note!.id))highlighted.add(selected.note.id);
+  useEffect(()=>{
+    if(!reveal)return;
+    const first=[...highlighted][0];
+    const frame=requestAnimationFrame(()=>{
+      const target=(first ? document.getElementById(`moment-${first}`) : null) || document.querySelector<HTMLElement>('[aria-label="Journal moments"]');
+      target?.scrollIntoView({behavior:"smooth",block:first?"center":"start"});
+    });
+    return()=>cancelAnimationFrame(frame);
+  },[reveal]);
   const current = selected?.note
     ? session.journal.find((n) => n.id === selected.note!.id && !n.deletedAt)
     : undefined;
@@ -100,6 +111,10 @@ export default function JournalSpace({
       text: note.text,
       bpm: momentHeartRate(session, samples, note),
     });
+  }
+  function changeFilters(next:MomentFilters) {
+    if(reveal)onSelect(null);
+    setFilters(next);
   }
   async function patch(note: JournalEntry, change: Partial<JournalEntry>) {
     try {
@@ -151,14 +166,14 @@ export default function JournalSpace({
               placeholder="Search your words…"
               value={filters.search}
               onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
+                changeFilters({ ...filters, search: e.target.value })
               }
             />
             <JournalSelect
               aria-label="Filter trade"
               value={filters.trade}
               onChange={(e) =>
-                setFilters({ ...filters, trade: e.target.value })
+                changeFilters({ ...filters, trade: e.target.value })
               }
             >
               <option value="">All trades + session</option>
@@ -173,7 +188,7 @@ export default function JournalSpace({
               aria-label="Filter stage"
               value={filters.stage}
               onChange={(e) =>
-                setFilters({ ...filters, stage: e.target.value })
+                changeFilters({ ...filters, stage: e.target.value })
               }
             >
               <option value="">All stages</option>
@@ -195,7 +210,7 @@ export default function JournalSpace({
               aria-label="Filter capture origin"
               value={filters.capture}
               onChange={(e) =>
-                setFilters({ ...filters, capture: e.target.value })
+                changeFilters({ ...filters, capture: e.target.value })
               }
             >
               <option value="">Live + later</option>
@@ -204,6 +219,7 @@ export default function JournalSpace({
               <option value="unlabelled">Needs a label</option>
             </JournalSelect>
           </div>
+          {reveal && <div className={cx("log-highlight-notice")} role="status" style={{color:phaseColors[reveal.section || "reflection"]}}><span>{highlighted.size ? `${sectionName(reveal.section)} highlighted · all moments remain visible` : `No saved ${sectionName(reveal.section).toLowerCase()} moments for this trade yet · all moments remain visible`}</span><button onClick={()=>onSelect(null)}>Clear highlight</button></div>}
           <div className={cx("space-moments")}>
             {notes.map((n) => (
               <InlineMoment
@@ -212,7 +228,8 @@ export default function JournalSpace({
                 session={session}
                 onSave={p.saveJournalNote}
                 onSelect={pick}
-                selected={current?.id === n.id}
+                selected={current?.id === n.id || highlighted.has(n.id)}
+                highlightColor={reveal && highlighted.has(n.id) ? phaseColors[reveal.section || "reflection"] : undefined}
                 bpm={momentHeartRate(session, samples, n)}
                 timezone={timezone}
               />

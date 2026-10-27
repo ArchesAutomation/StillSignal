@@ -681,3 +681,5 @@
 @media(max-width:600px){.ss-reference-app .ss-reference-rhythm .ss-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-reference-app .ss-reference-rhythm .ss-phases .ss-phase-link:last-child{grid-column:1/-1}}
 .ss-reference-app .ss-moment-stage{display:inline-flex;align-items:center;gap:4px;border:1px solid;border-radius:4px;padding:1px 5px;font-size:9px;line-height:1.35;white-space:nowrap}
 .ss-moment-stage::before{content:"";width:4px;height:4px;background:currentColor;border-radius:50%;flex-shrink:0}
+.ss-reference-app .ss-log-highlight-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 9px;padding:8px 10px;border:1px solid #42534b;border-radius:8px;background:#a8c6b206;font-size:11px}
+.ss-reference-app .ss-log-highlight-notice button{padding:3px 7px;font-size:10px;white-space:nowrap;background:transparent}

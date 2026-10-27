@@ -424,11 +424,6 @@ export default function Journal(
                 m.phase.toLowerCase() as import("@/lib/model").JournalEntry["section"],
               tradeId: trade?.id || "",
             });
-            requestAnimationFrame(() =>
-              document
-                .querySelector('[aria-label="Journal moments"]')
-                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-            );
           }}
           onSelect={pick}
         />

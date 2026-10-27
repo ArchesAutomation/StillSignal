@@ -19,6 +19,7 @@ export default function InlineMoment({
   onRevisit,
   onSelect,
   selected,
+  highlightColor,
   bpm,
   timezone,
 }: {
@@ -29,6 +30,7 @@ export default function InlineMoment({
   onRevisit?: (note: JournalEntry) => void;
   onSelect?: (note: JournalEntry) => void;
   selected?: boolean;
+  highlightColor?: string;
   bpm?: number | null;
   timezone?: string;
 }) {
@@ -121,6 +123,7 @@ export default function InlineMoment({
         selected && "space-selected",
       )}
       data-note-id={note.id}
+      style={selected ? {boxShadow:`inset 3px 0 ${highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection}`,backgroundColor:`${highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection}0c`} : undefined}
     >
       <div className={cx("inline-moment-head")}>
         <time>
