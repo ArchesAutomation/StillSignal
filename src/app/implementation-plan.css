@@ -271,6 +271,253 @@
 .ss-popup-root .ss-popup-editor {
   margin-top: 20px;
 }
+
+/* One timeline, with an explicit path from each stage into the journal. */
+.ss-phase-link {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.ss-reference-app .ss-phase-link .ss-phase {
+  width: 100%;
+  min-height: 104px;
+  text-align: left;
+  border-left-color: var(--before);
+}
+.ss-phase-link:nth-child(2) {
+  --before: var(--entry);
+}
+.ss-phase-link:nth-child(3) {
+  --before: var(--management);
+}
+.ss-phase-link:nth-child(4) {
+  --before: var(--exit);
+}
+.ss-phase-link:nth-child(5) {
+  --before: var(--after);
+}
+.ss-reference-app .ss-see-log {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #142020;
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+.ss-reference-app .ss-see-log:hover {
+  color: var(--text);
+  border-color: #748c87;
+}
+.ss-reference-app :is(.ss-see-log, .ss-emotion-bars button):focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+/* The session popup is a usable recorder, including evidence and feelings. */
+.floating-journal-host:has(.ss-capture-expanded) {
+  width: min(420px, calc(100vw - 24px));
+  overflow: auto;
+}
+.ss-popup-root:has(.ss-capture-expanded) {
+  padding: 20px;
+  box-sizing: border-box;
+  min-height: 100dvh;
+}
+.ss-popup-root .ss-capture-expanded {
+  width: 100%;
+  margin: 0;
+}
+.ss-recorder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.ss-recorder-header h2 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  letter-spacing: -0.5px;
+}
+.ss-reference-app .ss-recorder-header > button {
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+}
+.ss-reference-app .ss-capture-expanded .ss-capture-pill {
+  width: 100%;
+  height: 96px;
+  border-radius: 14px;
+  padding: 16px;
+  gap: 12px;
+  box-shadow: none;
+}
+.ss-capture-expanded .ss-capture-reading {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  margin: 0;
+  gap: 5px;
+}
+.ss-capture-expanded .ss-capture-reading b {
+  font-size: 38px;
+  line-height: 1;
+}
+.ss-capture-expanded .ss-capture-reading small {
+  font-size: 10px;
+}
+.ss-recorder-delta {
+  display: grid;
+  gap: 4px;
+  margin-right: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.ss-recorder-delta b {
+  font-size: 23px;
+  font-weight: 500;
+  color: var(--green);
+}
+.ss-recorder-delta small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.ss-reference-app .ss-capture-expanded .ss-capture-record {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+}
+.ss-recorder-baseline {
+  margin: 9px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.ss-recorder-baseline span {
+  display: block;
+}
+.ss-recorder-screen-state {
+  padding: 10px 12px;
+  border: 1px solid #354a43;
+  border-radius: 8px;
+  color: var(--green);
+  font-size: 10px;
+  line-height: 1.5;
+  background: #14221e;
+}
+.ss-recorder-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+.ss-reference-app .ss-recorder-actions button {
+  background: #152021;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  padding: 11px 6px;
+}
+.ss-emotion-checkin {
+  border-top: 1px solid var(--line);
+  padding-top: 17px;
+}
+.ss-emotion-checkin h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.ss-emotion-checkin p,
+.ss-emotion-checkin > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.ss-emotion-bars {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+}
+.ss-reference-app .ss-emotion-bars button {
+  display: grid;
+  grid-template-columns: 78px 1fr 18px;
+  gap: 10px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  text-align: left;
+}
+.ss-reference-app .ss-emotion-bars button[aria-pressed="true"] {
+  border-color: #82ab99;
+  background: #1c3029;
+}
+.ss-emotion-track {
+  display: block;
+  height: 8px;
+  background: #1e2b2b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ss-emotion-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.2s;
+}
+.ss-emotion-bars small {
+  color: var(--muted);
+  text-align: right;
+  font-size: 10px;
+}
+.ss-popup-root
+  .ss-capture-expanded
+  :is(.ss-capture-menu, .ss-capture-feedback) {
+  position: static;
+  width: 100%;
+  max-height: none;
+  margin: 14px 0 0;
+  box-shadow: none;
+}
+.ss-popup-root:has(.ss-capture-expanded)
+  > :is(.ss-popup-write, .ss-popup-status) {
+  display: block;
+  padding: 12px 0 0;
+}
+.ss-recorder-transcript {
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 12px;
+  border-left: 2px solid var(--green);
+  background: #14201e;
+}
+@media (max-width: 380px) {
+  .ss-popup-root:has(.ss-capture-expanded) {
+    padding: 12px;
+  }
+  .ss-capture-expanded .ss-capture-reading b {
+    font-size: 30px;
+  }
+  .ss-recorder-delta {
+    padding-left: 8px;
+  }
+  .ss-recorder-delta small {
+    max-width: 62px;
+  }
+}
+.ss-app.ss-reference-app.ss-popup-root:has(.ss-capture-expanded) {
+  padding: 18px;
+  min-height: 0;
+}
+.ss-reference-app .ss-emotion-bars button {
+  min-height: 0;
+}
 .ss-reference-app .ss-chart-layers {
   display: flex;
   gap: 7px;

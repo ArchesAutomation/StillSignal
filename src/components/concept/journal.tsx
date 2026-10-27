@@ -529,55 +529,12 @@ export default function Journal(
           baselineSeconds={p.settings.baselineSeconds}
           phases={phases}
           selected={selectedPhase}
-          onSelect={(m) => {
-            pick(m);
-            if (m.note) {
-              const element = document.getElementById(
-                "moment-" + m.note.id,
-              ) as HTMLDetailsElement | null;
-              if (element) {
-                element.open = true;
-                element.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
-            }
-          }}
-        />
-        <details className={cx("reference-chart-tools")}>
-          <summary>Price chart & detailed moment inspector</summary>
-          <div className={cx("timeline-layout")}>
-            <div>
-              <div className={cx("timeline-head")}>
-                <div>
-                  <h2>The rhythm of your session</h2>
-                  <p>
-                    {showPrice
-                      ? "Price and heart rate on the same timeline."
-                      : "Select a moment or drag across a range to add context."}
-                  </p>
-                </div>
-                <div className={cx("ranges")}>
-                  <button
-                    className={cx(showPrice && "active")}
-                    aria-pressed={showPrice}
-                    onClick={() => setShowPrice((v) => !v)}
-                  >
-                    Price
-                  </button>
-                  {[
-                    [15, "15m"],
-                    [60, "1h"],
-                    [0, "All"],
-                  ].map(([v, l]) => (
-                    <button
-                      key={v}
-                      className={cx(range === v && "active")}
-                      onClick={() => setRange(Number(v))}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          phaseWindow={phaseWindow}
+          selectedTime={current.t}
+          showPrice={showPrice}
+          onTogglePrice={() => setShowPrice((v) => !v)}
+          priceView={
+            <>
               <div className={cx("price-controls")} hidden={!showPrice}>
                 <label>
                   Instrument
@@ -609,35 +566,28 @@ export default function Journal(
                         ? `${feed.provider} · ${feed.granularity}`
                         : "Recorded HR · market price when available"}
                 </span>
-              </div>
-              <div className={cx("chartlegend")}>
-                <span className={cx("price-legend")} hidden={!showPrice}>
-                  <i className={cx("legend-candle", "rising")} />
-                  <i className={cx("legend-candle", "falling")} />
-                  {symbol || "Price"} candles
-                </span>
-                <span>
-                  <i className={cx("legendline")} />
-                  Heart rate
-                </span>
-                <span>
-                  <i className={cx("legenddash")} />
-                  {stats.baseline === null
-                    ? "—"
-                    : Math.round(stats.baseline)}{" "}
-                  baseline
-                </span>
-                {["before", "entry", "management", "exit", "after"].map(
-                  (phase) => (
-                    <span key={phase} style={{ color: `var(--${phase})` }}>
-                      ● {phase[0].toUpperCase() + phase.slice(1)}
-                    </span>
-                  ),
-                )}
+                <div className={cx("ranges")} aria-label="Price chart range">
+                  {(
+                    [
+                      [15, "15m"],
+                      [60, "1h"],
+                      [0, "All"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      aria-pressed={range === value}
+                      className={cx(range === value && "active")}
+                      onClick={() => setRange(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <Chart
                 key={s.id + ":" + symbol + ":" + range + ":" + showPrice}
-                showPrice={showPrice}
+                showPrice
                 samples={samples}
                 baseline={stats.baseline}
                 start={start}
@@ -653,176 +603,166 @@ export default function Journal(
                 phaseWindow={phaseWindow}
                 onSelect={pick}
               />
-              <div className={cx("phases")}>
-                {phases.map((m) => (
-                  <button
-                    className={cx(
-                      "phase",
-                      selectedPhase === m.phase.toLowerCase() && "active",
-                    )}
-                    data-phase={m.phase.toLowerCase()}
-                    key={m.id}
-                    onClick={() => pick(m)}
-                  >
-                    <span>{m.phase}</span>
-                    <strong>
-                      {m.phase === "MANAGEMENT" && trade
-                        ? `${time(trade.entry, false)}–${time(trade.exit || cutoff, false)}`
-                        : time(m.t).replace(/ [AP]M/, "")}
-                    </strong>
-                    <small>
-                      {m.bpm ?? "—"} {m.phase === "MANAGEMENT" ? "avg" : "BPM"}{" "}
-                      <b className={cx("up")}>
-                        {m.bpm !== null && stats.baseline !== null
-                          ? signed(m.bpm - stats.baseline)
-                          : ""}
-                      </b>
-                    </small>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <aside className={cx("moment")}>
-              <div className={cx("moment-accent")} />
-              <div className={cx("momentbody")}>
-                <div className={cx("momenttitle")}>
-                  <h3>{showPrice ? "Trade context" : "Selected moment"}</h3>
-                  <button
-                    aria-label="Clear selected moment"
-                    onClick={() => setSelected(null)}
-                  >
-                    ×
-                  </button>
-                </div>
-                {showPrice && trade && (
-                  <>
-                    <div className={cx("context-symbol")}>
-                      <strong>{trade.symbol}</strong>
-                      <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
-                    </div>
-                    <p className={cx("context-caption")}>
-                      {demo ? "Simulated trade" : "Recorded trade"} ·{" "}
-                      {trade.quantity} shares
-                    </p>
-                    <div className={cx("context-facts")}>
-                      <div>
-                        <span>Entry price</span>
-                        <strong>{trade.entryPrice.toFixed(2)}</strong>
-                      </div>
-                      <div>
-                        <span>Exit price</span>
-                        <strong>{trade.exitPrice?.toFixed(2) ?? "Open"}</strong>
-                      </div>
-                      <div>
-                        <span>Realised P&L</span>
-                        <strong
-                          className={cx(
-                            (tradeExit?.pnl || 0) >= 0
-                              ? "positive"
-                              : "negative",
-                          )}
-                        >
-                          {tradeExit?.pnl === undefined
-                            ? "—"
-                            : money(tradeExit.pnl, tradeExit.currency || "USD")}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className={cx("context-heart")}>
-                      <span>Heart rate around this trade</span>
-                      <div>
-                        <label>
-                          Before{" "}
-                          <b>
-                            {nearest(samples, trade.entry - 60000)?.bpm ?? "—"}
-                          </b>
-                        </label>
-                        <label>
-                          At entry{" "}
-                          <b>{nearest(samples, trade.entry)?.bpm ?? "—"}</b>
-                        </label>
-                        <label>
-                          After{" "}
-                          <b>
-                            {nearest(samples, (trade.exit || cutoff) + 60000)
-                              ?.bpm ?? "—"}
-                          </b>
-                        </label>
-                      </div>
-                      <small>BPM · synced to the price timeline</small>
-                    </div>
-                  </>
-                )}
-                {showPrice && (
-                  <>
-                    <div className={cx("context-divider")} />
-                    <span className={cx("context-section")}>
-                      Selected moment
-                    </span>
-                  </>
-                )}
-                <div className={cx("bigbpm")}>
-                  <strong>{current.bpm ?? "—"}</strong>
-                  <span>BPM</span>
-                </div>
-                <div className={cx("delta")}>
-                  {delta === null
-                    ? "No heart-rate context"
-                    : `${signed(delta)} above your baseline`}
-                </div>
-                <div className={cx("momenttime")}>
-                  {current.note && noteTime(current.note) === null
-                    ? "Untimed"
-                    : time(current.t)}{" "}
-                  · {current.note?.section || current.phase}
-                </div>
-                <span className={cx("tag")}>{current.label}</span>
-                <p className={cx("quote")}>“{current.text}”</p>
-                <div className={cx("contextactions")}>
-                  <button
-                    className={cx("ghost")}
-                    onClick={() => setShowPrice((v) => !v)}
-                  >
-                    {showPrice ? "Heart rate" : "View price"}
-                  </button>
-                  <button
-                    className={cx("ghost")}
-                    onClick={() =>
-                      props.onReflect({
-                        t: current.t,
-                        initialLabel: "Other",
-                        initialText: "Possible sensor anomaly: ",
-                      })
-                    }
-                  >
-                    Mark anomaly
-                  </button>
-                </div>
-                <div className={cx("capture")}>
-                  <button className={cx("ghost")} onClick={() => reflect()}>
-                    Write
-                  </button>
-                  <button
-                    className={cx("ghost", "mic")}
-                    onClick={() => reflect(true)}
-                  >
-                    ● Speak now
-                  </button>
-                </div>
+            </>
+          }
+          onSeeLog={(m) => {
+            pick(m);
+            const element = m.note
+              ? document.getElementById("moment-" + m.note.id)
+              : document.getElementById(
+                  "trade-stage-" + trade?.id + "-" + m.phase.toLowerCase(),
+                );
+            if (!element) return;
+            let parent: HTMLElement | null = element;
+            while (parent) {
+              if (parent.tagName === "DETAILS")
+                (parent as HTMLDetailsElement).open = true;
+              parent = parent.parentElement;
+            }
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            element.setAttribute("tabindex", "-1");
+            element.focus({ preventScroll: true });
+          }}
+          onSelect={pick}
+        />
+        <details className={cx("reference-chart-tools")}>
+          <summary>Selected moment details</summary>
+          <aside className={cx("moment")}>
+            <div className={cx("moment-accent")} />
+            <div className={cx("momentbody")}>
+              <div className={cx("momenttitle")}>
+                <h3>{showPrice ? "Trade context" : "Selected moment"}</h3>
                 <button
-                  className={cx("textlink")}
+                  aria-label="Clear selected moment"
+                  onClick={() => setSelected(null)}
+                >
+                  ×
+                </button>
+              </div>
+              {showPrice && trade && (
+                <>
+                  <div className={cx("context-symbol")}>
+                    <strong>{trade.symbol}</strong>
+                    <span>{trade.side === "long" ? "BUY" : "SELL"}</span>
+                  </div>
+                  <p className={cx("context-caption")}>
+                    {demo ? "Simulated trade" : "Recorded trade"} ·{" "}
+                    {trade.quantity} shares
+                  </p>
+                  <div className={cx("context-facts")}>
+                    <div>
+                      <span>Entry price</span>
+                      <strong>{trade.entryPrice.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>Exit price</span>
+                      <strong>{trade.exitPrice?.toFixed(2) ?? "Open"}</strong>
+                    </div>
+                    <div>
+                      <span>Realised P&L</span>
+                      <strong
+                        className={cx(
+                          (tradeExit?.pnl || 0) >= 0 ? "positive" : "negative",
+                        )}
+                      >
+                        {tradeExit?.pnl === undefined
+                          ? "—"
+                          : money(tradeExit.pnl, tradeExit.currency || "USD")}
+                      </strong>
+                    </div>
+                  </div>
+                  <div className={cx("context-heart")}>
+                    <span>Heart rate around this trade</span>
+                    <div>
+                      <label>
+                        Before{" "}
+                        <b>
+                          {nearest(samples, trade.entry - 60000)?.bpm ?? "—"}
+                        </b>
+                      </label>
+                      <label>
+                        At entry{" "}
+                        <b>{nearest(samples, trade.entry)?.bpm ?? "—"}</b>
+                      </label>
+                      <label>
+                        After{" "}
+                        <b>
+                          {nearest(samples, (trade.exit || cutoff) + 60000)
+                            ?.bpm ?? "—"}
+                        </b>
+                      </label>
+                    </div>
+                    <small>BPM · synced to the price timeline</small>
+                  </div>
+                </>
+              )}
+              {showPrice && (
+                <>
+                  <div className={cx("context-divider")} />
+                  <span className={cx("context-section")}>Selected moment</span>
+                </>
+              )}
+              <div className={cx("bigbpm")}>
+                <strong>{current.bpm ?? "—"}</strong>
+                <span>BPM</span>
+              </div>
+              <div className={cx("delta")}>
+                {delta === null
+                  ? "No heart-rate context"
+                  : `${signed(delta)} above your baseline`}
+              </div>
+              <div className={cx("momenttime")}>
+                {current.note && noteTime(current.note) === null
+                  ? "Untimed"
+                  : time(current.t)}{" "}
+                · {current.note?.section || current.phase}
+              </div>
+              <span className={cx("tag")}>{current.label}</span>
+              <p className={cx("quote")}>“{current.text}”</p>
+              <div className={cx("contextactions")}>
+                <button
+                  className={cx("ghost")}
+                  onClick={() => setShowPrice((v) => !v)}
+                >
+                  {showPrice ? "Heart rate" : "View price"}
+                </button>
+                <button
+                  className={cx("ghost")}
                   onClick={() =>
                     props.onReflect({
                       t: current.t,
-                      ...(current.note ? { entry: current.note } : {}),
+                      initialLabel: "Other",
+                      initialText: "Possible sensor anomaly: ",
                     })
                   }
                 >
-                  Edit emotion or timestamp
+                  Mark anomaly
                 </button>
               </div>
-            </aside>
-          </div>
+              <div className={cx("capture")}>
+                <button className={cx("ghost")} onClick={() => reflect()}>
+                  Write
+                </button>
+                <button
+                  className={cx("ghost", "mic")}
+                  onClick={() => reflect(true)}
+                >
+                  ● Speak now
+                </button>
+              </div>
+              <button
+                className={cx("textlink")}
+                onClick={() =>
+                  props.onReflect({
+                    t: current.t,
+                    ...(current.note ? { entry: current.note } : {}),
+                  })
+                }
+              >
+                Edit emotion or timestamp
+              </button>
+            </div>
+          </aside>
         </details>
         <details className={cx("reference-chart-tools")}>
           <summary>P&L data sources & account selection</summary>

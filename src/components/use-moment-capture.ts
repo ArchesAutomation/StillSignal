@@ -18,6 +18,7 @@ export type CaptureOptions = {
   frameLimit: number;
   confirm: boolean;
   transcribe: boolean;
+  screenshots: boolean;
 };
 const defaults: CaptureOptions = {
   seconds: 120,
@@ -25,6 +26,7 @@ const defaults: CaptureOptions = {
   frameLimit: 120,
   confirm: false,
   transcribe: true,
+  screenshots: true,
 };
 type Pending = {
   note: JournalEntry;
@@ -61,6 +63,12 @@ export function useMomentCapture({
     [pending, setPending] = useState<Pending>();
   const [lastSaved, setLastSaved] = useState<JournalEntry>(),
     [transcription, setTranscription] = useState("Checking browser…");
+  const [feeling, setFeeling] = useState("");
+  const feelingRef = useRef("");
+  function chooseFeeling(value: string) {
+    feelingRef.current = value;
+    setFeeling(value);
+  }
   const video = useRef<HTMLVideoElement | null>(null),
     share = useRef<MediaStream | null>(null),
     mic = useRef<MediaStream | null>(null);
@@ -140,30 +148,53 @@ export function useMomentCapture({
       ),
     };
   }
-  async function chooseChart() {
+  async function chooseChart(sourceWindow: Window = window) {
+    let stream: MediaStream | undefined;
     try {
-      if (!navigator.mediaDevices?.getDisplayMedia)
+      if (!sourceWindow.navigator.mediaDevices?.getDisplayMedia)
         throw Error(
           "Chart sharing unavailable. Attach a screenshot in the journal later.",
         );
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      stream = await sourceWindow.navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: false,
       });
       if (!alive.current) {
         stream.getTracks().forEach((t) => t.stop());
-        return;
+        return false;
       }
       const player = document.createElement("video");
       player.srcObject = stream;
       player.muted = true;
       await player.play();
+      if (!player.videoWidth) {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(Error("Shared screen did not become ready.")),
+            5000,
+          );
+          player.addEventListener(
+            "loadeddata",
+            () => {
+              clearTimeout(timeout);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+      }
+      if (!alive.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
       share.current?.getTracks().forEach((t) => t.stop());
       share.current = stream;
       video.current = player;
       setSharing(true);
       stream.getVideoTracks()[0].addEventListener("ended", () => {
-        if (alive.current) {
+        if (alive.current && share.current === stream) {
+          share.current = null;
+          video.current = null;
           setSharing(false);
           setHistory(false);
           setStatus(
@@ -172,12 +203,15 @@ export function useMomentCapture({
         }
       });
       setStatus("Chart ready. Only the shared surface is captured.");
+      return true;
     } catch (e) {
+      stream?.getTracks().forEach((t) => t.stop());
       setStatus(
         e instanceof Error
           ? e.message
           : "Chart sharing unavailable. Audio capture is still available.",
       );
+      return false;
     }
   }
   async function retain(value: Pending) {
@@ -323,9 +357,10 @@ export function useMomentCapture({
         "Quote source unavailable. Audio remains available.";
     }
   }
-  async function begin() {
+  async function begin(sourceWindow: Window = window) {
     if (busy.current || draft.current || recording.current) return;
     const s = sessionRef.current;
+    const startedLive = activeRef.current;
     if (!s || s.id === "workspace") {
       setStatus("Start a session or choose a journal day first.");
       setMenu(true);
@@ -348,7 +383,8 @@ export function useMomentCapture({
         capturedAt: pressedAt,
         captureMode: activeRef.current ? "live" : "post-session",
         captureSessionId: s.id,
-        label: "Unlabelled",
+        label: feelingRef.current || "Unlabelled",
+        labelAddedAt: feelingRef.current ? pressedAt : undefined,
         text: "",
         origin: "capture",
         source: "voice",
@@ -376,10 +412,38 @@ export function useMomentCapture({
     stopping.current = false;
     setPending(value);
     setPhase("starting");
-    setStatus("Starting microphone…");
+    setStatus("Preparing your recording…");
     let imageTask = Promise.resolve();
     try {
-      const frame = freeze();
+      if (
+        optionsRef.current.screenshots &&
+        !share.current?.getVideoTracks().some((t) => t.readyState === "live")
+      ) {
+        setStatus("Choose a screen or window to capture with your recording.");
+        const shared = await chooseChart(sourceWindow);
+        if (!shared)
+          value.note.capture!.imageMissing =
+            "Screen sharing was cancelled or unavailable; audio recorded without a screenshot.";
+      }
+      if (
+        !alive.current ||
+        sessionRef.current?.id !== s.id ||
+        (startedLive && !activeRef.current)
+      ) {
+        share.current?.getTracks().forEach((t) => t.stop());
+        share.current = null;
+        video.current = null;
+        draft.current = undefined;
+        if (alive.current) {
+          setSharing(false);
+          setPending(undefined);
+          setPhase("idle");
+        }
+        return;
+      }
+      if (!optionsRef.current.screenshots)
+        value.note.capture!.imageMissing = "Automatic screenshots turned off.";
+      const frame = optionsRef.current.screenshots ? freeze() : null;
       if (frame) {
         Object.assign(value.note.capture!, {
           imageCapturedAt: frame.t,
@@ -411,8 +475,24 @@ export function useMomentCapture({
       )
         throw Error("Audio recording unavailable in this browser.");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!alive.current) {
+      if (
+        !alive.current ||
+        sessionRef.current?.id !== s.id ||
+        (startedLive && !activeRef.current)
+      ) {
         stream.getTracks().forEach((t) => t.stop());
+        share.current?.getTracks().forEach((t) => t.stop());
+        share.current = null;
+        video.current = null;
+        draft.current = undefined;
+        if (alive.current) {
+          setPending(undefined);
+          setSharing(false);
+          setPhase("idle");
+          setStatus(
+            "Recording cancelled because the session ended or changed.",
+          );
+        }
         return;
       }
       mic.current = stream;
@@ -459,6 +539,7 @@ export function useMomentCapture({
               if (e.results[i].isFinal) result.push(e.results[i][0].transcript);
             value.note.originalTranscript = result.join(" ").slice(0, 2000);
             value.note.transcriptStatus = "available";
+            if (alive.current) setPending({ ...value });
           };
           speechDone.current = new Promise<void>((resolve) => {
             speech.onend = resolve;
@@ -486,9 +567,9 @@ export function useMomentCapture({
       );
     }
   }
-  function toggle() {
+  function toggle(sourceWindow: Window = window) {
     if (recording.current) recorder.current?.stop();
-    else if (!draft.current) void begin();
+    else if (!draft.current) void begin(sourceWindow);
   }
   const toggleRef = useRef(toggle);
   toggleRef.current = toggle;
@@ -559,6 +640,10 @@ export function useMomentCapture({
   useEffect(() => {
     if (!active) {
       setHistory(false);
+      share.current?.getTracks().forEach((t) => t.stop());
+      share.current = null;
+      video.current = null;
+      setSharing(false);
       if (recording.current) recorder.current?.stop();
     }
   }, [active]);
@@ -620,6 +705,8 @@ export function useMomentCapture({
     setMenu,
     options,
     configure,
+    feeling,
+    chooseFeeling,
     pending,
     lastSaved,
     transcription,

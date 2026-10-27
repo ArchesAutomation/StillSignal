@@ -98,6 +98,7 @@ export default function JournalTrades({
                 return (
                   <details
                     key={phase}
+                    id={`trade-stage-${trade.id}-${phase}`}
                     className={cx("journey-stage")}
                     data-phase={phase}
                     aria-label={`Trade ${index + 1} ${sectionName(phase)}`}
