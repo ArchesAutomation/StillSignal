@@ -19,8 +19,8 @@ import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
 const navigation: [Page, string, string][] = [
   ["Stillness", "◌", "Stillness"],
-  ["Journal", "▣", "Daily journal"],
   ["Prepare", "⌂", "Prepare"],
+  ["Journal", "▣", "Daily journal"],
   ["Patterns", "⌁", "Heart-rate analytics"],
   ["Settings", "↗", "Settings"],
   ["Overview", "⌂", "Overview"],
@@ -35,6 +35,13 @@ export default function ConceptWorkspace(props: Props) {
   const [reviewWeek, setReviewWeek] = useState<string>();
   const capturePending = props.capture?.pendingCapture || false;
   const previousActive = useRef(p.active);
+  useEffect(()=>{
+    const close=(e:Event)=>document.querySelectorAll<HTMLDetailsElement>(".ss-reference-tools[open]").forEach(menu=>{
+      if(e.type==="keydown" ? (e as KeyboardEvent).key==="Escape" : !menu.contains(e.target as Node) || (e.type==="click" && (e.target as Element).closest("button")))menu.open=false;
+    });
+    document.addEventListener("pointerdown",close);document.addEventListener("click",close);document.addEventListener("keydown",close);
+    return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("click",close);document.removeEventListener("keydown",close);};
+  },[]);
   useEffect(() => {
     if (
       previousActive.current &&
@@ -191,6 +198,15 @@ export default function ConceptWorkspace(props: Props) {
             ))}
         </nav>
         <div className={cx("reference-top-actions")}>
+          <button
+            className={cx("connection-shortcut")}
+            onClick={() => go("Connections")}
+          >
+            Connections
+          </button>
+          <button className={cx("floating-shortcut")} onClick={props.onFloat}>
+            Floating window ↗
+          </button>
           <button
             disabled={capturePending}
             onClick={() =>
@@ -464,21 +480,24 @@ export default function ConceptWorkspace(props: Props) {
           </>
         )}
         <div hidden={!journal} className={cx("reference-journal-grid")}>
-          <ReferenceHistory
-            session={s}
-            sessions={history}
-            disabled={p.active || openingDay || capturePending}
-            onDay={(date) => void openDay(date)}
-            onWeek={() => setWeekly((v) => !v)}
-            onNote={(source, n) =>
-              void act(async () => {
-                if (source.id !== s.id && !(await p.openSession(source)))
-                  return;
-                go("Journal");
-                props.onReflect({ t: n.t, entry: n });
-              })
-            }
-          />
+          <details className={cx("space-history")}>
+            <summary>Calendar & previous entries</summary>
+            <ReferenceHistory
+              session={s}
+              sessions={history}
+              disabled={p.active || openingDay || capturePending}
+              onDay={(date) => void openDay(date)}
+              onWeek={() => setWeekly((v) => !v)}
+              onNote={(source, n) =>
+                void act(async () => {
+                  if (source.id !== s.id && !(await p.openSession(source)))
+                    return;
+                  go("Journal");
+                  props.onReflect({ t: n.t, entry: n });
+                })
+              }
+            />
+          </details>
           <div className={cx("reference-day")}>
             {weekly ? (
               <>
@@ -493,7 +512,7 @@ export default function ConceptWorkspace(props: Props) {
               </>
             ) : (
               <>
-                {journal && (
+                {journal && view !== "story" && (
                   <section className={cx("hero")}>
                     <div>
                       <div className={cx("eyebrow")}>
@@ -547,23 +566,24 @@ export default function ConceptWorkspace(props: Props) {
                   </section>
                 )}
                 {journal && (
-                  <JournalDayPicker
-                    key={s.id}
-                    date={s.startedAt}
-                    disabled={p.active || openingDay || capturePending}
-                    onOpen={openDay}
-                  />
-                )}
-                {journal && (
-                  <Calendar
-                    weekdaysOnly
-                    sessions={history}
-                    selected={s}
-                    offset={week}
-                    disabled={p.active || openingDay || capturePending}
-                    onOpen={(target) => void act(() => p.openSession(target))}
-                    onEmptyDay={(date) => void openDay(date)}
-                  />
+                  <details className={cx("space-date-tools")}>
+                    <summary>Choose a date · work week</summary>
+                    <JournalDayPicker
+                      key={s.id}
+                      date={s.startedAt}
+                      disabled={p.active || openingDay || capturePending}
+                      onOpen={openDay}
+                    />
+                    <Calendar
+                      weekdaysOnly
+                      sessions={history}
+                      selected={s}
+                      offset={week}
+                      disabled={p.active || openingDay || capturePending}
+                      onOpen={(target) => void act(() => p.openSession(target))}
+                      onEmptyDay={(date) => void openDay(date)}
+                    />
+                  </details>
                 )}
                 <section
                   className={cx(

@@ -38,8 +38,9 @@ export type Props = {
   onSelectTrade: (event: TradeEvent) => void;
   onToday: () => void;
 };
-export const time = (t: number, seconds = true) =>
+export const time = (t: number, seconds = true, timeZone?: string) =>
   new Date(t).toLocaleTimeString("en-US", {
+    ...(timeZone ? { timeZone } : {}),
     hour: "numeric",
     minute: "2-digit",
     ...(seconds ? { second: "2-digit" as const } : {}),

@@ -1,10 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, Sample, Session, Settings } from "@/lib/model";
-import type { ReflectionDraft } from "../reflection-editor";
+import type { ReflectionDraft, Recognition } from "../reflection-editor";
+import AudioCapture, { AudioPlayback } from "../reflection-audio";
+import { keepPrivateFile } from "@/lib/private-files";
+import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import { validateDestination } from "@/lib/journal-routing";
 import { journalPhaseLink } from "@/lib/journal-phases";
-import { labelsFor, stages } from "@/lib/journal-reference";
+import { labelsFor, stages, localInstant } from "@/lib/journal-reference";
 import { useJournalDraft } from "../use-journal-draft";
 import Destination from "./destination";
 import { cx, time as displayTime } from "./shared";
@@ -23,6 +26,7 @@ type Draft = {
   label: string;
   manualTime: string;
   timed: boolean;
+  manualZone?: string;
 };
 export default function Writing({
   time,
@@ -32,6 +36,7 @@ export default function Writing({
   selection,
   samples,
   labels,
+  timezone,
 }: {
   time: number;
   session: Session;
@@ -40,6 +45,7 @@ export default function Writing({
   selection?: { section: JournalEntry["section"]; tradeId: string };
   samples: Sample[];
   labels?: Settings["phaseLabels"];
+  timezone?: string;
   onReview?: () => void;
   sampleNoteIds?: Set<string>;
   onEdit?: (note: JournalEntry) => void;
@@ -58,6 +64,20 @@ export default function Writing({
     manualTime: "",
     timed: true,
   };
+  const zone =
+    timezone ||
+    session.timezone ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [audio, setAudio] = useState<JournalEntry["audio"]>(),
+    [voice, setVoice] = useState(false),
+    [recording, setRecording] = useState(false),
+    [listening, setListening] = useState(false),
+    [image, setImage] = useState<File>();
+  const recognition = useRef<Recognition | null>(null),
+    transcript = useRef("");
+  const [promptStep, setPromptStep] = useState<number | null>(null);
+  const textRef = useRef("");
+  useEffect(() => () => recognition.current?.abort(), []);
   try {
     const previous = JSON.parse(stored || "{}");
     draft = {
@@ -68,6 +88,7 @@ export default function Writing({
         .join("\n\n"),
     };
   } catch {}
+  textRef.current = draft.text;
   function change(patch: Partial<Draft>) {
     store(JSON.stringify({ ...draft, ...patch }));
     setStatus("");
@@ -77,18 +98,25 @@ export default function Writing({
   }, [selection?.section, selection?.tradeId, ready]);
   const index = stages.indexOf(draft.section as (typeof stages)[number]);
   const question =
-    index < 0
+    index < 0 && promptStep === null
       ? "How are you feeling today, even without taking a trade?"
-      : questions[index];
+      : questions[promptStep ?? index];
   const phase = journalPhaseLink(
     session,
     draft.tradeId,
     draft.section,
     samples,
   );
-  const linkedTime = draft.manualTime
-    ? new Date(draft.manualTime).getTime()
-    : (phase?.t ?? null);
+  let linkedTime = phase?.t ?? null,
+    timeError = "";
+  try {
+    if (draft.manualTime)
+      linkedTime = localInstant(draft.manualTime, draft.manualZone || zone);
+  } catch {
+    timeError =
+      "This local time is missing or ambiguous during a daylight-saving change. Choose another time.";
+    linkedTime = null;
+  }
   const noteTime =
     draft.timed && Number.isFinite(linkedTime) ? linkedTime : null;
   const target = {
@@ -104,7 +132,14 @@ export default function Writing({
     ),
   ];
   const save = async () => {
-    if (busy || !draft.text.trim()) return;
+    if (
+      busy ||
+      recording ||
+      listening ||
+      timeError ||
+      (!draft.text.trim() && !audio && !image)
+    )
+      return;
     setBusy(true);
     try {
       const note: JournalEntry = {
@@ -114,14 +149,39 @@ export default function Writing({
         label: draft.label || "Unlabelled",
         text: draft.text,
         ...target,
-        source: "typed",
+        source: audio || transcript.current ? "voice" : "typed",
+        audio,
+        capturedAt: Date.now(),
+        captureMode: "post-session",
+        originalTranscript: transcript.current || undefined,
+        transcriptStatus: transcript.current ? "available" : "unavailable",
         origin: "free-writing",
         prompt: { id: `question-${draft.section || "day"}`, question },
       };
+      if (image) {
+        await validateScreenshotFile(image);
+        const asset = await keepPrivateFile(
+          session.owner,
+          note.id,
+          "image",
+          image,
+          session.id,
+        );
+        note.capture = {
+          pressedAt: Date.now(),
+          confirmedAt: Date.now(),
+          imageCapturedAt: Date.now(),
+          imagePath: asset.path,
+        };
+      }
       validateDestination(note, session);
       await onSave(note);
-      change({ text: "" });
-      setStatus("Saved to My Journal · your day.");
+      store("");
+      setAudio(undefined);
+      setImage(undefined);
+      setVoice(false);
+      transcript.current = "";
+      setStatus("Added later · saved to your journal.");
     } catch (e) {
       setStatus(
         e instanceof Error
@@ -142,43 +202,50 @@ export default function Writing({
         <button
           disabled={!!draft.text || busy}
           onClick={() =>
-            change({ section: stages[(index + 1) % 5], manualTime: "" })
+            setPromptStep(((promptStep ?? index) + 1) % questions.length)
           }
         >
           Next prompt →
         </button>
       </div>
       <Destination
+        timezone={zone}
         session={session}
         section={draft.section}
         tradeId={draft.tradeId}
         custom={draft.custom}
-        onSection={(section) => change({ section, manualTime: "", label: "" })}
+        onSection={(section) => {
+          setPromptStep(null);
+          change({ section, manualTime: "", label: "" });
+        }}
         onTrade={(tradeId) => change({ tradeId, manualTime: "" })}
         onCustom={(custom) => change({ custom })}
       />
       <div className={cx("reference-fields")}>
         <label>
           Your label
-          <select
+          <input
+            list="guided-feelings"
             aria-label="Writing label"
             value={draft.label}
             onChange={(e) => change({ label: e.target.value })}
-          >
+            placeholder="Custom feeling or thought…"
+          />
+          <datalist id="guided-feelings">
             {options.map((label) => (
-              <option key={label} value={label}>
-                {label || "No label"}
-              </option>
+              <option key={label} value={label} />
             ))}
-          </select>
+          </datalist>
         </label>
         <label>
-          Linked time
+          Linked time · {draft.manualZone || zone}
           <input
             type="datetime-local"
             step="1"
             value={draft.manualTime}
-            onChange={(e) => change({ manualTime: e.target.value })}
+            onChange={(e) =>
+              change({ manualTime: e.target.value, manualZone: zone })
+            }
           />
         </label>
       </div>
@@ -191,7 +258,7 @@ export default function Writing({
         />
         {linkedTime === null
           ? "No linked time yet · neutral day reflection"
-          : `Link to ${displayTime(linkedTime)} · ${phase?.sampleCount ? `${phase.sampleCount} HR samples` : "No measured HR"}`}
+          : `Link to ${displayTime(linkedTime, true, zone)} · ${phase?.sampleCount && !draft.manualTime ? `${phase.sampleCount} HR samples` : "HR matched at linked time when saved"}`}
       </label>
       <textarea
         className={cx("journal-text")}
@@ -202,44 +269,120 @@ export default function Writing({
         onChange={(e) => change({ text: e.target.value })}
         placeholder="Write what you noticed…"
       />
+      {timeError && <p role="alert">{timeError}</p>}
+      {voice && (
+        <div className={cx("inline-voice")}>
+          <AudioCapture
+            owner={session.owner}
+            sessionId={session.id}
+            onAudio={setAudio}
+            onRecording={setRecording}
+          />
+          <button
+            aria-pressed={listening}
+            onClick={() => {
+              if (listening) {
+                recognition.current?.stop();
+                return;
+              }
+              const Speech = window as Window & {
+                SpeechRecognition?: new () => Recognition;
+                webkitSpeechRecognition?: new () => Recognition;
+              };
+              const Ctor =
+                Speech.SpeechRecognition || Speech.webkitSpeechRecognition;
+              if (!Ctor) {
+                setStatus(
+                  "Transcription unavailable in this browser. Original audio can still be recorded.",
+                );
+                return;
+              }
+              const rec = new Ctor(),
+                base = textRef.current;
+              recognition.current = rec;
+              rec.continuous = true;
+              rec.interimResults = false;
+              rec.lang = navigator.language;
+              rec.onresult = (e) => {
+                const words = [];
+                for (let i = 0; i < e.results.length; i++)
+                  if (e.results[i].isFinal)
+                    words.push(e.results[i][0].transcript);
+                transcript.current = words.join(" ").slice(0, 2000);
+                store(
+                  JSON.stringify({
+                    ...draft,
+                    text: [base, transcript.current]
+                      .filter(Boolean)
+                      .join(" ")
+                      .slice(0, 2000),
+                  }),
+                );
+              };
+              rec.onerror = () => {
+                setStatus(
+                  "Transcription stopped. Original audio is separate and remains available.",
+                );
+                setListening(false);
+              };
+              rec.onend = () => setListening(false);
+              try {
+                rec.start();
+                setListening(true);
+              } catch {
+                setStatus(
+                  "Could not start transcription. You can type or record original audio.",
+                );
+              }
+            }}
+          >
+            {listening ? "Stop transcription" : "Start transcription"}
+          </button>
+          {audio && (
+            <AudioPlayback
+              owner={session.owner}
+              audio={audio}
+              onDelete={async () => setAudio(undefined)}
+            />
+          )}
+        </div>
+      )}
+      {image && (
+        <p>
+          {image.name}{" "}
+          <button onClick={() => setImage(undefined)}>Remove image</button>
+        </p>
+      )}
       <div className={cx("writing-actions")}>
         <button
           className={cx("primary")}
-          disabled={busy || !draft.text.trim()}
+          disabled={
+            busy ||
+            recording ||
+            listening ||
+            !!timeError ||
+            (!draft.text.trim() && !audio && !image)
+          }
           onClick={() => void save()}
         >
           Save to journal
         </button>
         <button
-          onClick={() =>
-            onReflect({
-              t: linkedTime ?? time,
-              eventTime: noteTime,
-              ...target,
-              initialText: draft.text,
-              initialLabel: draft.label,
-              source: "voice",
-              origin: "free-writing",
-              autoListen: true,
-            })
-          }
+          onClick={() => setVoice(!voice)}
+          disabled={recording || listening}
+          aria-expanded={voice}
         >
           Speak instead
         </button>
-        <button
-          onClick={() =>
-            onReflect({
-              t: linkedTime ?? time,
-              eventTime: noteTime,
-              ...target,
-              initialText: draft.text,
-              initialLabel: draft.label,
-              origin: "free-writing",
-            })
-          }
-        >
-          Add screenshot
-        </button>
+        <label>
+          ＋ Add image
+          <input
+            aria-label="Guided reflection image"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(e) => setImage(e.target.files?.[0])}
+          />
+        </label>
         <span role="status">
           {status ||
             (draft.text ? "Draft kept on this device" : "Ready to write")}

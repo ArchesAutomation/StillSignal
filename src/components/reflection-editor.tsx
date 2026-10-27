@@ -61,7 +61,7 @@ const localTime = (t: number) =>
     .toISOString()
     .slice(0, 19);
 
-export function Screenshot({ path, name }: { path: string; name: string }) {
+export function Screenshot({ path, name, thumbnail=false }: { path: string; name: string; thumbnail?: boolean }) {
   const [url, setUrl] = useState(""),
     [error, setError] = useState("");
   useEffect(() => {
@@ -89,6 +89,7 @@ export function Screenshot({ path, name }: { path: string; name: string }) {
   }, [path]);
   if (error) return <p role="status">{error}</p>;
   if (!url) return <p>Loading screenshot…</p>;
+  if(thumbnail) return <img src={url} alt={name}/>;
   return (
     <a
       href={url}

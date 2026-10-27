@@ -1,4 +1,5 @@
 "use client";
+import JournalSelect from "./journal-select";
 import type { JournalEntry, Session } from "@/lib/model";
 import {
   isTradeSection,
@@ -15,6 +16,7 @@ export default function Destination({
   onSection,
   onTrade,
   onCustom,
+  timezone,
 }: {
   session: Session;
   section: JournalEntry["section"];
@@ -23,12 +25,13 @@ export default function Destination({
   onSection: (value: JournalEntry["section"]) => void;
   onTrade: (value: string) => void;
   onCustom: (value: string) => void;
+  timezone?: string;
 }) {
   return (
     <div className={cx("destinations")}>
       <label>
         Journal stage
-        <select
+        <JournalSelect
           aria-label="Journal section"
           value={section === "stillness" ? "" : section || ""}
           onChange={(e) =>
@@ -41,11 +44,11 @@ export default function Destination({
               {sectionName(value)}
             </option>
           ))}
-        </select>
+        </JournalSelect>
       </label>
       <label>
         Trade
-        <select
+        <JournalSelect
           aria-label="Journal trade"
           value={tradeId}
           onChange={(e) => onTrade(e.target.value)}
@@ -57,10 +60,10 @@ export default function Destination({
           </option>
           {sessionTrades(session).map((trade, index) => (
             <option key={trade.id} value={trade.id}>
-              Trade {index + 1} · {trade.symbol} · {time(trade.entry, false)}
+              Trade {index + 1} · {trade.symbol} · {time(trade.entry, false, timezone || session.timezone)}
             </option>
           ))}
-        </select>
+        </JournalSelect>
       </label>
       {section === "custom" && (
         <label>

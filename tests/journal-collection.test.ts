@@ -270,7 +270,7 @@ test("writing selectors recalculate the link and save raw words to a durable rec
     assert.equal(persisted.journal[0].eventTime, trades[1].exit);
     assert.ok(persisted.journal[0].context?.bpm);
     assert.equal(document.querySelector('[aria-label="Collected journal notes"]'), null);
-    assert.match(document.querySelector('[role="status"]')!.textContent!, /Saved to My Journal/);
+    assert.match(document.querySelector('[role="status"]')!.textContent!, /Added later.*saved to your journal/);
     await act(async () => { await pulse.openSession(persisted); });
     assert.equal(pulse.session!.journal[0].text, "I followed my exit plan.");
     await select("Journal trade", "");

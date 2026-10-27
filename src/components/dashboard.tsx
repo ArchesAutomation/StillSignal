@@ -477,11 +477,7 @@ export default function Dashboard({
     p.setNotice(
       `${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`,
     );
-    setTab(
-      p.active || p.settings.startWithStillness === false
-        ? "Journal"
-        : "Stillness",
-    );
+    if (tab !== "Journal" && tab !== "Patterns") setTab("Journal");
   }
   async function openLiveReflection(draft: ReflectionDraft) {
     if (!p.active && !isWorkspace) await p.start();

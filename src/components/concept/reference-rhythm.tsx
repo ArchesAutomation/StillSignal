@@ -5,6 +5,11 @@ import { money } from "@/lib/model";
 import { downsample, nearest } from "@/lib/analytics";
 import { noteTime } from "@/lib/journal-routing";
 import { pnlExposure } from "@/lib/session-timeline";
+import {
+  clampChartRange,
+  fitJournalRange,
+  type ChartRange,
+} from "@/lib/journal-space";
 import { phaseColors } from "@/lib/phase-colors";
 import { cx, time, type Moment } from "./shared";
 export default function ReferenceRhythm({
@@ -19,7 +24,9 @@ export default function ReferenceRhythm({
   showPrice,
   onTogglePrice,
   priceView,
+  timezone,
 }: {
+  timezone?: string;
   session: Session;
   samples: Sample[];
   baselineSeconds: number;
@@ -33,6 +40,8 @@ export default function ReferenceRhythm({
   onTogglePrice?: () => void;
   priceView?: import("react").ReactNode;
 }) {
+  const clock = (t: number, seconds = true) =>
+    time(t, seconds, timezone || session.timezone);
   const [layers, setLayers] = useState({
     hr: true,
     realised: true,
@@ -41,21 +50,9 @@ export default function ReferenceRhythm({
     moments: true,
   });
   const [zoom, setZoom] = useState<[number, number]>(),
-    [drag, setDrag] = useState<[number, number]>(),
     [wide, setWide] = useState(false),
     [cursor, setCursor] = useState(50);
   const svg = useRef<SVGSVGElement>(null);
-  const phaseStart = phaseWindow?.[0],
-    phaseEnd = phaseWindow?.[1];
-  useEffect(() => {
-    // A stage selected outside a dragged zoom must still be visible.
-    if (phaseStart === undefined || phaseEnd === undefined) return;
-    setZoom((current) =>
-      current && (phaseEnd < current[0] || phaseStart > current[1])
-        ? undefined
-        : current,
-    );
-  }, [session.id, selected, phaseStart, phaseEnd, selectedTime]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") setWide(false);
@@ -104,9 +101,101 @@ export default function ReferenceRhythm({
         ? Math.max(...timestamps)
         : session.endedAt || session.startedAt + 3600000,
     );
-  const start = zoom?.[0] ?? fullStart,
-    end = zoom?.[1] ?? fullEnd,
+  const fit = fitJournalRange(session, [fullStart, fullEnd]);
+  const start = zoom?.[0] ?? fit[0],
+    end = zoom?.[1] ?? fit[1],
     span = end - start;
+  const [viewHistory, setViewHistory] = useState<ChartRange[]>([]);
+  const rangeRef = useRef<ChartRange>([start, end]);
+  rangeRef.current = [start, end];
+  const wheelTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const pointers = useRef(new Map<number, number>());
+  const gesture = useRef<
+    | {
+        range: ChartRange;
+        mid: number;
+        distance: number;
+        width: number;
+        left: number;
+      }
+    | undefined
+  >(undefined);
+  function remember() {
+    const previous = [...rangeRef.current] as ChartRange;
+    setViewHistory((h) => [...h.slice(-99), previous]);
+  }
+  function move(range: ChartRange, push = true) {
+    if (push) remember();
+    const next = clampChartRange(range, [fullStart, fullEnd]);
+    rangeRef.current = next;
+    setZoom(next);
+  }
+  function magnify(factor: number, fraction = 0.5, push = true) {
+    const [a, b] = rangeRef.current,
+      anchor = a + (b - a) * fraction;
+    move(
+      [anchor + (a - anchor) * factor, anchor + (b - anchor) * factor],
+      push,
+    );
+  }
+  useEffect(() => {
+    setZoom(undefined);
+    setViewHistory([]);
+  }, [session.id]);
+  useEffect(
+    () => () => {
+      clearTimeout(wheelTimer.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    const el = svg.current;
+    if (!el || showPrice) return;
+    function wheel(e: WheelEvent) {
+      e.preventDefault();
+      if (!wheelTimer.current) remember();
+      clearTimeout(wheelTimer.current);
+      wheelTimer.current = setTimeout(() => {
+        wheelTimer.current = undefined;
+      }, 250);
+      const box = el!.getBoundingClientRect();
+      const fraction = Math.max(
+        0,
+        Math.min(1, (((e.clientX - box.left) / box.width) * 1000 - 62) / 850),
+      );
+      magnify(
+        Math.exp(Math.max(-100, Math.min(100, e.deltaY)) * 0.004),
+        fraction,
+        false,
+      );
+    }
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [fullStart, fullEnd, showPrice]);
+  useEffect(() => {
+    if (selectedTime === undefined) return;
+    const [a, b] = rangeRef.current;
+    if (selectedTime < a || selectedTime > b)
+      move([selectedTime - (b - a) / 2, selectedTime + (b - a) / 2]);
+  }, [selectedTime, selected]);
+  function startGesture() {
+    const values = [...pointers.current.values()],
+      box = svg.current!.getBoundingClientRect();
+    gesture.current = {
+      range: [...rangeRef.current],
+      mid: values.reduce((a, b) => a + b, 0) / values.length,
+      distance: values.length > 1 ? Math.abs(values[1] - values[0]) : 0,
+      width: (box.width * 850) / 1000,
+      left: box.left + (box.width * 62) / 1000,
+    };
+  }
+  function endPointer(id: number) {
+    pointers.current.delete(id);
+    if (pointers.current.size) startGesture();
+    else gesture.current = undefined;
+  }
   const inside = (t: number) => t >= start && t <= end;
   const paused = (t: number) =>
     session.blueprint?.measurementPauses?.some(
@@ -185,22 +274,32 @@ export default function ReferenceRhythm({
         <div>
           <h2>The rhythm of your session</h2>
           <p>
-            Heart rate, P&L, executions and your moments. Drag across the plot
-            to zoom.
+            {clock(start)}–{clock(end)} ·{" "}
+            {timezone || session.timezone || "Local time"}
           </p>
         </div>
         <div className={cx("ranges")}>
           <button
             hidden={showPrice}
+            disabled={!viewHistory.length}
             onClick={() => {
-              setZoom(undefined);
-              setDrag(undefined);
+              const previous = viewHistory.at(-1);
+              if (previous) {
+                setViewHistory((h) => h.slice(0, -1));
+                move(previous, false);
+              }
             }}
           >
-            Reset zoom
+            ↶ Previous view
+          </button>
+          <button hidden={showPrice} onClick={() => move(fit)}>
+            Fit session
+          </button>
+          <button hidden={showPrice} onClick={() => move([fullStart, fullEnd])}>
+            All measurements
           </button>
           <button aria-pressed={wide} onClick={() => setWide((v) => !v)}>
-            {wide ? "Close wide chart" : "Wide chart"}
+            {wide ? "Normal height" : "Expand chart"}
           </button>
         </div>
       </div>
@@ -216,8 +315,8 @@ export default function ReferenceRhythm({
               ["hr", "Heart rate"],
               ["realised", "Realised P&L"],
               ["unrealised", "Unrealised P&L"],
-              ["fills", "Executions"],
-              ["moments", "Moments"],
+              ["fills", "Entries & exits"],
+              ["moments", "Journal moments"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -228,6 +327,16 @@ export default function ReferenceRhythm({
               {label}
             </button>
           ))}
+        {!showPrice && (
+          <span className={cx("chart-zoom-buttons")}>
+            <button aria-label="Zoom out" onClick={() => magnify(1.4)}>
+              −
+            </button>
+            <button aria-label="Zoom in" onClick={() => magnify(1 / 1.4)}>
+              ＋
+            </button>
+          </span>
+        )}
       </div>
       {showPrice ? (
         priceView
@@ -238,31 +347,54 @@ export default function ReferenceRhythm({
           className={cx("rhythm-svg")}
           role="img"
           aria-label="Combined session timeline with BPM and currency axes"
+          preserveAspectRatio="none"
+          tabIndex={0}
+          onDoubleClick={() => move(fit)}
+          onKeyDown={(e) => {
+            if (e.key === "+" || e.key === "=") {
+              e.preventDefault();
+              magnify(1 / 1.4);
+            }
+            if (e.key === "-") {
+              e.preventDefault();
+              magnify(1.4);
+            }
+          }}
           onPointerDown={(e) => {
             if ((e.target as Element).closest("[data-marker]")) return;
+            if (!pointers.current.size) remember();
+            pointers.current.set(e.pointerId, e.clientX);
             e.currentTarget.setPointerCapture(e.pointerId);
-            const v = coordinate(e.clientX);
-            setDrag([v, v]);
+            startGesture();
           }}
           onPointerMove={(e) => {
-            const v = coordinate(e.clientX);
-            setCursor(((v - 62) / 850) * 100);
-            if (drag) setDrag([drag[0], v]);
+            setCursor(((coordinate(e.clientX) - 62) / 850) * 100);
+            if (!pointers.current.has(e.pointerId) || !gesture.current) return;
+            pointers.current.set(e.pointerId, e.clientX);
+            const g = gesture.current,
+              values = [...pointers.current.values()],
+              mid = values.reduce((a, b) => a + b, 0) / values.length;
+            const span = g.range[1] - g.range[0],
+              shift = ((mid - g.mid) / g.width) * span;
+            let a = g.range[0] - shift,
+              b = g.range[1] - shift;
+            if (values.length > 1 && g.distance > 5) {
+              const factor =
+                  g.distance / Math.max(5, Math.abs(values[1] - values[0])),
+                fraction = Math.max(0, Math.min(1, (g.mid - g.left) / g.width)),
+                anchor = a + span * fraction;
+              a = anchor - span * factor * fraction;
+              b = a + span * factor;
+            }
+            move([a, b], false);
           }}
-          onPointerUp={(e) => {
-            if (drag && Math.abs(coordinate(e.clientX) - drag[0]) > 8)
-              setZoom([
-                timestamp(Math.min(drag[0], coordinate(e.clientX))),
-                timestamp(Math.max(drag[0], coordinate(e.clientX))),
-              ]);
-            setDrag(undefined);
-          }}
-          onPointerCancel={() => setDrag(undefined)}
+          onPointerUp={(e) => endPointer(e.pointerId)}
+          onPointerCancel={(e) => endPointer(e.pointerId)}
         >
-          <text x="8" y="18" fill="var(--coral)" fontSize="12">
+          <text x="8" y="18" fill="var(--green)" fontSize="12">
             BPM
           </text>
-          <text x="930" y="18" fill="var(--green)" fontSize="12">
+          <text x="930" y="18" fill="var(--blue)" fontSize="12">
             {currency}
           </text>
           {[0, 1, 2, 3].map((i) => (
@@ -334,7 +466,7 @@ export default function ReferenceRhythm({
               data-layer="hr"
               d={hrPath}
               fill="none"
-              stroke="var(--coral)"
+              stroke="var(--green)"
               strokeWidth="2"
             />
           )}
@@ -347,7 +479,7 @@ export default function ReferenceRhythm({
                 60000,
               )}
               fill="none"
-              stroke="var(--blue)"
+              stroke="var(--gold)"
               strokeWidth="2"
               strokeDasharray="4 3"
             />
@@ -361,7 +493,7 @@ export default function ReferenceRhythm({
                 60000,
               )}
               fill="none"
-              stroke="var(--green)"
+              stroke="var(--blue)"
               strokeWidth="2"
             />
           )}
@@ -375,7 +507,7 @@ export default function ReferenceRhythm({
                   data-layer="fills"
                   role="button"
                   tabIndex={0}
-                  aria-label={`${e.kind} ${time(e.t)}`}
+                  aria-label={`${e.kind} ${clock(e.t)}`}
                   onClick={() =>
                     onSelect({
                       id: e.id,
@@ -414,8 +546,17 @@ export default function ReferenceRhythm({
                     d={`M${x(e.t) - 5} 282 L${x(e.t) + 5} 282 L${x(e.t)} 273 Z`}
                     fill={e.kind === "exit" ? "var(--blue)" : "var(--green)"}
                   />
+                  <text
+                    x={Math.max(96, Math.min(860, x(e.t)))}
+                    y={e.kind === "exit" ? "72" : "55"}
+                    fill={e.kind === "exit" ? "var(--blue)" : "var(--coral)"}
+                    fontSize="10"
+                    textAnchor="middle"
+                  >
+                    {e.kind.toUpperCase()} · {e.quantity}
+                  </text>
                   <title>
-                    {e.kind} · {e.quantity} @ {e.price} · {time(e.t)}
+                    {e.kind} · {e.quantity} @ {e.price} · {clock(e.t)}
                   </title>
                 </g>
               ))}
@@ -429,7 +570,7 @@ export default function ReferenceRhythm({
                   data-layer="moments"
                   role="button"
                   tabIndex={0}
-                  aria-label={`Open moment ${time(noteTime(n)!)} ${n.label}`}
+                  aria-label={`Open moment ${clock(noteTime(n)!)} ${n.label}`}
                   onClick={() =>
                     onSelect({
                       id: n.id,
@@ -473,19 +614,22 @@ export default function ReferenceRhythm({
               fontSize="11"
               textAnchor="middle"
             >
-              {time(start + (span * i) / 6, false)}
+              {clock(start + (span * i) / 6, false)}
             </text>
           ))}
-          {drag && (
-            <rect
-              x={Math.min(...drag)}
-              y="40"
-              width={Math.abs(drag[1] - drag[0])}
-              height="235"
-              fill="var(--blue)"
-              opacity="0.15"
-            />
-          )}
+          {selectedTime !== undefined &&
+            inside(selectedTime) &&
+            !phaseWindow && (
+              <line
+                x1={x(selectedTime)}
+                x2={x(selectedTime)}
+                y1="40"
+                y2="275"
+                stroke="var(--purple)"
+                strokeWidth="2"
+                strokeDasharray="4 4"
+              />
+            )}
           {!hr.length && layers.hr && (
             <text
               x="487"
@@ -499,8 +643,12 @@ export default function ReferenceRhythm({
           )}
         </svg>
       )}
+      <div className={cx("chart-tip")}>
+        Scroll to zoom at your cursor · drag to move through time · double-click
+        to fit session · touch: pinch to zoom
+      </div>
       <small>
-        {time(at)} · {point ? `${point.bpm} BPM` : "HR unavailable"} · Open P&L{" "}
+        {clock(at)} · {point ? `${point.bpm} BPM` : "HR unavailable"} · Open P&L{" "}
         {mark?.unrealised === undefined
           ? "unavailable"
           : money(mark.unrealised, currency)}{" "}
@@ -526,7 +674,7 @@ export default function ReferenceRhythm({
               onClick={() => onSelect(m)}
             >
               <span>{m.phase}</span>
-              <strong>{time(m.t)}</strong>
+              <strong>{clock(m.t)}</strong>
               <small>
                 {m.bpm === null ? "No measured HR" : `${Math.round(m.bpm)} BPM`}
               </small>

@@ -271,10 +271,11 @@ export function useMomentCapture({
       await callback.current(value.note);
       if (!alive.current) return;
       setLastSaved(value.note);
+      chooseFeeling("");
       draft.current = undefined;
       setPending(undefined);
       setPhase("idle");
-      setStatus("Saved to journal · add feelings or thoughts later.");
+      setStatus(`Saved · audio ${value.note.audio ? "saved" : "unavailable"} · transcript ${value.note.transcriptStatus || "unavailable"} · ${value.note.capture?.imagePath ? "screenshot saved" : "Screenshot not captured"}.`);
     } catch (e) {
       if (alive.current) {
         setPending({ ...value });
@@ -728,6 +729,7 @@ export function useMomentCapture({
     },
     discard: async () => {
       if (recording.current || busy.current) return;
+      chooseFeeling("");
       draft.current = undefined;
       setPending(undefined);
       setPhase("idle");

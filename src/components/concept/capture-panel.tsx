@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { JournalEntry, Sample, Session, Settings } from "@/lib/model";
 import type { SessionBlueprint } from "@/lib/blueprint-schema";
 import type { ReflectionDraft } from "../reflection-editor";
@@ -103,8 +103,36 @@ export default function CapturePanel(props: {
     12,
   );
   const maxCount = Math.max(1, ...counts.values());
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!c.menu && !settings) return;
+    const doc = root.current?.ownerDocument;
+    if (!doc) return;
+    const outside = (e: PointerEvent) => {
+      if (
+        e.target instanceof doc.defaultView!.Node &&
+        !root.current?.contains(e.target as Node)
+      ) {
+        c.setMenu(false);
+        setSettings(false);
+      }
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        c.setMenu(false);
+        setSettings(false);
+      }
+    };
+    doc.addEventListener("pointerdown", outside);
+    doc.addEventListener("keydown", escape);
+    return () => {
+      doc.removeEventListener("pointerdown", outside);
+      doc.removeEventListener("keydown", escape);
+    };
+  }, [c.menu, settings]);
   return (
     <div
+      ref={root}
       className={cx("compact-capture", props.expanded && "capture-expanded")}
     >
       {props.expanded && (

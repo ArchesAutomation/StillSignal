@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
 import { noteTime } from "@/lib/journal-routing";
-import { captureMode } from "@/lib/session-timeline";
 import { labelsFor } from "@/lib/journal-reference";
+import { phaseColors } from "@/lib/phase-colors";
 import { AudioPlayback } from "../reflection-audio";
 import { Screenshot } from "../reflection-editor";
 import PrivateImage from "../private-image";
@@ -17,12 +17,20 @@ export default function InlineMoment({
   onSave,
   onEdit,
   onRevisit,
+  onSelect,
+  selected,
+  bpm,
+  timezone,
 }: {
   note: JournalEntry;
   session: Session;
   onSave: (note: JournalEntry) => Promise<void>;
   onEdit?: (note: JournalEntry) => void;
   onRevisit?: (note: JournalEntry) => void;
+  onSelect?: (note: JournalEntry) => void;
+  selected?: boolean;
+  bpm?: number | null;
+  timezone?: string;
 }) {
   const [label, setLabel] = useState(
     note.label === "Unlabelled" ? "" : note.label,
@@ -35,6 +43,13 @@ export default function InlineMoment({
   const latest = useRef(note),
     pending = useRef(Promise.resolve()),
     dirty = useRef(false);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (onSelect && textarea.current) {
+      textarea.current.style.height = "auto";
+      textarea.current.style.height = `${textarea.current.scrollHeight}px`;
+    }
+  }, [text, onSelect]);
   useEffect(() => {
     latest.current = note;
     if (!dirty.current) {
@@ -99,12 +114,19 @@ export default function InlineMoment({
   return (
     <article
       id={`moment-${note.id}`}
-      className={cx("inline-moment", "stream-note")}
+      className={cx(
+        "inline-moment",
+        "stream-note",
+        onSelect && "space-moment",
+        selected && "space-selected",
+      )}
       data-note-id={note.id}
     >
       <div className={cx("inline-moment-head")}>
         <time>
-          {noteTime(note) === null ? "Day note" : time(noteTime(note)!)}
+          {noteTime(note) === null
+            ? "Session note"
+            : time(noteTime(note)!, true, timezone)}
         </time>
         <input
           aria-label="Feeling or thought"
@@ -130,20 +152,46 @@ export default function InlineMoment({
           ))}
         </datalist>
         <small>
-          {captureMode(note)}
+          <span
+            className={cx(
+              "capture-badge",
+              note.captureMode === "post-session" && "later-badge",
+            )}
+          >
+            {note.captureMode === "live"
+              ? "Live"
+              : note.captureMode === "post-session"
+                ? "Added later"
+                : "Origin unknown"}
+          </span>
           {note.labelAddedAt && note.labelAddedAt > (note.capturedAt ?? note.t)
             ? " · labelled later"
             : ""}
-          {note.context?.bpm === undefined
-            ? ""
-            : ` · ${Math.round(note.context.bpm)} BPM`}
+          {note.section ? <>{" · "}<span className={cx("moment-stage")} data-stage={note.section} style={{color:phaseColors[note.section] || phaseColors.reflection,borderColor:`${phaseColors[note.section] || phaseColors.reflection}40`,backgroundColor:`${phaseColors[note.section] || phaseColors.reflection}12`}}>{note.section[0].toUpperCase()+note.section.slice(1)}</span></> : " · No stage"}
+          {bpm === undefined
+            ? note.context?.bpm === undefined
+              ? ""
+              : ` · ${Math.round(note.context.bpm)} BPM`
+            : bpm === null
+              ? " · HR unavailable"
+              : ` · ${Math.round(bpm)} BPM`}
         </small>
         <button
-          aria-label="Expand moment evidence"
+          aria-label={
+            onSelect ? "Open moment evidence" : "Expand moment evidence"
+          }
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() =>
+            onSelect ? onSelect(latest.current) : setOpen((v) => !v)
+          }
         >
-          {open ? "−" : "+"}
+          {onSelect
+            ? note.capture?.imagePath || note.screenshot
+              ? "↗"
+              : "+"
+            : open
+              ? "−"
+              : "+"}
         </button>
         <button
           aria-label="Remove moment"
@@ -157,10 +205,14 @@ export default function InlineMoment({
         </button>
       </div>
       <textarea
+        ref={textarea}
         aria-label="Moment writing"
         rows={Math.max(
-          2,
-          Math.min(12, text.split("\n").length + Math.ceil(text.length / 110)),
+          1,
+          Math.min(
+            12,
+            Math.max(text.split("\n").length, Math.ceil(text.length / 110)),
+          ),
         )}
         maxLength={2000}
         placeholder="Write what you noticed…"
@@ -171,6 +223,19 @@ export default function InlineMoment({
         }}
         onBlur={saveFields}
       />
+      {onSelect && (note.capture?.imagePath || note.screenshot) && (
+        <button
+          className={cx("space-thumb")}
+          aria-label="Open chart capture"
+          onClick={() => onSelect(latest.current)}
+        >
+          {note.capture?.imagePath ? (
+            <PrivateImage path={note.capture.imagePath} owner={session.owner} thumbnail />
+          ) : note.screenshot ? (
+            <Screenshot {...note.screenshot} thumbnail />
+          ) : null}
+        </button>
+      )}
       <div className={cx("inline-save")} role="status">
         {status}
         {status.startsWith("Could not") && (

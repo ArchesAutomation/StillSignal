@@ -154,7 +154,6 @@ export default function AudioCapture({
         media.getTracks().forEach((t) => t.stop());
         if (!mounted.current) return;
         setRecording(false);
-        onRecording(false);
         try {
           const blob = new Blob(chunks, { type: rec.mimeType });
           if (!blob.size || blob.size > 10_000_000)
@@ -185,6 +184,8 @@ export default function AudioCapture({
           );
         } catch (e) {
           setStatus(e instanceof Error ? e.message : "Could not save audio.");
+        } finally {
+          onRecording(false);
         }
       };
       recorder.current = rec;

@@ -5,10 +5,12 @@ export default function PrivateImage({
   path,
   owner,
   name = "Original chart at record press",
+  thumbnail = false,
 }: {
   path: string;
   owner: string;
   name?: string;
+  thumbnail?: boolean;
 }) {
   const [url, setUrl] = useState(""),
     [error, setError] = useState("");
@@ -32,6 +34,7 @@ export default function PrivateImage({
       if (u) URL.revokeObjectURL(u);
     };
   }, [path, owner]);
+  if(thumbnail) return url ? <img src={url} alt={name}/> : <span aria-hidden="true">↗</span>;
   return (
     <div className="ss-original-image">
       {url && (

@@ -244,6 +244,13 @@ test("Record requests screen sharing once, captures each press, saves the chosen
     await act(async () => c.toggle());
     await flushSave();
     assert.notEqual(saves[0].capture!.imagePath, saves[1].capture!.imagePath);
+    assert.equal(
+      saves[1].label,
+      "Unlabelled",
+      "a completed recording must not leak its feeling into the next capture",
+    );
+    assert.equal(saves[1].section, undefined);
+    assert.equal(saves[1].tradeId, undefined);
     active = false;
     await act(async () => root.render(createElement(Harness)));
     assert.equal(c.sharing, false);
