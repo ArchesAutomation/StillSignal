@@ -1,4 +1,5 @@
 "use client";
+import { useCaptureBaseline } from "./use-capture-baseline";
 import { useMomentCapture } from "./use-moment-capture";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -238,6 +239,11 @@ export default function Dashboard({
       setLegacyOpen(true);
     }
   }, []);
+  const historicalBaseline = useCaptureBaseline(
+    p.session,
+    p.history,
+    p.settings.baselineSeconds,
+  );
   const capture = useMomentCapture({
     session: p.session,
     active: p.active,
@@ -2421,6 +2427,7 @@ export default function Dashboard({
         createPortal(
           <FloatingJournal
             capture={capture}
+            historicalBaseline={historicalBaseline}
             labels={p.settings.phaseLabels}
             key={s.id}
             session={dailyJournalSession(s, p.history)}

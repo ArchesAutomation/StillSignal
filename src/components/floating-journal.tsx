@@ -24,7 +24,9 @@ export default function FloatingJournal({
   onSave,
   labels,
   capture,
+  historicalBaseline,
 }: {
+  historicalBaseline?: { bpm: number | null; count: number };
   capture?: import("./use-moment-capture").MomentCapture;
   session: Session;
   samples: Sample[];
@@ -74,7 +76,8 @@ export default function FloatingJournal({
         event.key.toLowerCase() === "j"
       ) {
         event.preventDefault();
-        if (capture) capture.toggle();
+        if (capture)
+          capture.toggle(root.current?.ownerDocument.defaultView || window);
         else newEntry({ source: "voice", autoListen: true });
       }
     };
@@ -93,13 +96,10 @@ export default function FloatingJournal({
     const view = root.current?.ownerDocument.defaultView;
     if (floating && view && view !== window) {
       try {
-        view.resizeTo(
-          capture?.menu || capture?.pendingCapture ? 340 : 230,
-          capture?.menu || capture?.pendingCapture ? 530 : 120,
-        );
+        view.resizeTo(420, draft || capture?.menu ? 760 : 640);
       } catch {}
     }
-  }, [floating, capture?.menu, capture?.pendingCapture]);
+  }, [floating, draft, capture?.menu]);
   function paste(event: ClipboardEvent<HTMLElement>) {
     const file = Array.from(event.clipboardData.files).find((value) =>
       value.type.startsWith("image/"),
@@ -120,6 +120,8 @@ export default function FloatingJournal({
       onPaste={paste}
     >
       <CapturePanel
+        expanded
+        historicalBaseline={historicalBaseline}
         controller={capture}
         labels={labels}
         key={session.id}

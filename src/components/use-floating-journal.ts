@@ -101,7 +101,7 @@ export function useFloatingJournal() {
       popup = window.open(
         "about:blank",
         "_blank",
-        "popup,width=230,height=120",
+        "popup,width=420,height=640",
       );
       if (!popup) throw new Error("Popup blocked");
       adoptWindow(popup, true);
@@ -130,7 +130,7 @@ export function useFloatingJournal() {
     const request = ++generation.current;
     try {
       // This must run before session storage/network awaits consume the click.
-      const pip = await api.requestWindow({ width: 230, height: 120 });
+      const pip = await api.requestWindow({ width: 420, height: 640 });
       if (!alive.current || request !== generation.current) {
         pip.close();
         return;

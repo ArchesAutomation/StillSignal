@@ -57,6 +57,8 @@ export default function CapturePanel(props: {
   onSave: (n: JournalEntry) => Promise<void>;
   controller?: MomentCapture;
   onSaveBlueprint?: (p: Partial<SessionBlueprint>) => Promise<void>;
+  expanded?: boolean;
+  historicalBaseline?: { bpm: number | null; count: number };
 }) {
   const local = useMomentCapture({
     session: props.session,
@@ -72,14 +74,56 @@ export default function CapturePanel(props: {
       props.active &&
       props.recording &&
       latest &&
+      latest.quality !== "artifact" &&
       props.now >= latest.t &&
       props.now - latest.t <= 10000 &&
       !c.paused;
   const busy = c.phase === "starting" || c.phase === "saving",
     isRecording = c.phase === "recording";
+  const baseline = props.historicalBaseline;
+  const delta =
+    fresh && baseline?.bpm != null
+      ? Math.round(latest.bpm - baseline.bpm)
+      : null;
+  const feelings = [
+    "Calm",
+    "Focused",
+    "Confident",
+    "Anxious",
+    "Frustrated",
+    "Impulsive",
+  ];
+  const counts = new Map<string, number>();
+  for (const note of props.session.journal) {
+    if (!note.deletedAt && note.label && note.label !== "Unlabelled")
+      counts.set(note.label, (counts.get(note.label) || 0) + 1);
+  }
+  const emotionLabels = [...new Set([...feelings, ...counts.keys()])].slice(
+    0,
+    12,
+  );
+  const maxCount = Math.max(1, ...counts.values());
   return (
-    <div className={cx("compact-capture")}>
-      <div className={cx("capture-pill")} aria-label="Compact capture widget">
+    <div
+      className={cx("compact-capture", props.expanded && "capture-expanded")}
+    >
+      {props.expanded && (
+        <header className={cx("recorder-header")}>
+          <div>
+            <span className={cx("eyebrow")}>YOUR SESSION</span>
+            <h2>Capture the moment</h2>
+          </div>
+          <button aria-label="Close session recorder" onClick={props.onClose}>
+            ×
+          </button>
+        </header>
+      )}
+      <div
+        className={cx("capture-pill")}
+        aria-label={
+          props.expanded ? "Session recorder" : "Compact capture widget"
+        }
+      >
         <span
           className={cx("capture-reading")}
           title={fresh ? "Current measured heart rate" : "No live heart rate"}
@@ -87,6 +131,12 @@ export default function CapturePanel(props: {
           <b>{fresh ? latest.bpm : "—"}</b>
           <small>BPM</small>
         </span>
+        {props.expanded && (
+          <span className={cx("recorder-delta")}>
+            <b>{delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta}`}</b>
+            <small>BPM from baseline</small>
+          </span>
+        )}
         <button
           className={cx("capture-record")}
           aria-label={
@@ -94,7 +144,9 @@ export default function CapturePanel(props: {
           }
           disabled={busy || (c.pendingCapture && !isRecording)}
           aria-pressed={isRecording}
-          onClick={c.toggle}
+          onClick={(e) =>
+            c.toggle(e.currentTarget.ownerDocument.defaultView || window)
+          }
         >
           {isRecording ? "■" : "●"}
         </button>
@@ -107,6 +159,93 @@ export default function CapturePanel(props: {
           ⋯
         </button>
       </div>
+      {props.expanded && (
+        <>
+          <p className={cx("recorder-baseline")}>
+            {baseline?.bpm == null
+              ? "Baseline builds from your previous measured sessions."
+              : `${Math.round(baseline.bpm)} BPM baseline · ${baseline.count} previous ${baseline.count === 1 ? "session" : "sessions"}`}
+            {!fresh && <span>Waiting for live heart rate</span>}
+          </p>
+          <p className={cx("recorder-screen-state")}>
+            {c.options.screenshots
+              ? c.sharing
+                ? "Screen connected · screenshot on every recording"
+                : "Screenshot on Record · choose your screen once per session"
+              : "Automatic screenshots off"}
+          </p>
+          <div className={cx("recorder-actions")}>
+            <button
+              disabled={busy || isRecording}
+              onClick={() =>
+                props.onReflect({
+                  t: props.now,
+                  source: "voice",
+                  autoListen: true,
+                })
+              }
+            >
+              Voice dictation
+            </button>
+            {props.onScreenshot && (
+              <button
+                disabled={busy || isRecording}
+                onClick={props.onScreenshot}
+              >
+                Paste screenshot
+              </button>
+            )}
+          </div>
+          <section
+            className={cx("emotion-checkin")}
+            aria-label="Emotion check-in chart"
+          >
+            <h3>How are you feeling?</h3>
+            <p>Your saved labels · select a feeling for your next recording.</p>
+            <div className={cx("emotion-bars")}>
+              {emotionLabels.map((label, i) => (
+                <button
+                  key={label}
+                  aria-label={`${label}, ${counts.get(label) || 0} saved moments`}
+                  aria-pressed={c.feeling === label}
+                  disabled={busy || isRecording || c.pendingCapture}
+                  onClick={() =>
+                    c.chooseFeeling(c.feeling === label ? "" : label)
+                  }
+                >
+                  <span>{label}</span>
+                  <span className={cx("emotion-track")} aria-hidden="true">
+                    <i
+                      style={{
+                        width: `${((counts.get(label) || 0) / maxCount) * 100}%`,
+                        background: [
+                          "#9fc8b0",
+                          "#8cb9d5",
+                          "#c6b2d8",
+                          "#dac080",
+                          "#ed9b83",
+                          "#caa7ae",
+                        ][i % 6],
+                      }}
+                    />
+                  </span>
+                  <small>{counts.get(label) || 0}</small>
+                </button>
+              ))}
+            </div>
+            <small>
+              {c.feeling
+                ? `${c.feeling} will be saved with your recording.`
+                : "Optional · your feelings are never inferred from heart rate."}
+            </small>
+          </section>
+          {c.pending?.note.originalTranscript && (
+            <p className={cx("recorder-transcript")}>
+              {c.pending.note.originalTranscript}
+            </p>
+          )}
+        </>
+      )}
       {c.menu && (
         <div className={cx("capture-menu")} aria-label="Capture options menu">
           <b>
@@ -127,7 +266,13 @@ export default function CapturePanel(props: {
           <button onClick={() => void c.pause()}>
             {c.paused ? "Resume measurement" : "Pause measurement"}
           </button>
-          <button onClick={() => void c.chooseChart()}>
+          <button
+            onClick={(e) =>
+              void c.chooseChart(
+                e.currentTarget.ownerDocument.defaultView || window,
+              )
+            }
+          >
             {c.sharing ? "Choose a different chart" : "Choose a chart"}
           </button>
           <button onClick={c.toggleHistory}>
@@ -143,6 +288,16 @@ export default function CapturePanel(props: {
           </button>
           {settings && (
             <div className={cx("capture-settings")}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={c.options.screenshots}
+                  onChange={(e) =>
+                    c.configure({ screenshots: e.target.checked })
+                  }
+                />
+                Capture a screenshot on Record
+              </label>
               <label>
                 Automatic stop · seconds
                 <input

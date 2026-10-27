@@ -12,6 +12,10 @@ export default function ReferenceRhythm({
   phases,
   selected,
   onSelect,
+  onSeeLog,
+  showPrice,
+  onTogglePrice,
+  priceView,
 }: {
   session: Session;
   samples: Sample[];
@@ -19,6 +23,10 @@ export default function ReferenceRhythm({
   phases: Moment[];
   selected?: string;
   onSelect: (m: Moment) => void;
+  onSeeLog: (m: Moment) => void;
+  showPrice?: boolean;
+  onTogglePrice?: () => void;
+  priceView?: import("react").ReactNode;
 }) {
   const [layers, setLayers] = useState({
     hr: true,
@@ -167,6 +175,7 @@ export default function ReferenceRhythm({
         </div>
         <div className={cx("ranges")}>
           <button
+            hidden={showPrice}
             onClick={() => {
               setZoom(undefined);
               setDrag(undefined);
@@ -180,136 +189,134 @@ export default function ReferenceRhythm({
         </div>
       </div>
       <div className={cx("chart-layers")} aria-label="Chart layers">
-        {(
-          [
-            ["hr", "Heart rate"],
-            ["realised", "Realised P&L"],
-            ["unrealised", "Unrealised P&L"],
-            ["fills", "Executions"],
-            ["moments", "Moments"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            aria-pressed={layers[key]}
-            onClick={() => setLayers((v) => ({ ...v, [key]: !v[key] }))}
-          >
-            {label}
+        {onTogglePrice && (
+          <button aria-pressed={!!showPrice} onClick={onTogglePrice}>
+            Price
           </button>
-        ))}
+        )}
+        {!showPrice &&
+          (
+            [
+              ["hr", "Heart rate"],
+              ["realised", "Realised P&L"],
+              ["unrealised", "Unrealised P&L"],
+              ["fills", "Executions"],
+              ["moments", "Moments"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              aria-pressed={layers[key]}
+              onClick={() => setLayers((v) => ({ ...v, [key]: !v[key] }))}
+            >
+              {label}
+            </button>
+          ))}
       </div>
-      <svg
-        ref={svg}
-        viewBox="0 0 1000 325"
-        className={cx("rhythm-svg")}
-        role="img"
-        aria-label="Combined session timeline with BPM and currency axes"
-        onPointerDown={(e) => {
-          if ((e.target as Element).closest("[data-marker]")) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          const v = coordinate(e.clientX);
-          setDrag([v, v]);
-        }}
-        onPointerMove={(e) => {
-          const v = coordinate(e.clientX);
-          setCursor(((v - 62) / 850) * 100);
-          if (drag) setDrag([drag[0], v]);
-        }}
-        onPointerUp={(e) => {
-          if (drag && Math.abs(coordinate(e.clientX) - drag[0]) > 8)
-            setZoom([
-              timestamp(Math.min(drag[0], coordinate(e.clientX))),
-              timestamp(Math.max(drag[0], coordinate(e.clientX))),
-            ]);
-          setDrag(undefined);
-        }}
-        onPointerCancel={() => setDrag(undefined)}
-      >
-        <text x="8" y="18" fill="var(--coral)" fontSize="12">
-          BPM
-        </text>
-        <text x="930" y="18" fill="var(--green)" fontSize="12">
-          {currency}
-        </text>
-        {[0, 1, 2, 3].map((i) => (
-          <g key={i}>
-            <line
-              x1="62"
-              x2="912"
-              y1={45 + i * 75}
-              y2={45 + i * 75}
-              stroke="var(--line)"
-              strokeDasharray="3 5"
+      {showPrice ? (
+        priceView
+      ) : (
+        <svg
+          ref={svg}
+          viewBox="0 0 1000 325"
+          className={cx("rhythm-svg")}
+          role="img"
+          aria-label="Combined session timeline with BPM and currency axes"
+          onPointerDown={(e) => {
+            if ((e.target as Element).closest("[data-marker]")) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            const v = coordinate(e.clientX);
+            setDrag([v, v]);
+          }}
+          onPointerMove={(e) => {
+            const v = coordinate(e.clientX);
+            setCursor(((v - 62) / 850) * 100);
+            if (drag) setDrag([drag[0], v]);
+          }}
+          onPointerUp={(e) => {
+            if (drag && Math.abs(coordinate(e.clientX) - drag[0]) > 8)
+              setZoom([
+                timestamp(Math.min(drag[0], coordinate(e.clientX))),
+                timestamp(Math.max(drag[0], coordinate(e.clientX))),
+              ]);
+            setDrag(undefined);
+          }}
+          onPointerCancel={() => setDrag(undefined)}
+        >
+          <text x="8" y="18" fill="var(--coral)" fontSize="12">
+            BPM
+          </text>
+          <text x="930" y="18" fill="var(--green)" fontSize="12">
+            {currency}
+          </text>
+          {[0, 1, 2, 3].map((i) => (
+            <g key={i}>
+              <line
+                x1="62"
+                x2="912"
+                y1={45 + i * 75}
+                y2={45 + i * 75}
+                stroke="var(--line)"
+                strokeDasharray="3 5"
+              />
+              <text x="10" y={49 + i * 75} fill="var(--muted)" fontSize="11">
+                {Math.round(high - ((high - low) * i) / 3)}
+              </text>
+              <text x="926" y={49 + i * 75} fill="var(--muted)" fontSize="11">
+                {points.length
+                  ? Math.round(pmax - ((pmax - pmin) * i) / 3)
+                  : "—"}
+              </text>
+            </g>
+          ))}
+          {layers.hr && (
+            <path
+              data-layer="hr"
+              d={hrPath}
+              fill="none"
+              stroke="var(--coral)"
+              strokeWidth="2"
             />
-            <text x="10" y={49 + i * 75} fill="var(--muted)" fontSize="11">
-              {Math.round(high - ((high - low) * i) / 3)}
-            </text>
-            <text x="926" y={49 + i * 75} fill="var(--muted)" fontSize="11">
-              {points.length ? Math.round(pmax - ((pmax - pmin) * i) / 3) : "—"}
-            </text>
-          </g>
-        ))}
-        {layers.hr && (
-          <path
-            data-layer="hr"
-            d={hrPath}
-            fill="none"
-            stroke="var(--coral)"
-            strokeWidth="2"
-          />
-        )}
-        {layers.realised && (
-          <path
-            data-layer="realised"
-            d={path(
-              points.map((p) => ({ t: p.t, v: p.realised })),
-              py,
-              60000,
-            )}
-            fill="none"
-            stroke="var(--blue)"
-            strokeWidth="2"
-            strokeDasharray="4 3"
-          />
-        )}
-        {layers.unrealised && (
-          <path
-            data-layer="unrealised"
-            d={path(
-              points.map((p) => ({ t: p.t, v: p.unrealised })),
-              py,
-              60000,
-            )}
-            fill="none"
-            stroke="var(--green)"
-            strokeWidth="2"
-          />
-        )}
-        {layers.fills &&
-          fills
-            .filter((e) => inside(e.t))
-            .map((e) => (
-              <g
-                key={e.id}
-                data-marker="fill"
-                data-layer="fills"
-                role="button"
-                tabIndex={0}
-                aria-label={`${e.kind} ${time(e.t)}`}
-                onClick={() =>
-                  onSelect({
-                    id: e.id,
-                    t: e.t,
-                    phase: e.kind.toUpperCase(),
-                    label: e.kind,
-                    text: `${e.quantity} @ ${e.price}`,
-                    event: e,
-                    bpm: nearest(hr, e.t)?.bpm ?? null,
-                  })
-                }
-                onKeyDown={(k) => {
-                  if (k.key === "Enter" || k.key === " ") {
-                    k.preventDefault();
+          )}
+          {layers.realised && (
+            <path
+              data-layer="realised"
+              d={path(
+                points.map((p) => ({ t: p.t, v: p.realised })),
+                py,
+                60000,
+              )}
+              fill="none"
+              stroke="var(--blue)"
+              strokeWidth="2"
+              strokeDasharray="4 3"
+            />
+          )}
+          {layers.unrealised && (
+            <path
+              data-layer="unrealised"
+              d={path(
+                points.map((p) => ({ t: p.t, v: p.unrealised })),
+                py,
+                60000,
+              )}
+              fill="none"
+              stroke="var(--green)"
+              strokeWidth="2"
+            />
+          )}
+          {layers.fills &&
+            fills
+              .filter((e) => inside(e.t))
+              .map((e) => (
+                <g
+                  key={e.id}
+                  data-marker="fill"
+                  data-layer="fills"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${e.kind} ${time(e.t)}`}
+                  onClick={() =>
                     onSelect({
                       id: e.id,
                       t: e.t,
@@ -318,98 +325,120 @@ export default function ReferenceRhythm({
                       text: `${e.quantity} @ ${e.price}`,
                       event: e,
                       bpm: nearest(hr, e.t)?.bpm ?? null,
-                    });
+                    })
                   }
-                }}
-              >
-                <line
-                  x1={x(e.t)}
-                  x2={x(e.t)}
-                  y1="38"
-                  y2="275"
-                  stroke={e.kind === "exit" ? "var(--blue)" : "var(--green)"}
-                  strokeDasharray="2 6"
-                />
-                <path
-                  d={`M${x(e.t) - 5} 282 L${x(e.t) + 5} 282 L${x(e.t)} 273 Z`}
-                  fill={e.kind === "exit" ? "var(--blue)" : "var(--green)"}
-                />
-                <title>
-                  {e.kind} · {e.quantity} @ {e.price} · {time(e.t)}
-                </title>
-              </g>
-            ))}
-        {layers.moments &&
-          notes
-            .filter((n) => inside(noteTime(n)!))
-            .map((n) => (
-              <g
-                key={n.id}
-                data-marker="moment"
-                data-layer="moments"
-                role="button"
-                tabIndex={0}
-                aria-label={`Open moment ${time(noteTime(n)!)} ${n.label}`}
-                onClick={() =>
-                  onSelect({
-                    id: n.id,
-                    t: noteTime(n)!,
-                    phase: n.section || "REFLECTION",
-                    label: n.label,
-                    text: n.text,
-                    note: n,
-                    bpm: n.context?.bpm ?? null,
-                  })
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    document
-                      .getElementById("moment-" + n.id)
-                      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  onKeyDown={(k) => {
+                    if (k.key === "Enter" || k.key === " ") {
+                      k.preventDefault();
+                      onSelect({
+                        id: e.id,
+                        t: e.t,
+                        phase: e.kind.toUpperCase(),
+                        label: e.kind,
+                        text: `${e.quantity} @ ${e.price}`,
+                        event: e,
+                        bpm: nearest(hr, e.t)?.bpm ?? null,
+                      });
+                    }
+                  }}
+                >
+                  <line
+                    x1={x(e.t)}
+                    x2={x(e.t)}
+                    y1="38"
+                    y2="275"
+                    stroke={e.kind === "exit" ? "var(--blue)" : "var(--green)"}
+                    strokeDasharray="2 6"
+                  />
+                  <path
+                    d={`M${x(e.t) - 5} 282 L${x(e.t) + 5} 282 L${x(e.t)} 273 Z`}
+                    fill={e.kind === "exit" ? "var(--blue)" : "var(--green)"}
+                  />
+                  <title>
+                    {e.kind} · {e.quantity} @ {e.price} · {time(e.t)}
+                  </title>
+                </g>
+              ))}
+          {layers.moments &&
+            notes
+              .filter((n) => inside(noteTime(n)!))
+              .map((n) => (
+                <g
+                  key={n.id}
+                  data-marker="moment"
+                  data-layer="moments"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open moment ${time(noteTime(n)!)} ${n.label}`}
+                  onClick={() =>
+                    onSelect({
+                      id: n.id,
+                      t: noteTime(n)!,
+                      phase: n.section || "REFLECTION",
+                      label: n.label,
+                      text: n.text,
+                      note: n,
+                      bpm: n.context?.bpm ?? null,
+                    })
                   }
-                }}
-              >
-                <circle cx={x(noteTime(n)!)} cy="31" r="5" fill="var(--gold)" />
-                <title>
-                  {n.label}: {n.text}
-                </title>
-              </g>
-            ))}
-        {Array.from({ length: 7 }, (_, i) => (
-          <text
-            key={i}
-            x={x(start + (span * i) / 6)}
-            y="309"
-            fill="var(--muted)"
-            fontSize="11"
-            textAnchor="middle"
-          >
-            {time(start + (span * i) / 6, false)}
-          </text>
-        ))}
-        {drag && (
-          <rect
-            x={Math.min(...drag)}
-            y="40"
-            width={Math.abs(drag[1] - drag[0])}
-            height="235"
-            fill="var(--blue)"
-            opacity="0.15"
-          />
-        )}
-        {!hr.length && layers.hr && (
-          <text
-            x="487"
-            y="150"
-            textAnchor="middle"
-            fill="var(--muted)"
-            fontSize="12"
-          >
-            No measured heart rate in this range
-          </text>
-        )}
-      </svg>
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      document
+                        .getElementById("moment-" + n.id)
+                        ?.scrollIntoView({
+                          block: "center",
+                          behavior: "smooth",
+                        });
+                    }
+                  }}
+                >
+                  <circle
+                    cx={x(noteTime(n)!)}
+                    cy="31"
+                    r="5"
+                    fill="var(--gold)"
+                  />
+                  <title>
+                    {n.label}: {n.text}
+                  </title>
+                </g>
+              ))}
+          {Array.from({ length: 7 }, (_, i) => (
+            <text
+              key={i}
+              x={x(start + (span * i) / 6)}
+              y="309"
+              fill="var(--muted)"
+              fontSize="11"
+              textAnchor="middle"
+            >
+              {time(start + (span * i) / 6, false)}
+            </text>
+          ))}
+          {drag && (
+            <rect
+              x={Math.min(...drag)}
+              y="40"
+              width={Math.abs(drag[1] - drag[0])}
+              height="235"
+              fill="var(--blue)"
+              opacity="0.15"
+            />
+          )}
+          {!hr.length && layers.hr && (
+            <text
+              x="487"
+              y="150"
+              textAnchor="middle"
+              fill="var(--muted)"
+              fontSize="12"
+            >
+              No measured heart rate in this range
+            </text>
+          )}
+        </svg>
+      )}
       <small>
         {time(at)} · {point ? `${point.bpm} BPM` : "HR unavailable"} · Open P&L{" "}
         {mark?.unrealised === undefined
@@ -426,21 +455,30 @@ export default function ReferenceRhythm({
       </p>
       <div className={cx("phases")}>
         {phases.map((m) => (
-          <button
-            key={m.id}
-            className={cx(
-              "phase",
-              selected === m.phase.toLowerCase() && "active",
-            )}
-            data-phase={m.phase.toLowerCase()}
-            onClick={() => onSelect(m)}
-          >
-            <span>{m.phase}</span>
-            <strong>{time(m.t)}</strong>
-            <small>
-              {m.bpm === null ? "No measured HR" : `${Math.round(m.bpm)} BPM`}
-            </small>
-          </button>
+          <div className={cx("phase-link")} key={m.id}>
+            <button
+              className={cx(
+                "phase",
+                selected === m.phase.toLowerCase() && "active",
+              )}
+              data-phase={m.phase.toLowerCase()}
+              aria-pressed={selected === m.phase.toLowerCase()}
+              onClick={() => onSelect(m)}
+            >
+              <span>{m.phase}</span>
+              <strong>{time(m.t)}</strong>
+              <small>
+                {m.bpm === null ? "No measured HR" : `${Math.round(m.bpm)} BPM`}
+              </small>
+            </button>
+            <button
+              className={cx("see-log")}
+              aria-label={`See ${m.phase.toLowerCase()} log`}
+              onClick={() => onSeeLog(m)}
+            >
+              See log <span aria-hidden="true">↗</span>
+            </button>
+          </div>
         ))}
       </div>
     </section>
