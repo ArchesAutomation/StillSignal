@@ -431,9 +431,14 @@ export function useMomentCapture({
         (startedLive && !activeRef.current)
       ) {
         share.current?.getTracks().forEach((t) => t.stop());
+        share.current = null;
+        video.current = null;
         draft.current = undefined;
-        setPending(undefined);
-        setPhase("idle");
+        if (alive.current) {
+          setSharing(false);
+          setPending(undefined);
+          setPhase("idle");
+        }
         return;
       }
       if (!optionsRef.current.screenshots)

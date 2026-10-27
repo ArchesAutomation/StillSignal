@@ -142,11 +142,13 @@ test("Record requests screen sharing once, captures each press, saves the chosen
     addEventListener() {},
   };
   const share = { getTracks: () => [track], getVideoTracks: () => [track] };
+  let screenPermission: Promise<void> | undefined;
   Object.defineProperty(dom.window.navigator, "mediaDevices", {
     value: {
       getDisplayMedia: async () => {
         chooses++;
         if (denied) throw Error("Permission denied");
+        if (screenPermission) await screenPermission;
         track.readyState = "live";
         return share;
       },
@@ -258,6 +260,26 @@ test("Record requests screen sharing once, captures each press, saves the chosen
     assert.ok(saves[2].audio);
     assert.equal(saves[2].capture!.imagePath, undefined);
     assert.match(saves[2].capture!.imageMissing!, /cancelled or unavailable/);
+    denied = false;
+    let allowScreen!: () => void;
+    screenPermission = new Promise<void>((resolve) => {
+      allowScreen = resolve;
+    });
+    await act(async () => c.toggle());
+    assert.equal(c.phase, "starting");
+    active = false;
+    await act(async () => root.render(createElement(Harness)));
+    await act(async () => {
+      allowScreen();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(c.phase, "idle");
+    assert.equal(c.sharing, false);
+    assert.equal(
+      audioStarts,
+      3,
+      "ending during the screen picker must not start a microphone",
+    );
   } finally {
     await act(async () => root.unmount());
     dom.window.close();
