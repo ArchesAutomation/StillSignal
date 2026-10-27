@@ -529,6 +529,8 @@ export default function Journal(
           baselineSeconds={p.settings.baselineSeconds}
           phases={phases}
           selected={selectedPhase}
+          phaseWindow={phaseWindow}
+          selectedTime={current.t}
           showPrice={showPrice}
           onTogglePrice={() => setShowPrice((v) => !v)}
           priceView={

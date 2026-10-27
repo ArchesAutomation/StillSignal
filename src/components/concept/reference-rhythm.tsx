@@ -5,12 +5,15 @@ import { money } from "@/lib/model";
 import { downsample, nearest } from "@/lib/analytics";
 import { noteTime } from "@/lib/journal-routing";
 import { pnlExposure } from "@/lib/session-timeline";
+import { phaseColors } from "@/lib/phase-colors";
 import { cx, time, type Moment } from "./shared";
 export default function ReferenceRhythm({
   session,
   samples,
   phases,
   selected,
+  phaseWindow,
+  selectedTime,
   onSelect,
   onSeeLog,
   showPrice,
@@ -22,6 +25,8 @@ export default function ReferenceRhythm({
   baselineSeconds: number;
   phases: Moment[];
   selected?: string;
+  phaseWindow?: [number, number];
+  selectedTime?: number;
   onSelect: (m: Moment) => void;
   onSeeLog: (m: Moment) => void;
   showPrice?: boolean;
@@ -40,6 +45,17 @@ export default function ReferenceRhythm({
     [wide, setWide] = useState(false),
     [cursor, setCursor] = useState(50);
   const svg = useRef<SVGSVGElement>(null);
+  const phaseStart = phaseWindow?.[0],
+    phaseEnd = phaseWindow?.[1];
+  useEffect(() => {
+    // A stage selected outside a dragged zoom must still be visible.
+    if (phaseStart === undefined || phaseEnd === undefined) return;
+    setZoom((current) =>
+      current && (phaseEnd < current[0] || phaseStart > current[1])
+        ? undefined
+        : current,
+    );
+  }, [session.id, selected, phaseStart, phaseEnd, selectedTime]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") setWide(false);
@@ -269,6 +285,50 @@ export default function ReferenceRhythm({
               </text>
             </g>
           ))}
+          {phaseWindow &&
+            selected &&
+            phaseWindow[1] >= start &&
+            phaseWindow[0] <= end && (
+              <g
+                data-phase-highlight={selected}
+                pointerEvents="none"
+                aria-label={`${selected} highlighted on chart`}
+              >
+                <rect
+                  x={Math.max(62, x(phaseWindow[0]))}
+                  y="40"
+                  width={Math.max(
+                    2,
+                    Math.min(912, x(phaseWindow[1])) -
+                      Math.max(62, x(phaseWindow[0])),
+                  )}
+                  height="235"
+                  fill={phaseColors[selected] || phaseColors.reflection}
+                  fillOpacity="0.18"
+                  stroke={phaseColors[selected] || phaseColors.reflection}
+                  strokeOpacity="0.65"
+                />
+                {selectedTime !== undefined && inside(selectedTime) && (
+                  <line
+                    x1={x(selectedTime)}
+                    x2={x(selectedTime)}
+                    y1="40"
+                    y2="275"
+                    stroke={phaseColors[selected] || phaseColors.reflection}
+                    strokeWidth="2"
+                    strokeDasharray="4 4"
+                  />
+                )}
+                <text
+                  x={Math.min(820, Math.max(68, x(phaseWindow[0]) + 6))}
+                  y="56"
+                  fill={phaseColors[selected] || phaseColors.reflection}
+                  fontSize="11"
+                >
+                  {selected[0].toUpperCase() + selected.slice(1)}
+                </text>
+              </g>
+            )}
           {layers.hr && (
             <path
               data-layer="hr"
