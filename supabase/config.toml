@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.pulse-extension]
 verify_jwt = false
+
+[functions.pulse-process]
+verify_jwt = false

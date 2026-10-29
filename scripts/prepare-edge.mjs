@@ -55,6 +55,7 @@ for (const [name, source] of [
   ["pulse-market", "market"],
   ["pulse-broker-webhook", "broker-webhook"],
   ["pulse-extension", "extension"],
+  ["pulse-process", "process"],
 ]) {
   const directory = "supabase/functions/" + name;
   await mkdir(directory, { recursive: true });
@@ -84,17 +85,17 @@ for (const [name, source] of [
     edge(await readFile("src/lib/handlers/" + source + ".ts", "utf8")),
   );
   await writeFile(directory + "/server.ts", edgeServer);
-  for (const file of source === "extension"
+  for (const file of source === "process" ? ["model.ts", "validation.ts", "trade-context.ts", "smart-journal.ts", "analytics.ts"] : source === "extension"
     ? ["model.ts", "validation.ts", "journal-command.ts"]
     : ["model.ts", "validation.ts", "analytics.ts", "trade-context.ts"])
     await writeFile(
       directory + "/" + file,
       edge(await readFile("src/lib/" + file, "utf8")),
     );
-  for (const sub of source === "extension" ? [] : ["brokers", "market"]) {
+  for (const sub of source === "process" ? ["process", "environment"] : source === "extension" ? [] : ["brokers", "market"]) {
     await mkdir(directory + "/" + sub, { recursive: true });
     for (const file of await readdir("src/lib/" + sub)) {
-      if (!file.endsWith(".ts")) continue;
+      if (!file.endsWith(".ts") || source === "process" && file === "storage.ts") continue;
       await writeFile(
         directory + "/" + sub + "/" + file,
         edge(await readFile("src/lib/" + sub + "/" + file, "utf8"), ".."),
@@ -114,4 +115,4 @@ for (const [name, source] of [
     ) + "\n",
   );
 }
-console.log("Prepared six source-generated Supabase Edge Functions.");
+console.log("Prepared seven source-generated Supabase Edge Functions.");
