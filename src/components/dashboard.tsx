@@ -81,14 +81,7 @@ import TodayReview from "./today-review";
 import JournalInsights from "./journal-insights";
 import { removeScreenshot } from "@/lib/screenshots";
 import type { CsvDestination } from "@/lib/csv-session";
-type Tab =
-  | "Overview"
-  | "Sessions"
-  | "Journal"
-  | "Patterns"
-  | "Stillness"
-  | "Connections"
-  | "Settings";
+type Tab = import("./concept/shared").Page;
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(s / 3600)
@@ -205,7 +198,7 @@ export default function Dashboard({
     "Timeline",
   );
   const [mobileNav, setMobileNav] = useState(false);
-  const [tab, setTab] = useState<Tab>("Journal"),
+  const [tab, setTab] = useState<Tab>(initialSession ? "Journal" : "Command Center"),
     [modal, setModal] = useState<
       "trade" | "note" | "delete" | "csv" | "moment" | null
     >(null),

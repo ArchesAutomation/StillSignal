@@ -1,4 +1,11 @@
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
+async function writeServer(path, source) {
+  const previous = await readFile(path, "utf8").catch(() => "");
+  await writeFile(
+    path,
+    previous.includes("\r\n") ? source.replace(/\r?\n/g, "\r\n") : source,
+  );
+}
 const common = await readFile("src/lib/server.ts", "utf8");
 const edgeServer = common
   .replace('"@supabase/supabase-js"', '"npm:@supabase/supabase-js@2.117.3"')
@@ -34,7 +41,7 @@ for (const [name, source] of [
     await readFile("src/lib/model.ts", "utf8"),
   );
   await writeFile(`${directory}/handler.ts`, handler);
-  await writeFile(`${directory}/server.ts`, edgeServer);
+  await writeServer(`${directory}/server.ts`, edgeServer);
   await writeFile(`${directory}/validation.ts`, validation);
   await writeFile(
     `${directory}/index.ts`,
@@ -84,18 +91,34 @@ for (const [name, source] of [
     directory + "/handler.ts",
     edge(await readFile("src/lib/handlers/" + source + ".ts", "utf8")),
   );
-  await writeFile(directory + "/server.ts", edgeServer);
-  for (const file of source === "process" ? ["model.ts", "validation.ts", "trade-context.ts", "smart-journal.ts", "analytics.ts"] : source === "extension"
-    ? ["model.ts", "validation.ts", "journal-command.ts"]
-    : ["model.ts", "validation.ts", "analytics.ts", "trade-context.ts"])
+  await writeServer(directory + "/server.ts", edgeServer);
+  for (const file of source === "process"
+    ? [
+        "model.ts",
+        "validation.ts",
+        "trade-context.ts",
+        "smart-journal.ts",
+        "analytics.ts",
+      ]
+    : source === "extension"
+      ? ["model.ts", "validation.ts", "journal-command.ts"]
+      : ["model.ts", "validation.ts", "analytics.ts", "trade-context.ts"])
     await writeFile(
       directory + "/" + file,
       edge(await readFile("src/lib/" + file, "utf8")),
     );
-  for (const sub of source === "process" ? ["process", "environment"] : source === "extension" ? [] : ["brokers", "market"]) {
+  for (const sub of source === "process"
+    ? ["process", "environment"]
+    : source === "extension"
+      ? []
+      : ["brokers", "market"]) {
     await mkdir(directory + "/" + sub, { recursive: true });
     for (const file of await readdir("src/lib/" + sub)) {
-      if (!file.endsWith(".ts") || source === "process" && file === "storage.ts") continue;
+      if (
+        !file.endsWith(".ts") ||
+        (source === "process" && file === "storage.ts")
+      )
+        continue;
       await writeFile(
         directory + "/" + sub + "/" + file,
         edge(await readFile("src/lib/" + sub + "/" + file, "utf8"), ".."),

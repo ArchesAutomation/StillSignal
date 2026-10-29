@@ -10,12 +10,22 @@ import Journal from "./journal";
 import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
 import Overview from "./overview";
+import ProcessWorkspace from "../command-center/workspace";
 import Stillness, { reflections } from "./stillness";
 const navigation: [Page, string, string][] = [
-  ["Overview", "⌂", "Overview"],
+  ["Command Center", "⌂", "Command Center"],
+  ["Pre-Market", "✓", "Pre-Market"],
+  ["Trading Thesis", "◈", "Trading Thesis"],
+  ["Trade Quality", "◇", "Trade Quality"],
+  ["Live Session", "⌁", "Live Session"],
   ["Journal", "▣", "Daily journal"],
-  ["Patterns", "⌁", "Heart-rate analytics"],
+  ["Patterns", "⌁", "Patterns"],
+  ["Rule Violations", "!", "Rule Violations"],
+  ["Overview", "↗", "Performance"],
+  ["Audits", "☷", "Audits"],
+  ["Missions", "◎", "Missions"],
   ["Sessions", "◴", "Sessions"],
+  ["Settings & Variables", "⚙", "Settings & Variables"],
   ["Stillness", "◌", "Stillness"],
   ["Connections", "↗", "Connections"],
 ];
@@ -61,7 +71,7 @@ export default function ConceptWorkspace(props: Props) {
   const go = (next: Page) => {
     if (next !== "Journal") setFocusTime(undefined);
     if (next === "Stillness" && page !== "Stillness") setWelcome(true);
-    if (next === "Journal") setView("story");
+    if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
   };
@@ -85,7 +95,7 @@ export default function ConceptWorkspace(props: Props) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setWhisper(""), 5200);
   };
-  const journal = page === "Journal" || page === "Patterns";
+  const journal = page === "Journal" || page === "Patterns" || page === "Live Session";
   const ws = weekStart(s.startedAt, week),
     we = new Date(ws);
   we.setDate(we.getDate() + 6);
@@ -127,7 +137,7 @@ export default function ConceptWorkspace(props: Props) {
               className={cx(page === name && "active")}
               aria-current={page === name ? "page" : undefined}
               onClick={() => go(name)}
-              aria-label={label}
+              aria-label={name === "Overview" ? "Overview" : name === "Patterns" ? "Heart-rate analytics" : label}
               title={label}
             >
               <span className={cx("navicon")}>{icon}</span>
@@ -168,7 +178,7 @@ export default function ConceptWorkspace(props: Props) {
       <main>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            Workspace <b>/ {journal ? "Daily journal" : page}</b>
+            Workspace <b>/ {page === "Overview" ? "Performance" : page === "Journal" ? "Daily journal" : page}</b>
           </div>
           <div className={cx("topactions")}>
             <details className={cx("tools")}><summary className={cx("iconbtn")} aria-label="Session tools">⋯</summary>
@@ -203,6 +213,8 @@ export default function ConceptWorkspace(props: Props) {
                   + Add reflection
                 </button>
               </>
+            ) : page === "Command Center" ? (
+              <button className={cx("primary")} onClick={() => void act(p.active ? p.stop : p.start)}>{p.active ? "End session" : "Start session"}</button>
             ) : page === "Overview" ? (
               <>
                 <button className={cx("ghost")} onClick={() => go("Patterns")}>
@@ -264,6 +276,7 @@ export default function ConceptWorkspace(props: Props) {
             </button>
           </div>
         )}
+        {<ProcessWorkspace key={p.owner} {...viewProps} />}
         {page === "Overview" && <Overview {...viewProps} onReview={review} />}
         <div hidden={!journal}>
           {journal && (
@@ -442,7 +455,7 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
-        {navigation.slice(0, 5).map(([name, , label]) => (
+        {navigation.map(([name, , label]) => (
           <button
             className={cx(page === name && "active")}
             key={name}

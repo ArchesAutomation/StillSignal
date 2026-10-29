@@ -11,6 +11,15 @@ export const cx = (...names: (string | false | undefined)[]) =>
     .map((n) => "ss-" + n)
     .join(" ");
 export type Page =
+  | "Command Center"
+  | "Pre-Market"
+  | "Trading Thesis"
+  | "Trade Quality"
+  | "Live Session"
+  | "Rule Violations"
+  | "Audits"
+  | "Missions"
+  | "Settings & Variables"
   | "Overview"
   | "Journal"
   | "Patterns"
