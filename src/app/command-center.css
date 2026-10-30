@@ -1179,9 +1179,14 @@
   z-index: 20;
   border: 1px solid #a6e6cf;
   box-shadow:
-    0 24px 64px #0009,
-    0 0 0 2px #8dcab540;
+    0 32px 72px #000b,
+    0 10px 24px #0007,
+    0 0 0 2px #8dcab560;
   will-change: transform, width, height;
+}
+.cc-canvas .cc-tile-move {
+  transform-origin: top left;
+  cursor: grabbing;
 }
 .cc-canvas .cc-card-controls {
   flex-shrink: 0;

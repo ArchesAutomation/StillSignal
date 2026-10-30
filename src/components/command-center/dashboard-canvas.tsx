@@ -233,14 +233,8 @@ export default function DashboardCanvas({
     } else preview = placeCard(g.layout, g.grid, g.id, target);
     return {
       ...g,
-      dx:
-        g.mode === "move"
-          ? clamp(
-              dx,
-              -g.start.x * g.column,
-              (12 - g.start.x - g.start.w) * g.column,
-            )
-          : dx,
+      // The held tile follows the pointer; only its landing position is bounded.
+      dx,
       dy,
       preview,
       target,
@@ -253,7 +247,7 @@ export default function DashboardCanvas({
     if (!current) return;
     const g = calculate(current);
     live.current = g;
-    setGesture(g.moved ? { ...g } : null);
+    setGesture({ ...g });
     if (g.moved) {
       const before = window.scrollY;
       if (g.clientY > innerHeight - 60) window.scrollBy(0, 14);
@@ -267,7 +261,7 @@ export default function DashboardCanvas({
     id: CardId,
     mode: Gesture["mode"],
   ) => {
-    if (disabled || !editing || event.button !== 0 || !root.current) return;
+    if (disabled || !editing || event.button !== 0 || !root.current || live.current) return;
     event.preventDefault();
     event.currentTarget.focus();
     const node = event.currentTarget.closest<HTMLElement>("[data-card]")!;
@@ -298,6 +292,8 @@ export default function DashboardCanvas({
       moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
+    // Lift immediately on grab, without committing a move until the threshold is crossed.
+    if (mode === "move") setGesture({ ...live.current });
     onInteracting(true);
   };
   const handlers = (id: CardId, mode: Gesture["mode"]) => ({
@@ -390,7 +386,7 @@ export default function DashboardCanvas({
         const style: CSSProperties = { ...boxStyle(placement) };
         if (active) {
           if (gesture.mode === "move")
-            style.transform = `translate3d(${mobile ? 0 : gesture.dx}px,${gesture.dy}px,0) scale(1.015)`;
+            style.transform = `translate3d(${gesture.dx}px,${gesture.dy}px,0) scale(${reduceMotion() ? 1 : 1.035})`;
           else {
             style.width = mobile
               ? "100%"
