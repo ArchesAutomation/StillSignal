@@ -42,6 +42,7 @@ import {
   Menu,
 } from "lucide-react";
 import ConceptWorkspace from "./concept/workspace";
+import PageCustomizer from "./page-customizer";
 import BlueprintPreferences from "./blueprint-preferences";
 import PhaseLabelPreferences from "./phase-label-preferences";
 import SignalCalendar from "./signal-calendar";
@@ -618,6 +619,7 @@ export default function Dashboard({
             <X size={20} />
           </button>
         </div>
+        {legacyOpen && <PageCustomizer key={p.owner + tab + (todayReview ? "review" : "tools")} scope={legacyDialog} owner={p.owner} page={tab + (todayReview ? " review" : " tools")} />}
         <div className="app-shell">
           {mobileNav && (
             <button

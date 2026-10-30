@@ -292,7 +292,7 @@ export default function Journal(
         <div className={cx("space-title")}>
           <div>
             <div className={cx("eyebrow")}>A record you can return to</div>
-            <h1>Your day, in your words.</h1>
+            <h2>Your day, in your words.</h2>
             <p>
               {new Date(s.startedAt).toLocaleDateString("en-GB", {
                 weekday: "long",
