@@ -325,7 +325,8 @@ test("one keyboard action captures retained audio without a label; failed save r
     await act(async () => controller.toggle());
     // IndexedDB audio persistence finishes asynchronously; wait for the actual
     // failed-save state instead of assuming a loaded CI runner finishes in 50ms.
-    for (let i = 0; i < 200 && controller.phase !== "failed"; i++)
+    const saveFailed = () => controller.phase === "failed";
+    for (let i = 0; i < 200 && !saveFailed(); i++)
       await act(async () => {
         await new Promise((r) => setTimeout(r, 10));
       });
