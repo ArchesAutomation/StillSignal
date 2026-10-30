@@ -323,9 +323,12 @@ test("one keyboard action captures retained audio without a label; failed save r
     });
     assert.equal(starts, 1);
     await act(async () => controller.toggle());
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
+    // IndexedDB audio persistence finishes asynchronously; wait for the actual
+    // failed-save state instead of assuming a loaded CI runner finishes in 50ms.
+    for (let i = 0; i < 200 && controller.phase !== "failed"; i++)
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
     assert.equal(controller.phase, "failed");
     assert.equal(attempts[0].label, "Unlabelled");
     assert.equal(attempts[0].transcriptStatus, "unavailable");
