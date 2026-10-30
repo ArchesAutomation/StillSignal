@@ -202,3 +202,21 @@ default replacement, stale saves, owner isolation, PostgreSQL layout RLS,
 mouse drag, mobile moves, widths, variable selection, undo/cancel, failed-storage
 recovery, in-app draft retention, empty dashboard recovery and persistence after
 reload. The browser walkthrough also retains the existing process/journal checks.
+
+### Fluid canvas editing
+
+Cards use a twelve-column canvas with independently saved x/y positions, width and
+height. Dragging lifts the card above its neighbors and previews the landing area;
+colliding neighbors slide down. Empty spaces remain available for deliberate layouts.
+The bottom-right corner handle resizes both dimensions with readable minimum sizes.
+On narrow screens cards stack in reading order and the handle changes height.
+Content inside a small card scrolls, so resizing never removes its source content.
+
+Hover, rearrangement and drop/resize settling use short animations. Reduced-motion
+preferences disable nonessential motion. Resize handles also support arrow keys
+(Shift for larger steps); move arrows remain available. Escape or pointer cancellation
+abandons the current gesture. A complete drag or resize produces one undo entry.
+Existing layouts without geometry still pack in their saved order and size themselves
+from content. Explicit geometry is only written after a layout interaction; it uses
+optional bounded fields in the existing layout record and requires the regenerated
+pulse-process validator. No database migration or new application dependency is added.

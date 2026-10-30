@@ -1,26 +1,16 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  EyeOff,
-  GripVertical,
-  Maximize2,
-  Minimize2,
-  Pencil,
-  Plus,
-  Undo2,
-} from "lucide-react";
+import { Pencil, Plus, Undo2 } from "lucide-react";
+import DashboardCanvas from "./dashboard-canvas";
 import { latest, type RecordOf } from "@/lib/process/model";
 import {
   cards,
   dashboardRecords,
   freshDashboard,
-  moveCard,
   normalizeLayout,
   statusLabels,
-  type CardId,
   type DashboardLayout,
+  type CardId,
 } from "@/lib/process/dashboard";
 import type { ProcessStore } from "./use-process";
 import { Field } from "./shared";
@@ -66,10 +56,7 @@ export default function DashboardBoard({
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
   const [message, setMessage] = useState("");
-  const [dropTarget, setDropTarget] = useState<CardId>();
-  const pointer = useRef<{ id: CardId; x: number; y: number; to?: CardId }>(
-    null,
-  );
+  const [interacting, setInteracting] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const wasEditing = useRef(false);
@@ -128,16 +115,6 @@ export default function DashboardBoard({
     setAdding(false);
     setUndo([]);
   };
-  const move = (id: CardId, to: CardId) =>
-    change(moveCard(layout, id, to), cards[id].title + " moved.");
-  const updateCard = (
-    id: CardId,
-    patch: Partial<DashboardLayout["panels"][number]>,
-  ) =>
-    change({
-      ...layout,
-      panels: layout.panels.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    });
   return (
     <div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
       <div className="cc-dashboard-toolbar">
@@ -146,11 +123,11 @@ export default function DashboardBoard({
             <div className="cc-dashboard-editor-title">
               <Pencil size={16} />
               <strong>Make this dashboard yours</strong>
-              <span>Move, resize or hide cards. Save when it feels right.</span>
+              <span>Drag cards to move them. Pull a corner to resize.</span>
             </div>
             <div className="cc-actions">
               <button
-                disabled={!undo.length || store.busy}
+                disabled={!undo.length || store.busy || interacting}
                 onClick={() => {
                   setDraft(undo.at(-1));
                   setUndo((rows) => rows.slice(0, -1));
@@ -170,7 +147,9 @@ export default function DashboardBoard({
               </button>
               <button
                 className="cc-primary"
-                disabled={store.busy || stale || !draft.name.trim()}
+                disabled={
+                  store.busy || interacting || stale || !draft.name.trim()
+                }
                 onClick={async () => {
                   const { record, batch } = dashboardRecords(
                     draft,
@@ -312,116 +291,14 @@ export default function DashboardBoard({
           ))}
         </div>
       )}
-      <div className="cc-dashboard-grid" aria-label="Dashboard cards">
-        {visible.map((p, i) => (
-          <div
-            key={p.id}
-            data-card={p.id}
-            className={`cc-dashboard-card cc-slot-${p.id} ${p.width === "wide" ? "cc-span-all" : ""} ${dropTarget === p.id ? "cc-drop-target" : ""}`}
-          >
-            {draft && (
-              <div
-                className="cc-card-controls"
-                role="group"
-                aria-label={cards[p.id].title + " controls"}
-              >
-                <button
-                  className="cc-drag-handle"
-                  disabled={store.busy}
-                  aria-label={"Drag " + cards[p.id].title}
-                  title="Drag to move, or use the arrows"
-                  onPointerDown={(e) => {
-                    if (e.button !== 0) return;
-                    pointer.current = { id: p.id, x: e.clientX, y: e.clientY };
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                  }}
-                  onPointerMove={(e) => {
-                    const start = pointer.current;
-                    if (
-                      !start ||
-                      Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6
-                    )
-                      return;
-                    const element = document
-                      .elementFromPoint(e.clientX, e.clientY)
-                      ?.closest<HTMLElement>("[data-card]");
-                    const id = element?.dataset.card as CardId | undefined;
-                    start.to =
-                      id && id in cards && id !== start.id ? id : undefined;
-                    setDropTarget(start.to);
-                    // Keep long dashboards movable without requiring a mouse wheel.
-                    if (e.clientY > window.innerHeight - 70)
-                      window.scrollBy(0, 18);
-                    else if (e.clientY < 90) window.scrollBy(0, -18);
-                  }}
-                  onPointerUp={(e) => {
-                    const start = pointer.current;
-                    if (start?.to) move(start.id, start.to);
-                    pointer.current = null;
-                    setDropTarget(undefined);
-                    if (e.currentTarget.hasPointerCapture(e.pointerId))
-                      e.currentTarget.releasePointerCapture(e.pointerId);
-                  }}
-                  onPointerCancel={() => {
-                    pointer.current = null;
-                    setDropTarget(undefined);
-                  }}
-                >
-                  <GripVertical size={16} />
-                </button>
-                <span>{cards[p.id].title}</span>
-                <button
-                  aria-label={"Move " + cards[p.id].title + " up"}
-                  title="Move up"
-                  disabled={!i || store.busy}
-                  onClick={() => move(p.id, visible[i - 1].id)}
-                >
-                  <ArrowUp size={16} />
-                </button>
-                <button
-                  aria-label={"Move " + cards[p.id].title + " down"}
-                  title="Move down"
-                  disabled={i === visible.length - 1 || store.busy}
-                  onClick={() => move(p.id, visible[i + 1].id)}
-                >
-                  <ArrowDown size={16} />
-                </button>
-                <button
-                  aria-label={
-                    "Make " +
-                    cards[p.id].title +
-                    (p.width === "wide" ? " single column" : " full width")
-                  }
-                  title={p.width === "wide" ? "Single column" : "Full width"}
-                  disabled={store.busy}
-                  onClick={() =>
-                    updateCard(p.id, {
-                      width: p.width === "wide" ? "normal" : "wide",
-                    })
-                  }
-                >
-                  {p.width === "wide" ? (
-                    <Minimize2 size={16} />
-                  ) : (
-                    <Maximize2 size={16} />
-                  )}
-                </button>
-                <button
-                  aria-label={"Hide " + cards[p.id].title}
-                  title="Hide card"
-                  disabled={store.busy}
-                  onClick={() => {
-                    updateCard(p.id, { visible: false });
-                    setMessage(
-                      cards[p.id].title +
-                        " hidden. Use Add cards to bring it back.",
-                    );
-                  }}
-                >
-                  <EyeOff size={16} />
-                </button>
-              </div>
-            )}
+      <DashboardCanvas
+        layout={layout}
+        editing={editing}
+        disabled={store.busy}
+        onChange={change}
+        onInteracting={setInteracting}
+        renderContent={(p) => (
+          <>
             <div
               className={draft ? "cc-card-preview" : "cc-card-content"}
               inert={!!draft}
@@ -474,9 +351,9 @@ export default function DashboardBoard({
                 )}
               </fieldset>
             )}
-          </div>
-        ))}
-      </div>
+          </>
+        )}
+      />
       {!visible.length && (
         <div className="cc-dashboard-empty">
           <strong>A little breathing room.</strong>
