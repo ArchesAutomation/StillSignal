@@ -20,22 +20,21 @@ import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
 const navigation: [Page, string, string][] = [
   ["Command Center", "⌂", "Command Center"],
-  ["Pre-Market", "✓", "Pre-Market"],
-  ["Trading Thesis", "◈", "Trading Thesis"],
-  ["Trade Quality", "◇", "Trade Quality"],
-  ["Live Session", "⌁", "Live Session"],
   ["Journal", "▣", "Daily journal"],
   ["Patterns", "⌁", "Patterns"],
-  ["Rule Violations", "!", "Rule Violations"],
-  ["Overview", "↗", "Performance"],
-  ["Audits", "☷", "Audits"],
-  ["Missions", "◎", "Missions"],
-  ["Sessions", "◴", "Sessions"],
-  ["Settings & Variables", "⚙", "Settings & Variables"],
   ["Stillness", "◌", "Stillness"],
-  ["Prepare", "⌂", "Session intentions"],
   ["Settings", "⚙", "Settings"],
-  ["Connections", "↗", "Connections"],
+];
+const commandPages: Page[] = [
+  "Command Center",
+  "Pre-Market",
+  "Trading Thesis",
+  "Trade Quality",
+  "Rule Violations",
+  "Audits",
+  "Missions",
+  "Settings & Variables",
+  "Prepare",
 ];
 export default function ConceptWorkspace(props: Props) {
   const { pulse: p, session: s, history, page } = props;
@@ -45,13 +44,28 @@ export default function ConceptWorkspace(props: Props) {
   const [reviewWeek, setReviewWeek] = useState<string>();
   const capturePending = props.capture?.pendingCapture || false;
   const previousActive = useRef(p.active);
-  useEffect(()=>{
-    const close=(e:Event)=>document.querySelectorAll<HTMLDetailsElement>(".ss-reference-tools[open]").forEach(menu=>{
-      if(e.type==="keydown" ? (e as KeyboardEvent).key==="Escape" : !menu.contains(e.target as Node) || (e.type==="click" && (e.target as Element).closest("button")))menu.open=false;
-    });
-    document.addEventListener("pointerdown",close);document.addEventListener("click",close);document.addEventListener("keydown",close);
-    return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("click",close);document.removeEventListener("keydown",close);};
-  },[]);
+  useEffect(() => {
+    const close = (e: Event) =>
+      document
+        .querySelectorAll<HTMLDetailsElement>(".ss-reference-tools[open]")
+        .forEach((menu) => {
+          if (
+            e.type === "keydown"
+              ? (e as KeyboardEvent).key === "Escape"
+              : !menu.contains(e.target as Node) ||
+                (e.type === "click" && (e.target as Element).closest("button"))
+          )
+            menu.open = false;
+        });
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, []);
   useEffect(() => {
     if (
       previousActive.current &&
@@ -159,7 +173,8 @@ export default function ConceptWorkspace(props: Props) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setWhisper(""), 5200);
   };
-  const journal = page === "Journal" || page === "Patterns" || page === "Live Session";
+  const journal =
+    page === "Journal" || page === "Patterns" || page === "Live Session";
   const ws = weekStart(s.startedAt, week),
     we = new Date(ws);
   we.setDate(we.getDate() + 6);
@@ -178,7 +193,10 @@ export default function ConceptWorkspace(props: Props) {
   return (
     <div className={cx("app", "reference-app")}>
       <header className={cx("reference-topbar")}>
-        <button className={cx("reference-brand")} onClick={() => go("Command Center")}>
+        <button
+          className={cx("reference-brand")}
+          onClick={() => go("Command Center")}
+        >
           <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <circle cx="16" cy="16" r="14" stroke="currentColor" />
             <path d="M3 17h7l3-8 6 15 3-7h7" stroke="currentColor" />
@@ -187,16 +205,25 @@ export default function ConceptWorkspace(props: Props) {
         </button>
         <nav className={cx("reference-nav")} aria-label="Main navigation">
           {navigation.map(([name, , label]) => (
-              <button
-                key={name}
-                aria-label={name === "Patterns" ? "Heart-rate analytics" : label}
-                aria-current={page === name ? "page" : undefined}
-                className={cx(page === name && "active")}
-                onClick={() => go(name)}
-              >
-                {label}
-              </button>
-            ))}
+            <button
+              key={name}
+              aria-label={name === "Patterns" ? "Heart-rate analytics" : label}
+              aria-current={
+                page === name ||
+                (name === "Command Center" && commandPages.includes(page))
+                  ? "page"
+                  : undefined
+              }
+              className={cx(
+                (page === name ||
+                  (name === "Command Center" && commandPages.includes(page))) &&
+                  "active",
+              )}
+              onClick={() => go(name)}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
         <div className={cx("reference-top-actions")}>
           <button
@@ -258,10 +285,25 @@ export default function ConceptWorkspace(props: Props) {
           {navigation.map(([name, icon, label]) => (
             <button
               key={name}
-              className={cx(page === name && "active")}
-              aria-current={page === name ? "page" : undefined}
+              className={cx(
+                (page === name ||
+                  (name === "Command Center" && commandPages.includes(page))) &&
+                  "active",
+              )}
+              aria-current={
+                page === name ||
+                (name === "Command Center" && commandPages.includes(page))
+                  ? "page"
+                  : undefined
+              }
               onClick={() => go(name)}
-              aria-label={name === "Overview" ? "Overview" : name === "Patterns" ? "Heart-rate analytics" : label}
+              aria-label={
+                name === "Overview"
+                  ? "Overview"
+                  : name === "Patterns"
+                    ? "Heart-rate analytics"
+                    : label
+              }
               title={label}
             >
               <span className={cx("navicon")}>{icon}</span>
@@ -302,7 +344,15 @@ export default function ConceptWorkspace(props: Props) {
       <main>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            Workspace <b>/ {page === "Overview" ? "Performance" : page === "Journal" ? "Daily journal" : page}</b>
+            Workspace{" "}
+            <b>
+              /{" "}
+              {page === "Overview"
+                ? "Performance"
+                : page === "Journal"
+                  ? "Daily journal"
+                  : page}
+            </b>
           </div>
           <div className={cx("topactions")}>
             <details className={cx("tools")}>
@@ -359,7 +409,12 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
               </>
             ) : page === "Command Center" ? (
-              <button className={cx("primary")} onClick={() => void act(p.active ? p.stop : p.start)}>{p.active ? "End session" : "Start session"}</button>
+              <button
+                className={cx("primary")}
+                onClick={() => void act(p.active ? p.stop : p.start)}
+              >
+                {p.active ? "End session" : "Start session"}
+              </button>
             ) : page === "Overview" ? (
               <>
                 <button className={cx("ghost")} onClick={() => go("Patterns")}>
@@ -774,7 +829,11 @@ export default function ConceptWorkspace(props: Props) {
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (
           <button
-            className={cx(page === name && "active")}
+            className={cx(
+              (page === name ||
+                (name === "Command Center" && commandPages.includes(page))) &&
+                "active",
+            )}
             key={name}
             onClick={() => go(name)}
           >

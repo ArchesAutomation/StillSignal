@@ -68,14 +68,40 @@ try {
     errors = [],
     checks = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  const nav = (name) =>
-    page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("button", {
-        name: name === "Patterns" ? "Heart-rate analytics" : name,
-        exact: true,
-      })
+  const nav = async (name) => {
+    const main = page.getByRole("navigation", {
+      name: "Main navigation",
+      exact: true,
+    });
+    const primary = main.getByRole("button", {
+      name: name === "Patterns" ? "Heart-rate analytics" : name,
+      exact: true,
+    });
+    if (["Command Center", "Daily journal", "Patterns", "Stillness", "Settings"].includes(name)) {
+      await primary.click();
+      return;
+    }
+    await main
+      .getByRole("button", { name: "Command Center", exact: true })
       .click();
+    const links = {
+      "Pre-Market": ["Pre-market non-negotiables", "Manage"],
+      "Trading Thesis": ["Trading thesis", "Open plans"],
+      "Trade Quality": ["Trade quality", "Review"],
+      Missions: ["Active missions", "Manage"],
+    };
+    if (links[name]) {
+      await panel(links[name][0])
+        .getByRole("button", { name: links[name][1], exact: true })
+        .click();
+      return;
+    }
+    await button(
+      { "Settings & Variables": "Personal variables", Audits: "Daily review" }[
+        name
+      ] || name,
+    ).click();
+  };
   const panel = (title) =>
     page
       .locator(".cc-panel")
@@ -94,6 +120,27 @@ try {
   };
   await page.goto("http://127.0.0.1:3101/review");
   await nav("Command Center");
+  await page
+    .getByRole("button", { name: "Day settings", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.locator(".cc-workspace select:visible").count(),
+    0,
+    "New day has no dropdown wall",
+  );
+  assert.equal(
+    await page
+      .getByRole("navigation", { name: "Main navigation", exact: true })
+      .getByRole("button")
+      .count(),
+    5,
+  );
+  await fits("Empty dashboard");
+  await page.screenshot({
+    path: output + "/empty-desktop.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Day settings", exact: true }).click();
   await page
     .getByRole("button", { name: "Open trading day", exact: true })
     .waitFor();
@@ -161,7 +208,9 @@ try {
   );
   await nav("Settings & Variables");
   await button("Check in now").click();
-  await page.getByLabel("Focus (1–10)", { exact: true }).selectOption("7");
+  await page
+    .getByRole("button", { name: "Focus: 7 of 10", exact: true })
+    .click();
   await page
     .getByLabel("Physical condition", { exact: true })
     .fill("No wearable connected.");
@@ -235,10 +284,17 @@ try {
     })
     .waitFor();
   await nav("Command Center");
+  await button("Layout settings").click();
   await page.getByText("Customize workspace", { exact: true }).click();
   await page.getByLabel("Preset name", { exact: true }).fill("My trading desk");
   await button("Save layout").click();
   await page.getByText("Customize workspace", { exact: true }).click();
+  await button("Close layout settings").click();
+  assert.equal(
+    await page.locator(".cc-workspace select:visible").count(),
+    0,
+    "Dashboard has no visible dropdowns",
+  );
   await fits("Desktop command center");
   await page.evaluate(() => scrollTo(0, 0));
   await page.screenshot({
@@ -272,16 +328,52 @@ try {
   await page.locator(".ss-journal-space").waitFor();
   await page.locator(".ss-reference-rhythm").waitFor();
   await fits("Mobile production journal");
-  const writer = page.getByRole("region", { name: "Main journal", exact: true });
-  await writer.getByRole("textbox", { name: "Journal reflection", exact: true }).fill("Production journal survives the Command Center integration.");
-  await writer.getByRole("button", { name: "Save to journal", exact: true }).click();
-  await page.getByLabel("Search moments", { exact: true }).fill("Production journal survives");
-  await page.locator(".ss-space-moment").filter({ hasText: "Production journal survives" }).waitFor();
+  const writer = page.getByRole("region", {
+    name: "Main journal",
+    exact: true,
+  });
+  await writer
+    .getByRole("textbox", { name: "Journal reflection", exact: true })
+    .fill("Production journal survives the Command Center integration.");
+  await writer
+    .getByRole("button", { name: "Save to journal", exact: true })
+    .click();
+  await page
+    .getByLabel("Search moments", { exact: true })
+    .fill("Production journal survives");
+  await page
+    .locator(".ss-space-moment")
+    .filter({ hasText: "Production journal survives" })
+    .waitFor();
   await nav("Command Center");
   await nav("Daily journal");
-  await page.getByLabel("Search moments", { exact: true }).fill("Production journal survives");
-  await page.locator(".ss-space-moment").filter({ hasText: "Production journal survives" }).waitFor();
-  checks.push("Production journal, chart, and saved reflection survive process-page navigation");
+  await page
+    .getByLabel("Search moments", { exact: true })
+    .fill("Production journal survives");
+  await page
+    .locator(".ss-space-moment")
+    .filter({ hasText: "Production journal survives" })
+    .waitFor();
+  checks.push(
+    "Production journal, chart, and saved reflection survive process-page navigation",
+  );
+  const freshContext = await browser.newContext({viewport:{width:390,height:844},timezoneId:"America/Denver"});
+  const freshPage = await freshContext.newPage();
+  freshPage.on("pageerror", e => errors.push(e.message));
+  await freshPage.goto("http://127.0.0.1:3101/review");
+  await freshPage.getByRole("navigation",{name:"Main navigation",exact:true}).getByRole("button",{name:"Command Center",exact:true}).click();
+  await freshPage.getByRole("button",{name:"Prepare",exact:true}).click();
+  await freshPage.getByRole("button",{name:"New protocol",exact:true}).waitFor();
+  await freshPage.getByRole("button",{name:"← Command Center",exact:true}).click();
+  await freshPage.getByRole("button",{name:"Check in now",exact:true}).click();
+  const rating = freshPage.getByRole("button",{name:"Focus: 7 of 10",exact:true});
+  await rating.click();
+  assert.equal(await rating.getAttribute("aria-pressed"),"true");
+  await rating.click();
+  assert.equal(await rating.getAttribute("aria-pressed"),"false");
+  assert.equal(await freshPage.evaluate(() => document.documentElement.scrollWidth > innerWidth),false);
+  checks.push("Mobile one-click day creation and clearable check-in ratings");
+  await freshContext.close();
   assert.deepEqual(errors, [], "Browser must have no unhandled errors");
   console.log(JSON.stringify({ checks, errors, output }, null, 2));
 } finally {
