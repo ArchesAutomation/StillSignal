@@ -21,6 +21,7 @@ export type Page =
   | "Missions"
   | "Settings & Variables"
   | "Overview"
+  | "Prepare"
   | "Journal"
   | "Patterns"
   | "Sessions"
@@ -29,6 +30,7 @@ export type Page =
   | "Settings";
 export type Pulse = ReturnType<typeof usePulse>;
 export type Props = {
+  capture?: import("../use-moment-capture").MomentCapture;
   threshold: number;
   pulse: Pulse;
   session: Session;
@@ -45,8 +47,9 @@ export type Props = {
   onSelectTrade: (event: TradeEvent) => void;
   onToday: () => void;
 };
-export const time = (t: number, seconds = true) =>
+export const time = (t: number, seconds = true, timeZone?: string) =>
   new Date(t).toLocaleTimeString("en-US", {
+    ...(timeZone ? { timeZone } : {}),
     hour: "numeric",
     minute: "2-digit",
     ...(seconds ? { second: "2-digit" as const } : {}),

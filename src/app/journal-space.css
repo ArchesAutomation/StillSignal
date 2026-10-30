@@ -1,0 +1,685 @@
+/* Approved October 27 journal: one list and a companion alongside the whole list. */
+.ss-app.ss-reference-app {
+  max-width: none;
+  padding: 0 clamp(16px, 2.4vw, 48px);
+}
+.ss-reference-app .ss-reference-journal-grid {
+  display: block;
+  position: relative;
+}
+.ss-reference-app .ss-reference-day {
+  display: block;
+  min-width: 0;
+}
+.ss-reference-app .ss-space-history {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ss-space-history > summary,
+.ss-space-date-tools > summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.ss-space-history[open] .ss-reference-history {
+  position: static;
+  max-height: 65vh;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.ss-reference-app .ss-space-date-tools {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px 0;
+}
+.ss-space-date-tools .ss-week {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.ss-reference-app .ss-reference-day > .ss-session-controls {
+  margin: 10px 0 16px;
+  padding: 9px 12px;
+  min-height: 0;
+}
+.ss-reference-app .ss-space-title {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 14px 0 16px;
+}
+.ss-reference-app .ss-space-title h1 {
+  font:
+    30px Georgia,
+    serif;
+  letter-spacing: -0.6px;
+}
+.ss-reference-app .ss-space-title p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.ss-reference-app .ss-space-title label {
+  font-size: 10px;
+  color: var(--muted);
+  display: grid;
+  gap: 4px;
+}
+.ss-reference-app .ss-space-title select {
+  font-size: 12px;
+  padding: 7px;
+  max-width: 230px;
+}
+.ss-reference-app .ss-journal-story .ss-reference-rhythm {
+  margin: 0;
+  padding: 18px 20px 12px;
+  border-radius: 13px;
+}
+.ss-reference-app .ss-reference-rhythm .ss-timeline-head {
+  margin: 0;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-reference-rhythm h2 {
+  font-size: 17px;
+}
+.ss-reference-app .ss-reference-rhythm .ss-timeline-head p {
+  font-size: 11px;
+  margin: 3px 0 0;
+}
+.ss-reference-app .ss-reference-rhythm .ss-ranges button {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.ss-reference-app .ss-reference-rhythm .ss-chart-layers {
+  margin: 8px 0 0;
+  gap: 8px;
+  align-items: center;
+}
+.ss-reference-app .ss-chart-zoom-buttons {
+  margin-left: auto;
+  display: flex;
+  gap: 5px;
+}
+.ss-reference-app .ss-rhythm-svg {
+  height: 270px;
+  min-height: 0;
+  width: 100%;
+  cursor: grab;
+  display: block;
+}
+.ss-reference-app .ss-rhythm-svg:active {
+  cursor: grabbing;
+}
+.ss-reference-app .ss-chart-wide {
+  position: static;
+  inset: auto;
+  overflow: visible;
+  z-index: auto;
+  background: var(--panel);
+}
+.ss-reference-app .ss-chart-wide .ss-rhythm-svg {
+  height: 430px;
+  min-height: 0;
+}
+.ss-reference-app .ss-chart-tip {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 3px 0;
+}
+.ss-reference-app .ss-reference-rhythm > .ss-quiet-copy {
+  font-size: 10px;
+  margin: 4px 0 8px;
+}
+.ss-reference-app .ss-reference-rhythm > .ss-phases {
+  margin-top: 10px;
+}
+.ss-reference-app .ss-space-summary {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 12px 0 20px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.ss-space-summary strong {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-right: 4px;
+}
+.ss-reference-app .ss-journal-space {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(350px, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 0;
+}
+.ss-space-writing {
+  min-width: 0;
+  scroll-margin-top: 16px;
+}
+.ss-reference-app .ss-space-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.ss-reference-app .ss-space-section-heading h2 {
+  font-size: 17px;
+}
+.ss-reference-app .ss-space-section-heading small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-space-section-heading button {
+  padding: 5px 9px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.ss-reference-app .ss-space-filters {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 9px;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-space-filters input {
+  flex: 1;
+  min-width: 110px;
+}
+.ss-reference-app .ss-space-filters select {
+  width: auto;
+  max-width: 155px;
+}
+.ss-reference-app .ss-space-filters :is(input, select) {
+  padding: 7px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: #0d1618;
+}
+.ss-reference-app .ss-space-moments {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.ss-reference-app .ss-space-moment {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 215px 40px;
+  gap: 3px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 9px 30px 9px 13px;
+  min-height: 76px;
+  margin: 0;
+  background: transparent;
+}
+.ss-reference-app .ss-space-moment:last-child {
+  border-bottom: 0;
+}
+.ss-reference-app .ss-space-selected {
+  background: #a8c6b207;
+  box-shadow: inset 2px 0 var(--green);
+}
+.ss-reference-app .ss-space-moment .ss-inline-moment-head {
+  display: contents;
+}
+.ss-reference-app .ss-space-moment time {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 11px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  align-self: start;
+}
+.ss-reference-app .ss-space-moment .ss-inline-moment-head small {
+  grid-row: 1;
+  grid-column: 1;
+  margin: 19px 0 0;
+  align-self: start;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ss-reference-app .ss-capture-badge {
+  border: 1px solid #a8c6b23a;
+  color: var(--green);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.ss-reference-app .ss-later-badge {
+  border-color: #d4bd8340;
+  color: var(--gold);
+}
+.ss-reference-app .ss-space-moment .ss-inline-moment-head input {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 6px;
+  height: 25px;
+  font-size: 11px;
+  background: #b6a3cb09;
+  border-color: #b6a3cb25;
+  color: var(--purple);
+  border-radius: 6px;
+}
+.ss-reference-app
+  .ss-space-moment
+  .ss-inline-moment-head
+  button[aria-label="Remove moment"] {
+  position: absolute;
+  right: 5px;
+  top: 6px;
+  font-size: 16px;
+  padding: 0 4px;
+}
+.ss-reference-app
+  .ss-space-moment
+  .ss-inline-moment-head
+  button[aria-label="Open moment evidence"] {
+  grid-column: 3;
+  grid-row: 1/3;
+  font-size: 18px;
+  align-self: center;
+  padding: 3px;
+  background: transparent;
+}
+.ss-reference-app .ss-space-moment > textarea {
+  grid-column: 1/3;
+  grid-row: 2;
+  min-height: 24px;
+  padding: 2px 0;
+  line-height: 1.5;
+  margin: 0;
+  border: 1px solid transparent;
+  resize: vertical;
+  font-size: 13px;
+  height: auto;
+}
+.ss-reference-app .ss-space-moment > textarea:hover {
+  border-bottom-color: var(--line);
+}
+.ss-reference-app .ss-space-moment > textarea:focus {
+  border-color: var(--line);
+  background: #0b1112;
+  padding: 5px;
+}
+.ss-reference-app .ss-space-moment > .ss-inline-save {
+  grid-column: 1/3;
+  grid-row: 3;
+  min-height: 0;
+  padding: 0;
+  font-size: 9px;
+}
+.ss-space-moment > .ss-inline-save:empty {
+  display: none;
+}
+.ss-reference-app .ss-space-moment .ss-space-thumb {
+  grid-column: 3;
+  grid-row: 1/3;
+  align-self: center;
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: var(--panel);
+  width: 34px;
+  height: 28px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ss-space-thumb :is(a, div) {
+  display: contents;
+  pointer-events: none;
+}
+.ss-space-thumb :is(a[download], p) {
+  display: none !important;
+}
+.ss-reference-app .ss-space-thumb img {
+  width: 34px !important;
+  height: 26px !important;
+  object-fit: cover;
+  border: 1px solid #405552;
+  border-radius: 3px;
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+.ss-reference-app .ss-space-companion {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+  min-width: 0;
+}
+.ss-reference-app .ss-space-card {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+  padding: 16px;
+  margin: 0 0 12px;
+}
+.ss-reference-app .ss-space-card p {
+  font-size: 12px;
+  margin: 4px 0 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ss-space-evidence :is(.ss-original-image img, .ss-screenshot img) {
+  width: 100%;
+  max-height: 155px;
+  object-fit: contain;
+  display: block;
+}
+.ss-reference-app .ss-space-evidence img {
+  max-height: 155px !important;
+  object-fit: contain !important;
+}
+.ss-space-evidence .ss-original-image > a[download],
+.ss-space-evidence .ss-audio-playback > a {
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-space-evidence audio {
+  width: 100%;
+  height: 34px;
+  margin: 9px 0;
+}
+.ss-space-evidence details {
+  margin: 10px 0;
+  font-size: 11px;
+}
+.ss-space-evidence blockquote {
+  border-left: 2px solid #536c61;
+  margin: 10px 0;
+  padding-left: 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.ss-space-evidence .ss-destinations {
+  margin: 10px 0;
+  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.ss-space-evidence .ss-destinations label {
+  min-width: 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-space-evidence .ss-destinations select {
+  width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  padding: 5px;
+}
+.ss-space-evidence > small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin: 8px 0;
+}
+.ss-space-observation {
+  border-top: 1px solid var(--line);
+  margin-top: 11px;
+  padding-top: 11px;
+  font-size: 12px;
+}
+.ss-reference-app .ss-space-card button {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+.ss-space-observations .ss-eyebrow {
+  margin: 0 0 5px;
+}
+.ss-reference-app .ss-space-empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ss-reference-app .ss-space-writing .ss-reference-composer {
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+}
+.ss-reference-app .ss-reference-composer h2 {
+  font-size: 16px;
+}
+.ss-reference-app .ss-reference-composer .ss-journal-text {
+  min-height: 85px;
+  font-size: 13px;
+}
+.ss-reference-app .ss-reference-composer .ss-destinations {
+  gap: 8px;
+}
+.ss-reference-app .ss-reference-composer :is(label, select, input, button) {
+  font-size: 11px;
+}
+.ss-reference-app .ss-reference-composer .ss-reference-fields {
+  gap: 8px;
+  margin: 10px 0;
+}
+.ss-reference-app .ss-space-writing textarea {
+  width: 100%;
+}
+.ss-reference-app .ss-intention-review {
+  margin-top: 12px;
+}
+.ss-intention-review textarea {
+  min-height: 80px;
+  margin: 8px 0;
+}
+.ss-space-review-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.ss-reference-app .ss-space-support {
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ss-reference-app .ss-space-status {
+  font-size: 11px;
+  color: var(--green);
+}
+.ss-reference-app .ss-final-review-chart {
+  margin: 12px 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel);
+}
+.ss-reference-app .ss-final-review-chart h3 {
+  font-size: 14px;
+}
+.ss-reference-app .ss-final-review-chart img {
+  max-height: 155px !important;
+  object-fit: contain;
+}
+.ss-reference-app .ss-final-review-chart button {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+.ss-reference-app .ss-final-review-chart p {
+  font-size: 11px;
+}
+.ss-reference-app .ss-compact-capture:not(.ss-capture-expanded) {
+  width: 182px;
+}
+.ss-reference-app
+  .ss-compact-capture:not(.ss-capture-expanded)
+  .ss-capture-pill {
+  height: 50px;
+  min-height: 50px;
+  padding: 5px 10px;
+  gap: 12px;
+  border-radius: 26px;
+}
+.ss-reference-app
+  .ss-compact-capture:not(.ss-capture-expanded)
+  .ss-capture-record {
+  width: 33px;
+  height: 33px;
+  min-width: 33px;
+  min-height: 33px;
+  font-size: 17px;
+}
+.ss-reference-app :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+.ss-reference-app .ss-evidence-dialog {
+  width: min(1100px, 90vw);
+  max-width: 90vw;
+  max-height: 90vh;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.ss-evidence-dialog::backdrop {
+  background: #000b;
+}
+.ss-evidence-dialog > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.ss-reference-app .ss-evidence-dialog img {
+  width: 100% !important;
+  max-height: 76vh !important;
+  object-fit: contain !important;
+  display: block;
+}
+.ss-reference-app .ss-weekly-invitation {
+  margin: 10px 0;
+  padding: 9px 12px;
+  font-size: 11px;
+}
+.ss-reference-app .ss-weekly-invitation p {
+  margin: 0;
+  font-size: 10px;
+}
+.ss-reference-app .ss-reference-topbar {
+  min-height: 64px;
+}
+.ss-reference-app .ss-reference-top-actions .ss-connection-shortcut,
+.ss-reference-app .ss-reference-top-actions .ss-floating-shortcut {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .ss-reference-app .ss-reference-top-actions .ss-connection-shortcut,
+  .ss-reference-app .ss-reference-top-actions .ss-floating-shortcut {
+    display: none;
+  }
+}
+@media (min-width: 1650px) {
+  .ss-reference-app .ss-journal-space {
+    grid-template-columns: minmax(0, 1.7fr) minmax(440px, 1fr);
+  }
+  .ss-reference-app .ss-space-moment {
+    grid-template-columns: minmax(0, 1fr) 260px 48px;
+    min-height: 72px;
+  }
+  .ss-reference-app .ss-space-moment > textarea {
+    font-size: 14px;
+  }
+}
+@media (max-width: 1100px) {
+  .ss-reference-app .ss-journal-space {
+    grid-template-columns: minmax(0, 1.3fr) minmax(310px, 1fr);
+  }
+  .ss-reference-app .ss-space-moment {
+    grid-template-columns: minmax(0, 1fr) 40px;
+  }
+  .ss-reference-app .ss-space-moment .ss-inline-moment-head input {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: 260px;
+  }
+  .ss-reference-app .ss-space-moment > textarea {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .ss-reference-app
+    .ss-space-moment
+    .ss-inline-moment-head
+    button[aria-label="Open moment evidence"],
+  .ss-reference-app .ss-space-moment .ss-space-thumb {
+    grid-column: 2;
+    grid-row: 1/4;
+  }
+  .ss-reference-app .ss-space-moment > .ss-inline-save {
+    grid-row: 4;
+  }
+}
+@media (max-width: 760px) {
+  .ss-reference-app .ss-journal-space {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ss-reference-app .ss-space-companion {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .ss-reference-app .ss-space-summary {
+    gap: 12px;
+  }
+  .ss-reference-app .ss-space-filters select {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+  }
+  .ss-reference-app .ss-space-title {
+    align-items: start;
+  }
+  .ss-reference-app .ss-space-title h1 {
+    font-size: 28px;
+  }
+  .ss-reference-app .ss-space-title select {
+    max-width: 145px;
+  }
+  .ss-reference-app .ss-reference-rhythm .ss-ranges {
+    flex-wrap: wrap;
+  }
+  .ss-reference-app .ss-journal-story .ss-reference-rhythm {
+    padding: 12px 5px;
+  }
+  .ss-reference-app .ss-space-section-heading {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-reference-app * {
+    scroll-behavior: auto !important;
+    animation: none !important;
+  }
+}
+@media(max-width:600px){.ss-reference-app .ss-reference-rhythm .ss-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-reference-app .ss-reference-rhythm .ss-phases .ss-phase-link:last-child{grid-column:1/-1}}
+.ss-reference-app .ss-moment-stage{display:inline-flex;align-items:center;gap:4px;border:1px solid;border-radius:4px;padding:1px 5px;font-size:9px;line-height:1.35;white-space:nowrap}
+.ss-moment-stage::before{content:"";width:4px;height:4px;background:currentColor;border-radius:50%;flex-shrink:0}
+.ss-reference-app .ss-log-highlight-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 9px;padding:8px 10px;border:1px solid #42534b;border-radius:8px;background:#a8c6b206;font-size:11px}
+.ss-reference-app .ss-log-highlight-notice button{padding:3px 7px;font-size:10px;white-space:nowrap;background:transparent}

@@ -628,3 +628,29 @@
   }
 }
 .cc-context-strip{padding-top:12px;padding-bottom:8px}.cc-journal-context{border:1px solid #2c3c44;background:#10181c;border-radius:6px;padding:10px 14px;font-size:12px}.cc-journal-context>summary{color:#b3c3cb}.cc-journal-context[open]>.cc-field{margin-top:12px}.cc-journal-context>p{font-size:11px}
+
+/* Keep the production journal shell; all process pages share its scrollable navigation. */
+.ss-reference-app .ss-reference-topbar {
+  height: auto;
+  min-height: 81px;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  padding: 14px 0 0;
+}
+.ss-reference-app .ss-reference-top-actions { margin-left: auto; }
+.ss-reference-app .ss-reference-nav {
+  order: 3;
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  justify-content: flex-start;
+  scrollbar-width: thin;
+}
+.ss-reference-app .ss-reference-nav button { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 600px) {
+  .ss-reference-app .ss-reference-topbar { gap: 8px; }
+  .ss-reference-app .cc-workspace { padding: 12px 0 36px; }
+}
+
+.ss-app.ss-reference-app > .ss-mobilebar { display: none; }

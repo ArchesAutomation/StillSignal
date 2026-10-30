@@ -1,4 +1,12 @@
-import type { Sample, TradeEvent } from "../model";
+import type { Sample, Session, TradeEvent } from "../model";
+/** Preserve the journal's explicit source choices and measurement exclusions. */
+export function analyticalSamples(session: Session, samples: Sample[]): Sample[] {
+  if (session.blueprint?.combine?.hr === false) return [];
+  const pauses = session.blueprint?.measurementPauses;
+  return samples.filter(p => p.t >= session.startedAt && (!session.endedAt || p.t <= session.endedAt))
+    .map(p => pauses?.some(g => p.t >= g.start && p.t <= (g.end ?? Infinity))
+      ? { ...p, quality: "artifact" as const } : p);
+}
 export type WindowMetric = {
   start: number;
   end: number;
@@ -56,7 +64,7 @@ export function windowMetric(
       lowerBound(sorted, start - 10000),
       lowerBound(sorted, end + 10001),
     ),
-    observed = points.filter((p) => p.t >= start && p.t <= end);
+    observed = points.filter((p) => p.quality !== "artifact" && p.t >= start && p.t <= end);
   let duration = 0,
     integral = 0,
     above = 0,
@@ -70,7 +78,7 @@ export function windowMetric(
       b = points[i],
       left = Math.max(start, a.t),
       right = Math.min(end, b.t);
-    if (b.t - a.t > 10000 || right <= left) continue;
+    if (a.quality === "artifact" || b.quality === "artifact" || b.t - a.t > 10000 || right <= left) continue;
     const v1 = a.bpm + ((b.bpm - a.bpm) * (left - a.t)) / (b.t - a.t),
       v2 = a.bpm + ((b.bpm - a.bpm) * (right - a.t)) / (b.t - a.t),
       span = right - left;
@@ -140,7 +148,7 @@ export function recoverySeconds(
   let stable: number | undefined;
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
-    if (i && p.t - points[i - 1].t > 10000) return null;
+    if (p.quality === "artifact" || (i && p.t - points[i - 1].t > 10000)) return null;
     if (Math.abs(p.bpm - baseline) <= 5) {
       stable ??= p.t;
       if (p.t - stable >= 30000) return (stable - exit) / 1000;

@@ -3,6 +3,7 @@ export async function GET() {
     {
       status: "ok",
       version: "0.4.1",
+      release: "october-2026-blueprint",
       cloudConfigured: !!(
         process.env.NEXT_PUBLIC_SUPABASE_URL &&
         (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||

@@ -16,7 +16,7 @@ import {
   processScore,
   sessionsForDay,
 } from "@/lib/process/engine";
-import { validBaseline } from "@/lib/pattern-engine/physiology";
+import { analyticalSamples, validBaseline } from "@/lib/pattern-engine/physiology";
 import { isActualExecution } from "@/lib/trade-context";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
 import TradingThesis, {
@@ -139,10 +139,10 @@ function PhysiologyPanel({ props, day }: Context) {
   const p = props.pulse,
     points =
       !props.session.demo && sessionsForDay([props.session], day).length
-        ? p.samples
+        ? analyticalSamples(props.session, p.samples)
         : [],
     last = points.at(-1),
-    fresh = !!last && p.recording && p.now - last.t <= 10000 && p.now >= last.t,
+    fresh = !!last && last.quality !== "artifact" && p.recording && p.now - last.t <= 10000 && p.now >= last.t,
     baseline = last
       ? validBaseline(points, p.now, p.settings.baselineSeconds)
       : null;
@@ -154,7 +154,7 @@ function PhysiologyPanel({ props, day }: Context) {
     )
       .filter(isActualExecution)
       .sort((a, b) => b.t - a.t)[0],
-    recent = points.filter((s) => last && s.t >= last.t - 120000),
+    recent = points.filter((s) => last && s.quality !== "artifact" && s.t >= last.t - 120000),
     minimum = recent.length ? Math.min(...recent.map((s) => s.bpm)) - 5 : 0,
     maximum = recent.length ? Math.max(...recent.map((s) => s.bpm)) + 5 : 1;
   return (

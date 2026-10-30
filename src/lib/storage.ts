@@ -51,6 +51,12 @@ export async function listSessions(owner: string) {
     (a, b) => b.startedAt - a.startedAt,
   );
 }
+export async function getSession(id: string, owner: string) {
+  const session = await (await db()).get("sessions", id);
+  if (session && session.owner !== owner)
+    throw new Error("Workspace identity mismatch.");
+  return session;
+}
 export async function appendSamples(
   sessionId: string,
   samples: Sample[],
@@ -100,7 +106,7 @@ export async function getSamples(id: string, owner: string) {
   if (session.owner !== owner) throw new Error("Workspace identity mismatch.");
   const rows = await tx.objectStore("samples").index("session").getAll(id);
   await tx.done;
-  return rows.map(({ t, bpm }) => ({ t, bpm }));
+  return rows.map(({ sessionId: _sessionId, ...sample }) => sample);
 }
 export async function pending(owner: string) {
   return (await (await db()).getAllFromIndex("outbox", "owner", owner)).filter(

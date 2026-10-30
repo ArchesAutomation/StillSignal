@@ -217,26 +217,8 @@ function setup() {
   const root = createRoot(document.getElementById("root")!);
   return { dom, root };
 }
-test("Alt+J opens dictation, repeated keys do not duplicate it, and closing releases the microphone", async (t) => {
+test("Alt+J in an empty workspace asks for a session without opening a modal or requesting the microphone", async (t) => {
   const { dom, root } = setup();
-  let starts = 0,
-    aborts = 0;
-  class MockRecognition {
-    continuous = false;
-    interimResults = false;
-    lang = "";
-    onresult = null;
-    onerror = null;
-    onend = null;
-    start() {
-      starts++;
-    }
-    stop() {}
-    abort() {
-      aborts++;
-    }
-  }
-  Object.assign(dom.window, { SpeechRecognition: MockRecognition });
   t.after(async () => {
     await act(async () => root.unmount());
     dom.window.close();
@@ -254,30 +236,17 @@ test("Alt+J opens dictation, repeated keys do not duplicate it, and closing rele
         key: "j",
         altKey: true,
         bubbles: true,
+        cancelable: true,
       }),
     ),
   );
-  assert.equal(document.querySelectorAll("dialog.modal").length, 1);
-  assert.equal(starts, 1);
-  await act(async () =>
-    dom.window.dispatchEvent(
-      new dom.window.KeyboardEvent("keydown", {
-        key: "j",
-        altKey: true,
-        repeat: true,
-        bubbles: true,
-      }),
-    ),
-  );
-  assert.equal(starts, 1);
-  await act(async () =>
-    (
-      document.querySelector('button[aria-label="Close"]') as HTMLButtonElement
-    ).click(),
-  );
-  assert.equal(aborts, 1);
   assert.equal(document.querySelectorAll("dialog.modal").length, 0);
+  assert.match(
+    document.body.textContent!,
+    /Start a session or choose a journal day first/,
+  );
 });
+
 test("speech transcript is reviewed before saving and preserves the activation timestamp", async (t) => {
   const { dom, root } = setup();
   let rec: Recognition | undefined;

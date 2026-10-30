@@ -4,7 +4,7 @@ import { reconstructTrades } from "../smart-journal";
 import { observationsAt } from "../environment/values";
 import { preparation, processScore, thesisAt } from "../process/engine";
 import { dateInZone, latest, type ProcessRecord } from "../process/model";
-import { eventPhysiology } from "./physiology";
+import { analyticalSamples, eventPhysiology } from "./physiology";
 export type EvidenceRow = {
   id: string;
   day: string;
@@ -120,7 +120,7 @@ export function buildEvidence(
         bias: thesis?.body.bias,
         checkinId: checkin?.id,
         physiology: eventPhysiology(
-          samples.get(session.id) ?? [],
+          analyticalSamples(session, samples.get(session.id) ?? []),
           event,
           exit,
           baselineSeconds,

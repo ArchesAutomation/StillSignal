@@ -13,7 +13,7 @@ import {
   type EvidenceRow,
   type Metric,
 } from "@/lib/pattern-engine/compare";
-import { windowMetric } from "@/lib/pattern-engine/physiology";
+import { analyticalSamples, windowMetric } from "@/lib/pattern-engine/physiology";
 import RegressionAnalysis from "./regression";
 import { Empty, Field, Panel, type Context } from "./shared";
 const format = (v: number | null | undefined) =>
@@ -117,7 +117,7 @@ export default function PatternExplorer({ store, props, day }: Context) {
     let alive = true;
     void Promise.all(
       props.history
-        .filter((s) => !s.demo)
+        .filter((s) => !s.demo && s.blueprint?.combine?.hr !== false)
         .map(
           async (s) =>
             [
@@ -220,7 +220,7 @@ export default function PatternExplorer({ store, props, day }: Context) {
         const baseline = row.physiology.baseline;
         if (baseline === null || row.event.timePrecision === "day") return [];
         const m = windowMetric(
-          samples.get(row.session.id) ?? [],
+          analyticalSamples(row.session, samples.get(row.session.id) ?? []),
           row.event.t + offset * 1000 - 15000,
           row.event.t + offset * 1000 + 15000,
           baseline,
@@ -255,7 +255,7 @@ export default function PatternExplorer({ store, props, day }: Context) {
     const next = new Map(samples);
     let failures = 0;
     for (const s of props.history.filter(
-      (s) => !s.demo && s.sampleCount > (next.get(s.id)?.length ?? 0),
+      (s) => !s.demo && s.blueprint?.combine?.hr !== false && s.sampleCount > (next.get(s.id)?.length ?? 0),
     )) {
       try {
         const result = await pullSession(s.id);
@@ -278,7 +278,7 @@ export default function PatternExplorer({ store, props, day }: Context) {
     <div className="cc-stack">
       <Panel
         title="Connected Pattern Explorer"
-        detail="Descriptive associations across your recorded process, conditions, and physiology."
+        detail="Descriptive associations across your recorded process, conditions, and physiology. Journal HR exclusions and source choices remain in effect."
         action={
           <button disabled={loading} onClick={() => void loadCloud()}>
             {loading ? "Loading recordings…" : "Load recorded HR from cloud"}

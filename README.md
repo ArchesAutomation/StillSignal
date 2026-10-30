@@ -1,5 +1,7 @@
 # Still Signal 0.4.1
 
+The October journal-reference integration adds the supplied journal layout, preparation and dated context, weekly review, confirmed capture and evidence-linked Patterns to this existing application. See [the implementation and rollout notes](docs/OCTOBER_JOURNAL_REFERENCE.md) for scope, verification and the required additive migration/function deployment.
+
 A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 
 - Live app: https://still-signal.vercel.app (the existing trade-pulse-ebon.vercel.app alias remains available).

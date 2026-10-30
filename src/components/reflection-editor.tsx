@@ -1,11 +1,17 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, Square, ImagePlus, ClipboardPaste, X } from "lucide-react";
-import { readClipboardScreenshot, validateScreenshotFile } from "@/lib/clipboard-screenshot";
+import {
+  readClipboardScreenshot,
+  validateScreenshotFile,
+} from "@/lib/clipboard-screenshot";
 import type { JournalEntry, Session } from "@/lib/model";
 import { noteTime, validateDestination } from "@/lib/journal-routing";
 import Destination from "./concept/destination";
 import { clock } from "@/lib/model";
+import { labelsFor } from "@/lib/journal-reference";
+import AudioCapture, { AudioPlayback } from "./reflection-audio";
+import { removePrivateFile } from "@/lib/private-files";
 import {
   uploadScreenshot,
   removeScreenshot,
@@ -35,6 +41,8 @@ type SpeechWindow = Window & {
 };
 export type ReflectionDraft = {
   t: number;
+  captureMode?: JournalEntry["captureMode"];
+  revisitsId?: string;
   eventTime?: number | null;
   section?: JournalEntry["section"];
   customSection?: string;
@@ -53,7 +61,7 @@ const localTime = (t: number) =>
     .toISOString()
     .slice(0, 19);
 
-export function Screenshot({ path, name }: { path: string; name: string }) {
+export function Screenshot({ path, name, thumbnail=false }: { path: string; name: string; thumbnail?: boolean }) {
   const [url, setUrl] = useState(""),
     [error, setError] = useState("");
   useEffect(() => {
@@ -81,6 +89,7 @@ export function Screenshot({ path, name }: { path: string; name: string }) {
   }, [path]);
   if (error) return <p role="status">{error}</p>;
   if (!url) return <p>Loading screenshot…</p>;
+  if(thumbnail) return <img src={url} alt={name}/>;
   return (
     <a
       href={url}
@@ -103,6 +112,7 @@ export default function ReflectionEditor({
   onCancel,
   compact = false,
   session,
+  labels,
 }: {
   draft: ReflectionDraft;
   owner: string;
@@ -113,10 +123,21 @@ export default function ReflectionEditor({
   onCancel?: () => void;
   compact?: boolean;
   session?: Session;
+  labels?: import("@/lib/model").Settings["phaseLabels"];
 }) {
-  const [text, setText] = useState(draft.entry?.text || draft.initialText || ""),
-    [label, setLabel] = useState(draft.entry?.label || draft.initialLabel || "Unlabelled"),
-    [time, setTime] = useState(localTime(draft.entry ? noteTime(draft.entry) ?? draft.t : draft.eventTime ?? draft.t)),
+  const [text, setText] = useState(
+      draft.entry?.text || draft.initialText || "",
+    ),
+    [label, setLabel] = useState(
+      draft.entry?.label || draft.initialLabel || "Unlabelled",
+    ),
+    [time, setTime] = useState(
+      localTime(
+        draft.entry
+          ? (noteTime(draft.entry) ?? draft.t)
+          : (draft.eventTime ?? draft.t),
+      ),
+    ),
     [file, setFile] = useState<File | null>(draft.screenshotFile || null),
     [attachment, setAttachment] = useState(draft.entry?.screenshot),
     [error, setError] = useState(""),
@@ -125,13 +146,41 @@ export default function ReflectionEditor({
     [interim, setInterim] = useState(""),
     [usedVoice, setUsedVoice] = useState(false),
     [supported, setSupported] = useState(false);
-  const [section, setSection] = useState<JournalEntry["section"]>(draft.entry?.section === "stillness" ? undefined : draft.entry?.section || draft.section);
-  const [tradeId, setTradeId] = useState(draft.entry?.tradeId || draft.tradeId || "");
-  const [custom, setCustom] = useState(draft.entry?.customSection || draft.customSection || "");
-  const [timed, setTimed] = useState((draft.entry ? noteTime(draft.entry) : draft.eventTime) !== null);
+  const [section, setSection] = useState<JournalEntry["section"]>(
+    draft.entry?.section === "stillness"
+      ? undefined
+      : draft.entry?.section || draft.section,
+  );
+  const [tradeId, setTradeId] = useState(
+    draft.entry?.tradeId || draft.tradeId || "",
+  );
+  const [custom, setCustom] = useState(
+    draft.entry?.customSection || draft.customSection || "",
+  );
+  const [timed, setTimed] = useState(
+    (draft.entry ? noteTime(draft.entry) : draft.eventTime) !== null,
+  );
+  const stableId = useRef(draft.entry?.id || crypto.randomUUID());
+  const capturedAt = useRef(draft.entry?.capturedAt ?? Date.now());
   const [preview, setPreview] = useState("");
+  const [audio, setAudio] = useState(draft.entry?.audio);
+  const [audioRecording, setAudioRecording] = useState(false);
+  const currentAudio = useRef(audio),
+    committedAudio = useRef(draft.entry?.audio?.path);
+  currentAudio.current = audio;
+  useEffect(
+    () => () => {
+      const original = currentAudio.current;
+      if (original && original.path !== committedAudio.current)
+        void removePrivateFile(original.path, owner).catch(() => {});
+    },
+    [owner],
+  );
   useEffect(() => {
-    if (!file) { setPreview(""); return; }
+    if (!file) {
+      setPreview("");
+      return;
+    }
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
@@ -139,10 +188,12 @@ export default function ReflectionEditor({
   const form = useRef<HTMLFormElement>(null),
     recognition = useRef<Recognition | null>(null),
     textRef = useRef(text),
+    originalTranscript = useRef(draft.entry?.originalTranscript),
     mounted = useRef(true);
   textRef.current = text;
   const start = useCallback(() => {
-    const speechWindow = (form.current?.ownerDocument.defaultView || window) as SpeechWindow;
+    const speechWindow = (form.current?.ownerDocument.defaultView ||
+      window) as SpeechWindow;
     const Ctor =
       speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Ctor) {
@@ -167,6 +218,10 @@ export default function ReflectionEditor({
           e.results[i][0].transcript,
         );
       setText([base, ...finals].filter(Boolean).join(" ").slice(0, 2000));
+      originalTranscript.current = [base, ...finals]
+        .filter(Boolean)
+        .join(" ")
+        .slice(0, 2000);
       setInterim(pending.join(" "));
       setUsedVoice(true);
     };
@@ -214,14 +269,18 @@ export default function ReflectionEditor({
     try {
       setFile(validateScreenshotFile(next));
       setError("");
-    } catch (err) { setError((err as Error).message); }
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
   return (
     <form
       ref={form}
       className={compact ? "floating-entry-form" : undefined}
       onPaste={(event) => {
-        const image = Array.from(event.clipboardData.files).find((item) => item.type.startsWith("image/"));
+        const image = Array.from(event.clipboardData.files).find((item) =>
+          item.type.startsWith("image/"),
+        );
         if (!image) return;
         event.preventDefault();
         event.stopPropagation();
@@ -233,8 +292,13 @@ export default function ReflectionEditor({
         setError("");
         let uploaded: JournalEntry["screenshot"];
         try {
-          const originalTime = draft.entry ? noteTime(draft.entry) ?? draft.t : draft.eventTime ?? draft.t;
-          const t = time === localTime(originalTime) ? originalTime : new Date(time).getTime();
+          const originalTime = draft.entry
+            ? (noteTime(draft.entry) ?? draft.t)
+            : (draft.eventTime ?? draft.t);
+          const t =
+            time === localTime(originalTime)
+              ? originalTime
+              : new Date(time).getTime();
           if (!Number.isFinite(t)) throw new Error("Choose a valid time.");
           if (file)
             uploaded = await uploadScreenshot(
@@ -244,26 +308,42 @@ export default function ReflectionEditor({
             );
           const note: JournalEntry = {
             ...draft.entry,
-            id: draft.entry?.id || crypto.randomUUID(),
+            id: stableId.current,
             t: draft.entry?.t ?? (timed ? t : Date.now()),
             eventTime: timed ? t : null,
             section,
             tradeId: tradeId || undefined,
-            origin: draft.entry?.origin || (draft.entry?.section === "stillness" ? "stillness" : draft.origin || "capture"),
+            origin:
+              draft.entry?.origin ||
+              (draft.entry?.section === "stillness"
+                ? "stillness"
+                : draft.origin || "capture"),
             customSection: section === "custom" ? custom : undefined,
             label,
             text,
             source:
               draft.source ||
-              (usedVoice ? "voice" : draft.entry?.source || "typed"),
-            context: draft.entry?.context && noteTime(draft.entry) === (timed ? t : null)
-              ? draft.entry.context : draft.hrEventId ? { hrEventId: draft.hrEventId } : undefined,
+              (usedVoice || audio ? "voice" : draft.entry?.source || "typed"),
+            capturedAt: draft.entry?.capturedAt ?? capturedAt.current,
+            captureMode: draft.entry?.captureMode ?? draft.captureMode,
+            revisitsId: draft.entry?.revisitsId ?? draft.revisitsId,
+            audio,
+            originalTranscript:
+              draft.entry?.originalTranscript ?? originalTranscript.current,
+            context:
+              draft.entry?.context &&
+              noteTime(draft.entry) === (timed ? t : null)
+                ? draft.entry.context
+                : draft.hrEventId
+                  ? { hrEventId: draft.hrEventId }
+                  : undefined,
             ...(uploaded || attachment
               ? { screenshot: uploaded || attachment }
               : {}),
           };
           if (session) validateDestination(note, session);
           await onSave(note);
+          committedAudio.current = note.audio?.path;
           if (
             draft.entry?.screenshot &&
             draft.entry.screenshot.path !== note.screenshot?.path
@@ -290,9 +370,25 @@ export default function ReflectionEditor({
           {error}
         </div>
       )}
-      {session && <Destination session={session} section={section} tradeId={tradeId} custom={custom}
-        onSection={setSection} onTrade={setTradeId} onCustom={setCustom} />}
-      <label><input type="checkbox" checked={timed} onChange={e => setTimed(e.target.checked)} /> Link to a known time and HR window</label>
+      {session && (
+        <Destination
+          session={session}
+          section={section}
+          tradeId={tradeId}
+          custom={custom}
+          onSection={setSection}
+          onTrade={setTradeId}
+          onCustom={setCustom}
+        />
+      )}
+      <label>
+        <input
+          type="checkbox"
+          checked={timed}
+          onChange={(e) => setTimed(e.target.checked)}
+        />{" "}
+        Link to a known time and HR window
+      </label>
       <label hidden={compact || !timed}>
         Moment time · your local timezone
         <input
@@ -312,15 +408,7 @@ export default function ReflectionEditor({
           onChange={(e) => setLabel(e.target.value)}
         >
           {[
-            "Unlabelled",
-            "Other",
-            "Focused",
-            "Calm",
-            "Confident",
-            "Impatient",
-            "FOMO",
-            "Hesitant",
-            "Frustrated",
+            ...new Set(["Unlabelled", label, ...labelsFor(section, labels)]),
           ].map((x) => (
             <option key={x}>{x}</option>
           ))}
@@ -334,7 +422,11 @@ export default function ReflectionEditor({
           onClick={() => (listening ? recognition.current?.stop() : start())}
         >
           {listening ? <Square size={14} /> : <Mic size={16} />}
-          {listening ? "Stop dictation" : compact ? "Microphone" : "Start dictation"}
+          {listening
+            ? "Stop dictation"
+            : compact
+              ? "Microphone"
+              : "Start dictation"}
         </button>
         <span role="status">
           {listening
@@ -344,6 +436,21 @@ export default function ReflectionEditor({
               : "Type or use device dictation"}
         </span>
       </div>
+      {!draft.entry?.audio && (
+        <AudioCapture
+          owner={owner}
+          sessionId={session?.id}
+          onAudio={setAudio}
+          onRecording={setAudioRecording}
+        />
+      )}
+      {audio && (
+        <AudioPlayback
+          audio={audio}
+          owner={owner}
+          onDelete={async () => setAudio(undefined)}
+        />
+      )}
       <label>
         Reflection
         <textarea
@@ -361,11 +468,22 @@ export default function ReflectionEditor({
           {interim}
         </p>
       )}
-      <button type="button" className="button full" disabled={busy} onClick={async (event) => {
-        const clipboard = event.currentTarget.ownerDocument.defaultView?.navigator.clipboard;
-        try { attachFile(await readClipboardScreenshot(clipboard)); }
-        catch (err) { setError((err as Error).message); }
-      }}><ClipboardPaste size={15} /> Paste screenshot</button>
+      <button
+        type="button"
+        className="button full"
+        disabled={busy}
+        onClick={async (event) => {
+          const clipboard =
+            event.currentTarget.ownerDocument.defaultView?.navigator.clipboard;
+          try {
+            attachFile(await readClipboardScreenshot(clipboard));
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        }}
+      >
+        <ClipboardPaste size={15} /> Paste screenshot
+      </button>
       <label className="screenshot-picker">
         <ImagePlus size={15} /> Chart screenshot · optional
         <input
@@ -395,20 +513,41 @@ export default function ReflectionEditor({
         </div>
       )}
       {attachment && !file && <Screenshot {...attachment} />}
-      {file && preview && <img className="journal-screenshot" src={preview} alt="Screenshot attached to this entry" />}
+      {file && preview && (
+        <img
+          className="journal-screenshot"
+          src={preview}
+          alt="Screenshot attached to this entry"
+        />
+      )}
       <p className="form-intro" hidden={compact}>
         Your confirmed labels and history shape your personal insights.
         Dictation uses your browser's speech service, which may process audio
-        remotely. Still Signal saves the reviewed text, not an audio recording.
+        remotely. Original audio is saved only if you separately record it
+        above.
       </p>
       <button
         className="button primary full"
-        disabled={busy || listening || (!text.trim() && !file && !attachment)}
+        disabled={
+          busy ||
+          listening ||
+          audioRecording ||
+          (!text.trim() && !file && !attachment && !audio)
+        }
       >
         {" "}
         {busy ? "Saving…" : compact ? "Save journal entry" : "Save reflection"}
       </button>
-      {onCancel && <button type="button" className="text-button" disabled={busy} onClick={onCancel}>Cancel entry</button>}
+      {onCancel && (
+        <button
+          type="button"
+          className="text-button"
+          disabled={busy}
+          onClick={onCancel}
+        >
+          Cancel entry
+        </button>
+      )}
     </form>
   );
 }

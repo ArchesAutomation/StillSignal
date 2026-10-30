@@ -69,6 +69,7 @@ test("today's review deep link survives dashboard initialization", async () => {
 test("new authenticated workspace is empty and journaling does not require a wearable", async () => {
   const dom = domSetup();
   const root = createRoot(document.getElementById("root")!);
+  try {
   await act(async () =>
     root.render(
       createElement(Dashboard, {
@@ -80,7 +81,7 @@ test("new authenticated workspace is empty and journaling does not require a wea
     ),
   );
   assert.match(document.body.textContent!, /Command Center/);
-  assert.match(document.body.textContent!, /No heart-rate samples/);
+  assert.match(document.body.textContent!, /No measured heart rate/);
   assert.doesNotMatch(
     document.body.textContent!,
     /EXAMPLE SESSION|\bNQ\b|\bES\b/,
@@ -90,11 +91,13 @@ test("new authenticated workspace is empty and journaling does not require a wea
       (b) => b.textContent?.trim() === label,
     )!;
   await act(async () => button("Daily journal").click());
-  assert.equal(button("Add event").disabled, false);
+  assert.equal(button("＋ Add moment").disabled, false);
   await act(async () => button("Daily journal").click());
-  assert.match(document.body.textContent!, /A moment worth remembering/);
+  assert.match(document.body.textContent!, /Your journal, moment by moment/);
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);
-  await act(async () => root.unmount());
-  dom.window.close();
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
 });

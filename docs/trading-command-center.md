@@ -76,7 +76,7 @@ HR samples remain in the existing stores and are not copied into process records
 - Baseline: the completed opening recording window (existing user baseline setting),
   ending before the execution and requiring at least 80% observed time coverage.
   The event itself is excluded from the baseline.
-- HR summaries integrate usable timestamp intervals. Gaps longer than ten seconds
+- HR summaries honor existing journal HR source opt-outs, measurement pauses, recording bounds, and artifact flags. They integrate usable timestamp intervals. Gaps longer than ten seconds
   are missing, never interpolated or counted as observed threshold time. Windows
   report sample count, observed-time coverage, missing intervals, mean/max baseline
   deviation, observed change per minute, and measured time above the configured
@@ -136,3 +136,17 @@ physical-device checks are not replaced by the local database/browser tests.
 
 Keep the rollout additive: retain the new tables and immutable records on a frontend
 rollback. Do not drop process tables or rewrite previous data to roll back the UI.
+
+## Production integration
+
+The release merges the production `codex/journal-space` history at
+`5fbc4bc07418afd4a5fe2d636be87c65c8e90cdf` into the Command Center branch.
+The production journal workspace, inline edits, phase highlights, recording and
+screen capture, private audio/files, session context, weekly reviews, and their
+regression tests are retained. The new workflow navigation uses the existing
+journal shell. No production source files or migrations are removed.
+
+Validation includes the combined test suite, type checking, a production build,
+and isolated desktop/mobile browser checks. The browser checks also save a journal
+reflection and navigate between the journal and process pages. Real-service checks
+and any physical WHOOP test are reported separately at release time.

@@ -221,10 +221,11 @@ test("TradingView history uploads preview and persist filled trades through the 
   await act(async () => checkbox("starts flat").click());
   assert.match(document.body.textContent!, /2 validated events/);
   const submit = [...document.querySelectorAll("button")]
-    .find((button) => button.textContent === "Import 2 events")!;
+    .find((button) => button.textContent === "Confirm and import 2 fills")!;
   assert.equal(submit.disabled, false);
   await act(async () => {
     submit.click();
+    for(let i=0;i<100&&!importing;i++) await new Promise(resolve=>setTimeout(resolve,5));
     await importing;
   });
   const sessions = await listSessions(importOwner);
@@ -269,7 +270,7 @@ test("CSV file picker previews real rows before import and trade-only timeline r
   assert.equal(imported, 0);
   assert.match(document.body.textContent!, /1 validated events/);
   const submit = [...document.querySelectorAll("button")].find(
-    (b) => b.textContent === "Import 1 events",
+    (b) => b.textContent === "Confirm and import 1 fills",
   )!;
   await act(async () => {
     submit.click();
@@ -298,7 +299,7 @@ test("CSV file picker previews real rows before import and trade-only timeline r
   assert.equal(imported, 0);
   assert.match(document.body.textContent!, /2 validated events/);
   const importDrop = [...document.querySelectorAll("button")].find(
-    (b) => b.textContent === "Import 2 events",
+    (b) => b.textContent === "Confirm and import 2 fills",
   )!;
   await act(async () => {
     importDrop.click();

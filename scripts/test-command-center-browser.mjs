@@ -259,7 +259,7 @@ try {
   await fits("Desktop Patterns");
   await page.setViewportSize({ width: 390, height: 844 });
   await page
-    .getByRole("navigation", { name: "Mobile navigation", exact: true })
+    .getByRole("navigation", { name: "Main navigation", exact: true })
     .getByRole("button", { name: "Command Center", exact: true })
     .click();
   await fits("Mobile command center");
@@ -268,6 +268,20 @@ try {
     path: output + "/command-center-mobile.png",
     fullPage: true,
   });
+  await nav("Daily journal");
+  await page.locator(".ss-journal-space").waitFor();
+  await page.locator(".ss-reference-rhythm").waitFor();
+  await fits("Mobile production journal");
+  const writer = page.getByRole("region", { name: "Main journal", exact: true });
+  await writer.getByRole("textbox", { name: "Journal reflection", exact: true }).fill("Production journal survives the Command Center integration.");
+  await writer.getByRole("button", { name: "Save to journal", exact: true }).click();
+  await page.getByLabel("Search moments", { exact: true }).fill("Production journal survives");
+  await page.locator(".ss-space-moment").filter({ hasText: "Production journal survives" }).waitFor();
+  await nav("Command Center");
+  await nav("Daily journal");
+  await page.getByLabel("Search moments", { exact: true }).fill("Production journal survives");
+  await page.locator(".ss-space-moment").filter({ hasText: "Production journal survives" }).waitFor();
+  checks.push("Production journal, chart, and saved reflection survive process-page navigation");
   assert.deepEqual(errors, [], "Browser must have no unhandled errors");
   console.log(JSON.stringify({ checks, errors, output }, null, 2));
 } finally {

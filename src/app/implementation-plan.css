@@ -1,0 +1,642 @@
+/* Selected v4 refinements. Keep capture and journal editing small and direct. */
+.ss-reference-app .ss-inline-moment {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  background: var(--panel, #101a1b);
+  min-width: 0;
+}
+.ss-reference-app .ss-inline-moment-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ss-reference-app .ss-inline-moment-head time {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ss-reference-app .ss-inline-moment-head input {
+  flex: 1;
+  min-width: 160px;
+  max-width: 330px;
+  padding: 7px 10px;
+  border: 1px solid #655972;
+  background: #272330;
+  border-radius: 7px;
+  color: #c1accb;
+  font-size: 12px;
+}
+.ss-reference-app .ss-inline-moment-head small {
+  margin-left: auto;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ss-reference-app .ss-inline-moment-head button {
+  border: 0;
+  padding: 2px 7px;
+  background: none;
+  font-size: 20px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-inline-moment > textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid transparent;
+  min-height: 54px;
+  background: transparent;
+  padding: 10px 0 2px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.ss-reference-app .ss-inline-moment > textarea:focus {
+  border-bottom-color: var(--green);
+  outline: none;
+}
+.ss-inline-save {
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 12px;
+}
+.ss-inline-save button {
+  margin-left: 12px;
+}
+.ss-inline-evidence {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 12px;
+  display: grid;
+  gap: 12px;
+  font-size: 12px;
+}
+.ss-inline-evidence small {
+  color: var(--muted);
+}
+.ss-reference-app .ss-inline-evidence img,
+.ss-reference-app .ss-journey-stage img {
+  display: block;
+  max-width: 190px;
+  max-height: 115px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: zoom-in;
+}
+.ss-reference-app .ss-original-image > a {
+  display: inline-block;
+  margin-right: 12px;
+  font-size: 10px;
+}
+.ss-reference-app .ss-journey-stage .ss-inline-moment-head small {
+  font-size: 8px;
+}
+.ss-moment-undo {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 10px 0;
+  font-size: 12px;
+}
+.ss-moment-undo span {
+  margin-left: 12px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ss-compact-widget-host {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 120;
+  width: 185px;
+}
+.ss-compact-capture {
+  position: relative;
+  width: 185px;
+  font-family: inherit;
+}
+.ss-reference-app .ss-capture-pill {
+  box-sizing: border-box;
+  width: 185px;
+  height: 52px;
+  padding: 7px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #111b1b;
+  border: 1px solid #384849;
+  border-radius: 30px;
+  box-shadow: 0 8px 30px #0004;
+}
+.ss-capture-reading {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: 5px;
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ss-capture-reading b {
+  font-size: 23px;
+  font-weight: 500;
+}
+.ss-capture-reading small {
+  font-size: 8px;
+  color: var(--muted);
+}
+.ss-reference-app .ss-capture-record {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: #e98e6c;
+  color: #172022;
+  font-size: 17px;
+  min-height: 0;
+}
+.ss-reference-app .ss-capture-record[aria-pressed="true"] {
+  background: #ed6f63;
+  box-shadow: 0 0 0 4px #ed6f6324;
+}
+.ss-reference-app .ss-capture-options-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #abbdbb;
+  font-size: 23px;
+  width: 20px;
+  min-height: 0;
+}
+.ss-reference-app .ss-capture-menu {
+  box-sizing: border-box;
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 290px;
+  max-height: min(70vh, 550px);
+  overflow: auto;
+  border: 1px solid #394a48;
+  background: #111b1b;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  box-shadow: 0 10px 40px #0008;
+  color: var(--text);
+  z-index: 3;
+  font-size: 12px;
+}
+.ss-capture-menu > small,
+.ss-capture-settings small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ss-capture-menu > button {
+  text-align: left;
+}
+.ss-capture-settings {
+  display: grid;
+  gap: 8px;
+}
+.ss-capture-settings label {
+  font-size: 11px;
+}
+.ss-capture-settings input[type="number"] {
+  width: 85px;
+  float: right;
+  padding: 4px;
+}
+.ss-capture-settings input[type="checkbox"] {
+  width: auto;
+  display: inline;
+  margin-right: 6px;
+}
+.ss-reference-app .ss-capture-feedback {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 270px;
+  padding: 10px;
+  background: #172221;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 10px;
+  line-height: 1.5;
+  box-shadow: 0 8px 20px #0004;
+  z-index: 2;
+}
+.ss-capture-menu ~ .ss-capture-feedback {
+  display: none;
+}
+.ss-capture-feedback button {
+  font-size: 10px;
+  margin-top: 5px;
+  margin-right: 5px;
+  padding: 3px 6px;
+}
+.ss-popup-root .ss-compact-capture {
+  margin: 8px auto;
+}
+.ss-popup-root:has(.ss-capture-menu) {
+  min-height: 420px;
+}
+.ss-popup-root .ss-capture-menu {
+  top: 62px;
+  bottom: auto;
+  right: -12px;
+  width: min(290px, 95vw);
+}
+.ss-popup-root .ss-capture-feedback {
+  top: 62px;
+  bottom: auto;
+  right: -12px;
+  width: min(270px, 95vw);
+}
+.ss-popup-root > .ss-popup-write,
+.ss-popup-root > .ss-popup-status {
+  display: none;
+}
+.ss-popup-root .ss-popup-editor {
+  margin-top: 20px;
+}
+
+/* One timeline, with an explicit path from each stage into the journal. */
+.ss-phase-link {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.ss-reference-app .ss-phase-link .ss-phase {
+  width: 100%;
+  min-height: 104px;
+  text-align: left;
+  border-left-color: var(--before);
+}
+.ss-phase-link:nth-child(2) {
+  --before: var(--entry);
+}
+.ss-phase-link:nth-child(3) {
+  --before: var(--management);
+}
+.ss-phase-link:nth-child(4) {
+  --before: var(--exit);
+}
+.ss-phase-link:nth-child(5) {
+  --before: var(--after);
+}
+.ss-reference-app .ss-see-log {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #142020;
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+.ss-reference-app .ss-see-log:hover {
+  color: var(--text);
+  border-color: #748c87;
+}
+.ss-reference-app :is(.ss-see-log, .ss-emotion-bars button):focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+/* The session popup is a usable recorder, including evidence and feelings. */
+.floating-journal-host:has(.ss-capture-expanded) {
+  width: min(420px, calc(100vw - 24px));
+  overflow: auto;
+}
+.ss-popup-root:has(.ss-capture-expanded) {
+  padding: 20px;
+  box-sizing: border-box;
+  min-height: 100dvh;
+}
+.ss-popup-root .ss-capture-expanded {
+  width: 100%;
+  margin: 0;
+}
+.ss-recorder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.ss-recorder-header h2 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  letter-spacing: -0.5px;
+}
+.ss-reference-app .ss-recorder-header > button {
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+}
+.ss-reference-app .ss-capture-expanded .ss-capture-pill {
+  width: 100%;
+  height: 96px;
+  border-radius: 14px;
+  padding: 16px;
+  gap: 12px;
+  box-shadow: none;
+}
+.ss-capture-expanded .ss-capture-reading {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  margin: 0;
+  gap: 5px;
+}
+.ss-capture-expanded .ss-capture-reading b {
+  font-size: 38px;
+  line-height: 1;
+}
+.ss-capture-expanded .ss-capture-reading small {
+  font-size: 10px;
+}
+.ss-recorder-delta {
+  display: grid;
+  gap: 4px;
+  margin-right: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.ss-recorder-delta b {
+  font-size: 23px;
+  font-weight: 500;
+  color: var(--green);
+}
+.ss-recorder-delta small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.ss-reference-app .ss-capture-expanded .ss-capture-record {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+}
+.ss-recorder-baseline {
+  margin: 9px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.ss-recorder-baseline span {
+  display: block;
+}
+.ss-recorder-screen-state {
+  padding: 10px 12px;
+  border: 1px solid #354a43;
+  border-radius: 8px;
+  color: var(--green);
+  font-size: 10px;
+  line-height: 1.5;
+  background: #14221e;
+}
+.ss-recorder-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+.ss-reference-app .ss-recorder-actions button {
+  background: #152021;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  padding: 11px 6px;
+}
+.ss-emotion-checkin {
+  border-top: 1px solid var(--line);
+  padding-top: 17px;
+}
+.ss-emotion-checkin h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.ss-emotion-checkin p,
+.ss-emotion-checkin > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.ss-emotion-bars {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+}
+.ss-reference-app .ss-emotion-bars button {
+  display: grid;
+  grid-template-columns: 78px 1fr 18px;
+  gap: 10px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  text-align: left;
+}
+.ss-reference-app .ss-emotion-bars button[aria-pressed="true"] {
+  border-color: #82ab99;
+  background: #1c3029;
+}
+.ss-emotion-track {
+  display: block;
+  height: 8px;
+  background: #1e2b2b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ss-emotion-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.2s;
+}
+.ss-emotion-bars small {
+  color: var(--muted);
+  text-align: right;
+  font-size: 10px;
+}
+.ss-popup-root
+  .ss-capture-expanded
+  :is(.ss-capture-menu, .ss-capture-feedback) {
+  position: static;
+  width: 100%;
+  max-height: none;
+  margin: 14px 0 0;
+  box-shadow: none;
+}
+.ss-popup-root:has(.ss-capture-expanded)
+  > :is(.ss-popup-write, .ss-popup-status) {
+  display: block;
+  padding: 12px 0 0;
+}
+.ss-recorder-transcript {
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 12px;
+  border-left: 2px solid var(--green);
+  background: #14201e;
+}
+@media (max-width: 380px) {
+  .ss-popup-root:has(.ss-capture-expanded) {
+    padding: 12px;
+  }
+  .ss-capture-expanded .ss-capture-reading b {
+    font-size: 30px;
+  }
+  .ss-recorder-delta {
+    padding-left: 8px;
+  }
+  .ss-recorder-delta small {
+    max-width: 62px;
+  }
+}
+.ss-app.ss-reference-app.ss-popup-root:has(.ss-capture-expanded) {
+  padding: 18px;
+  min-height: 0;
+}
+.ss-reference-app .ss-emotion-bars button {
+  min-height: 0;
+}
+.ss-reference-app .ss-chart-layers {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.ss-chart-layers button {
+  font-size: 10px;
+  padding: 5px 10px;
+}
+.ss-chart-layers button[aria-pressed="false"] {
+  opacity: 0.5;
+}
+.ss-chart-layers button[aria-pressed="true"] {
+  border-color: #638779;
+  background: #63877918;
+}
+.ss-reference-app .ss-chart-wide {
+  position: fixed;
+  inset: 20px;
+  z-index: 150;
+  overflow: auto;
+  background: #0d1718;
+}
+.ss-reference-app .ss-chart-wide .ss-rhythm-svg {
+  min-height: 50vh;
+}
+.ss-reference-app .ss-rhythm-svg {
+  touch-action: none;
+}
+.ss-comparison-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.ss-comparison-groups > article {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.ss-comparison-groups p,
+.ss-comparison-groups small {
+  font-size: 11px;
+}
+.ss-grouping-preview {
+  padding: 15px;
+  margin-top: 14px;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+}
+.ss-grouping-preview > div {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.ss-profit-preview > p {
+  max-width: 740px;
+}
+.ss-profit-preview svg {
+  display: block;
+  width: min(600px, 100%);
+  margin: 14px 0;
+}
+.ss-profit-preview details {
+  margin-top: 16px;
+}
+.ss-profit-preview details strong {
+  display: block;
+  color: var(--gold);
+  font-size: 11px;
+}
+.ss-reference-app .ss-weekly-invitation {
+  padding: 15px 18px;
+  margin: 12px 0 20px;
+  border: 1px solid #64867566;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #6486750b;
+  font-size: 12px;
+}
+.ss-weekly-invitation p {
+  font-size: 11px;
+  margin: 4px 0;
+  color: var(--muted);
+}
+.ss-weekly-invitation button {
+  font-size: 10px;
+  padding: 5px 9px;
+  margin: 3px;
+}
+@media (max-width: 760px) {
+  .ss-compact-widget-host {
+    right: 12px;
+    bottom: 76px;
+  }
+  .ss-reference-app .ss-inline-moment-head {
+    gap: 6px;
+  }
+  .ss-reference-app .ss-inline-moment-head input {
+    min-width: 130px;
+    max-width: none;
+  }
+  .ss-reference-app .ss-inline-moment-head small {
+    width: 100%;
+    order: 4;
+  }
+  .ss-reference-app .ss-analysis-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ss-reference-app .ss-weekly-invitation {
+    display: block;
+  }
+  .ss-reference-app .ss-chart-wide {
+    inset: 8px;
+  }
+  .ss-reference-app .ss-inline-moment > textarea {
+    font-size: 14px;
+  }
+}
