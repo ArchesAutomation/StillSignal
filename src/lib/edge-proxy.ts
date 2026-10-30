@@ -8,7 +8,8 @@ export async function forwardToSupabase(
     | "pulse-brokers"
     | "pulse-market"
     | "pulse-broker-webhook"
-    | "pulse-extension",
+    | "pulse-extension"
+    | "pulse-process",
     // Extension credentials are validated by the dedicated handler, never by broker routes.
   body: unknown,
 ) {

@@ -10,18 +10,77 @@ import Journal from "./journal";
 import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
 import Overview from "./overview";
+import ProcessWorkspace from "../command-center/workspace";
 import Stillness, { reflections } from "./stillness";
+import SessionReset from "./session-reset";
+import SessionContext from "./session-context";
+import ReferenceContext from "./reference-context";
+import ReferenceHistory from "./reference-history";
+import ReferenceWeek from "./reference-week";
+import WeeklyReminder from "./weekly-reminder";
 const navigation: [Page, string, string][] = [
-  ["Overview", "⌂", "Overview"],
+  ["Command Center", "⌂", "Command Center"],
+  ["Pre-Market", "✓", "Pre-Market"],
+  ["Trading Thesis", "◈", "Trading Thesis"],
+  ["Trade Quality", "◇", "Trade Quality"],
+  ["Live Session", "⌁", "Live Session"],
   ["Journal", "▣", "Daily journal"],
-  ["Patterns", "⌁", "Heart-rate analytics"],
+  ["Patterns", "⌁", "Patterns"],
+  ["Rule Violations", "!", "Rule Violations"],
+  ["Overview", "↗", "Performance"],
+  ["Audits", "☷", "Audits"],
+  ["Missions", "◎", "Missions"],
   ["Sessions", "◴", "Sessions"],
+  ["Settings & Variables", "⚙", "Settings & Variables"],
   ["Stillness", "◌", "Stillness"],
+  ["Prepare", "⌂", "Session intentions"],
+  ["Settings", "⚙", "Settings"],
   ["Connections", "↗", "Connections"],
 ];
 export default function ConceptWorkspace(props: Props) {
   const { pulse: p, session: s, history, page } = props;
   const daySession = dailyJournalSession(s, history);
+  const resetSeen = useRef(new Set<string>());
+  const [weekly, setWeekly] = useState(false);
+  const [reviewWeek, setReviewWeek] = useState<string>();
+  const capturePending = props.capture?.pendingCapture || false;
+  const previousActive = useRef(p.active);
+  useEffect(()=>{
+    const close=(e:Event)=>document.querySelectorAll<HTMLDetailsElement>(".ss-reference-tools[open]").forEach(menu=>{
+      if(e.type==="keydown" ? (e as KeyboardEvent).key==="Escape" : !menu.contains(e.target as Node) || (e.type==="click" && (e.target as Element).closest("button")))menu.open=false;
+    });
+    document.addEventListener("pointerdown",close);document.addEventListener("click",close);document.addEventListener("keydown",close);
+    return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("click",close);document.removeEventListener("keydown",close);};
+  },[]);
+  useEffect(() => {
+    if (
+      previousActive.current &&
+      !p.active &&
+      p.settings.startWithStillness !== false
+    )
+      props.onPage("Stillness");
+    previousActive.current = p.active;
+  }, [
+    s.id,
+    s.endedAt,
+    p.active,
+    p.settings.startWithStillness,
+    page,
+    props.onPage,
+  ]);
+  function finishReset(choice: "voice" | "structured" | "journal") {
+    resetSeen.current.add(s.id);
+    setView(choice === "structured" ? "review" : "story");
+    props.onPage("Journal");
+    if (choice === "voice")
+      props.onReflect({
+        t: s.endedAt || s.startedAt,
+        eventTime: null,
+        origin: "stillness",
+        source: "voice",
+        autoListen: true,
+      });
+  }
   const [view, setView] = useState<"story" | "patterns" | "review">("story"),
     [week, setWeek] = useState(0),
     [welcome, setWelcome] = useState(false),
@@ -39,10 +98,12 @@ export default function ConceptWorkspace(props: Props) {
   }, [welcome]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setWidget(false); };
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !capturePending) setWidget(false);
+    };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, []);
+  }, [capturePending]);
   useEffect(() => {
     setWeek(0);
   }, [s.id]);
@@ -50,7 +111,13 @@ export default function ConceptWorkspace(props: Props) {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [page]);
-  async function act(fn: () => Promise<unknown>) {
+  async function act(fn: () => Promise<unknown>, allowDraft = false) {
+    if (capturePending && !allowDraft) {
+      p.setError(
+        "Confirm or discard your capture draft before changing sessions.",
+      );
+      return;
+    }
     try {
       p.setError("");
       await fn();
@@ -59,9 +126,10 @@ export default function ConceptWorkspace(props: Props) {
     }
   }
   const go = (next: Page) => {
+    setWeekly(false);
     if (next !== "Journal") setFocusTime(undefined);
     if (next === "Stillness" && page !== "Stillness") setWelcome(true);
-    if (next === "Journal") setView("story");
+    if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
   };
@@ -71,21 +139,27 @@ export default function ConceptWorkspace(props: Props) {
   };
   const openDay = async (date: string) => {
     if (openingDay) return;
+    if (capturePending) {
+      p.setError("Confirm or discard your capture draft before changing days.");
+      return;
+    }
     setOpeningDay(true);
     try {
       await act(async () => {
-        if (!await p.openJournalDay(date)) return;
+        if (!(await p.openJournalDay(date))) return;
         setFocusTime(undefined);
         go("Journal");
       });
-    } finally { setOpeningDay(false); }
+    } finally {
+      setOpeningDay(false);
+    }
   };
   const quiet = () => {
     setWhisper(reflections[Math.floor(Math.random() * reflections.length)]);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setWhisper(""), 5200);
   };
-  const journal = page === "Journal" || page === "Patterns";
+  const journal = page === "Journal" || page === "Patterns" || page === "Live Session";
   const ws = weekStart(s.startedAt, week),
     we = new Date(ws);
   we.setDate(we.getDate() + 6);
@@ -102,7 +176,67 @@ export default function ConceptWorkspace(props: Props) {
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go };
   return (
-    <div className={cx("app")}>
+    <div className={cx("app", "reference-app")}>
+      <header className={cx("reference-topbar")}>
+        <button className={cx("reference-brand")} onClick={() => go("Command Center")}>
+          <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" />
+            <path d="M3 17h7l3-8 6 15 3-7h7" stroke="currentColor" />
+          </svg>
+          still signal <span>.</span>
+        </button>
+        <nav className={cx("reference-nav")} aria-label="Main navigation">
+          {navigation.map(([name, , label]) => (
+              <button
+                key={name}
+                aria-label={name === "Patterns" ? "Heart-rate analytics" : label}
+                aria-current={page === name ? "page" : undefined}
+                className={cx(page === name && "active")}
+                onClick={() => go(name)}
+              >
+                {label}
+              </button>
+            ))}
+        </nav>
+        <div className={cx("reference-top-actions")}>
+          <button
+            className={cx("connection-shortcut")}
+            onClick={() => go("Connections")}
+          >
+            Connections
+          </button>
+          <button className={cx("floating-shortcut")} onClick={props.onFloat}>
+            Floating window ↗
+          </button>
+          <button
+            disabled={capturePending}
+            onClick={() =>
+              capturePending
+                ? p.setError(
+                    "Confirm or discard your capture draft before importing.",
+                  )
+                : props.onCsv()
+            }
+          >
+            Import session ↗
+          </button>
+          <details className={cx("reference-tools")}>
+            <summary aria-label="Session tools">⋯</summary>
+            <div>
+              <button onClick={() => go("Sessions")}>Saved sessions</button>
+              <button onClick={() => go("Overview")}>Overview</button>
+              <button onClick={() => go("Connections")}>Connections</button>
+              <button onClick={props.onTrade}>Add trade</button>
+              <button onClick={() => props.onAdvanced()}>Chart & replay</button>
+              <button onClick={props.onFloat}>Floating journal window</button>
+              <button onClick={props.onExport}>Export session</button>
+            </div>
+          </details>
+          <span className={cx("reference-avatar")} title={p.email}>
+            {(p.email || "You").slice(0, 2).toUpperCase()}
+          </span>
+        </div>
+      </header>
       <aside className={cx("sidebar")}>
         <div className={cx("brand")}>
           <div className={cx("brandmark")}>⌁</div>
@@ -127,7 +261,7 @@ export default function ConceptWorkspace(props: Props) {
               className={cx(page === name && "active")}
               aria-current={page === name ? "page" : undefined}
               onClick={() => go(name)}
-              aria-label={label}
+              aria-label={name === "Overview" ? "Overview" : name === "Patterns" ? "Heart-rate analytics" : label}
               title={label}
             >
               <span className={cx("navicon")}>{icon}</span>
@@ -168,18 +302,39 @@ export default function ConceptWorkspace(props: Props) {
       <main>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            Workspace <b>/ {journal ? "Daily journal" : page}</b>
+            Workspace <b>/ {page === "Overview" ? "Performance" : page === "Journal" ? "Daily journal" : page}</b>
           </div>
           <div className={cx("topactions")}>
-            <details className={cx("tools")}><summary className={cx("iconbtn")} aria-label="Session tools">⋯</summary>
-              <div className={cx("tool-menu")} onClick={event => { if ((event.target as HTMLElement).closest("button")) event.currentTarget.parentElement?.removeAttribute("open"); }}>
+            <details className={cx("tools")}>
+              <summary className={cx("iconbtn")} aria-label="Session tools">
+                ⋯
+              </summary>
+              <div
+                className={cx("tool-menu")}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("button"))
+                    event.currentTarget.parentElement?.removeAttribute("open");
+                }}
+              >
                 <button onClick={props.onFloat}>Floating journal</button>
                 <button onClick={props.onTrade}>Add trade</button>
-                <button onClick={props.onCsv}>Import market data</button>
+                <button
+                  onClick={() =>
+                    capturePending
+                      ? p.setError(
+                          "Confirm or discard your capture draft before importing.",
+                        )
+                      : props.onCsv()
+                  }
+                >
+                  Import market data
+                </button>
                 <button onClick={() => go("Connections")}>Connections</button>
                 <button onClick={() => go("Settings")}>Settings</button>
                 <button onClick={props.onExport}>Export session</button>
-                <button onClick={() => props.onAdvanced()}>Chart & replay</button>
+                <button onClick={() => props.onAdvanced()}>
+                  Chart & replay
+                </button>
               </div>
             </details>
             {journal ? (
@@ -203,6 +358,8 @@ export default function ConceptWorkspace(props: Props) {
                   + Add reflection
                 </button>
               </>
+            ) : page === "Command Center" ? (
+              <button className={cx("primary")} onClick={() => void act(p.active ? p.stop : p.start)}>{p.active ? "End session" : "Start session"}</button>
             ) : page === "Overview" ? (
               <>
                 <button className={cx("ghost")} onClick={() => go("Patterns")}>
@@ -214,7 +371,16 @@ export default function ConceptWorkspace(props: Props) {
               </>
             ) : page === "Sessions" ? (
               <>
-                <button className={cx("ghost")} onClick={props.onCsv}>
+                <button
+                  className={cx("ghost")}
+                  onClick={() =>
+                    capturePending
+                      ? p.setError(
+                          "Confirm or discard your capture draft before importing.",
+                        )
+                      : props.onCsv()
+                  }
+                >
                   Import CSV
                 </button>
                 <button
@@ -222,7 +388,11 @@ export default function ConceptWorkspace(props: Props) {
                   disabled={p.connectingWhoop}
                   onClick={() => void act(p.active ? p.stop : p.attachWhoop)}
                 >
-                  {p.connectingWhoop ? "Connecting WHOOP…" : p.active ? "End session" : "Start HR recording"}
+                  {p.connectingWhoop
+                    ? "Connecting WHOOP…"
+                    : p.active
+                      ? "End session"
+                      : "Start HR recording"}
                 </button>
               </>
             ) : page === "Stillness" ? (
@@ -232,7 +402,7 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
                 <button
                   className={cx("primary")}
-                  onClick={() => setStartSignal((n) => n + 1)}
+                  onClick={() => finishReset("journal")}
                 >
                   Return to choice
                 </button>
@@ -244,7 +414,12 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
-        {s.demo && <p className={cx("demo-notice")}>DEMO DATA · Simulated heart rate, trades and reflections. No broker or wearable is connected to this dataset.</p>}
+        {s.demo && (
+          <p className={cx("demo-notice")}>
+            DEMO DATA · Simulated heart rate, trades and reflections. No broker
+            or wearable is connected to this dataset.
+          </p>
+        )}
         {p.error && (
           <div className={cx("message", "error")} role="alert">
             <span>{p.error}</span>
@@ -264,87 +439,239 @@ export default function ConceptWorkspace(props: Props) {
             </button>
           </div>
         )}
+        {<ProcessWorkspace key={p.owner} {...viewProps} />}
+        {(page === "Overview" || page === "Journal") && (
+          <WeeklyReminder
+            sessions={[s, ...history]}
+            owner={s.owner}
+            active={p.active || capturePending}
+            enabled={p.settings.weeklyReminders !== false}
+            onOpen={(key) => {
+              setReviewWeek(key);
+              setWeekly(true);
+              props.onPage("Journal");
+            }}
+            onPreference={(enabled) =>
+              p.configure({ ...p.settings, weeklyReminders: enabled })
+            }
+          />
+        )}
         {page === "Overview" && <Overview {...viewProps} onReview={review} />}
-        <div hidden={!journal}>
-          {journal && (
+        {page === "Overview" && (
+          <SessionContext
+            key={s.id}
+            session={s}
+            history={history}
+            onSave={p.updateBlueprint}
+          />
+        )}
+        {page === "Prepare" && (
+          <>
             <section className={cx("hero")}>
               <div>
-                <div className={cx("eyebrow")}>
-                  Daily journal ·{" "}
-                  {p.syncState.toLowerCase().includes("connected")
-                    ? "synced automatically"
-                    : p.syncState}
-                </div>
-                <h1>
-                  {new Date(s.startedAt).toLocaleDateString("en-GB", {
-                    weekday: "long",
-                  }) +
-                    ", " +
-                    new Date(s.startedAt).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "long",
-                    })}
-                </h1>
-                <p>
-                  One trading day. Heart rate, execution and reflection in
-                  context.
-                </p>
+                <div className={cx("eyebrow")}>Before the market</div>
+                <h1>Choose your intentions.</h1>
+                <p>A few commitments to come back to. Yours to define.</p>
               </div>
-              <div className={cx("datecontrols")}>
-                <button
-                  className={cx("iconbtn")}
-                  aria-label="Previous week"
-                  onClick={() => setWeek((n) => n - 1)}
-                >
-                  ‹
-                </button>
-                <div className={cx("currentdate")}>
-                  {ws.getDate()}–{we.getDate()}{" "}
-                  {we.toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </div>
-                <button
-                  className={cx("iconbtn")}
-                  aria-label="Next week"
-                  onClick={() => setWeek((n) => n + 1)}
-                >
-                  ›
-                </button>
-              </div>
+              <button
+                className={cx("primary")}
+                onClick={() => void act(p.active ? p.stop : p.start)}
+              >
+                {p.active ? "End session" : "Start session"}
+              </button>
             </section>
-          )}
-          {journal && <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay} onOpen={openDay} />}
-          {journal && (
-            <Calendar
+            <ReferenceContext key={s.id} {...viewProps} />
+          </>
+        )}
+        <div hidden={!journal} className={cx("reference-journal-grid")}>
+          <details className={cx("space-history")}>
+            <summary>Calendar & previous entries</summary>
+            <ReferenceHistory
+              session={s}
               sessions={history}
-              selected={s}
-              offset={week}
-              disabled={p.active || openingDay}
-              onOpen={(target) => void act(() => p.openSession(target))}
-              onEmptyDay={date => void openDay(date)}
+              disabled={p.active || openingDay || capturePending}
+              onDay={(date) => void openDay(date)}
+              onWeek={() => setWeekly((v) => !v)}
+              onNote={(source, n) =>
+                void act(async () => {
+                  if (source.id !== s.id && !(await p.openSession(source)))
+                    return;
+                  go("Journal");
+                  props.onReflect({ t: n.t, entry: n });
+                })
+              }
             />
-          )}
-        <section className={cx("session-controls", "v4-sessionbar", !p.active && "idle")} aria-label="Session controls">
-          <div className={cx("session-state")}><i /><div><strong>{p.active ? "Recording" : s.endedAt ? "Session ended" : "Session not started"}</strong>
-            <small>{p.active ? p.recording ? "Heart rate and journal" : "Journal only · wearable optional" : p.syncState}</small></div></div>
-          <button className={cx(p.active ? "ghost end-session" : "primary")} onClick={() => void act(async () => {
-            if (p.active) { await p.stop(); review(); } else await p.start();
-          })}>{p.active ? "End Session" : "Start Session"}</button>
-          {p.active && !p.recording && <button className={cx("ghost")} disabled={p.connectingWhoop} onClick={() => void act(p.attachWhoop)}>{p.connectingWhoop ? "Connecting WHOOP…" : "Connect heart rate"}</button>}
-          <button className={cx("ghost")} onClick={props.onCsv}>Import market data</button>
-          <span role="status">{s.events.some(e => e.provenance !== "alert" && !e.voided) ? "Executions matched" : "No trades recorded · journal ready"}</span>
-        </section>
-          <Journal
-            {...viewProps}
-            focusTime={focusTime}
-            view={page === "Patterns" ? "patterns" : view}
-            setView={(v) => {
-              setView(v);
-              props.onPage(v === "patterns" ? "Patterns" : "Journal");
-            }}
-          />
+          </details>
+          <div className={cx("reference-day")}>
+            {weekly ? (
+              <>
+                <button onClick={() => setWeekly(false)}>
+                  Back to journal
+                </button>
+                <ReferenceWeek
+                  key={s.id + reviewWeek}
+                  {...viewProps}
+                  week={reviewWeek}
+                />
+              </>
+            ) : (
+              <>
+                {journal && view !== "story" && (
+                  <section className={cx("hero")}>
+                    <div>
+                      <div className={cx("eyebrow")}>
+                        Daily journal ·{" "}
+                        {p.syncState.toLowerCase().includes("connected")
+                          ? "synced automatically"
+                          : p.syncState}
+                      </div>
+                      <h1>
+                        {new Date(s.startedAt).toLocaleDateString("en-GB", {
+                          weekday: "long",
+                        }) +
+                          ", " +
+                          new Date(s.startedAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                      </h1>
+                      <p>
+                        {s.timezone ||
+                          Intl.DateTimeFormat().resolvedOptions().timeZone}{" "}
+                        ·{" "}
+                        {s.blueprint?.environmentHistory?.at(-1)?.location ||
+                          "Environment not recorded"}
+                      </p>
+                    </div>
+                    <div className={cx("datecontrols")}>
+                      <button
+                        className={cx("iconbtn")}
+                        aria-label="Previous week"
+                        onClick={() => setWeek((n) => n - 1)}
+                      >
+                        ‹
+                      </button>
+                      <div className={cx("currentdate")}>
+                        {ws.getDate()}–{we.getDate()}{" "}
+                        {we.toLocaleDateString("en-US", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </div>
+                      <button
+                        className={cx("iconbtn")}
+                        aria-label="Next week"
+                        onClick={() => setWeek((n) => n + 1)}
+                      >
+                        ›
+                      </button>
+                    </div>
+                  </section>
+                )}
+                {journal && (
+                  <details className={cx("space-date-tools")}>
+                    <summary>Choose a date · work week</summary>
+                    <JournalDayPicker
+                      key={s.id}
+                      date={s.startedAt}
+                      disabled={p.active || openingDay || capturePending}
+                      onOpen={openDay}
+                    />
+                    <Calendar
+                      weekdaysOnly
+                      sessions={history}
+                      selected={s}
+                      offset={week}
+                      disabled={p.active || openingDay || capturePending}
+                      onOpen={(target) => void act(() => p.openSession(target))}
+                      onEmptyDay={(date) => void openDay(date)}
+                    />
+                  </details>
+                )}
+                <section
+                  className={cx(
+                    "session-controls",
+                    "v4-sessionbar",
+                    !p.active && "idle",
+                  )}
+                  aria-label="Session controls"
+                >
+                  <div className={cx("session-state")}>
+                    <i />
+                    <div>
+                      <strong>
+                        {p.active
+                          ? "Recording"
+                          : s.endedAt
+                            ? "Session ended"
+                            : "Session not started"}
+                      </strong>
+                      <small>
+                        {p.active
+                          ? p.recording
+                            ? "Heart rate and journal"
+                            : "Journal only · wearable optional"
+                          : p.syncState}
+                      </small>
+                    </div>
+                  </div>
+                  <button
+                    disabled={capturePending && !p.active}
+                    className={cx(p.active ? "ghost end-session" : "primary")}
+                    onClick={() =>
+                      void act(async () => {
+                        if (p.active) {
+                          await p.stop();
+                          if (p.settings.startWithStillness !== false)
+                            go("Stillness");
+                        } else await p.start();
+                      }, p.active)
+                    }
+                  >
+                    {p.active ? "End Session" : "Start Session"}
+                  </button>
+                  {p.active && !p.recording && (
+                    <button
+                      className={cx("ghost")}
+                      disabled={p.connectingWhoop}
+                      onClick={() => void act(p.attachWhoop)}
+                    >
+                      {p.connectingWhoop
+                        ? "Connecting WHOOP…"
+                        : "Connect heart rate"}
+                    </button>
+                  )}
+                  <button
+                    className={cx("ghost")}
+                    onClick={() =>
+                      capturePending
+                        ? p.setError(
+                            "Confirm or discard your capture draft before importing.",
+                          )
+                        : props.onCsv()
+                    }
+                  >
+                    Import market data
+                  </button>
+                  <span role="status">
+                    {s.events.some((e) => e.provenance !== "alert" && !e.voided)
+                      ? "Executions matched"
+                      : "No trades recorded · journal ready"}
+                  </span>
+                </section>
+                <Journal
+                  {...viewProps}
+                  focusTime={focusTime}
+                  view={page === "Patterns" ? "patterns" : view}
+                  setView={(v) => {
+                    setView(v);
+                    props.onPage(v === "patterns" ? "Patterns" : "Journal");
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
         {page === "Sessions" && (
           <>
@@ -374,7 +701,12 @@ export default function ConceptWorkspace(props: Props) {
                 </p>
               </div>
               <div className={cx("topactions")}>
-                <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay} onOpen={openDay} />
+                <JournalDayPicker
+                  key={s.id}
+                  date={s.startedAt}
+                  disabled={p.active || openingDay || capturePending}
+                  onOpen={openDay}
+                />
                 <button
                   className={cx("ghost")}
                   onClick={() =>
@@ -425,24 +757,22 @@ export default function ConceptWorkspace(props: Props) {
             />
             {!history.length && (
               <p className={cx("empty-note")}>
-                Choose a journal date to begin. Trades and CSV uploads are optional.
+                Choose a journal date to begin. Trades and CSV uploads are
+                optional.
               </p>
             )}
           </>
         )}
         <div hidden={page !== "Stillness"}>
-          <Stillness
+          <SessionReset
             key={s.id}
-            session={daySession}
-            time={captureTime}
-            onSave={p.addNote}
-            onReflect={props.onReflect}
-            startSignal={startSignal}
+            active={page === "Stillness"}
+            onChoice={finishReset}
           />
         </div>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
-        {navigation.slice(0, 5).map(([name, , label]) => (
+        {navigation.map(([name, , label]) => (
           <button
             className={cx(page === name && "active")}
             key={name}
@@ -481,63 +811,24 @@ export default function ConceptWorkspace(props: Props) {
       </div>
       <aside
         ref={widgetRef}
-        className={cx(
-          "livewidget",
-          delta !== null && delta >= props.threshold && "elevated",
-          widget && "expanded",
-        )}
+        className={cx("compact-widget-host")}
         aria-label="Still Signal live widget"
       >
-        <CapturePanel key={s.id} session={daySession} samples={p.samples} baselineSeconds={p.settings.baselineSeconds} now={p.now} active={p.active} recording={p.recording} shortcut={p.settings.shortcutKey} onClose={() => setWidget(false)} onReflect={props.onReflect} onSave={p.addNote} />
-        <div className={cx("widgetpill")} title="Drag the widget anywhere"
-          onPointerDown={event => {
-            if ((event.target as HTMLElement).closest("button")) return;
-            const element = widgetRef.current!;
-            const rect = element.getBoundingClientRect();
-            dragRef.current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-            element.style.right = "auto"; element.style.bottom = "auto";
-            element.style.left = rect.left + "px"; element.style.top = rect.top + "px";
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={event => {
-            if (!dragRef.current || !widgetRef.current) return;
-            const element = widgetRef.current;
-            element.style.left = Math.max(8, Math.min(innerWidth - element.offsetWidth - 8, event.clientX - dragRef.current.x)) + "px";
-            element.style.top = Math.max(widget ? 360 : 8, Math.min(innerHeight - element.offsetHeight - 8, event.clientY - dragRef.current.y)) + "px";
-          }}
-          onPointerUp={() => { dragRef.current = null; }} onPointerCancel={() => { dragRef.current = null; }}>
-          <span className={cx("widgetlogo")}>⌁</span>
-          <i
-            className={cx("widgetstatus")}
-            style={p.recording ? undefined : { background: "var(--muted)" }}
-          />
-          <span className={cx("widgetreading")}>
-            {latest?.bpm ?? "—"} BPM{" "}
-            <small>
-              {delta === null ? "" : `${delta >= 0 ? "+" : ""}${delta}`}
-            </small>
-          </span>
-          <button
-            className={cx("roundbtn")}
-            aria-label="Capture voice reflection"
-            onClick={() =>
-              props.onReflect({
-                t: captureTime,
-                source: "voice",
-                autoListen: true,
-              })
-            }
-          >
-            ●
-          </button>
-          <button
-            className={cx("widgetexpand")}
-            aria-label={widget ? "Collapse widget" : "Expand widget"}
-            onClick={() => setWidget((v) => !v)}
-          >
-            ⌃
-          </button>
-        </div>
+        <CapturePanel
+          key={s.id}
+          controller={props.capture}
+          session={daySession}
+          samples={p.samples}
+          baselineSeconds={p.settings.baselineSeconds}
+          now={p.now}
+          active={p.active}
+          recording={p.recording}
+          shortcut={p.settings.shortcutKey}
+          onClose={() => setWidget(false)}
+          onReflect={props.onReflect}
+          onSave={p.addNote}
+          onSaveBlueprint={p.updateBlueprint}
+        />
       </aside>
     </div>
   );

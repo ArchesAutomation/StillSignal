@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { blueprintSchema } from "./blueprint-schema";
 const ts = z.number().int().min(0).max(8640000000000000);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 export const instrumentSchema = z.object({
@@ -18,6 +19,8 @@ export const sampleSchema = z.object({
   t: ts,
   bpm: z.number().int().min(25).max(240),
   provider: z.enum(["whoop", "apple", "oura", "garmin"]).optional(),
+  quality: z.enum(["good", "uncertain", "artifact"]).optional(),
+  cadenceMs: z.number().positive().max(3600000).optional(),
 });
 export const eventSchema = z
   .object({
@@ -98,6 +101,7 @@ export const sessionSchema = z.object({
   sampleCount: z.number().int().min(0),
   timezone: z.string().max(80).optional(),
   demo: z.boolean().optional(),
+  blueprint: blueprintSchema.optional(),
   events: z.array(eventSchema).max(5000),
   journal: z
     .array(
@@ -105,20 +109,98 @@ export const sessionSchema = z.object({
         id: z.string().max(160),
         t: ts,
         eventTime: ts.nullable().optional(),
-        section: z.enum(["before", "entry", "management", "exit", "after", "day-review", "post-session", "stillness", "custom"]).optional(),
+        section: z
+          .enum([
+            "before",
+            "entry",
+            "management",
+            "exit",
+            "after",
+            "day-review",
+            "post-session",
+            "stillness",
+            "custom",
+          ])
+          .optional(),
         customSection: z.string().max(80).optional(),
         tradeId: z.string().max(160).optional(),
         order: z.number().int().optional(),
-        prompt: z.object({ id: z.string().max(160), question: z.string().max(500), choice: z.string().max(160).optional() }).optional(),
-        support: z.object({ outcome: z.enum(["loss", "profit", "breakeven"]), adherence: z.enum(["followed", "broken", "partly"]) }).optional(),
+        prompt: z
+          .object({
+            id: z.string().max(160),
+            question: z.string().max(500),
+            choice: z.string().max(160).optional(),
+          })
+          .optional(),
+        support: z
+          .object({
+            outcome: z.enum(["loss", "profit", "breakeven"]),
+            adherence: z.enum(["followed", "broken", "partly"]),
+          })
+          .optional(),
         label: z.string().max(40),
         text: z.string().max(2000),
         updatedAt: ts.optional(),
         deletedAt: ts.optional(),
         source: z.enum(["typed", "voice", "hr-checkin"]).optional(),
-        origin: z.enum(["free-writing", "timeline", "stillness", "capture"]).optional(),
+        origin: z
+          .enum(["free-writing", "timeline", "stillness", "capture"])
+          .optional(),
         activationAt: ts.optional(),
         recordingStartedAt: ts.optional(),
+        capturedAt: ts.optional(),
+        captureMode: z.enum(["live", "post-session"]).optional(),
+        inputMethod: z.enum(["voice", "text", "prompt"]).optional(),
+        reflectionScope: z.enum(["day", "idea", "stage"]).optional(),
+        originalTranscript: z.string().max(2000).optional(),
+        captureSessionId: z.uuid().optional(),
+        labelAddedAt: ts.optional(),
+        transcriptStatus: z
+          .enum(["available", "unavailable", "failed", "pending"])
+          .optional(),
+        revisitsId: z.string().max(160).optional(),
+        triggerEventId: z.string().max(160).optional(),
+        capture: z
+          .object({
+            pressedAt: ts,
+            confirmedAt: ts,
+            imageCapturedAt: ts.optional(),
+            imagePath: z.string().max(400).optional(),
+            width: z.number().int().positive().max(32768).optional(),
+            height: z.number().int().positive().max(32768).optional(),
+            imageMissing: z.string().max(300).optional(),
+            quoteMissing: z.string().max(300).optional(),
+            quote: z
+              .object({
+                price: z.number().finite().positive(),
+                symbol: z.string().max(32),
+                source: z.string().max(160),
+                observedAt: ts,
+                currency,
+              })
+              .optional(),
+            environment: z
+              .object({
+                location: z.string().max(160),
+                country: z.string().max(160),
+                social: z.string().max(160),
+                setup: z.string().max(160),
+                interruptions: z.string().max(160),
+              })
+              .optional(),
+          })
+          .optional(),
+        audio: z
+          .object({
+            path: z
+              .string()
+              .max(300)
+              .regex(/^local-audio:[a-f0-9-]{36}:[a-f0-9-]{36}$/),
+            expiresAt: ts,
+            durationSeconds: z.number().min(0).max(600),
+            mimeType: z.string().max(100),
+          })
+          .optional(),
         captureScope: z
           .object({
             instrumentId: z.string().min(1).max(160).optional(),
@@ -130,6 +212,10 @@ export const sessionSchema = z.object({
           .optional(),
         context: z
           .object({
+            hrWindowMean: z.number().finite().min(25).max(240).optional(),
+            hrWindowCount: z.number().int().nonnegative().optional(),
+            hrWindowHalfSeconds: z.number().int().min(1).max(3600).optional(),
+            hrWindowComplete: z.boolean().optional(),
             bpm: z.number().finite().min(25).max(240).optional(),
             baseline: z.number().finite().min(25).max(240).optional(),
             delta: z.number().finite().min(-215).max(215).optional(),
@@ -152,6 +238,7 @@ export const sessionSchema = z.object({
     .max(1000),
 });
 export const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("capabilities") }),
   z.object({ action: z.literal("connection-status") }),
   z.object({ action: z.literal("disconnect") }),
   z.object({

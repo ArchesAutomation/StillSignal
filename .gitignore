@@ -11,3 +11,5 @@ extension/dist/
 pnpm-lock.yaml
 extension/test-results/
 .vercel
+
+.next-command-center-qa/

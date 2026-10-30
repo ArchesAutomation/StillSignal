@@ -6,6 +6,7 @@ import { cx, time, type Moment, type Series } from "./shared";
 import { phaseColors } from "@/lib/phase-colors";
 
 type ChartProps = Series & {
+  timezone?: string;
   showPrice?: boolean;
   candles: Candle[];
   symbol: string;
@@ -20,6 +21,7 @@ type ChartProps = Series & {
 };
 
 export default function ConceptChart({
+  timezone,
   showPrice = false,
   samples,
   baseline,
@@ -46,7 +48,7 @@ export default function ConceptChart({
   const [drag, setDrag] = useState<[number, number] | null>(null);
   const svg = useRef<SVGSVGElement>(null);
   const displayTime = (t: number, seconds = true) =>
-    demo
+    timezone ? time(t,seconds,timezone) : demo
       ? new Date(t).toLocaleTimeString("en-US", {
           timeZone: "America/New_York",
           hour: "numeric",

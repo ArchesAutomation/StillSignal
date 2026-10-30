@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
+  distDir: process.env.STILL_SIGNAL_QA_DIST || ".next",
   poweredByHeader: false,
   devIndicators: false,
   async headers() {
@@ -24,14 +25,16 @@ const config: NextConfig = {
           {
             key: "Permissions-Policy",
             value:
-              "camera=(), microphone=(self), geolocation=(), bluetooth=(self)",
+              "camera=(), microphone=(self), display-capture=(self), geolocation=(), bluetooth=(self)",
           },
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: " +
+              "default-src 'self'; script-src 'self' 'unsafe-inline'" +
+              (process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "") +
+              "; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: " +
               origin +
-              "; font-src 'self'; connect-src 'self' " +
+              "; media-src 'self' blob:; font-src 'self'; connect-src 'self' " +
               origin +
               " " +
               socket +

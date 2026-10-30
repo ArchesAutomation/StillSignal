@@ -1,0 +1,37 @@
+/* Shared journal controls: the closed field and open menu form one visual system. */
+.ss-reference-app .ss-journal-select{display:inline-flex;position:relative;min-width:0;max-width:100%;vertical-align:middle;text-align:left}
+.ss-reference-app .ss-journal-select select[hidden]{display:none!important}
+.ss-reference-app .ss-journal-select .ss-select-trigger{display:flex;align-items:center;gap:9px;width:100%;min-height:37px;padding:8px 11px;margin:0;border:1px solid #344346;border-radius:9px;color:#dce5df;background:linear-gradient(180deg,#192426,#141f21);box-shadow:inset 0 1px 0 #ffffff04,0 1px 2px #0002;font:500 11px/1.4 system-ui,sans-serif;letter-spacing:0;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;white-space:nowrap}
+.ss-reference-app .ss-journal-select .ss-select-trigger:hover{border-color:#5a7169;background:linear-gradient(180deg,#1c2b2c,#172325)}
+.ss-reference-app .ss-journal-select.ss-select-open .ss-select-trigger{border-color:#8fae9e;background:#1c2b29;box-shadow:0 0 0 3px #a8c6b20a}
+.ss-reference-app .ss-journal-select .ss-select-trigger:focus-visible{outline:2px solid #a8c6b2;outline-offset:3px}
+.ss-select-value{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.ss-select-leading{width:15px;height:15px;display:grid;place-items:center;color:#91a79c;flex-shrink:0}
+.ss-select-leading svg{width:15px;height:15px}
+.ss-select-leading i{width:7px;height:7px;border-radius:50%;box-shadow:0 0 0 3px #ffffff04}
+.ss-select-chevron{width:13px;height:13px;color:#81968e;flex-shrink:0;transition:transform .16s}
+.ss-select-open .ss-select-chevron{transform:rotate(180deg);color:#b7d1c1}
+.ss-reference-app .ss-space-filters{gap:8px;align-items:center}
+.ss-reference-app .ss-space-filters>.ss-journal-select{flex:0 1 auto;max-width:190px}
+.ss-reference-app .ss-space-filters>.ss-journal-select:nth-of-type(2){min-width:135px}
+.ss-reference-app .ss-space-filters>input{min-height:37px;border-radius:9px;border-color:#2b3a3d;background:#0d1719;padding:8px 11px}
+.ss-reference-app .ss-space-title .ss-journal-select{width:210px}
+.ss-reference-app .ss-destinations .ss-journal-select{width:100%;display:flex}
+.ss-reference-app .ss-space-evidence .ss-journal-select .ss-select-trigger{padding:8px 9px;font-size:11px}
+.ss-journal-select-menu{--select-ink:#edf1e9;position:fixed;z-index:500;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding:6px;border:1px solid #435750;border-radius:12px;background:#142022;color:var(--select-ink);font:12px/1.4 system-ui,sans-serif;box-shadow:0 16px 44px #0008,0 3px 9px #0004,inset 0 1px 0 #ffffff04;animation:ss-select-appear .12s ease-out;isolation:isolate}
+.ss-select-menu-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 10px 10px;color:#9ab2a7;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;flex-shrink:0}
+.ss-select-menu-heading>span{font-size:9px;text-transform:none;letter-spacing:0;color:#718780}
+.ss-select-options{overflow:auto;max-height:290px;min-height:0;scrollbar-width:thin;scrollbar-color:#40554b transparent}
+.ss-select-option{display:flex;align-items:center;gap:10px;min-height:37px;padding:9px 10px;margin:1px 0;border:1px solid transparent;border-radius:7px;color:#cbd7d0;cursor:pointer;font-size:12px;user-select:none}
+.ss-select-option>span:nth-child(2){flex:1;min-width:0;white-space:normal;overflow-wrap:anywhere}
+.ss-select-option-active{background:#20312d;color:#f0f4ec}
+.ss-select-option-selected{background:#a8c6b20c;border-color:#a8c6b21c;color:#d9e9df}
+.ss-select-option-selected.ss-select-option-active{background:#a8c6b21a;border-color:#a8c6b232}
+.ss-select-option[aria-disabled=true]{opacity:.4;cursor:default}
+.ss-option-symbol{display:grid;place-items:center;width:18px;height:18px;flex-shrink:0;color:#8ca79a}
+.ss-option-symbol i{display:block;width:6px;height:6px;border-radius:50%;background:#6e8980}
+.ss-option-symbol .ss-option-trade{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;border:1px solid #456056;color:#b4d0bf;font:9px/1 system-ui,sans-serif;background:#22362d}
+.ss-option-check{width:14px;height:14px;color:#b0cfba;flex-shrink:0;margin-left:7px}
+@keyframes ss-select-appear{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.ss-reference-app .ss-space-filters>.ss-journal-select{flex:1;min-width:0!important;max-width:none}.ss-reference-app .ss-space-filters>input{flex:1 1 100%}.ss-reference-app .ss-journal-select .ss-select-trigger{gap:6px;padding:8px}.ss-reference-app .ss-space-title .ss-journal-select{width:145px}.ss-reference-app .ss-space-filters .ss-select-leading{display:none}}
+@media(prefers-reduced-motion:reduce){.ss-journal-select-menu{animation:none}.ss-select-chevron{transition:none}}
