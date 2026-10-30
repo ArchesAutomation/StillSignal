@@ -91,7 +91,7 @@ export function PreparationPanel({
         <button onClick={() => props.onPage("Pre-Market")}>Manage</button>
       }
     >
-      {!runs.length && (
+      {!runs.length && !compact && (
         <form
           className="cc-inline"
           onSubmit={async (e) => {
@@ -121,6 +121,11 @@ export function PreparationPanel({
           </Field>
           <Save store={store}>Begin preparation</Save>
         </form>
+      )}
+      {compact && !runs.length && templates.length > 0 && (
+        <Empty>
+          Your routine is ready. Open Manage to begin today’s preparation.
+        </Empty>
       )}
       {!templates.length && (
         <Empty>Create your preparation protocol to begin.</Empty>

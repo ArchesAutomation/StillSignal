@@ -63,12 +63,16 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
   const click = async (label: string, nav = false) => {
     const button = [
       ...document.querySelectorAll<HTMLButtonElement>(
-        nav ? ".ss-nav button, .ss-sensitivity" : "button",
+        nav
+          ? ".ss-reference-nav button, .ss-reference-tools button, .ss-connection-shortcut, .ss-sensitivity"
+          : "button",
       ),
     ].find((b) =>
       nav
         ? b.getAttribute("aria-label") ===
             (label === "Patterns" ? "Heart-rate analytics" : label) ||
+          b.textContent?.trim() ===
+            (label === "Sessions" ? "Saved sessions" : label) ||
           (label === "Settings" && b.classList.contains("ss-sensitivity"))
         : b.textContent?.trim() === label,
     );

@@ -25,6 +25,7 @@ export default function Temperature(context: Context) {
       .filter((r) => r.body.dayId === day.rootId)
       .sort((a, b) => b.body.observedAt - a.body.observedAt),
     [open, setOpen] = useState(false),
+    [editQuestions, setEditQuestions] = useState(false),
     [questions, setQuestions] = useState<BodyOf<"checkin">["answers"]>(() =>
       (
         latest(store.records, "checkin").sort(
@@ -90,98 +91,110 @@ export default function Temperature(context: Context) {
           }}
         >
           {questions.map((q, i) => (
-            <div className="cc-inline" key={i}>
-              <Field label="Question">
-                <input
-                  required
-                  maxLength={160}
-                  value={q.question}
-                  onChange={(e) =>
-                    setQuestions((rows) =>
-                      rows.map((a, n) =>
-                        n === i ? { ...a, question: e.target.value } : a,
-                      ),
-                    )
-                  }
-                />
-              </Field>
-              <Field label={q.question + " (1–10)"}>
-                <select
-                  value={q.value ?? ""}
-                  onChange={(e) =>
-                    setQuestions((rows) =>
-                      rows.map((a, n) =>
-                        n === i
-                          ? {
-                              ...a,
-                              value: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            }
-                          : a,
-                      ),
-                    )
-                  }
-                >
-                  <option value="">Not recorded</option>
-                  {Array.from({ length: 10 }, (_, n) => (
-                    <option key={n} value={n + 1}>
-                      {n + 1}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <button
-                type="button"
-                onClick={() =>
-                  setQuestions((rows) => rows.filter((_, n) => n !== i))
-                }
-              >
-                Remove question
-              </button>
-            </div>
+            <fieldset className="cc-rating" key={i}>
+              <legend>{q.question}</legend>
+              {editQuestions && (
+                <div className="cc-inline">
+                  <Field label="Question">
+                    <input
+                      required
+                      maxLength={160}
+                      value={q.question}
+                      onChange={(e) =>
+                        setQuestions((rows) =>
+                          rows.map((a, n) =>
+                            n === i ? { ...a, question: e.target.value } : a,
+                          ),
+                        )
+                      }
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuestions((rows) => rows.filter((_, n) => n !== i))
+                    }
+                  >
+                    Remove question
+                  </button>
+                </div>
+              )}
+              <div className="cc-rating-values">
+                {Array.from({ length: 10 }, (_, n) => n + 1).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-label={`${q.question}: ${value} of 10`}
+                    aria-pressed={q.value === value}
+                    onClick={() =>
+                      setQuestions((rows) =>
+                        rows.map((a, n) =>
+                          n === i
+                            ? { ...a, value: a.value === value ? null : value }
+                            : a,
+                        ),
+                      )
+                    }
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+              <small>
+                {q.value === null
+                  ? "Not recorded"
+                  : `${q.value}/10 · tap again to clear`}
+              </small>
+            </fieldset>
           ))}
-          <button
-            type="button"
-            onClick={() =>
-              setQuestions((rows) => [
-                ...rows,
-                { question: "New question", value: null },
-              ])
-            }
-          >
-            Add question
+          <button type="button" onClick={() => setEditQuestions((v) => !v)}>
+            {editQuestions ? "Done editing questions" : "Edit questions"}
           </button>
+          {editQuestions && (
+            <button
+              type="button"
+              onClick={() =>
+                setQuestions((rows) => [
+                  ...rows,
+                  { question: "New question", value: null },
+                ])
+              }
+            >
+              Add question
+            </button>
+          )}
           <Area label="Physical condition" name="physical" />
           <Area label="Unusual circumstances" name="circumstances" />
           <Area label="Reflection (optional)" name="reflection" />
           <Save store={store}>Record check-in</Save>
         </form>
       )}
-      <details className="cc-history">
-        <summary>Earlier check-ins</summary>
-        {rows.map((r) => (
-          <div key={r.id}>
-            <p>
-              {new Date(r.body.observedAt).toLocaleString()} ·{" "}
-              {r.body.answers
-                .map((a) => `${a.question}: ${a.value ?? "missing"}`)
-                .join(" · ")}
-            </p>
-            <History records={store.records} rootId={r.rootId} />
-            <button
-              disabled={store.busy}
-              onClick={() =>
-                void store.save([
-                  { ...createRecord("checkin", r.body, r), archived: true },
-                ])
-              }
-            >
-              Remove from current analyses
-            </button>
-          </div>
-        ))}
-      </details>
+      {rows.length > 0 && (
+        <details className="cc-history">
+          <summary>Earlier check-ins</summary>
+          {rows.map((r) => (
+            <div key={r.id}>
+              <p>
+                {new Date(r.body.observedAt).toLocaleString()} ·{" "}
+                {r.body.answers
+                  .map((a) => `${a.question}: ${a.value ?? "missing"}`)
+                  .join(" · ")}
+              </p>
+              <History records={store.records} rootId={r.rootId} />
+              <button
+                disabled={store.busy}
+                onClick={() =>
+                  void store.save([
+                    { ...createRecord("checkin", r.body, r), archived: true },
+                  ])
+                }
+              >
+                Remove from current analyses
+              </button>
+            </div>
+          ))}
+        </details>
+      )}
     </Panel>
   );
 }

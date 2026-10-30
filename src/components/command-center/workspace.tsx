@@ -16,7 +16,10 @@ import {
   processScore,
   sessionsForDay,
 } from "@/lib/process/engine";
-import { analyticalSamples, validBaseline } from "@/lib/pattern-engine/physiology";
+import {
+  analyticalSamples,
+  validBaseline,
+} from "@/lib/pattern-engine/physiology";
 import { isActualExecution } from "@/lib/trade-context";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
 import TradingThesis, {
@@ -90,8 +93,8 @@ function ProcessPanel({ store, day, props }: Context) {
     unreviewed = executions.filter((e) => !reviewed.has(e.id)).length;
   return (
     <Panel
-      title="Process performance"
-      detail="Adherence and evidence coverage, separate from trading results"
+      title="Trade quality"
+      detail="Your rules. Your execution. Review the process."
       action={
         <button onClick={() => props.onPage("Trade Quality")}>Review</button>
       }
@@ -142,7 +145,12 @@ function PhysiologyPanel({ props, day }: Context) {
         ? analyticalSamples(props.session, p.samples)
         : [],
     last = points.at(-1),
-    fresh = !!last && last.quality !== "artifact" && p.recording && p.now - last.t <= 10000 && p.now >= last.t,
+    fresh =
+      !!last &&
+      last.quality !== "artifact" &&
+      p.recording &&
+      p.now - last.t <= 10000 &&
+      p.now >= last.t,
     baseline = last
       ? validBaseline(points, p.now, p.settings.baselineSeconds)
       : null;
@@ -154,7 +162,9 @@ function PhysiologyPanel({ props, day }: Context) {
     )
       .filter(isActualExecution)
       .sort((a, b) => b.t - a.t)[0],
-    recent = points.filter((s) => last && s.quality !== "artifact" && s.t >= last.t - 120000),
+    recent = points.filter(
+      (s) => last && s.quality !== "artifact" && s.t >= last.t - 120000,
+    ),
     minimum = recent.length ? Math.min(...recent.map((s) => s.bpm)) - 5 : 0,
     maximum = recent.length ? Math.max(...recent.map((s) => s.bpm)) + 5 : 1;
   return (
@@ -433,6 +443,7 @@ function LayoutEditor({
   );
 }
 function DailyDashboard(context: Context) {
+  const [showLayout, setShowLayout] = useState(false);
   const { day, store, props } = context,
     fallback = useMemo(defaultLayout, []),
     presets = latest(store.records, "layout"),
@@ -528,41 +539,35 @@ function DailyDashboard(context: Context) {
         </button>
       </div>
       {layout.showMarket && (
-        <Panel
-          title="Market context"
-          detail="User-entered outlook · no market predictions"
-        >
-          <div className="cc-grid">
-            {thesis.map((t) => (
-              <div key={t.id}>
-                <small>
-                  {t.body.scope} · {t.body.instrument}
-                </small>
-                <h3>{t.body.bias}</h3>
-                <p>{t.body.primary || "No scenario recorded"}</p>
-              </div>
-            ))}
-            {!thesis.length && <Empty>No market thesis saved.</Empty>}
-          </div>
-          <div className="cc-actions">
-            {day.body.timeframes.map((timeframe) => {
-              const daily = thesis
-                .filter(
-                  (t) =>
-                    t.body.scope !== "weekly" &&
-                    t.body.instrument === day.body.instrument,
-                )
-                .sort((a, b) => b.createdAt - a.createdAt)[0];
-              return (
-                <Badge key={timeframe}>
-                  {timeframe} ·{" "}
-                  {daily?.body.timeframes.find((f) => f.timeframe === timeframe)
-                    ?.bias ?? "unrecorded"}
-                </Badge>
-              );
-            })}
-          </div>
-        </Panel>
+        <div className="cc-market-strip" aria-label="Recorded market bias">
+          <span>Market outlook</span>
+          {["weekly", "daily"].map((scope) => {
+            const plan = thesis
+              .filter((t) => t.body.scope === scope)
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            return (
+              <Badge key={scope}>
+                {scope} · {plan?.body.bias ?? "unrecorded"}
+              </Badge>
+            );
+          })}
+          {day.body.timeframes.map((timeframe) => {
+            const plan = thesis
+              .filter(
+                (t) =>
+                  t.body.scope !== "weekly" &&
+                  t.body.instrument === day.body.instrument,
+              )
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            return (
+              <Badge key={timeframe}>
+                {timeframe} ·{" "}
+                {plan?.body.timeframes.find((f) => f.timeframe === timeframe)
+                  ?.bias ?? "unrecorded"}
+              </Badge>
+            );
+          })}
+        </div>
       )}
       <div className="cc-status-grid">
         {layout.statusWidgets.map((id) => (
@@ -572,24 +577,47 @@ function DailyDashboard(context: Context) {
           </div>
         ))}
       </div>
-      <LayoutEditor
-        context={context}
-        draft={layout}
-        setDraft={setCustom}
-        selected={selected}
-        select={select}
-        presets={presets}
-        fallback={fallback}
-      />
       <div className="cc-dashboard-grid">
         {layout.panels
           .filter((p) => p.visible)
           .map((p) => (
-            <div key={p.id} className={p.width === "wide" ? "cc-span-all" : ""}>
+            <div
+              key={p.id}
+              className={`cc-slot-${p.id} ${p.width === "wide" ? "cc-span-all" : ""}`}
+            >
               {panels[p.id]}
             </div>
           ))}
       </div>
+      <footer className="cc-dashboard-footer">
+        <span>Review & refine</span>
+        {(
+          [
+            ["Audits", "Daily review"],
+            ["Rule Violations", "Rule history"],
+            ["Settings & Variables", "Personal variables"],
+            ["Prepare", "Session intentions"],
+          ] as const
+        ).map(([page, label]) => (
+          <button key={page} onClick={() => props.onPage(page)}>
+            {label}
+          </button>
+        ))}
+        <button onClick={() => setShowLayout((v) => !v)}>
+          {showLayout ? "Close layout settings" : "Layout settings"}
+        </button>
+      </footer>
+      {showLayout && (
+        <LayoutEditor
+          context={context}
+          draft={layout}
+          setDraft={setCustom}
+          selected={selected}
+          select={select}
+          presets={presets}
+          fallback={fallback}
+        />
+      )}
     </>
   );
 }
@@ -644,6 +672,11 @@ export default function ProcessWorkspace(props: Props) {
   return (
     <div className="cc-workspace">
       <div className="cc-daybar">
+        {props.page !== "Command Center" && (
+          <button onClick={() => props.onPage("Command Center")}>
+            ← Command Center
+          </button>
+        )}
         <Field label="Trading date">
           <input
             type="date"
@@ -655,7 +688,9 @@ export default function ProcessWorkspace(props: Props) {
           />
         </Field>
         <span role="status">{store.syncState}</span>
-        <button onClick={() => void store.refresh()}>Refresh sync</button>
+        {store.error && (
+          <button onClick={() => void store.refresh()}>Retry sync</button>
+        )}
         {day && (
           <button onClick={() => setEditDay((v) => !v)}>
             Edit trading-day context
@@ -668,10 +703,112 @@ export default function ProcessWorkspace(props: Props) {
           <button onClick={() => store.setError("")}>Dismiss</button>
         </div>
       )}
-      {(!day || editDay) && (
+      {!day && !editDay && (
+        <>
+          <div className="cc-greeting">
+            <div>
+              <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
+              <h1>Your Command Center</h1>
+              <p>A clear plan before your first trade.</p>
+            </div>
+            <button onClick={() => setEditDay(true)}>Day settings</button>
+          </div>
+          <div className="cc-market-strip">
+            <span>{date}</span>
+            <Badge>Preparation not started</Badge>
+            <Badge>No thesis recorded</Badge>
+            <Badge>
+              {props.pulse.recording
+                ? "Wearable recording"
+                : "No live HR recording"}
+            </Badge>
+          </div>
+          <div className="cc-dashboard-grid cc-start-grid">
+            {(
+              [
+                [
+                  "Pre-Market",
+                  "Pre-market non-negotiables",
+                  "Start with your routine",
+                  "Your checklist, ready to work through before the session.",
+                  "Prepare",
+                ],
+                [
+                  "Trading Thesis",
+                  "Trading thesis",
+                  "Know what you’re looking for",
+                  "Keep your weekly outlook and today’s scenarios together.",
+                  "Write a thesis",
+                ],
+                [
+                  "Trade Quality",
+                  "Trade quality",
+                  "Define a good trade",
+                  "Review setups against your own playbook and rules.",
+                  "Open trade quality",
+                ],
+                [
+                  "Command Center",
+                  "Temperature check",
+                  "How are you arriving today?",
+                  "Record focus, energy and stress in your own words.",
+                  "Start today",
+                ],
+                [
+                  "Missions",
+                  "Active missions",
+                  "One process goal at a time",
+                  "Choose a measurable habit to work on.",
+                  "Set a mission",
+                ],
+                [
+                  "Journal",
+                  "Daily journal",
+                  "A place to notice",
+                  "Your reflections, trades and recorded moments.",
+                  "Open journal",
+                ],
+              ] as const
+            ).map(([page, title, headline, description, label]) => (
+              <Panel key={title} title={title}>
+                <h3>{headline}</h3>
+                <p className="cc-muted">{description}</p>
+                <button
+                  disabled={store.busy}
+                  onClick={async () => {
+                    if (page === "Journal") {
+                      props.onPage(page);
+                      return;
+                    }
+                    const record = createRecord("day", {
+                      date,
+                      timezone: zone,
+                      status: "preparing",
+                      instrument: "",
+                      account: "",
+                      timeframes: ["15M", "1H", "4H", "Daily"],
+                      sessionIds: [],
+                      goal: "",
+                    });
+                    if (await store.save([record])) props.onPage(page);
+                  }}
+                >
+                  {label}
+                </button>
+              </Panel>
+            ))}
+          </div>
+        </>
+      )}
+      {editDay && (
         <Panel
           title={day ? "Trading-day context" : "Open a trading day"}
-          detail="One day can link multiple recording sessions, accounts, and instruments. Journaling and wearable recording remain independent."
+          detail="Instrument, account and session details"
+          action={
+            <button onClick={() => setEditDay(false)}>
+              Close day settings
+            </button>
+          }
         >
           <form
             key={day?.id ?? date}
@@ -764,11 +901,13 @@ export default function ProcessWorkspace(props: Props) {
       )}
       {context && (
         <>
-          <p className="cc-saved">
-            Last saved day state: {new Date(day!.createdAt).toLocaleString()} ·{" "}
-            {day!.body.status} · {sessionsForDay(props.history, day!).length}{" "}
-            recording sessions
-          </p>
+          {editDay && (
+            <p className="cc-saved">
+              Last saved day state: {new Date(day!.createdAt).toLocaleString()}{" "}
+              · {day!.body.status} ·{" "}
+              {sessionsForDay(props.history, day!).length} recording sessions
+            </p>
+          )}
           {props.page === "Command Center" && (
             <DailyDashboard key={day!.rootId} {...context} />
           )}

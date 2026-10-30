@@ -150,3 +150,12 @@ Validation includes the combined test suite, type checking, a production build,
 and isolated desktop/mobile browser checks. The browser checks also save a journal
 reflection and navigate between the journal and process pages. Real-service checks
 and any physical WHOOP test are reported separately at release time.
+
+
+### Simplified command workspace
+
+The main navigation contains Command Center, Daily journal, Patterns, Stillness, and Settings. Preparation, thesis, trade-quality reviews, missions, audits, and personal variables are opened from their Command Center panels or footer, with a return-to-Command-Center button. Existing session tools remain available from the journal shell.
+
+A day without process records shows actionable empty panels instead of requiring a setup form. Choosing a process action explicitly creates the trading day with the browser timezone and no assumed instrument, account, observations, or completed requirements. Day settings remain available for optional context and revisions. Opening the journal does not create a process day.
+
+The dashboard shows compact summaries without visible select controls. Detailed builders and layout configuration remain available on demand. Temperature ratings use labeled 1–10 buttons; tapping the selected rating clears it back to missing. Historical data, layouts, backend ownership checks, and recording behavior are unchanged.

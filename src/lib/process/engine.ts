@@ -498,10 +498,10 @@ export function sessionsForDay(sessions: Session[], day: RecordOf<"day">) {
 export const defaultPanels = [
   "preparation",
   "thesis",
+  "process",
   "temperature",
   "missions",
   "physiology",
-  "process",
 ] as const;
 export function defaultLayout() {
   return createRecord("layout", {
