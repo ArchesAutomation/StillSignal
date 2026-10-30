@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Pencil, Plus, Undo2 } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Undo2 } from "lucide-react";
 import DashboardCanvas from "./dashboard-canvas";
 import { latest, type RecordOf } from "@/lib/process/model";
 import {
@@ -127,6 +127,22 @@ export default function DashboardBoard({
             </div>
             <div className="cc-actions">
               <button
+                disabled={store.busy || interacting}
+                title="Restore the original dashboard arrangement. You can undo this before saving."
+                onClick={() =>
+                  change(
+                    {
+                      ...freshDashboard(),
+                      name: draft.name,
+                      isDefault: draft.isDefault,
+                    },
+                    "Original arrangement restored. Undo to go back.",
+                  )
+                }
+              >
+                <RotateCcw size={15} /> Reset layout
+              </button>
+              <button
                 disabled={!undo.length || store.busy || interacting}
                 onClick={() => {
                   setDraft(undo.at(-1));
@@ -225,20 +241,6 @@ export default function DashboardBoard({
             />{" "}
             Open by default
           </label>
-          <button
-            onClick={() =>
-              change(
-                {
-                  ...freshDashboard(),
-                  name: draft.name,
-                  isDefault: draft.isDefault,
-                },
-                "Original arrangement restored. Undo to go back.",
-              )
-            }
-          >
-            Restore original arrangement
-          </button>
           <p>Hiding a card keeps all its data and recordings.</p>
         </fieldset>
       )}
