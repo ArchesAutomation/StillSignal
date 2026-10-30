@@ -827,11 +827,313 @@
   .cc-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .cc-daybar { display:grid; grid-template-columns:1fr auto; align-items:center; }
-  .cc-daybar .cc-field { flex-direction:row; align-items:center; gap:8px; }
-  .cc-daybar > span { grid-column:1 / -1; grid-row:2; }
-  .cc-daybar > button { max-width:120px; }
+  .cc-daybar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .cc-daybar .cc-field {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .cc-daybar > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .cc-daybar > button {
+    max-width: 120px;
+  }
   .cc-dashboard-footer > span {
     width: 100%;
   }
+}
+
+/* Editing is on the dashboard itself; normal cards keep their working controls. */
+.cc-dashboard-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+.cc-dashboard-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.cc-dashboard-current strong {
+  font-size: 15px;
+}
+.cc-dashboard-current small,
+.cc-dashboard-editor-title span {
+  color: var(--cc-muted);
+}
+.cc-dashboard-current .cc-field {
+  margin: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.cc-dashboard-current select {
+  max-width: 260px;
+}
+.cc-dashboard-board button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.cc-dashboard-editor-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cc-dashboard-editor-title span {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+.cc-dashboard-announcement {
+  margin: 4px 0;
+  color: var(--cc-accent);
+  font-size: 12px;
+}
+.cc-dashboard-announcement:empty {
+  display: none;
+}
+.cc-editing > .cc-dashboard-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+  background: #142329;
+  border: 1px solid #8dcab5;
+  padding: 14px;
+  border-radius: 8px;
+  box-shadow: 0 5px 20px #0006;
+}
+.cc-dashboard-options,
+.cc-dashboard-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  border: 1px solid var(--cc-line);
+  border-radius: 6px;
+  padding: 14px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.cc-dashboard-options .cc-field {
+  min-width: 180px;
+  flex: 1;
+  max-width: 340px;
+}
+.cc-dashboard-options p {
+  flex-basis: 100%;
+  color: var(--cc-muted);
+  font-size: 12px;
+  margin: 0;
+}
+.cc-dashboard-toggles legend,
+.cc-variable-picker legend {
+  font-size: 12px;
+  padding: 0 6px;
+  color: var(--cc-muted);
+}
+.cc-dashboard-board label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.cc-dashboard-board input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--cc-accent);
+  flex-shrink: 0;
+}
+.cc-dashboard-board .cc-status-grid {
+  margin-top: 12px;
+}
+.cc-dashboard-card {
+  min-width: 0;
+}
+.cc-editing .cc-dashboard-card {
+  border: 1px dashed #6d9f90;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #10191d;
+}
+.cc-card-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 6px;
+  background: #1a2a30;
+}
+.cc-card-controls > span {
+  flex: 1;
+  min-width: 100px;
+  font-size: 11px;
+  padding: 0 4px;
+}
+.cc-card-controls button {
+  width: 32px;
+  height: 34px;
+  padding: 5px;
+  background: transparent;
+  border-color: transparent;
+}
+.cc-card-controls .cc-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.cc-card-preview {
+  opacity: 0.7;
+  pointer-events: none;
+  user-select: none;
+}
+.cc-card-preview > .cc-panel {
+  border: 0;
+}
+.cc-drop-target {
+  outline: 3px solid var(--cc-accent);
+  outline-offset: 2px;
+}
+.cc-workspace .cc-add-cards {
+  width: 100%;
+  padding: 18px;
+  margin-top: 14px;
+  border: 1px dashed #6d9f90;
+  background: transparent;
+}
+.cc-card-library {
+  padding: 18px;
+  border: 1px solid var(--cc-line);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.cc-card-library h2 {
+  font-size: 18px;
+  margin: 0 0 5px;
+}
+.cc-card-library > p {
+  color: var(--cc-muted);
+  margin-top: 0;
+}
+.cc-card-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.cc-card-library article {
+  padding: 14px;
+  border: 1px solid var(--cc-line);
+  background: #10191d;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.cc-card-library h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.cc-card-library article p {
+  font-size: 12px;
+  color: var(--cc-muted);
+  flex: 1;
+}
+.cc-dashboard-empty {
+  text-align: center;
+  padding: 40px 16px;
+  border: 1px dashed var(--cc-line);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.cc-dashboard-empty strong {
+  font-size: 20px;
+}
+.cc-dashboard-empty p {
+  color: var(--cc-muted);
+}
+.cc-variable-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 0;
+  border-top: 1px solid var(--cc-line);
+  padding: 12px;
+}
+.cc-variable-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: 12px;
+}
+.cc-variable-values > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cc-variable-values small {
+  color: var(--cc-muted);
+  font-size: 11px;
+}
+.cc-variable-values strong {
+  font-size: 14px;
+  margin: 3px 0;
+}
+@media (min-width: 1280px) {
+  .cc-dashboard-board .cc-dashboard-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .cc-dashboard-toolbar .cc-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .cc-dashboard-toolbar .cc-actions button {
+    flex: 1;
+    min-height: 44px;
+  }
+  .cc-editing > .cc-dashboard-toolbar {
+    top: 4px;
+    padding: 12px;
+  }
+  .cc-dashboard-editor-title span {
+    font-size: 11px;
+  }
+  .cc-card-controls button {
+    width: 44px;
+    height: 44px;
+  }
+  .cc-card-controls > span {
+    flex-basis: calc(100% - 60px);
+  }
+  .cc-dashboard-toggles label,
+  .cc-variable-picker label {
+    min-height: 44px;
+  }
+  .cc-dashboard-current select {
+    max-width: 220px;
+  }
+}
+/* The journal shell resets SVG presentation attributes. Restore icon strokes. */
+.cc-dashboard-board .lucide {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+  color: inherit;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

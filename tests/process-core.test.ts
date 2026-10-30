@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { createRecord, latest, recordSchema } from "../src/lib/process/model";
 import { validateAppend, withRefs } from "../src/lib/process/engine";
+import { freshDashboard } from "../src/lib/process/dashboard";
 import { readProcess, saveProcess } from "../src/lib/process/storage";
 const day = () =>
   createRecord("day", {
@@ -93,6 +94,11 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       ]),
       /revision conflict/,
     );
+    const layout = createRecord("layout", {
+      ...freshDashboard(),
+      variableIds: [crypto.randomUUID()],
+    });
+    await db.query("select pulse_process_append($1,$2)", [alice, [layout]]);
     const invalid = createRecord("checkin", {
       dayId: d.id,
       observedAt: Date.now(),
@@ -112,6 +118,10 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       `reset role; set role authenticated; set request.jwt.claim.sub='${bob}'`,
     );
     assert.equal((await db.query("select * from trading_days")).rows.length, 0);
+    assert.equal(
+      (await db.query("select * from dashboard_layouts")).rows.length,
+      0,
+    );
     await assert.rejects(
       db.query("select pulse_process_append($1,$2)", [bob, [day()]]),
       /permission denied/,
@@ -129,6 +139,10 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
     );
     await db.exec(`set request.jwt.claim.sub='${alice}'`);
     assert.equal((await db.query("select * from trading_days")).rows.length, 2);
+    assert.equal(
+      (await db.query("select * from dashboard_layouts")).rows.length,
+      1,
+    );
     await db.exec("reset role; set role anon");
     await assert.rejects(
       db.query("select * from trading_days"),
