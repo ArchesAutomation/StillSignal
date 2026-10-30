@@ -159,3 +159,46 @@ The main navigation contains Command Center, Daily journal, Patterns, Stillness,
 A day without process records shows actionable empty panels instead of requiring a setup form. Choosing a process action explicitly creates the trading day with the browser timezone and no assumed instrument, account, observations, or completed requirements. Day settings remain available for optional context and revisions. Opening the journal does not create a process day.
 
 The dashboard shows compact summaries without visible select controls. Detailed builders and layout configuration remain available on demand. Temperature ratings use labeled 1–10 buttons; tapping the selected rating clears it back to missing. Historical data, layouts, backend ownership checks, and recording behavior are unchanged.
+
+### Custom dashboards
+
+Command Center has an **Edit dashboard** button above its cards, including before
+opening a trading day. Editing shows the real dashboard as a preview. Traders can
+move cards with a mouse/touch drag handle or labeled up/down buttons, toggle single
+column/full desktop width, and hide unused cards. **Add cards** restores hidden cards
+from a library with plain-language descriptions. Market outlook and status summaries
+can be hidden independently. The mobile layout stacks cards automatically and uses
+44px move/hide/resize controls.
+
+**Undo** reverses editing changes. **Cancel** restores the saved layout. **Save
+dashboard** writes an immutable layout revision through the existing owner-scoped
+process store; failed saves leave the draft open. Drafts remain in the account-keyed
+workspace while navigating elsewhere in the app. Reloading an open editor triggers
+an unsaved-changes warning. All-hidden dashboards have an Add cards recovery action.
+Hiding a card does not disable recording or delete its source data.
+
+**New dashboard** starts an independent copy. Named dashboards appear in a selector
+once more than one exists. The current selection is remembered on this device under
+an account-specific key; layout contents sync using the existing process outbox.
+**Open by default** selects the home dashboard for a device without a prior selection;
+saving it demotes other defaults in the same local transaction.
+
+The optional Personal variables card lets each dashboard show all active personal
+variables or a selected subset. It shows the latest recorded observation for the
+selected trading day, including observation time and phase. Values use their pinned
+definition version and unit; missing values remain explicit. Event doses are not
+summed or presented as daily totals. Existing six-card layouts retain their order,
+widths, visibility and status choices; the new variables card starts hidden.
+
+The layout validator accepts six or seven unique card IDs and optional variable
+root IDs. No database migration or new dependency is required. Regenerate the Edge
+bundle with `npm run prepare:edge`, deploy the updated `pulse-process` validator,
+and then release the Next.js frontend. The updated validator must remain in place
+while seven-card layouts exist; older cached frontends should be refreshed after
+release. Authentication, ownership, rate limits and revision guards are unchanged.
+
+Verification now includes layout compatibility, independent named dashboards,
+default replacement, stale saves, owner isolation, PostgreSQL layout RLS,
+mouse drag, mobile moves, widths, variable selection, undo/cancel, failed-storage
+recovery, in-app draft retention, empty dashboard recovery and persistence after
+reload. The browser walkthrough also retains the existing process/journal checks.

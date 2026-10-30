@@ -464,13 +464,16 @@ export const recordSchema = z
                     "missions",
                     "physiology",
                     "process",
+                    "variables",
                   ]),
                   visible: z.boolean(),
                   width: z.enum(["normal", "wide"]),
                 })
                 .strict(),
             )
-            .length(6),
+            .min(6)
+            .max(7),
+          variableIds: z.array(id).max(200).optional(),
           statusWidgets: z
             .array(
               z.enum([
@@ -488,7 +491,9 @@ export const recordSchema = z
         .strict()
         .refine(
           (v) =>
-            new Set(v.panels.map((p) => p.id)).size === 6 &&
+            new Set(v.panels.map((p) => p.id)).size === v.panels.length &&
+            (!v.variableIds ||
+              new Set(v.variableIds).size === v.variableIds.length) &&
             new Set(v.statusWidgets).size === v.statusWidgets.length,
           "Duplicate widgets",
         ),

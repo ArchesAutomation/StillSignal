@@ -1,17 +1,21 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Props } from "../concept/shared";
 import { useProcess } from "./use-process";
 import JournalContext from "./journal-context";
+import DashboardBoard, {
+  useDashboardEditor,
+  type DashboardEditor,
+} from "./dashboard-board";
+import VariablesPanel from "./variables-panel";
 import {
   createRecord,
   dateInZone,
-  latest,
   type BodyOf,
+  latest,
   type RecordOf,
 } from "@/lib/process/model";
 import {
-  defaultLayout,
   preparation,
   processScore,
   sessionsForDay,
@@ -247,220 +251,8 @@ function PhysiologyPanel({ props, day }: Context) {
     </Panel>
   );
 }
-function LayoutEditor({
-  context,
-  draft,
-  setDraft,
-  selected,
-  select,
-  presets,
-  fallback,
-}: {
-  context: Context;
-  draft: BodyOf<"layout">;
-  setDraft: (body: BodyOf<"layout">) => void;
-  selected?: RecordOf<"layout">;
-  select: (r: RecordOf<"layout">) => void;
-  presets: RecordOf<"layout">[];
-  fallback: RecordOf<"layout">;
-}) {
-  const { store } = context;
-  const move = (from: number, to: number) => {
-    const copy = [...draft.panels];
-    const [item] = copy.splice(from, 1);
-    copy.splice(to, 0, item);
-    setDraft({ ...draft, panels: copy });
-  };
-  return (
-    <details className="cc-layout-editor">
-      <summary>Customize workspace</summary>
-      <div className="cc-grid">
-        <Field label="Workspace preset">
-          <select
-            value={selected?.rootId ?? "original"}
-            onChange={(e) =>
-              select(
-                presets.find((p) => p.rootId === e.target.value) ?? fallback,
-              )
-            }
-          >
-            <option value="original">Original layout</option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.rootId}>
-                {p.body.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Preset name">
-          <input
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            required
-          />
-        </Field>
-      </div>
-      <div className="cc-actions">
-        <label>
-          <input
-            type="checkbox"
-            checked={draft.showMarket}
-            onChange={(e) =>
-              setDraft({ ...draft, showMarket: e.target.checked })
-            }
-          />{" "}
-          Show market context
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={draft.isDefault}
-            onChange={(e) =>
-              setDraft({ ...draft, isDefault: e.target.checked })
-            }
-          />{" "}
-          Use as default
-        </label>
-      </div>
-      {draft.panels.map((p, i) => (
-        <div
-          className="cc-layout-row"
-          key={p.id}
-          draggable
-          onDragStart={(e) => e.dataTransfer.setData("text/plain", String(i))}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const from = Number(e.dataTransfer.getData("text/plain"));
-            if (
-              Number.isInteger(from) &&
-              from >= 0 &&
-              from < draft.panels.length
-            )
-              move(from, i);
-          }}
-        >
-          <label>
-            <input
-              type="checkbox"
-              checked={p.visible}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  panels: draft.panels.map((v, n) =>
-                    n === i ? { ...v, visible: e.target.checked } : v,
-                  ),
-                })
-              }
-            />{" "}
-            {p.id}
-          </label>
-          <Field label={p.id + " width"}>
-            <select
-              value={p.width}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  panels: draft.panels.map((v, n) =>
-                    n === i
-                      ? { ...v, width: e.target.value as "normal" | "wide" }
-                      : v,
-                  ),
-                })
-              }
-            >
-              <option value="normal">Single column</option>
-              <option value="wide">Full width</option>
-            </select>
-          </Field>
-          <button disabled={!i} onClick={() => move(i, i - 1)}>
-            Move up
-          </button>
-          <button
-            disabled={i === draft.panels.length - 1}
-            onClick={() => move(i, i + 1)}
-          >
-            Move down
-          </button>
-        </div>
-      ))}
-      <fieldset>
-        <legend>Status widgets</legend>
-        <div className="cc-actions">
-          {(
-            [
-              "session",
-              "preparation",
-              "readiness",
-              "thesis",
-              "review",
-              "goal",
-            ] as const
-          ).map((id) => (
-            <label key={id}>
-              <input
-                type="checkbox"
-                checked={draft.statusWidgets.includes(id)}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    statusWidgets: e.target.checked
-                      ? [...draft.statusWidgets, id]
-                      : draft.statusWidgets.filter((v) => v !== id),
-                  })
-                }
-              />{" "}
-              {id}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <div className="cc-actions">
-        <button
-          disabled={store.busy}
-          onClick={async () => {
-            const r = createRecord("layout", draft, selected);
-            if (await store.save([r])) select(r);
-          }}
-        >
-          Save layout
-        </button>
-        <button
-          disabled={store.busy}
-          onClick={async () => {
-            const r = createRecord("layout", {
-              ...draft,
-              name: draft.name + " copy",
-            });
-            if (await store.save([r])) select(r);
-          }}
-        >
-          Save as new preset
-        </button>
-        <button onClick={() => select(fallback)}>Reset to original</button>
-      </div>
-    </details>
-  );
-}
-function DailyDashboard(context: Context) {
-  const [showLayout, setShowLayout] = useState(false);
-  const { day, store, props } = context,
-    fallback = useMemo(defaultLayout, []),
-    presets = latest(store.records, "layout"),
-    defaultPreset = [...presets]
-      .filter((l) => l.body.isDefault)
-      .sort((a, b) => b.createdAt - a.createdAt)[0],
-    [selectedId, setSelectedId] = useState<string | undefined>(),
-    [custom, setCustom] = useState<BodyOf<"layout">>();
-  const selected =
-      selectedId === "original"
-        ? undefined
-        : (presets.find((p) => p.rootId === selectedId) ?? defaultPreset),
-    layout = custom ?? selected?.body ?? fallback.body;
-  const select = (r: RecordOf<"layout">) => {
-    setSelectedId(r.id === fallback.id ? "original" : r.rootId);
-    setCustom(r.body);
-  };
+function DailyDashboard(context: Context & { editor: DashboardEditor }) {
+  const { day, store, props } = context;
   const prep = preparation(store.records, day.rootId),
     thesis = relevantTheses(store.records, day),
     checkin = latest(store.records, "checkin")
@@ -513,6 +305,7 @@ function DailyDashboard(context: Context) {
     missions: <MissionsPanel {...context} />,
     physiology: <PhysiologyPanel {...context} />,
     process: <ProcessPanel {...context} />,
+    variables: <VariablesPanel {...context} />,
   };
   return (
     <>
@@ -538,57 +331,60 @@ function DailyDashboard(context: Context) {
           Open live session
         </button>
       </div>
-      {layout.showMarket && (
-        <div className="cc-market-strip" aria-label="Recorded market bias">
-          <span>Market outlook</span>
-          {["weekly", "daily"].map((scope) => {
-            const plan = thesis
-              .filter((t) => t.body.scope === scope)
-              .sort((a, b) => b.createdAt - a.createdAt)[0];
-            return (
-              <Badge key={scope}>
-                {scope} · {plan?.body.bias ?? "unrecorded"}
-              </Badge>
-            );
-          })}
-          {day.body.timeframes.map((timeframe) => {
-            const plan = thesis
-              .filter(
-                (t) =>
-                  t.body.scope !== "weekly" &&
-                  t.body.instrument === day.body.instrument,
-              )
-              .sort((a, b) => b.createdAt - a.createdAt)[0];
-            return (
-              <Badge key={timeframe}>
-                {timeframe} ·{" "}
-                {plan?.body.timeframes.find((f) => f.timeframe === timeframe)
-                  ?.bias ?? "unrecorded"}
-              </Badge>
-            );
-          })}
-        </div>
-      )}
-      <div className="cc-status-grid">
-        {layout.statusWidgets.map((id) => (
-          <div key={id}>
-            <small>{status[id][0]}</small>
-            <strong>{status[id][1]}</strong>
+      <DashboardBoard
+        editor={context.editor}
+        store={store}
+        owner={props.pulse.owner}
+        panels={panels}
+        variables={latest(store.records, "variable").filter(
+          (v) => !v.body.archived,
+        )}
+        renderVariables={(ids) => (
+          <VariablesPanel {...context} variableIds={ids} />
+        )}
+        status={
+          Object.fromEntries(
+            Object.entries(status).map(([id, value]) => [
+              id,
+              <>
+                <small>{value[0]}</small>
+                <strong>{value[1]}</strong>
+              </>,
+            ]),
+          ) as Parameters<typeof DashboardBoard>[0]["status"]
+        }
+        market={
+          <div className="cc-market-strip" aria-label="Recorded market bias">
+            <span>Market outlook</span>
+            {["weekly", "daily"].map((scope) => {
+              const plan = thesis
+                .filter((t) => t.body.scope === scope)
+                .sort((a, b) => b.createdAt - a.createdAt)[0];
+              return (
+                <Badge key={scope}>
+                  {scope} · {plan?.body.bias ?? "unrecorded"}
+                </Badge>
+              );
+            })}
+            {day.body.timeframes.map((timeframe) => {
+              const plan = thesis
+                .filter(
+                  (t) =>
+                    t.body.scope !== "weekly" &&
+                    t.body.instrument === day.body.instrument,
+                )
+                .sort((a, b) => b.createdAt - a.createdAt)[0];
+              return (
+                <Badge key={timeframe}>
+                  {timeframe} ·{" "}
+                  {plan?.body.timeframes.find((f) => f.timeframe === timeframe)
+                    ?.bias ?? "unrecorded"}
+                </Badge>
+              );
+            })}
           </div>
-        ))}
-      </div>
-      <div className="cc-dashboard-grid">
-        {layout.panels
-          .filter((p) => p.visible)
-          .map((p) => (
-            <div
-              key={p.id}
-              className={`cc-slot-${p.id} ${p.width === "wide" ? "cc-span-all" : ""}`}
-            >
-              {panels[p.id]}
-            </div>
-          ))}
-      </div>
+        }
+      />
       <footer className="cc-dashboard-footer">
         <span>Review & refine</span>
         {(
@@ -603,25 +399,182 @@ function DailyDashboard(context: Context) {
             {label}
           </button>
         ))}
-        <button onClick={() => setShowLayout((v) => !v)}>
-          {showLayout ? "Close layout settings" : "Layout settings"}
-        </button>
       </footer>
-      {showLayout && (
-        <LayoutEditor
-          context={context}
-          draft={layout}
-          setDraft={setCustom}
-          selected={selected}
-          select={select}
-          presets={presets}
-          fallback={fallback}
-        />
-      )}
+    </>
+  );
+}
+function StartDashboard({
+  editor,
+  store,
+  props,
+  date,
+  zone,
+  onSettings,
+}: {
+  editor: DashboardEditor;
+  store: Context["store"];
+  props: Props;
+  date: string;
+  zone: string;
+  onSettings: () => void;
+}) {
+  const open = async (page: Parameters<Props["onPage"]>[0]) => {
+    const record = createRecord("day", {
+      date,
+      timezone: zone,
+      status: "preparing",
+      instrument: "",
+      account: "",
+      timeframes: ["15M", "1H", "4H", "Daily"],
+      sessionIds: [],
+      goal: "",
+    });
+    if (await store.save([record])) props.onPage(page);
+  };
+  const entries = [
+    [
+      "preparation",
+      "Pre-Market",
+      "Pre-market non-negotiables",
+      "Start with your routine",
+      "Your checklist, ready to work through before the session.",
+      "Prepare",
+    ],
+    [
+      "thesis",
+      "Trading Thesis",
+      "Trading thesis",
+      "Know what you’re looking for",
+      "Keep your weekly outlook and today’s scenarios together.",
+      "Write a thesis",
+    ],
+    [
+      "process",
+      "Trade Quality",
+      "Trade quality",
+      "Define a good trade",
+      "Review setups against your own playbook and rules.",
+      "Open trade quality",
+    ],
+    [
+      "temperature",
+      "Command Center",
+      "Temperature check",
+      "How are you arriving today?",
+      "Record focus, energy and stress in your own words.",
+      "Start today",
+    ],
+    [
+      "missions",
+      "Missions",
+      "Active missions",
+      "One process goal at a time",
+      "Choose a measurable habit to work on.",
+      "Set a mission",
+    ],
+    [
+      "physiology",
+      "Live Session",
+      "Live physiological context",
+      "Your body, in context",
+      "Connect your wearable when you want to record heart rate alongside trades.",
+      "Open live session",
+    ],
+    [
+      "variables",
+      "Settings & Variables",
+      "Personal variables",
+      "Measure what matters to you",
+      "Choose your own conditions and measurements.",
+      "Record variables",
+    ],
+  ] as const;
+  const panels = Object.fromEntries(
+    entries.map(([id, page, title, headline, description, label]) => [
+      id,
+      <Panel key={id} title={title}>
+        <h3>{headline}</h3>
+        <p className="cc-muted">{description}</p>
+        <button disabled={store.busy} onClick={() => void open(page)}>
+          {label}
+        </button>
+      </Panel>,
+    ]),
+  ) as Parameters<typeof DashboardBoard>[0]["panels"];
+  return (
+    <>
+      <div className="cc-greeting">
+        <div>
+          <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
+          <h1>Your Command Center</h1>
+          <p>A clear plan before your first trade.</p>
+        </div>
+        <button onClick={onSettings}>Day settings</button>
+      </div>
+      <DashboardBoard
+        editor={editor}
+        store={store}
+        owner={props.pulse.owner}
+        panels={panels}
+        variables={latest(store.records, "variable").filter(
+          (v) => !v.body.archived,
+        )}
+        market={
+          <div className="cc-market-strip">
+            <span>{date}</span>
+            <Badge>Preparation not started</Badge>
+            <Badge>No thesis recorded</Badge>
+            <Badge>
+              {props.pulse.recording
+                ? "Wearable recording"
+                : "No live HR recording"}
+            </Badge>
+          </div>
+        }
+        status={{
+          session: (
+            <>
+              <small>Session & instrument</small>
+              <strong>No trading day opened</strong>
+            </>
+          ),
+          preparation: (
+            <>
+              <small>Preparation</small>
+              <strong>Not started</strong>
+            </>
+          ),
+          readiness: (
+            <>
+              <small>Readiness</small>
+              <strong>No check-in recorded</strong>
+            </>
+          ),
+          thesis: (
+            <>
+              <small>Trading thesis</small>
+              <strong>No daily thesis</strong>
+            </>
+          ),
+          review: (
+            <>
+              <small>Journal & review</small>
+              <strong>No review recorded</strong>
+            </>
+          ),
+          goal: (
+            <>
+              <small>Daily goal</small>
+              <strong>No goal selected</strong>
+            </>
+          ),
+        }}
+      />
     </>
   );
 }
 export default function ProcessWorkspace(props: Props) {
+  const dashboardEditor = useDashboardEditor();
   const store = useProcess(props.pulse.owner, props.history),
     zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     [date, setDate] = useState(() => dateInZone(Date.now(), zone)),
@@ -704,101 +657,14 @@ export default function ProcessWorkspace(props: Props) {
         </div>
       )}
       {!day && !editDay && (
-        <>
-          <div className="cc-greeting">
-            <div>
-              <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
-              <h1>Your Command Center</h1>
-              <p>A clear plan before your first trade.</p>
-            </div>
-            <button onClick={() => setEditDay(true)}>Day settings</button>
-          </div>
-          <div className="cc-market-strip">
-            <span>{date}</span>
-            <Badge>Preparation not started</Badge>
-            <Badge>No thesis recorded</Badge>
-            <Badge>
-              {props.pulse.recording
-                ? "Wearable recording"
-                : "No live HR recording"}
-            </Badge>
-          </div>
-          <div className="cc-dashboard-grid cc-start-grid">
-            {(
-              [
-                [
-                  "Pre-Market",
-                  "Pre-market non-negotiables",
-                  "Start with your routine",
-                  "Your checklist, ready to work through before the session.",
-                  "Prepare",
-                ],
-                [
-                  "Trading Thesis",
-                  "Trading thesis",
-                  "Know what you’re looking for",
-                  "Keep your weekly outlook and today’s scenarios together.",
-                  "Write a thesis",
-                ],
-                [
-                  "Trade Quality",
-                  "Trade quality",
-                  "Define a good trade",
-                  "Review setups against your own playbook and rules.",
-                  "Open trade quality",
-                ],
-                [
-                  "Command Center",
-                  "Temperature check",
-                  "How are you arriving today?",
-                  "Record focus, energy and stress in your own words.",
-                  "Start today",
-                ],
-                [
-                  "Missions",
-                  "Active missions",
-                  "One process goal at a time",
-                  "Choose a measurable habit to work on.",
-                  "Set a mission",
-                ],
-                [
-                  "Journal",
-                  "Daily journal",
-                  "A place to notice",
-                  "Your reflections, trades and recorded moments.",
-                  "Open journal",
-                ],
-              ] as const
-            ).map(([page, title, headline, description, label]) => (
-              <Panel key={title} title={title}>
-                <h3>{headline}</h3>
-                <p className="cc-muted">{description}</p>
-                <button
-                  disabled={store.busy}
-                  onClick={async () => {
-                    if (page === "Journal") {
-                      props.onPage(page);
-                      return;
-                    }
-                    const record = createRecord("day", {
-                      date,
-                      timezone: zone,
-                      status: "preparing",
-                      instrument: "",
-                      account: "",
-                      timeframes: ["15M", "1H", "4H", "Daily"],
-                      sessionIds: [],
-                      goal: "",
-                    });
-                    if (await store.save([record])) props.onPage(page);
-                  }}
-                >
-                  {label}
-                </button>
-              </Panel>
-            ))}
-          </div>
-        </>
+        <StartDashboard
+          editor={dashboardEditor}
+          store={store}
+          props={props}
+          date={date}
+          zone={zone}
+          onSettings={() => setEditDay(true)}
+        />
       )}
       {editDay && (
         <Panel
@@ -909,7 +775,11 @@ export default function ProcessWorkspace(props: Props) {
             </p>
           )}
           {props.page === "Command Center" && (
-            <DailyDashboard key={day!.rootId} {...context} />
+            <DailyDashboard
+              key={day!.rootId}
+              {...context}
+              editor={dashboardEditor}
+            />
           )}
           {props.page === "Pre-Market" && (
             <PreMarket key={day!.rootId} {...context} />
