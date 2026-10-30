@@ -1137,3 +1137,141 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* A twelve-column canvas with a floating active card and snap-to-grid landing zone. */
+.cc-dashboard-board .cc-canvas {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: 24px;
+  gap: 12px;
+  align-items: stretch;
+  isolation: isolate;
+}
+.cc-canvas-editing {
+  border-radius: 10px;
+  background-image: radial-gradient(#8dcab526 1px, transparent 1px);
+  background-size: 18px 18px;
+  padding-bottom: 24px;
+}
+.cc-canvas .cc-dashboard-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 8px;
+  background: #10191d;
+  border: 1px solid var(--cc-line);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.cc-canvas-editing .cc-dashboard-card {
+  border: 1px dashed #658f82;
+}
+.cc-canvas-editing .cc-dashboard-card:hover {
+  border-color: #a4dfc9;
+  box-shadow:
+    0 8px 28px #0005,
+    0 0 0 1px #8dcab530;
+}
+.cc-canvas .cc-tile-active {
+  z-index: 20;
+  border: 1px solid #a6e6cf;
+  box-shadow:
+    0 24px 64px #0009,
+    0 0 0 2px #8dcab540;
+  will-change: transform, width, height;
+}
+.cc-canvas .cc-card-controls {
+  flex-shrink: 0;
+  min-height: 46px;
+  user-select: none;
+}
+.cc-tile-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #496159 transparent;
+  overscroll-behavior: contain;
+}
+.cc-canvas-editing .cc-tile-scroll {
+  padding-bottom: 22px;
+}
+.cc-tile-content-inner {
+  min-width: 0;
+}
+.cc-tile-content-inner .cc-panel {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.cc-canvas .cc-card-preview {
+  opacity: 0.9;
+}
+.cc-canvas .cc-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px 0 7px 0;
+  padding: 6px;
+  color: #a4dfc9;
+  background: #1b302c;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 2;
+}
+.cc-resize-handle:hover,
+.cc-resize-handle:focus-visible {
+  background: #365c50;
+}
+.cc-landing-zone {
+  position: relative;
+  min-width: 0;
+  border: 2px dashed #9ad9c1;
+  background: #8dcab518;
+  border-radius: 9px;
+  pointer-events: none;
+  z-index: -1;
+}
+.cc-landing-zone span {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  color: #b7e7d5;
+  font-size: 11px;
+}
+.cc-tile-move .cc-drag-handle {
+  cursor: grabbing;
+}
+.cc-canvas-interacting {
+  user-select: none;
+}
+.cc-canvas-mobile .cc-resize-handle {
+  width: 44px;
+  height: 44px;
+  cursor: ns-resize;
+}
+.cc-canvas-mobile .cc-landing-zone {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-canvas .cc-dashboard-card {
+    transition: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cc-canvas-editing:not(.cc-canvas-interacting) .cc-dashboard-card {
+    transition:
+      translate 0.18s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .cc-canvas-editing:not(.cc-canvas-interacting) .cc-dashboard-card:hover {
+    translate: 0 -2px;
+  }
+}

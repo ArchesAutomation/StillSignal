@@ -319,6 +319,115 @@ try {
     await page.locator('[data-card="thesis"]').getAttribute("class"),
     /cc-span-all/,
   );
+  const preparationCard = page.locator('[data-card="preparation"]');
+  const beforeResize = JSON.parse(
+    await preparationCard.getAttribute("data-grid"),
+  );
+  const corner = button("Resize Pre-market non-negotiables");
+  await corner.scrollIntoViewIfNeeded();
+  let handleRect = await corner.boundingBox();
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2,
+    handleRect.y + handleRect.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2 + 130,
+    handleRect.y + handleRect.height / 2 + 90,
+    { steps: 14 },
+  );
+  await page.locator(".cc-tile-active.cc-tile-resize").waitFor();
+  assert.equal(await page.locator(".cc-landing-zone").count(), 1);
+  await page.screenshot({
+    path: output + "/corner-resize-desktop.png",
+    fullPage: true,
+  });
+  await page.mouse.up();
+  const afterResize = JSON.parse(
+    await preparationCard.getAttribute("data-grid"),
+  );
+  assert.ok(
+    afterResize.w > beforeResize.w && afterResize.h > beforeResize.h,
+    "Corner resizes width and height",
+  );
+  await button("Undo").click();
+  const undoResize = JSON.parse(
+    await preparationCard.getAttribute("data-grid"),
+  );
+  assert.deepEqual(
+    undoResize,
+    beforeResize,
+    "One Undo reverses the whole resize gesture",
+  );
+  await corner.scrollIntoViewIfNeeded();
+  await corner.focus();
+  await page.keyboard.press("ArrowUp");
+  assert.ok(
+    JSON.parse(await preparationCard.getAttribute("data-grid")).h <
+      beforeResize.h,
+  );
+  await button("Undo").click();
+  const dragHandle = button("Drag Pre-market non-negotiables");
+  await dragHandle.scrollIntoViewIfNeeded();
+  handleRect = await dragHandle.boundingBox();
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2,
+    handleRect.y + handleRect.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2 + 220,
+    handleRect.y + handleRect.height / 2 + 110,
+    { steps: 15 },
+  );
+  await page.locator(".cc-tile-active.cc-tile-move").waitFor();
+  const floatingStyle = await preparationCard.evaluate(
+    (e) => getComputedStyle(e).transform,
+  );
+  assert.notEqual(floatingStyle, "none");
+  await page.screenshot({
+    path: output + "/floating-drag-desktop.png",
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  assert.equal(await page.locator(".cc-tile-active").count(), 0);
+  assert.deepEqual(
+    JSON.parse(await preparationCard.getAttribute("data-grid")),
+    beforeResize,
+    "Escape cancels a drag",
+  );
+  // Keep one custom coordinate/size change for the reload check below.
+  await corner.scrollIntoViewIfNeeded();
+  await corner.focus();
+  await page.keyboard.press("ArrowRight");
+  await dragHandle.scrollIntoViewIfNeeded();
+  handleRect = await dragHandle.boundingBox();
+  const beforeMove = JSON.parse(
+    await preparationCard.getAttribute("data-grid"),
+  );
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2,
+    handleRect.y + handleRect.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    handleRect.x + handleRect.width / 2 + 120,
+    handleRect.y + handleRect.height / 2 + 80,
+    { steps: 12 },
+  );
+  await page.mouse.up();
+  const movedGeometry = JSON.parse(
+    await preparationCard.getAttribute("data-grid"),
+  );
+  assert.ok(
+    movedGeometry.x !== beforeMove.x && movedGeometry.y !== beforeMove.y,
+    "Move to a free location in both axes",
+  );
+  const savedGeometry = await preparationCard.getAttribute("data-grid");
+  checks.push(
+    "Corner resize in both axes, floating drag preview, snap landing, one-step undo, Escape and keyboard resizing",
+  );
   await page.getByRole("button", { name: /^Add cards/ }).click();
   await button("Add Personal variables").click();
   await page.getByLabel("All my variables", { exact: true }).uncheck();
@@ -423,6 +532,11 @@ try {
   checks.push(
     "Named dashboards keep independent layouts and selected view survives reload",
   );
+  assert.equal(
+    await page.locator('[data-card="preparation"]').getAttribute("data-grid"),
+    savedGeometry,
+    "Custom dimensions and positions survive reload",
+  );
   checks.push("Records and workspace preset survive reload");
   await nav("Patterns");
   await page
@@ -441,6 +555,68 @@ try {
     fullPage: true,
   });
   await button("Edit dashboard").click();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const mobileCorner = button("Resize Pre-market non-negotiables");
+  await mobileCorner.scrollIntoViewIfNeeded();
+  const mobileHeight = JSON.parse(
+    await page.locator('[data-card="preparation"]').getAttribute("data-grid"),
+  ).h;
+  await mobileCorner.focus();
+  await page.keyboard.press("ArrowDown");
+  assert.equal(
+    JSON.parse(
+      await page.locator('[data-card="preparation"]').getAttribute("data-grid"),
+    ).h,
+    mobileHeight + 1,
+  );
+  assert.equal(
+    await page
+      .locator('[data-card="preparation"]')
+      .evaluate(
+        (el) =>
+          el.getAnimations().filter((a) => a.playState === "running").length,
+      ),
+    0,
+  );
+  await button("Undo").click();
+  const touchSession = await context.newCDPSession(page);
+  await touchSession.send("Emulation.setTouchEmulationEnabled", {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
+  await mobileCorner.scrollIntoViewIfNeeded();
+  const touchRect = await mobileCorner.boundingBox();
+  const tx = touchRect.x + touchRect.width / 2,
+    ty = touchRect.y + touchRect.height / 2;
+  await touchSession.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: tx, y: ty }],
+  });
+  for (let delta = 15; delta <= 90; delta += 15) {
+    await touchSession.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: tx, y: ty + delta }],
+    });
+    await page.waitForTimeout(20);
+  }
+  await touchSession.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  assert.ok(
+    JSON.parse(
+      await page.locator('[data-card="preparation"]').getAttribute("data-grid"),
+    ).h > mobileHeight,
+    "Touch corner drag increases card height",
+  );
+  await button("Undo").click();
+  await touchSession.send("Emulation.setTouchEmulationEnabled", {
+    enabled: false,
+  });
+  await touchSession.detach();
+  checks.push(
+    "Mobile vertical resize with touch input and reduced-motion preference",
+  );
   await fits("Mobile dashboard editor");
   await button("Move Trading thesis down").click();
   await page.getByRole("button", { name: /^Add cards/ }).click();

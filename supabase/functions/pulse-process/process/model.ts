@@ -468,6 +468,19 @@ export const recordSchema = z
                   ]),
                   visible: z.boolean(),
                   width: z.enum(["normal", "wide"]),
+                  grid: z
+                    .object({
+                      x: z.number().int().min(0).max(11),
+                      y: z.number().int().min(0).max(1000),
+                      w: z.number().int().min(3).max(12),
+                      h: z.number().int().min(5).max(60),
+                    })
+                    .strict()
+                    .refine(
+                      (b) => b.x + b.w <= 12,
+                      "Card exceeds dashboard width",
+                    )
+                    .optional(),
                 })
                 .strict(),
             )
