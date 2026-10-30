@@ -10,6 +10,7 @@ import "./blueprint.css";
 import "./journal-reference.css";
 import "./implementation-plan.css";
 import "./journal-space.css";
+import "./page-layout.css";
 import "./journal-select.css";
 import "./command-center.css";
 export const metadata: Metadata = {

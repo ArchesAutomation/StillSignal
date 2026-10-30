@@ -9,6 +9,7 @@ import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
 import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
+import PageCustomizer from "../page-customizer";
 import Overview from "./overview";
 import ProcessWorkspace from "../command-center/workspace";
 import Stillness, { reflections } from "./stillness";
@@ -37,6 +38,7 @@ const commandPages: Page[] = [
   "Prepare",
 ];
 export default function ConceptWorkspace(props: Props) {
+  const pageRoot = useRef<HTMLElement>(null);
   const { pulse: p, session: s, history, page } = props;
   const daySession = dailyJournalSession(s, history);
   const resetSeen = useRef(new Set<string>());
@@ -341,7 +343,7 @@ export default function ConceptWorkspace(props: Props) {
           </button>
         </div>
       </aside>
-      <main>
+      <main ref={pageRoot}>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             Workspace{" "}
@@ -469,6 +471,7 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
+        {page !== "Command Center" && <PageCustomizer key={p.owner + page} scope={pageRoot} owner={p.owner} page={page} />}
         {s.demo && (
           <p className={cx("demo-notice")}>
             DEMO DATA · Simulated heart rate, trades and reflections. No broker
@@ -539,25 +542,23 @@ export default function ConceptWorkspace(props: Props) {
           </>
         )}
         <div hidden={!journal} className={cx("reference-journal-grid")}>
-          <details className={cx("space-history")}>
-            <summary>Calendar & previous entries</summary>
-            <ReferenceHistory
-              session={s}
-              sessions={history}
-              disabled={p.active || openingDay || capturePending}
-              onDay={(date) => void openDay(date)}
-              onWeek={() => setWeekly((v) => !v)}
-              onNote={(source, n) =>
-                void act(async () => {
-                  if (source.id !== s.id && !(await p.openSession(source)))
-                    return;
-                  go("Journal");
-                  props.onReflect({ t: n.t, entry: n });
-                })
-              }
-            />
-          </details>
-          <div className={cx("reference-day")}>
+          <section className={cx("journal-date-overview")} data-layout-id="journal-date-overview" data-layout-title="Date overview" data-layout-span="12">
+            <div className={cx("journal-date-heading")}>
+              <div>
+                <div className={cx("eyebrow")}>Daily journal</div>
+                <h1>{new Date(s.startedAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h1>
+              </div>
+              <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay || capturePending} onOpen={openDay} />
+            </div>
+            <div className={cx("datecontrols")}>
+              <button className={cx("iconbtn")} aria-label="Previous week" onClick={() => setWeek(n => n - 1)}>‹</button>
+              <span>{ws.getDate()}–{we.getDate()} {we.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+              <button className={cx("iconbtn")} aria-label="Next week" onClick={() => setWeek(n => n + 1)}>›</button>
+            </div>
+            <Calendar weekdaysOnly sessions={history} selected={s} offset={week} disabled={p.active || openingDay || capturePending}
+              onOpen={target => void act(() => p.openSession(target))} onEmptyDay={date => void openDay(date)} />
+          </section>
+          <div className={cx("reference-day")} data-layout-panel data-layout-id="journal-content" data-layout-title="Daily journal" data-layout-span="9">
             {weekly ? (
               <>
                 <button onClick={() => setWeekly(false)}>
@@ -571,79 +572,6 @@ export default function ConceptWorkspace(props: Props) {
               </>
             ) : (
               <>
-                {journal && view !== "story" && (
-                  <section className={cx("hero")}>
-                    <div>
-                      <div className={cx("eyebrow")}>
-                        Daily journal ·{" "}
-                        {p.syncState.toLowerCase().includes("connected")
-                          ? "synced automatically"
-                          : p.syncState}
-                      </div>
-                      <h1>
-                        {new Date(s.startedAt).toLocaleDateString("en-GB", {
-                          weekday: "long",
-                        }) +
-                          ", " +
-                          new Date(s.startedAt).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                      </h1>
-                      <p>
-                        {s.timezone ||
-                          Intl.DateTimeFormat().resolvedOptions().timeZone}{" "}
-                        ·{" "}
-                        {s.blueprint?.environmentHistory?.at(-1)?.location ||
-                          "Environment not recorded"}
-                      </p>
-                    </div>
-                    <div className={cx("datecontrols")}>
-                      <button
-                        className={cx("iconbtn")}
-                        aria-label="Previous week"
-                        onClick={() => setWeek((n) => n - 1)}
-                      >
-                        ‹
-                      </button>
-                      <div className={cx("currentdate")}>
-                        {ws.getDate()}–{we.getDate()}{" "}
-                        {we.toLocaleDateString("en-US", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                      <button
-                        className={cx("iconbtn")}
-                        aria-label="Next week"
-                        onClick={() => setWeek((n) => n + 1)}
-                      >
-                        ›
-                      </button>
-                    </div>
-                  </section>
-                )}
-                {journal && (
-                  <details className={cx("space-date-tools")}>
-                    <summary>Choose a date · work week</summary>
-                    <JournalDayPicker
-                      key={s.id}
-                      date={s.startedAt}
-                      disabled={p.active || openingDay || capturePending}
-                      onOpen={openDay}
-                    />
-                    <Calendar
-                      weekdaysOnly
-                      sessions={history}
-                      selected={s}
-                      offset={week}
-                      disabled={p.active || openingDay || capturePending}
-                      onOpen={(target) => void act(() => p.openSession(target))}
-                      onEmptyDay={(date) => void openDay(date)}
-                    />
-                  </details>
-                )}
                 <section
                   className={cx(
                     "session-controls",
@@ -726,6 +654,23 @@ export default function ConceptWorkspace(props: Props) {
                 />
               </>
             )}
+          </div>
+          <div className={cx("journal-calendar-side")} data-layout-panel data-layout-id="journal-calendar" data-layout-title="Calendar & previous entries" data-layout-span="3">
+            <ReferenceHistory
+              session={s}
+              sessions={history}
+              disabled={p.active || openingDay || capturePending}
+              onDay={(date) => void openDay(date)}
+              onWeek={() => setWeekly((v) => !v)}
+              onNote={(source, n) =>
+                void act(async () => {
+                  if (source.id !== s.id && !(await p.openSession(source)))
+                    return;
+                  go("Journal");
+                  props.onReflect({ t: n.t, entry: n });
+                })
+              }
+            />
           </div>
         </div>
         {page === "Sessions" && (
