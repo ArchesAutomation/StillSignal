@@ -622,10 +622,12 @@ export default function ProcessWorkspace(props: Props) {
         )}
       </div></WorkspaceModule>
       {([
-        ["preparation", "Pre-market preparation", PreparationPanel],
+        ["preparation", "Pre-market non-negotiables", PreparationPanel],
         ["thesis", "Trading thesis", ThesisPanel],
         ["variables", "Personal variables", VariablesPanel],
-      ] as const).map(([id, title, Component]) => <WorkspaceModule key={id} id={"linked-" + id} title={title} initiallyHidden section="main"><ModuleScope active={false}>{context ? <Component {...context} /> : <section className="cc-panel"><h2>{title}</h2><p>Link this journal date to a trading day to show the same records used in Command Center.</p><button onClick={() => props.onPage("Command Center")}>Open Command Center</button></section>}</ModuleScope></WorkspaceModule>)}
+        ["missions", "Missions", MissionsPanel],
+        ["quality", "Trade quality", ProcessPanel],
+      ] as const).map(([id, title, Component]) => <WorkspaceModule key={id} id={"linked-" + id} title={title} initiallyHidden section="side"><ModuleScope active={false}>{context ? <Component {...context} /> : <section className="cc-panel"><h2>{title}</h2><p>Link this journal date to a trading day to show the same records used in Command Center.</p><button onClick={() => { setDate(selectedDate); props.onPage("Command Center"); }}>Open Command Center</button></section>}</ModuleScope></WorkspaceModule>)}
       </>
     );
 

@@ -72,6 +72,34 @@ function setup() {
   ).IS_REACT_ACT_ENVIRONMENT = true;
   return dom;
 }
+test("journal undo and redo persist edits, deletion and details without changing session recording", async (t) => {
+  const dom = setup(), root = createRoot(document.getElementById("root")!);
+  let p!: ReturnType<typeof usePulse>;
+  function Harness() { p = usePulse({ id: "12121212-1212-4212-8212-121212121212" }); return createElement("div"); }
+  t.after(async () => { await act(async () => root.unmount()); dom.window.close(); });
+  await act(async () => root.render(createElement(Harness)));
+  await act(async () => { await p.start("Undo test"); });
+  const id = p.session!.id;
+  await act(async () => { await p.addNote({ id: "undo-note", t: Date.now(), label: "Calm", text: "First words", eventTime: null }); });
+  assert.equal(p.canUndoJournal, true);
+  await act(async () => { await p.saveJournalNote({ ...p.session!.journal[0], text: "New words" }); });
+  await act(async () => { await p.undoJournal(); });
+  assert.equal(p.session!.journal[0].text, "First words");
+  await act(async () => { await p.redoJournal(); });
+  assert.equal(p.session!.journal[0].text, "New words");
+  await act(async () => { await p.removeNote("undo-note"); });
+  assert.ok(p.session!.journal[0].deletedAt);
+  await act(async () => { await p.undoJournal(); });
+  assert.equal(p.session!.journal[0].deletedAt, undefined);
+  await act(async () => { await p.updateBlueprint({ dailyWriting: "Daily reflection" }); });
+  await act(async () => { await p.undoJournal(); });
+  assert.equal(p.session!.blueprint?.dailyWriting, undefined);
+  await act(async () => { await p.redoJournal(); });
+  assert.equal(p.session!.blueprint?.dailyWriting, "Daily reflection");
+  assert.equal((await listSessions(p.owner)).find(s => s.id === id)?.blueprint?.dailyWriting, "Daily reflection");
+  assert.equal(p.active, true);
+  assert.equal(p.session!.id, id);
+});
 test("manual CSV joins the active recorded day and Bluetooth continues receiving samples", async (t) => {
   const dom = setup(), root = createRoot(document.getElementById("root")!);
   let pulse: ReturnType<typeof usePulse>;
