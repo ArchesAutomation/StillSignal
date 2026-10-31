@@ -15,6 +15,7 @@ import {
 } from "@/lib/pattern-engine/compare";
 import { analyticalSamples, windowMetric } from "@/lib/pattern-engine/physiology";
 import RegressionAnalysis from "./regression";
+import AnalysisMission from "./analysis-mission";
 import { Empty, Field, Panel, type Context } from "./shared";
 const format = (v: number | null | undefined) =>
   v == null ? "Unavailable" : v.toFixed(1);
@@ -292,6 +293,7 @@ export default function PatternExplorer({ store, props, day }: Context) {
           pre-trade context.
         </p>
         <div className="cc-grid">
+          <AnalysisMission context={{store,props,day}} rows={rows} variable={variable} filters={JSON.stringify({metric,window,start,end,strategy,instrument,account,bias,hour,ordinal,afterLoss,coverage,definitionVersion,split})}/>
           <Field label="Metric">
             <select
               value={metric}
