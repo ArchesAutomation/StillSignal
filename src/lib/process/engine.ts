@@ -1,6 +1,7 @@
 import type { Session, TradeEvent } from "../model";
 import { isActualExecution } from "../trade-context";
 import { validateValue } from "../environment/values";
+import { applicability } from "./conditions";
 import {
   createRecord,
   dateInZone,
@@ -19,6 +20,9 @@ export function requiredRefs(r: ProcessRecord): ProcessRecord["refs"] {
   const b = r.body;
   if ("dayId" in b) add("day", b.dayId);
   if (r.kind === "run") add("protocol", r.body.templateId);
+  if (r.kind === "protocol" || r.kind === "run")
+    for (const step of r.body.steps)
+      if (step.applicability?.type === "variable-above") add("variable", step.applicability.definitionId);
   if (r.kind === "response") {
     add("run", r.body.runId);
     if (r.body.evidenceId) {
@@ -66,6 +70,11 @@ export function preparation(
         .filter((r) => r.body.runId === run.id && r.body.stepId === step.id)
         .sort((a, b) => b.createdAt - a.createdAt)[0];
       if (step.requirement === "optional") continue;
+      if (step.requirement === "conditional") {
+        const applies = applicability(step.applicability, records, dayId, at);
+        if (applies === false) { excluded++; continue; }
+        if (applies === null) { total++; unknown++; continue; }
+      }
       if (response?.body.status === "not-applicable") {
         excluded++;
         continue;

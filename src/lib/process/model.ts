@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { conditionSchema } from "./conditions";
 const id = z.uuid(),
   text = z.string().trim().max(8000),
   name = z.string().trim().min(1).max(160);
@@ -30,6 +31,8 @@ export const requirementSchema = z
     category: name,
     requirement: z.enum(["required", "optional", "conditional"]),
     condition: text,
+    applicability: conditionSchema.optional(),
+    groups: z.array(name).max(4).optional(),
     verification: z.enum([
       "manual",
       "daily-thesis",
