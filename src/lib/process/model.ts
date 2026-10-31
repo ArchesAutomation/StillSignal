@@ -361,6 +361,8 @@ export const recordSchema = z
             .strict()
             .optional(),
           playbookId: id,
+          thesisId: id.optional(),
+          override: text.optional(),
           retrospective: z.boolean(),
           assessedAt: timestamp,
           quality: z.number().min(1).max(10).nullable(),

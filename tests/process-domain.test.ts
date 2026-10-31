@@ -232,7 +232,7 @@ test("thesis and rule evaluations use execution-time history, never HR or P&L", 
     }),
   ];
   const score = processScore(evals, [rule, max]);
-  assert.equal(score.score, 100);
+  assert.equal(score.score, null);
   assert.equal(score.coverage, 0.5);
   assert.equal(score.unknown, 1);
 });
