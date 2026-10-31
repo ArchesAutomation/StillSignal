@@ -13,8 +13,13 @@ import {
   type EvidenceRow,
   type Metric,
 } from "@/lib/pattern-engine/compare";
-import { analyticalSamples, windowMetric } from "@/lib/pattern-engine/physiology";
+import {
+  analyticalSamples,
+  windowMetric,
+} from "@/lib/pattern-engine/physiology";
 import RegressionAnalysis from "./regression";
+import AnalysisMission from "./analysis-mission";
+import AnalysisViews from "./analysis-views";
 import { Empty, Field, Panel, type Context } from "./shared";
 const format = (v: number | null | undefined) =>
   v == null ? "Unavailable" : v.toFixed(1);
@@ -255,7 +260,10 @@ export default function PatternExplorer({ store, props, day }: Context) {
     const next = new Map(samples);
     let failures = 0;
     for (const s of props.history.filter(
-      (s) => !s.demo && s.blueprint?.combine?.hr !== false && s.sampleCount > (next.get(s.id)?.length ?? 0),
+      (s) =>
+        !s.demo &&
+        s.blueprint?.combine?.hr !== false &&
+        s.sampleCount > (next.get(s.id)?.length ?? 0),
     )) {
       try {
         const result = await pullSession(s.id);
@@ -292,6 +300,80 @@ export default function PatternExplorer({ store, props, day }: Context) {
           pre-trade context.
         </p>
         <div className="cc-grid">
+          <AnalysisViews
+            store={store}
+            filters={{
+              variable,
+              second,
+              definitionVersion,
+              metric,
+              window,
+              start,
+              end,
+              strategy,
+              instrument,
+              account,
+              bias,
+              hour,
+              ordinal,
+              afterLoss,
+              coverage,
+              split,
+            }}
+            onApply={(f) => {
+              const text = (k: string) =>
+                typeof f[k] === "string" ? String(f[k]) : "";
+              setVariable(text("variable"));
+              setSecond(text("second"));
+              setDefinitionVersion(text("definitionVersion"));
+              if (
+                [
+                  "hr-mean",
+                  "hr-peak",
+                  "hr-rate",
+                  "hr-duration",
+                  "hr-recovery",
+                  "process",
+                  "preparation",
+                ].includes(text("metric"))
+              )
+                setMetric(text("metric") as Metric);
+              setWindow(text("window"));
+              setStart(text("start"));
+              setEnd(text("end"));
+              setStrategy(text("strategy"));
+              setInstrument(text("instrument"));
+              setAccount(text("account"));
+              setBias(text("bias"));
+              setHour(text("hour"));
+              setOrdinal(text("ordinal"));
+              setAfterLoss(text("afterLoss"));
+              if (typeof f.coverage === "number")
+                setCoverage(Math.max(0, Math.min(1, f.coverage)));
+              setSplit(text("split"));
+            }}
+          />
+          <AnalysisMission
+            context={{ store, props, day }}
+            rows={rows}
+            variable={variable}
+            filters={JSON.stringify({
+              metric,
+              window,
+              start,
+              end,
+              strategy,
+              instrument,
+              account,
+              bias,
+              hour,
+              ordinal,
+              afterLoss,
+              coverage,
+              definitionVersion,
+              split,
+            })}
+          />
           <Field label="Metric">
             <select
               value={metric}

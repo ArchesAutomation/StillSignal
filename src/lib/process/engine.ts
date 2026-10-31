@@ -1,6 +1,7 @@
 import type { Session, TradeEvent } from "../model";
 import { isActualExecution } from "../trade-context";
 import { validateValue } from "../environment/values";
+import { applicability } from "./conditions";
 import {
   createRecord,
   dateInZone,
@@ -19,6 +20,10 @@ export function requiredRefs(r: ProcessRecord): ProcessRecord["refs"] {
   const b = r.body;
   if ("dayId" in b) add("day", b.dayId);
   if (r.kind === "run") add("protocol", r.body.templateId);
+  if (r.kind === "protocol" || r.kind === "run")
+    for (const step of r.body.steps)
+      if (step.applicability?.type === "variable-above")
+        add("variable", step.applicability.definitionId);
   if (r.kind === "response") {
     add("run", r.body.runId);
     if (r.body.evidenceId) {
@@ -28,7 +33,10 @@ export function requiredRefs(r: ProcessRecord): ProcessRecord["refs"] {
   }
   if (r.kind === "thesis") add("thesis", r.body.weeklyId);
   if (r.kind === "observation") add("variable", r.body.definitionId);
-  if (r.kind === "assessment") add("playbook", r.body.playbookId);
+  if (r.kind === "assessment") {
+    add("playbook", r.body.playbookId);
+    add("thesis", r.body.thesisId);
+  }
   if (r.kind === "evaluation") add("assessment", r.body.assessmentId);
   if (r.kind === "progress") add("goal", r.body.goalId);
   if (r.kind === "goal") add("variable", r.body.variableId);
@@ -69,6 +77,18 @@ export function preparation(
       if (response?.body.status === "not-applicable") {
         excluded++;
         continue;
+      }
+      if (step.requirement === "conditional") {
+        const applies = applicability(step.applicability, records, dayId, at);
+        if (applies === false) {
+          excluded++;
+          continue;
+        }
+        if (applies === null) {
+          total++;
+          unknown++;
+          continue;
+        }
       }
       total++;
       if (
@@ -123,6 +143,7 @@ export function processScore(
     unknown = 0,
     excluded = 0,
     broken = 0;
+  let eligibleWeight = 0;
   for (const rule of rules) {
     const e = evaluations.find((x) => x.body.ruleId === rule.id)?.body;
     if (e?.adherence === "not-applicable") {
@@ -130,6 +151,7 @@ export function processScore(
       continue;
     }
     eligible++;
+    eligibleWeight += rule.weight;
     if (!e || e.adherence === "unknown") {
       unknown++;
       continue;
@@ -142,8 +164,15 @@ export function processScore(
     if (e.adherence === "broken") broken++;
   }
   return {
-    score: denominator ? (100 * numerator) / denominator : null,
+    score:
+      denominator &&
+      eligible &&
+      known / eligible >= 0.8 &&
+      denominator / eligibleWeight >= 0.8
+        ? (100 * numerator) / denominator
+        : null,
     coverage: eligible ? known / eligible : null,
+    weightCoverage: eligibleWeight ? denominator / eligibleWeight : null,
     known,
     unknown,
     excluded,
@@ -454,6 +483,16 @@ export function validateAppend(
     }
     if (row.kind === "assessment" && !row.body.tradeId && !row.body.planned)
       throw new Error("Record a planned setup or select an execution.");
+    if (row.kind === "assessment" && row.body.thesisId) {
+      const thesis = get("thesis", row.body.thesisId);
+      if (
+        thesis.createdAt > row.body.assessedAt ||
+        thesis.body.dayId !== row.body.dayId
+      )
+        throw new Error(
+          "The pinned thesis must belong to this day and exist at decision time.",
+        );
+    }
     if (row.kind === "assessment" && row.body.tradeId && !row.body.sessionId)
       throw new Error("An execution requires its session.");
     if (row.kind === "evaluation") {

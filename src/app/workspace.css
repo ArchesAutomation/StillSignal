@@ -1462,3 +1462,16 @@ textarea::placeholder {
 .broker-wizard .checkbox-label { display: flex; align-items: flex-start; }
 .broker-wizard .checkbox-label input { width: auto; }
 @media (max-width: 600px) { .connection-type-grid { grid-template-columns: 1fr; } .broker-wizard select { max-width: 100%; } }
+
+.ss-portable-modes { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #303b40; border-radius: 10px; color: #b6c2c7; background: #141b1e; }
+.ss-portable-modes summary { cursor: pointer; font-size: 12px; }
+.ss-portable-modes label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 12px 4px 0; font-size: 12px; }
+.ss-portable-modes input, .ss-portable-modes select { max-width: 100%; background: #101719; color: #dce4e7; border: 1px solid #354247; padding: 7px; border-radius: 6px; }
+.ss-portable-modes button { margin: 4px; }
+.cc-annotation-chart { position: relative; min-width: 0; overflow: hidden; border: 1px solid #303b40; border-radius: 8px; }
+.cc-level-handle { position: absolute; left: 12px; z-index: 2; transform: translateY(-50%); max-width: 70%; touch-action: none; cursor: ns-resize; font-size: 11px; padding: 3px 8px; }
+.cc-replay-events { max-height: 440px; overflow: auto; padding-left: 24px; }
+.cc-replay-events li { padding: 8px 0; border-bottom: 1px solid #273237; }
+.cc-replay-events small { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .cc-level-handle { transition: none; } }
+@media (max-width: 640px) { .ss-portable-modes label { display: flex; } .ss-portable-modes input, .ss-portable-modes select { min-width: 0; width: 100%; } }

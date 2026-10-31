@@ -1,9 +1,12 @@
 "use client";
 import { useState } from "react";
+import VisualPlan from "./visual-plan";
+import ChartPlan from "./chart-plan";
 import {
   biasSchema,
   createRecord,
   latest,
+  recordSchema,
   weekOf,
   type BodyOf,
   type RecordOf,
@@ -85,6 +88,19 @@ export function ThesisPanel({ store, day, props }: Context) {
             <Badge>{t.body.bias}</Badge>
           </div>
           <p>{t.body.primary || "No primary scenario recorded."}</p>
+          {t.body.scenarios?.map((s) => (
+            <details key={s.id}>
+              <summary>
+                {s.role} · {s.title}
+              </summary>
+              <p>
+                If {s.condition || "condition not recorded"}, then{" "}
+                {s.action || "action not recorded"}.
+              </p>
+              <p>Confirmation: {s.confirmation || "Not recorded"}</p>
+              <p>Invalidation: {s.invalidation || "Not recorded"}</p>
+            </details>
+          ))}
           {t.body.invalidation && (
             <small>Invalidation: {t.body.invalidation}</small>
           )}
@@ -105,7 +121,21 @@ export default function ThesisWorkspace(context: Context) {
     [versionKey, setVersionKey] = useState(0);
   const rows = relevantTheses(store.records, day),
     weekly = rows.filter((r) => r.body.scope === "weekly");
+  const draftKey = (scope: string, previous?: RecordOf<"thesis">) =>
+    `still-signal-thesis-draft-v1:${context.props.pulse.owner}:${day.rootId}:${previous?.id ?? scope}`;
   const open = (body: BodyOf<"thesis">, previous?: RecordOf<"thesis">) => {
+    try {
+      const saved = localStorage.getItem(draftKey(body.scope, previous));
+      if (saved) {
+        const parsed = recordSchema.safeParse(
+          createRecord("thesis", JSON.parse(saved), previous),
+        );
+        if (parsed.success && parsed.data.kind === "thesis")
+          body = parsed.data.body;
+      }
+    } catch {
+      /* A malformed or unavailable draft never replaces a saved thesis. */
+    }
     setEditor({ body, previous });
     setVersionKey((n) => n + 1);
   };
@@ -198,6 +228,48 @@ export default function ThesisWorkspace(context: Context) {
           <form
             key={versionKey}
             className="cc-form"
+            onChange={(e) => {
+              const form = e.currentTarget;
+              const current = editor;
+              requestAnimationFrame(() => {
+                try {
+                  const f = new FormData(form);
+                  const b = {
+                    ...current.body,
+                    instrument: string(f, "instrument"),
+                    bias: string(f, "bias"),
+                    weeklyId: string(f, "weeklyId") || undefined,
+                    timeframes: JSON.parse(string(f, "visualTimeframes")),
+                    scenarios: JSON.parse(string(f, "visualScenarios")),
+                    chart: string(f, "chartPlan")
+                      ? JSON.parse(string(f, "chartPlan"))
+                      : undefined,
+                  };
+                  for (const key of [
+                    "structure",
+                    "events",
+                    "levels",
+                    "liquidity",
+                    "primary",
+                    "alternate",
+                    "entries",
+                    "invalidation",
+                    "noTrade",
+                    "targets",
+                    "notes",
+                    "reason",
+                  ] as const)
+                    b[key] = string(f, key);
+                  b.screenshots = lines(f, "screenshots");
+                  localStorage.setItem(
+                    draftKey(current.body.scope, current.previous),
+                    JSON.stringify(b),
+                  );
+                } catch {
+                  /* Saving the version remains available when draft storage is unavailable. */
+                }
+              });
+            }}
             onSubmit={async (e) => {
               e.preventDefault();
               try {
@@ -221,33 +293,45 @@ export default function ThesisWorkspace(context: Context) {
                   notes: string(f, "notes"),
                   screenshots: lines(f, "screenshots"),
                   reason: string(f, "reason"),
-                  timeframes: lines(f, "timeframes").map((line) => {
-                    const [timeframe, bias] = line.split("=");
-                    return {
-                      timeframe: timeframe.trim(),
-                      bias: biasSchema.parse(bias?.trim() || "neutral"),
-                    };
-                  }),
+                  timeframes: JSON.parse(string(f, "visualTimeframes")),
+                  scenarios: JSON.parse(string(f, "visualScenarios")),
+                  chart: string(f, "chartPlan")
+                    ? JSON.parse(string(f, "chartPlan"))
+                    : undefined,
                 };
                 if (
                   await store.save([
                     createRecord("thesis", body, editor.previous),
                   ])
-                )
+                ) {
+                  try {
+                    localStorage.removeItem(
+                      draftKey(editor.body.scope, editor.previous),
+                    );
+                  } catch {}
                   setEditor(undefined);
+                }
               } catch {
                 store.setError(
-                  "Check timeframe lines: use names such as 15M=bullish, 1H=bearish, or Daily=neutral.",
+                  "Could not read the visual plan. Check the timeframe and scenario fields before saving.",
                 );
               }
             }}
           >
             <div className="cc-grid">
-              <Input
-                label="Instrument"
-                name="instrument"
-                value={editor.body.instrument}
-              />
+              <Field label="Instrument">
+                <input
+                  name="instrument"
+                  maxLength={40}
+                  value={editor.body.instrument}
+                  onChange={(e) =>
+                    setEditor({
+                      ...editor,
+                      body: { ...editor.body, instrument: e.target.value },
+                    })
+                  }
+                />
+              </Field>
               <Field label="Directional bias">
                 <select name="bias" defaultValue={editor.body.bias}>
                   {biasSchema.options.map((v) => (
@@ -271,12 +355,11 @@ export default function ThesisWorkspace(context: Context) {
                 </Field>
               )}
             </div>
-            <Area
-              label="Timeframe biases (one per line: 15M=bullish)"
-              name="timeframes"
-              value={editor.body.timeframes
-                .map((v) => `${v.timeframe}=${v.bias}`)
-                .join("\n")}
+            <VisualPlan key={versionKey} body={editor.body} />
+            <ChartPlan
+              key={"chart-" + versionKey + ":" + editor.body.instrument}
+              context={context}
+              body={editor.body}
             />
             <div className="cc-grid">
               {(
@@ -317,6 +400,10 @@ export default function ThesisWorkspace(context: Context) {
               required
             />
             <div className="cc-actions">
+              <small>
+                Text drafts are kept on this device for this account. Saving
+                creates an immutable revision.
+              </small>
               <Save store={store}>
                 Save thesis {editor.previous ? "revision" : ""}
               </Save>

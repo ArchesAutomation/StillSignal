@@ -36,6 +36,9 @@ import Temperature from "../variable-builder/temperature";
 import TradeQuality, { Violations } from "../trade-quality/workspace";
 import Missions, { MissionsPanel } from "../process-goals/workspace";
 import Audits from "../audits/workspace";
+import ProcessReplay from "../audits/replay";
+import ProcessDevelopment from "../process-goals/development";
+import DecisionInspector from "../trade-quality/inspector";
 import PatternExplorer from "./pattern-explorer";
 import {
   Badge,
@@ -300,6 +303,9 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
     goal: ["Daily process goal", day.body.goal || "No goal selected"],
   };
   const panels = {
+    inspector:<DecisionInspector {...context}/>,
+    replay:<ProcessReplay {...context}/>,
+    development:<ProcessDevelopment {...context}/>,
     preparation: <PreparationPanel {...context} compact />,
     thesis: <ThesisPanel {...context} />,
     temperature: <Temperature {...context} />,
@@ -433,6 +439,9 @@ function StartDashboard({
     if (await store.save([record])) props.onPage(page);
   };
   const entries = [
+    ["inspector","Trade Quality","Decision inspector","Inspect a planned setup","Use your saved playbook and thesis to record a decision.","Open inspector"],
+    ["replay","Audits","Plan versus execution replay","Reconstruct a recorded session","Inspect the plan and evidence available at each recorded time.","Open replay"],
+    ["development","Missions","Process development","Track your process over time","Review daily preparation, evidence coverage and consistency.","Open development"],
     [
       "preparation",
       "Pre-Market",
