@@ -10,6 +10,14 @@ was performed.
 
 Baseline: main at `18b1483`. Branch: `codex/trading-process-os-2`.
 
+Draft pull request: https://github.com/ArchesAutomation/StillSignal/pull/34
+
+Review commits: `85f9d85` implementation map; `bbcd6fe` preparation;
+`99579ce` visual thesis; `1656a11` decision context; `fbba602` workspace modes;
+`1b4bf12` replay; `04aa700` missions/development; `0c6f970` integration and
+stabilization; `0d8798a` release documentation. Subsequent documentation-only
+commits attach the final PR reference.
+
 ## Implementation and walkthrough
 
 ### 1. Preparation
