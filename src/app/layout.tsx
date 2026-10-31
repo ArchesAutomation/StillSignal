@@ -13,6 +13,7 @@ import "./journal-space.css";
 import "./page-layout.css";
 import "./journal-select.css";
 import "./command-center.css";
+import "./module-layout.css";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:

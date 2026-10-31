@@ -162,6 +162,7 @@ export default function JournalTrades({
                     <div className={cx("journey-notes")}>
                       {notes.map((note) => (
                         <InlineMoment
+                          idPrefix="trade-moment"
                           key={note.id}
                           note={note}
                           session={session}

@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { JournalEntry, Session } from "@/lib/model";
 import { noteTime } from "@/lib/journal-routing";
 import { labelsFor } from "@/lib/journal-reference";
+import { usePhaseLabels } from "../phase-label-context";
 import { phaseColors } from "@/lib/phase-colors";
 import { AudioPlayback } from "../reflection-audio";
 import { Screenshot } from "../reflection-editor";
@@ -22,6 +23,7 @@ export default function InlineMoment({
   highlightColor,
   bpm,
   timezone,
+  idPrefix = "moment",
 }: {
   note: JournalEntry;
   session: Session;
@@ -33,7 +35,10 @@ export default function InlineMoment({
   highlightColor?: string;
   bpm?: number | null;
   timezone?: string;
+  idPrefix?: string;
 }) {
+  const labels = usePhaseLabels();
+  const labelsId = useId();
   const [label, setLabel] = useState(
     note.label === "Unlabelled" ? "" : note.label,
   );
@@ -115,7 +120,7 @@ export default function InlineMoment({
     );
   return (
     <article
-      id={`moment-${note.id}`}
+      id={`${idPrefix}-${note.id}`}
       className={cx(
         "inline-moment",
         "stream-note",
@@ -134,7 +139,7 @@ export default function InlineMoment({
         <input
           aria-label="Feeling or thought"
           maxLength={40}
-          list={`labels-${note.id}`}
+          list={labelsId}
           placeholder="Add feeling / thought…"
           value={label}
           onChange={(e) => {
@@ -149,8 +154,8 @@ export default function InlineMoment({
             }
           }}
         />
-        <datalist id={`labels-${note.id}`}>
-          {labelsFor(note.section).map((l) => (
+        <datalist id={labelsId}>
+          {labelsFor(note.section, labels).map((l) => (
             <option key={l}>{l}</option>
           ))}
         </datalist>

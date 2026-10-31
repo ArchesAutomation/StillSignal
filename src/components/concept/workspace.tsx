@@ -9,7 +9,7 @@ import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
 import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
-import PageCustomizer from "../page-customizer";
+import ModuleWorkspace, { WorkspaceModule, ModuleScope } from "../module-workspace";
 import Overview from "./overview";
 import ProcessWorkspace from "../command-center/workspace";
 import Stillness, { reflections } from "./stillness";
@@ -471,7 +471,7 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
-        {page !== "Command Center" && <PageCustomizer key={p.owner + page} scope={pageRoot} owner={p.owner} page={page} />}
+        <ModuleWorkspace owner={p.owner} page={page} enabled={page !== "Command Center"}>
         {s.demo && (
           <p className={cx("demo-notice")}>
             DEMO DATA · Simulated heart rate, trades and reflections. No broker
@@ -514,14 +514,14 @@ export default function ConceptWorkspace(props: Props) {
             }
           />
         )}
-        {page === "Overview" && <Overview {...viewProps} onReview={review} />}
+        {page === "Overview" && <WorkspaceModule id="performance" title="Performance overview" parts={[{id:"metrics",title:"Summary numbers",selector:".ss-metrics"},{id:"stories",title:"Session stories",selector:".ss-storygrid"}]}><Overview {...viewProps} onReview={review} /></WorkspaceModule>}
         {page === "Overview" && (
-          <SessionContext
+          <WorkspaceModule id="session-environment" title="Session environment"><SessionContext
             key={s.id}
             session={s}
             history={history}
             onSave={p.updateBlueprint}
-          />
+          /></WorkspaceModule>
         )}
         {page === "Prepare" && (
           <>
@@ -538,11 +538,11 @@ export default function ConceptWorkspace(props: Props) {
                 {p.active ? "End session" : "Start session"}
               </button>
             </section>
-            <ReferenceContext key={s.id} {...viewProps} />
+            <WorkspaceModule id="preparation-context" title="Preparation and intentions"><ReferenceContext key={s.id} {...viewProps} /></WorkspaceModule>
           </>
         )}
-        <div hidden={!journal} className={cx("reference-journal-grid")}>
-          <section className={cx("journal-date-overview")} data-layout-id="journal-date-overview" data-layout-title="Date overview" data-layout-span="12">
+        <ModuleScope active={journal}><div hidden={!journal} className={cx("reference-journal-grid")}>
+          <WorkspaceModule id="dates" title="Date overview" section="top" order={0} parts={[{id:"week",title:"Week strip",selector:".ss-week"},{id:"picker",title:"Date picker",selector:".ss-journal-day-picker"},{id:"navigation",title:"Week navigation",selector:".ss-datecontrols"}]}><section className={cx("journal-date-overview")} data-layout-id="journal-date-overview" data-layout-title="Date overview" data-layout-span="12">
             <div className={cx("journal-date-heading")}>
               <div>
                 <div className={cx("eyebrow")}>Daily journal</div>
@@ -557,22 +557,22 @@ export default function ConceptWorkspace(props: Props) {
             </div>
             <Calendar weekdaysOnly sessions={history} selected={s} offset={week} disabled={p.active || openingDay || capturePending}
               onOpen={target => void act(() => p.openSession(target))} onEmptyDay={date => void openDay(date)} />
-          </section>
+          </section></WorkspaceModule>
           <div className={cx("reference-day")} data-layout-panel data-layout-id="journal-content" data-layout-title="Daily journal" data-layout-span="9">
             {weekly ? (
               <>
                 <button onClick={() => setWeekly(false)}>
                   Back to journal
                 </button>
-                <ReferenceWeek
+                <WorkspaceModule id="weekly-review" title="Weekly intentions and review"><ReferenceWeek
                   key={s.id + reviewWeek}
                   {...viewProps}
                   week={reviewWeek}
-                />
+                /></WorkspaceModule>
               </>
             ) : (
               <>
-                <section
+                <WorkspaceModule id="session-controls" title="Session controls" section="top" order={1}><section
                   className={cx(
                     "session-controls",
                     "v4-sessionbar",
@@ -642,7 +642,7 @@ export default function ConceptWorkspace(props: Props) {
                       ? "Executions matched"
                       : "No trades recorded · journal ready"}
                   </span>
-                </section>
+                </section></WorkspaceModule>
                 <Journal
                   {...viewProps}
                   focusTime={focusTime}
@@ -655,7 +655,7 @@ export default function ConceptWorkspace(props: Props) {
               </>
             )}
           </div>
-          <div className={cx("journal-calendar-side")} data-layout-panel data-layout-id="journal-calendar" data-layout-title="Calendar & previous entries" data-layout-span="3">
+          <WorkspaceModule id="calendar" title="Calendar & previous entries" section="side" order={0} parts={[{id:"calendar",title:"Month calendar",selector:".ss-mini-month"},{id:"search",title:"Search your words",selector:"input[type=search],.ss-search-results"},{id:"weekly",title:"Weekly review",selector:".ss-reference-card:nth-child(2)"},{id:"record",title:"Saved record summary",selector:".ss-reference-card:nth-child(3)"}]}><div className={cx("journal-calendar-side")} data-layout-panel data-layout-id="journal-calendar" data-layout-title="Calendar & previous entries" data-layout-span="3">
             <ReferenceHistory
               session={s}
               sessions={history}
@@ -671,8 +671,8 @@ export default function ConceptWorkspace(props: Props) {
                 })
               }
             />
-          </div>
-        </div>
+          </div></WorkspaceModule>
+        </div></ModuleScope>
         {page === "Sessions" && (
           <>
             <section className={cx("hero")}>
@@ -727,7 +727,7 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
               </div>
             </div>
-            <SessionDays
+            <WorkspaceModule id="session-history" title="Your saved days"><SessionDays
               history={history}
               selected={s}
               selectedSamples={p.samples}
@@ -754,7 +754,7 @@ export default function ConceptWorkspace(props: Props) {
                   go("Journal");
                 })
               }
-            />
+            /></WorkspaceModule>
             {!history.length && (
               <p className={cx("empty-note")}>
                 Choose a journal date to begin. Trades and CSV uploads are
@@ -763,13 +763,14 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </>
         )}
-        <div hidden={page !== "Stillness"}>
-          <SessionReset
+        <ModuleScope active={page === "Stillness"}><div hidden={page !== "Stillness"}>
+          <WorkspaceModule id="stillness" title="Stillness practice" parts={[{id:"breathing",title:"Breathing guide",selector:".ss-breathing-square"},{id:"presets",title:"Practice choices",selector:".ss-reset-modules"}]}><SessionReset
             key={s.id}
             active={page === "Stillness"}
             onChoice={finishReset}
-          />
-        </div>
+          /></WorkspaceModule>
+        </div></ModuleScope>
+        </ModuleWorkspace>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (
@@ -819,6 +820,7 @@ export default function ConceptWorkspace(props: Props) {
         aria-label="Still Signal live widget"
       >
         <CapturePanel
+          labels={p.settings.phaseLabels}
           key={s.id}
           controller={props.capture}
           session={daySession}

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
 import { useProcess } from "./use-process";
 import JournalContext from "./journal-context";
@@ -599,7 +600,7 @@ export default function ProcessWorkspace(props: Props) {
   const context = day ? { store, day, props } : undefined;
   if (props.page === "Journal" || props.page === "Live Session")
     return (
-      <div className="cc-workspace cc-context-strip">
+      <><WorkspaceModule id="process-context" title="Trading day context" section="top" order={3}><div className="cc-workspace cc-context-strip">
         {context ? (
           <JournalContext key={props.session.id} {...context} />
         ) : (
@@ -619,7 +620,13 @@ export default function ProcessWorkspace(props: Props) {
             </button>
           </details>
         )}
-      </div>
+      </div></WorkspaceModule>
+      {([
+        ["preparation", "Pre-market preparation", PreparationPanel],
+        ["thesis", "Trading thesis", ThesisPanel],
+        ["variables", "Personal variables", VariablesPanel],
+      ] as const).map(([id, title, Component]) => <WorkspaceModule key={id} id={"linked-" + id} title={title} initiallyHidden section="main"><ModuleScope active={false}>{context ? <Component {...context} /> : <section className="cc-panel"><h2>{title}</h2><p>Link this journal date to a trading day to show the same records used in Command Center.</p><button onClick={() => props.onPage("Command Center")}>Open Command Center</button></section>}</ModuleScope></WorkspaceModule>)}
+      </>
     );
 
   return (

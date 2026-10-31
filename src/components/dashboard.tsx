@@ -42,7 +42,8 @@ import {
   Menu,
 } from "lucide-react";
 import ConceptWorkspace from "./concept/workspace";
-import PageCustomizer from "./page-customizer";
+import { PhaseLabelsContext } from "./phase-label-context";
+import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
 import BlueprintPreferences from "./blueprint-preferences";
 import PhaseLabelPreferences from "./phase-label-preferences";
 import SignalCalendar from "./signal-calendar";
@@ -563,7 +564,7 @@ export default function Dashboard({
       </div>
     );
   return (
-    <div className="dashboard-shell">
+    <PhaseLabelsContext.Provider value={p.settings.phaseLabels}><div className="dashboard-shell">
       <ConceptWorkspace
         capture={capture}
         pulse={p}
@@ -619,7 +620,7 @@ export default function Dashboard({
             <X size={20} />
           </button>
         </div>
-        {legacyOpen && <PageCustomizer key={p.owner + tab + (todayReview ? "review" : "tools")} scope={legacyDialog} owner={p.owner} page={tab + (todayReview ? " review" : " tools")} />}
+        <ModuleWorkspace owner={p.owner} page={tab + (todayReview ? " review" : " tools")} enabled={legacyOpen}>
         <div className="app-shell">
           {mobileNav && (
             <button
@@ -1124,7 +1125,7 @@ export default function Dashboard({
                   </div>
                   <div hidden={journalView !== "Timeline"}>
                     <div className="trading-grid">
-                      <section className="glass timeline-panel">
+                      <WorkspaceModule id="tools-the-rhythm-of-your-session" title="The rhythm of your session" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass timeline-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1292,7 +1293,7 @@ export default function Dashboard({
                             </button>
                           </div>
                         )}
-                      </section>
+                      </section></WorkspaceModule>
                       <TradeContextPanel
                         event={contextEvent || visibleEvents.at(-1)}
                         samples={shown}
@@ -1304,7 +1305,7 @@ export default function Dashboard({
                       />
                     </div>
                     <div className="lower-grid">
-                      <section className="glass events-panel">
+                      <WorkspaceModule id="tools-trade-activity" title="Trade activity" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass events-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1455,8 +1456,8 @@ export default function Dashboard({
                             Export session <Download size={13} />
                           </button>
                         </div>
-                      </section>
-                      <section className="glass insights-panel">
+                      </section></WorkspaceModule>
+                      <WorkspaceModule id="tools-session-observations" title="Session observations" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass insights-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1517,13 +1518,13 @@ export default function Dashboard({
                             trading recommendations.
                           </span>
                         </div>
-                      </section>
+                      </section></WorkspaceModule>
                     </div>
                   </div>
                 </>
               )}
               {tab === "Sessions" && (
-                <section className="glass content-panel">
+                <WorkspaceModule id="tools-saved-sessions" title="Saved sessions" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass content-panel">
                   <div className="panel-heading">
                     <div>
                       <h2>Saved sessions</h2>
@@ -1596,7 +1597,7 @@ export default function Dashboard({
                       ))}
                     </div>
                   )}
-                </section>
+                </section></WorkspaceModule>
               )}
               {tab === "Journal" && todayReview && (
                 <TodayReview
@@ -1614,7 +1615,7 @@ export default function Dashboard({
               {tab === "Journal" &&
                 !todayReview &&
                 journalView === "Timeline" && (
-                  <section className="glass content-panel journal-flow">
+                  <WorkspaceModule id="tools-the-moments-behind-the-numbers" title="The moments behind the numbers" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass content-panel journal-flow">
                     <div className="panel-heading">
                       <div>
                         <h2>The moments behind the numbers</h2>
@@ -1715,7 +1716,7 @@ export default function Dashboard({
                         </p>
                       </div>
                     )}
-                  </section>
+                  </section></WorkspaceModule>
                 )}
               <div
                 hidden={
@@ -1745,7 +1746,7 @@ export default function Dashboard({
               </div>
               {tab === "Connections" && (
                 <>
-                  <section
+                  <WorkspaceModule id="tools-manual-csv-import" title="Manual CSV import" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section
                     id="trade-csv"
                     className="glass import-card csv-import-panel"
                   >
@@ -1759,7 +1760,7 @@ export default function Dashboard({
                     <button className="button" onClick={() => setModal("csv")}>
                       <Upload size={16} /> Import CSV
                     </button>
-                  </section>
+                  </section></WorkspaceModule>
                   <BrokerConnections
                     owner={p.owner}
                     onChanged={() => void p.refreshHistory()}
@@ -1767,7 +1768,7 @@ export default function Dashboard({
                     onImportCsv={() => setModal("csv")}
                   />
                   <div className="connections-grid">
-                    <section className="glass connection-card">
+                    <WorkspaceModule id="tools-whoop" title="WHOOP" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass connection-card">
                       <div className="connection-top">
                         <span className="connection-logo">
                           <Bluetooth size={26} />
@@ -1821,14 +1822,14 @@ export default function Dashboard({
                           Disconnect wearable
                         </button>
                       )}
-                    </section>
+                    </section></WorkspaceModule>
                     <TradingViewConnection
                       onChanged={() =>
                         p.setNotice("TradingView connection updated.")
                       }
                     />
                   </div>
-                  <section className="glass connection-note">
+                  <WorkspaceModule id="tools-optional-wearable-context" title="Optional wearable context" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass connection-note">
                     <h3>Optional wearable context</h3>
                     <p>
                       Your journal and trading integrations work without a
@@ -1836,16 +1837,16 @@ export default function Dashboard({
                       Oura, and Garmin are planned connectors; they are not
                       connected or simulated in this release.
                     </p>
-                  </section>
+                  </section></WorkspaceModule>
                 </>
               )}
               {tab === "Settings" && (
                 <div className="settings-grid">
-                  <PhaseLabelPreferences
+                  <WorkspaceModule id="stage-label-preferences" title="Your stage labels" section="main"><PhaseLabelPreferences
                     settings={p.settings}
                     onChange={p.configure}
-                  />
-                  <label className="checkbox-label">
+                  /></WorkspaceModule>
+                  <WorkspaceModule id="review-reminders" title="Weekly review reminders" section="side" order={20}><section className="glass settings-card"><h2>Weekly review reminders</h2><label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={p.settings.weeklyReminders !== false}
@@ -1857,13 +1858,13 @@ export default function Dashboard({
                       }
                     />
                     Gentle weekly review reminders
-                  </label>
-                  <BlueprintPreferences
+                  </label></section></WorkspaceModule>
+                  <WorkspaceModule id="blueprint-preferences" title="Session blueprint preferences" section="side"><BlueprintPreferences
                     session={s}
                     history={history}
                     onSave={p.updateBlueprint}
-                  />
-                  <section className="glass settings-card">
+                  /></WorkspaceModule>
+                  <WorkspaceModule id="tools-your-session-preferences" title="Your session preferences" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass settings-card">
                     <h2>Your session preferences</h2>
                     <label className="checkbox-label">
                       <input
@@ -2087,8 +2088,8 @@ export default function Dashboard({
                       <Check size={14} />
                       Preferences save automatically on this device.
                     </p>
-                  </section>
-                  <section className="glass settings-card">
+                  </section></WorkspaceModule>
+                  <WorkspaceModule id="tools-your-data-your-control" title="Your data, your control" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass settings-card">
                     <h2>Your data, your control</h2>
                     <p>
                       {p.email
@@ -2139,7 +2140,7 @@ export default function Dashboard({
                     <a className="text-button" href="/privacy">
                       Privacy & data details <ExternalLink size={12} />
                     </a>
-                  </section>
+                  </section></WorkspaceModule>
                 </div>
               )}
               {tab === "Patterns" && (
@@ -2223,6 +2224,7 @@ export default function Dashboard({
             </main>
           </div>
         </div>
+        </ModuleWorkspace>
       </dialog>
       <ExtensionConnection
         user={user}
@@ -2623,6 +2625,6 @@ export default function Dashboard({
           })()}
         </Modal>
       )}
-    </div>
+    </div></PhaseLabelsContext.Provider>
   );
 }

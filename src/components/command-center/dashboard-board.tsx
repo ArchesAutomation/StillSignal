@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Plus, RotateCcw, Undo2 } from "lucide-react";
 import DashboardCanvas from "./dashboard-canvas";
+import { ModuleScope } from "../module-workspace";
 import { latest, type RecordOf } from "@/lib/process/model";
 import {
   cards,
@@ -116,7 +117,7 @@ export default function DashboardBoard({
     setUndo([]);
   };
   return (
-    <div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
+    <ModuleScope active={false}><div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
       <div className="cc-dashboard-toolbar">
         {draft ? (
           <>
@@ -415,6 +416,6 @@ export default function DashboardBoard({
           )}
         </>
       )}
-    </div>
+    </div></ModuleScope>
   );
 }

@@ -6,6 +6,8 @@ import type { ReflectionDraft } from "../reflection-editor";
 import { summary } from "@/lib/analytics";
 import { useMomentCapture, type MomentCapture } from "../use-moment-capture";
 import { cx } from "./shared";
+import { labelsFor, stages } from "@/lib/journal-reference";
+import { usePhaseLabels } from "../phase-label-context";
 export function captureSignal(
   samples: Sample[],
   session: Session,
@@ -60,6 +62,7 @@ export default function CapturePanel(props: {
   expanded?: boolean;
   historicalBaseline?: { bpm: number | null; count: number };
 }) {
+  const sharedLabels = usePhaseLabels();
   const local = useMomentCapture({
     session: props.session,
     active: props.active,
@@ -85,14 +88,7 @@ export default function CapturePanel(props: {
     fresh && baseline?.bpm != null
       ? Math.round(latest.bpm - baseline.bpm)
       : null;
-  const feelings = [
-    "Calm",
-    "Focused",
-    "Confident",
-    "Anxious",
-    "Frustrated",
-    "Impulsive",
-  ];
+  const feelings = [...new Set(stages.flatMap(stage => labelsFor(stage, props.labels ?? sharedLabels)))];
   const counts = new Map<string, number>();
   for (const note of props.session.journal) {
     if (!note.deletedAt && note.label && note.label !== "Unlabelled")
@@ -230,6 +226,7 @@ export default function CapturePanel(props: {
           >
             <h3>How are you feeling?</h3>
             <p>Your saved labels · select a feeling for your next recording.</p>
+            <label>Feeling or thought<select aria-label="Recording feeling or thought" disabled={busy || isRecording || c.pendingCapture} value={c.feeling || ""} onChange={event => c.chooseFeeling(event.target.value)}><option value="">No label yet</option>{[...new Set([...(c.feeling ? [c.feeling] : []), ...feelings, ...counts.keys()])].map(label => <option key={label} value={label}>{label}</option>)}</select></label>
             <div className={cx("emotion-bars")}>
               {emotionLabels.map((label, i) => (
                 <button
