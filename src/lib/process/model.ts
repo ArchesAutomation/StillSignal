@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { conditionSchema } from "./conditions";
+import { workspaceSchema } from "./workspace-schema";
 const id = z.uuid(),
   text = z.string().trim().max(8000),
   name = z.string().trim().min(1).max(160);
@@ -62,8 +63,6 @@ export const ruleSchema = z
   })
   .strict()
   .superRefine((r, ctx) => {
-    if (r.kind === "thesis" && (new Set(r.body.timeframes.map(f => f.timeframe)).size !== r.body.timeframes.length || new Set(r.body.scenarios?.map(s => s.id)).size !== (r.body.scenarios?.length ?? 0)))
-      ctx.addIssue({code:"custom",message:"Timeframes and scenario IDs must be unique"});
     if (r.verification === "max-size" && r.limit === undefined)
       ctx.addIssue({ code: "custom", message: "Maximum size is required" });
     if (
@@ -461,6 +460,7 @@ export const recordSchema = z
         .object({
           name,
           isDefault: z.boolean(),
+          workspace: z.object({ page:name, definition:workspaceSchema }).strict().optional(),
           panels: z
             .array(
               z
@@ -521,6 +521,8 @@ export const recordSchema = z
     ),
   ])
   .superRefine((r, ctx) => {
+    if (r.kind === "thesis" && (new Set(r.body.timeframes.map(f => f.timeframe)).size !== r.body.timeframes.length || new Set(r.body.scenarios?.map(s => s.id)).size !== (r.body.scenarios?.length ?? 0)))
+      ctx.addIssue({code:"custom",message:"Timeframes and scenario IDs must be unique"});
     if (
       (r.revision === 1 && (r.rootId !== r.id || r.previousId)) ||
       (r.revision > 1 && (!r.previousId || r.rootId === r.id))

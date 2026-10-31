@@ -46,7 +46,7 @@ export default function DashboardBoard({
   renderVariables?: (ids?: string[]) => ReactNode;
 }) {
   const [initial] = useState(freshDashboard);
-  const layouts = latest(store.records, "layout");
+  const layouts = latest(store.records, "layout").filter(r => !r.body.workspace);
   const home = layouts
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];

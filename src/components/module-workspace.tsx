@@ -5,6 +5,7 @@ import { GripVertical, Plus, RotateCcw, Undo2, Redo2, MoveDiagonal2, Settings2, 
 import { emptyModuleLayout, moduleLayoutKey, readModuleLayout, boundModuleBox, type ModuleLayout, type ModulePlacement, type ModuleBox } from "@/lib/module-layout";
 
 import { moduleBoard, modulePlacement, materializeBoard, placeModule, availableModuleBox } from "@/lib/module-board";
+import PortableModes from "./portable-modes";
 
 export type ModulePart = { id: string; title: string; selector: string };
 type Definition = { id: string; title: string; section: string; order: number; width: number; initiallyHidden: boolean; parts: ModulePart[]; host: HTMLDivElement };
@@ -261,6 +262,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
     commit(value, "Custom module created. Open its settings to name it, and write inside it.");
   }
   return <Context.Provider value={enabled ? context : null}><div className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}`}>
+    {enabled && <PortableModes key={owner + ":" + page} owner={owner} page={page} value={resolved()} editing={editing} onApply={layout => {cancelGesture();setSaved(layout);setDraft(layout);setUndo([]);setRedo([]);setMessage("Workspace mode loaded.");try{localStorage.setItem(key,JSON.stringify(layout));}catch{setMessage("Mode loaded; device cache unavailable.");}}}/>}
     {enabled && <div className="ss-module-toolbar">
       <div><strong>{editing ? "Make this board yours" : "Your workspace"}</strong><small>{editing ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules." : "Your board is saved for this page on this browser."}</small></div>
       <div>{editing ? <>
