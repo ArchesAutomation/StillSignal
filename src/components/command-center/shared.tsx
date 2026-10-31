@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { BodyOf, ProcessRecord, RecordOf } from "@/lib/process/model";
 import type { Props } from "../concept/shared";
+import { WorkspaceModule } from "../module-workspace";
 import type { ProcessStore } from "./use-process";
 export type Context = {
   store: ProcessStore;
@@ -28,7 +29,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={"cc-panel " + className}>
+    <WorkspaceModule id={"process-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} title={title} parts={[{id:"description",title:"Description",selector:"header p"},{id:"summary",title:"Supporting explanation",selector:".cc-muted"}]}><div className="cc-workspace ss-module-process-content"><section className={"cc-panel " + className}>
       <header>
         <div>
           <h2>{title}</h2>
@@ -37,7 +38,7 @@ export function Panel({
         {action}
       </header>
       <div className="cc-panel-body">{children}</div>
-    </section>
+    </section></div></WorkspaceModule>
   );
 }
 export function Field({

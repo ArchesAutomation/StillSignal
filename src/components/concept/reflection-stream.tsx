@@ -64,6 +64,7 @@ export default function ReflectionStream({
       </div>
       {notes.map((n) => (
         <InlineMoment
+          idPrefix="stream-moment"
           key={n.id}
           note={n}
           session={session}

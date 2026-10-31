@@ -1,5 +1,9 @@
 "use client";
 import JournalSelect from "./journal-select";
+import { WorkspaceModule } from "../module-workspace";
+import StageLabelModule from "./stage-label-module";
+import { DayLabelSummary } from "./reflection-stream";
+import JournalTrades from "./journal-trades";
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, Sample } from "@/lib/model";
 import { money } from "@/lib/model";
@@ -126,7 +130,7 @@ export default function JournalSpace({
   }
   return (
     <>
-      <div className={cx("space-summary")}>
+      <WorkspaceModule id="day-summary" title="Day summary" section="top" order={2} parts={[{id:"moments",title:"Journal moment count",selector:".ss-space-summary > span:nth-child(1)"},{id:"captures",title:"Live capture count",selector:".ss-space-summary > span:nth-child(2)"},{id:"trades",title:"Trade idea count",selector:".ss-space-summary > span:nth-child(3)"},{id:"hr",title:"Heart-rate measurement count",selector:".ss-space-summary > span:nth-child(4)"}]}><div className={cx("space-summary")}>
         <span>
           <strong>{all.length}</strong> journal moments
         </span>
@@ -139,9 +143,10 @@ export default function JournalSpace({
         <span>
           <strong>{samples.length}</strong> HR measurements
         </span>
-      </div>
+      </div></WorkspaceModule>
       <div className={cx("journal-space")}>
         <section className={cx("space-writing")} aria-label="Journal moments">
+          <WorkspaceModule id="moments" title="Journal moments" order={2} parts={[{id:"filters",title:"Search and filters",selector:".ss-space-filters"},{id:"origin",title:"Capture origin and stage",selector:".ss-inline-moment-head small"},{id:"evidence",title:"Evidence thumbnails",selector:".ss-space-thumb"}]}>
           <div className={cx("space-section-heading")}>
             <div>
               <h2>Your journal, moment by moment</h2>
@@ -249,7 +254,8 @@ export default function JournalSpace({
               </div>
             )}
           </div>
-          <div id="guided-reflection">
+          </WorkspaceModule>
+          <WorkspaceModule id="writing" title="Write a reflection" order={3} parts={[{id:"prompt",title:"Reflection prompt",selector:".ss-reference-composer-head"},{id:"timing",title:"Linked time controls",selector:".ss-time-link"}]}><div id="guided-reflection">
             <Writing
               key={session.id}
               session={session}
@@ -261,8 +267,8 @@ export default function JournalSpace({
               onReflect={props.onReflect}
               timezone={timezone}
             />
-          </div>
-          <section className={cx("space-card", "intention-review")}>
+          </div></WorkspaceModule>
+          <WorkspaceModule id="intentions" title="Review your intentions" order={4} parts={[{id:"links",title:"Related review links",selector:".ss-space-review-links"},{id:"intention",title:"Original intention",selector:".ss-intention-review .ss-space-section-heading p"}]}><section className={cx("space-card", "intention-review")}>
             <div className={cx("space-section-heading")}>
               <div>
                 <h3>Return to your intentions</h3>
@@ -353,25 +359,20 @@ export default function JournalSpace({
                 View today in Patterns →
               </button>
             </div>
-          </section>
+          </section></WorkspaceModule>
           {!!session.blueprint?.dailyWriting && (
-            <details className={cx("space-card")}>
+            <WorkspaceModule id="previous-writing" title="Previous day writing" section="bottom"><details className={cx("space-card")}>
               <summary>Previous day writing</summary>
               <p>{session.blueprint.dailyWriting}</p>
-            </details>
+            </details></WorkspaceModule>
           )}
-          <details className={cx("space-support")}>
-            <summary>
-              Session context, execution grouping & P&amp;L sources
-            </summary>
-            <ReferenceContext {...props} compact />
-            <IdeaGrouping session={session} onSave={p.updateBlueprint} />
-            <PnlTimeline
+          <WorkspaceModule id="session-context" title="Session context" section="bottom" initiallyHidden><ReferenceContext {...props} compact /></WorkspaceModule>
+          <WorkspaceModule id="execution-grouping" title="Execution grouping" section="bottom" initiallyHidden><IdeaGrouping session={session} onSave={p.updateBlueprint} /></WorkspaceModule>
+          <WorkspaceModule id="pnl-timeline" title="P&amp;L sources and timeline" section="bottom" initiallyHidden><PnlTimeline
               session={session}
               samples={samples}
               onSave={p.updateBlueprint}
-            />
-          </details>
+            /></WorkspaceModule>
           <p className={cx("space-status")} role="status">
             {status}
           </p>
@@ -381,7 +382,7 @@ export default function JournalSpace({
           className={cx("space-companion")}
           aria-label="Evidence and session observations"
         >
-          {current && (
+          <WorkspaceModule id="evidence" title="Moment evidence" section="side" order={1} parts={[{id:"images",title:"Chart images",selector:".ss-space-evidence img"},{id:"transcript",title:"Original transcript",selector:".ss-space-evidence > details"},{id:"destination",title:"Stage and trade controls",selector:".ss-space-evidence .ss-destinations"}]}>{current ? (
             <section
               className={cx("space-card", "space-evidence")}
               aria-label="Selected moment evidence"
@@ -480,8 +481,8 @@ export default function JournalSpace({
                 Add another reflection below
               </button>
             </section>
-          )}
-          <section
+          ) : <section className={cx("space-card")}><h3>Moment evidence</h3><p>Select a journal moment to see its chart image, audio, transcript and linked context here.</p></section>}</WorkspaceModule>
+          <WorkspaceModule id="observations" title="Session observations" section="side" order={2} parts={[{id:"context",title:"Recorded observations",selector:".ss-space-observation"},{id:"explanation",title:"Supporting explanation",selector:".ss-space-observations > p"}]}><section
             className={cx("space-card", "space-observations")}
             aria-label="Session observations"
           >
@@ -542,13 +543,16 @@ export default function JournalSpace({
                 inferred from heart rate.
               </p>
             )}
-          </section>
-          <FinalReviewChart
+          </section></WorkspaceModule>
+          <WorkspaceModule id="review-chart" title="Final review chart" section="side" order={3}><FinalReviewChart
             session={props.session}
             ideaId="day"
             onSave={p.updateBlueprint}
             prepare={p.prepareScreenshot}
-          />
+          /></WorkspaceModule>
+          <WorkspaceModule id="label-summary" title="Your day in labels" section="side" initiallyHidden><DayLabelSummary session={session} /></WorkspaceModule>
+          <WorkspaceModule id="stage-labels" title="Your stage suggestions" section="side" initiallyHidden><StageLabelModule onSettings={() => props.onPage("Settings")} /></WorkspaceModule>
+          <WorkspaceModule id="trade-activity" title="Trade activity and stage notes" section="main" initiallyHidden><JournalTrades session={session} samples={samples} onReflect={props.onReflect} onEdit={note => props.onReflect({ t: note.t, entry: note })} onSelect={(id, phase, t) => onSelect({ id, t: t ?? session.startedAt, phase: phase.toUpperCase(), label: sectionName(phase), text: "", bpm: null })} onInspect={props.onSelectTrade} onSaveNote={p.saveJournalNote} onSaveBlueprint={p.updateBlueprint} prepareScreenshot={p.prepareScreenshot} /></WorkspaceModule>
         </aside>
       </div>
     </>

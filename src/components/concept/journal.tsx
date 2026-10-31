@@ -12,6 +12,7 @@ import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
 import ReferenceRhythm from "./reference-rhythm";
 import JournalSpace from "./journal-space";
+import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import Review from "./review";
 import ReferencePatterns from "./reference-patterns";
 import { useJournalSamples } from "../use-journal-samples";
@@ -288,8 +289,8 @@ export default function Journal(
       {view === "review" && (
         <button onClick={() => setView("story")}>← Continue to journal</button>
       )}
-      <section hidden={view !== "story"} className={cx("journal-story")}>
-        <div className={cx("space-title")}>
+      <ModuleScope active={view === "story"}><section hidden={view !== "story"} className={cx("journal-story")}>
+        <WorkspaceModule id="journal-heading" title="Journal heading" order={0} parts={[{id:"context",title:"Date and environment detail",selector:".ss-space-title p"},{id:"zone",title:"Timezone selector",selector:".ss-space-title > label"}]}><div className={cx("space-title")}>
           <div>
             <div className={cx("eyebrow")}>A record you can return to</div>
             <h2>Your day, in your words.</h2>
@@ -332,8 +333,8 @@ export default function Journal(
               ))}
             </JournalSelect>
           </label>
-        </div>
-        <ReferenceRhythm
+        </div></WorkspaceModule>
+        <WorkspaceModule id="timeline" title="Session timeline" order={1} parts={[{id:"layers",title:"Chart layer controls",selector:".ss-chart-layers"},{id:"stages",title:"Trade stage shortcuts",selector:".ss-phases"},{id:"help",title:"Chart instructions",selector:".ss-chart-tip,.ss-quiet-copy"}]}><ReferenceRhythm
           session={daySession}
           timezone={timezone}
           samples={daySamples}
@@ -426,7 +427,7 @@ export default function Journal(
             });
           }}
           onSelect={pick}
-        />
+        /></WorkspaceModule>
         <JournalSpace
           props={props}
           session={daySession}
@@ -440,10 +441,10 @@ export default function Journal(
           }}
           onReview={() => setView("review")}
         />
-      </section>
-      <section hidden={view !== "patterns"}>
+      </section></ModuleScope>
+      <ModuleScope active={view === "patterns"}><section hidden={view !== "patterns"}>
         {(view === "patterns" || patternsVisited) && (
-          <ReferencePatterns
+          <WorkspaceModule id="pattern-analysis" title="Heart-rate and journal patterns"><ReferencePatterns
             onConnect={() => props.onPage("Connections")}
             sessions={history}
             selected={s}
@@ -463,19 +464,19 @@ export default function Journal(
                 })
                 .catch((error) => p.setError(error.message));
             }}
-          />
+          /></WorkspaceModule>
         )}
-      </section>
-      <section hidden={view !== "review"}>
-        <Review
+      </section></ModuleScope>
+      <ModuleScope active={view === "review"}><section hidden={view !== "review"}>
+        <WorkspaceModule id="mindful-review" title="Mindful trade review"><Review
           key={s.id}
           session={s}
           routingSession={daySession}
           time={cutoff}
           onSave={p.addNote}
           onReflect={(t) => props.onReflect({ t })}
-        />
-      </section>
+        /></WorkspaceModule>
+      </section></ModuleScope>
     </>
   );
 }

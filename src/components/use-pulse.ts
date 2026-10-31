@@ -208,10 +208,23 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     };
   }, []);
   function configure(s: Settings) {
-    setSettings(s);
     localStorage.setItem("pulse-settings:" + owner, JSON.stringify(s));
+    setSettings(s);
     setInsightTime(Date.now());
   }
+  useEffect(() => {
+    const receive = (event: StorageEvent) => {
+      if (event.key !== "pulse-settings:" + owner || !event.newValue) return;
+      try {
+        const value = JSON.parse(event.newValue);
+        if (!value || typeof value !== "object" || Array.isArray(value)) return;
+        if (value.phaseLabels && Object.values(value.phaseLabels).some(rows => !Array.isArray(rows) || rows.length > 30 || rows.some(row => typeof row !== "string" || row.length > 40))) return;
+        setSettings({ ...defaults, ...value }); setInsightTime(Date.now());
+      } catch { /* Ignore an incomplete write from another window. */ }
+    };
+    window.addEventListener("storage", receive);
+    return () => window.removeEventListener("storage", receive);
+  }, [owner]);
   async function stop() {
     wearableRequest.current++;
     rec.current = false;
