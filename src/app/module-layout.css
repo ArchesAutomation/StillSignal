@@ -98,3 +98,24 @@
 .ss-journal-history small { font-size:11px; color:#93a5a5; }
 @media(max-width:1000px) { .ss-module-canvas > .ss-module-section { grid-column:1/-1!important; } }
 @media(max-width:600px) { .ss-module-slot > .ss-workspace-module { grid-column:1/-1!important; } .ss-module-toolbar > div:last-child { width:100%; } }
+
+/* One continuous board. Legacy sections only supply initial card positions. */
+.ss-module-workspace-active { max-width:none; width:100%; }
+.ss-free-board { display:block; position:relative; width:100%; min-width:0; isolation:isolate; }
+.ss-free-board[hidden] { display:none; }
+.ss-free-board-editing { background-image:radial-gradient(circle,#53645c 1px,transparent 1.2px); background-size:1% 12px; background-position:0 0; border-radius:12px; outline:1px solid #263b35; }
+.ss-free-board > .ss-workspace-module { position:absolute; box-sizing:border-box; grid-column:auto; transition:box-shadow .15s; }
+.ss-free-board > .ss-module-editing { background:#10191df5; border:1px solid #4a655a; border-radius:12px; }
+.ss-free-board > .ss-workspace-module:focus-within { z-index:20; }
+.ss-free-board > .ss-module-held { z-index:1000; transition:none; }
+.ss-custom-module { height:100%; min-height:100px; padding:18px; border:1px solid #354645; border-radius:10px; background:#111c1d; }
+.ss-custom-module h2 { margin:0 0 14px; font-size:17px; }
+.ss-custom-module p { white-space:pre-wrap; line-height:1.7; }
+.ss-custom-module textarea { min-height:140px; resize:vertical; border:1px solid #354645; border-radius:7px; padding:12px; background:#0b1416; color:#edf1e9; font:inherit; font-size:13px; }
+.ss-module-toolbar { position:sticky; top:0; z-index:1001; background:#0b1112f5; padding:14px 0; }
+@media(max-width:660px) {
+  .ss-free-board { display:flex; flex-direction:column; gap:16px; min-height:0!important; }
+  .ss-free-board-editing { min-height:600px!important; padding:8px; background-size:12px 12px; }
+  .ss-free-board > .ss-workspace-module { position:relative; left:auto!important; top:auto!important; width:100%!important; flex-shrink:0; }
+  .ss-module-toolbar { position:relative; }
+}

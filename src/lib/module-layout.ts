@@ -1,6 +1,8 @@
 export type ModuleSection = { id: string; title: string; width: number; height?: number };
-export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; compact?: boolean; hiddenParts?: string[] };
-export type ModuleLayout = { sections: ModuleSection[]; modules: Record<string, ModulePlacement> };
+export type ModuleBox = { x: number; y: number; w: number; h: number };
+export type CustomModule = { id: string; title: string; text: string };
+export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; compact?: boolean; hiddenParts?: string[]; box?: ModuleBox };
+export type ModuleLayout = { sections: ModuleSection[]; modules: Record<string, ModulePlacement>; custom?: CustomModule[] };
 export const defaultSections: ModuleSection[] = [
   { id: "top", title: "At a glance", width: 12 },
   { id: "main", title: "My workspace", width: 9 },
@@ -28,10 +30,18 @@ export function readModuleLayout(value: string | null): ModuleLayout {
         height: Number.isFinite(p.height) ? Math.max(120, Math.min(1600, p.height!)) : undefined,
         compact: p.compact === true,
         hiddenParts: Array.isArray(p.hiddenParts) ? p.hiddenParts.filter((s): s is string => typeof s === "string" && s.length < 100).slice(0, 30) : [],
+        ...(p.box && [p.box.x, p.box.y, p.box.w, p.box.h].every(Number.isFinite) ? { box: boundModuleBox(p.box) } : {}),
       };
     }
-    return { sections, modules };
+    const custom: CustomModule[] = Array.isArray(raw.custom) ? raw.custom.slice(0, 50).filter((c: CustomModule, i: number, all: CustomModule[]) => c && /^custom-[a-zA-Z0-9_-]{1,100}$/.test(c.id) && all.findIndex(n => n?.id === c.id) === i && typeof c.title === "string" && typeof c.text === "string").map((c: CustomModule) => ({ id: c.id, title: c.title.slice(0, 80), text: c.text.slice(0, 10000) })) : [];
+    return { sections, modules, ...(custom.length ? { custom } : {}) };
   } catch { return emptyModuleLayout(); }
+}
+
+export const MODULE_BOARD_WIDTH = 1200;
+export function boundModuleBox(box: ModuleBox): ModuleBox {
+  const w = Math.max(180, Math.min(MODULE_BOARD_WIDTH, Math.round(box.w)));
+  return { x: Math.max(0, Math.min(MODULE_BOARD_WIDTH - w, Math.round(box.x))), y: Math.max(0, Math.min(50000, Math.round(box.y))), w, h: Math.max(120, Math.min(2400, Math.round(box.h))) };
 }
 
 /** Shared by pointer and keyboard resizing; dimensions stay on the section grid. */
