@@ -1,4 +1,4 @@
-export type ModuleSection = { id: string; title: string; width: number };
+export type ModuleSection = { id: string; title: string; width: number; height?: number };
 export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; compact?: boolean; hiddenParts?: string[] };
 export type ModuleLayout = { sections: ModuleSection[]; modules: Record<string, ModulePlacement> };
 export const defaultSections: ModuleSection[] = [
@@ -17,7 +17,7 @@ export function readModuleLayout(value: string | null): ModuleLayout {
     const sections: ModuleSection[] = raw.sections.slice(0, 12).filter((s: ModuleSection) => {
       if (!s || typeof s.id !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(s.id) || ids.has(s.id) || typeof s.title !== "string" || !s.title.trim() || !Number.isInteger(s.width) || s.width < 3 || s.width > 12) return false;
       ids.add(s.id); return true;
-    }).map((s: ModuleSection) => ({ ...s, title: s.title.slice(0, 60) }));
+    }).map((s: ModuleSection) => ({ id: s.id, width: s.width, title: s.title.slice(0, 60), ...(Number.isFinite(s.height) ? { height: Math.max(120, Math.min(1600, s.height!)) } : {}) }));
     if (!sections.length) return emptyModuleLayout();
     const modules: Record<string, ModulePlacement> = {};
     for (const [id, value] of Object.entries(raw.modules).slice(0, 150)) {
@@ -32,6 +32,15 @@ export function readModuleLayout(value: string | null): ModuleLayout {
     }
     return { sections, modules };
   } catch { return emptyModuleLayout(); }
+}
+
+/** Shared by pointer and keyboard resizing; dimensions stay on the section grid. */
+export function resizeModule(width: number, height: number, dx: number, dy: number, gridWidth: number, gap: number) {
+  const column = (gridWidth + gap) / 12;
+  return {
+    width: Math.max(3, Math.min(12, width + Math.round(dx / Math.max(1, column)))),
+    height: Math.max(120, Math.min(1600, Math.round(height + dy))),
+  };
 }
 export function moveModule(layout: ModuleLayout, id: string, placement: ModulePlacement, section: string, before?: string): ModuleLayout {
   if (!layout.sections.some(s => s.id === section) || id === before) return layout;

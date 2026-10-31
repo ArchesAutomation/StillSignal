@@ -1,4 +1,5 @@
 "use client";
+import { applyJournalChange, type JournalChange } from "@/lib/journal-history";
 import { excludedAt } from "@/lib/context-comparison";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -69,6 +70,41 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     insightLast = useRef(0);
   const sessionLoad = useRef(0);
   const noteWrites = useRef(Promise.resolve());
+  const journalUndo = useRef<JournalChange[]>([]), journalRedo = useRef<JournalChange[]>([]);
+  const [journalHistoryVersion, setJournalHistoryVersion] = useState(0), [journalHistoryBusy, setJournalHistoryBusy] = useState(false);
+  useEffect(() => { journalUndo.current = []; journalRedo.current = []; setJournalHistoryVersion(v => v + 1); }, [owner]);
+  function rememberJournal(change: JournalChange) {
+    // Explicit audio deletion permanently removes the private file; never offer a broken restore.
+    if (change.kind === "note" && change.before?.audio && !change.after.audio) {
+      journalUndo.current = journalUndo.current.filter(c => c.day !== change.day);
+    } else journalUndo.current = [...journalUndo.current.slice(-39), structuredClone(change)];
+    journalRedo.current = []; setJournalHistoryVersion(v => v + 1);
+  }
+  function travelJournal(redo = false) {
+    const day = journalDateValue(current.current?.startedAt ?? Date.now());
+    setJournalHistoryBusy(true);
+    const task = noteWrites.current.then(async () => {
+      if (journalDateValue(current.current?.startedAt ?? 0) !== day) throw new Error("The open journal changed. Reopen the original day to undo.");
+      const stack = redo ? journalRedo.current : journalUndo.current;
+      const index = stack.findLastIndex(c => c.day === day);
+      const change = stack[index]; if (!change) return;
+      const selected = current.current;
+      const stored = await storage.getSession(change.sessionId, owner);
+      const source = selected?.id === change.sessionId ? mergeSessions(selected, stored || selected) : stored;
+      if (!source || source.owner !== owner) throw new Error("The original journal is unavailable.");
+      const restored = applyJournalChange(source, change, redo);
+      sessionSchema.parse(restored);
+      await storage.saveSession(restored);
+      if (current.current?.id === restored.id) { current.current = restored; setSession(restored); }
+      await refreshHistory();
+      stack.splice(index, 1); (redo ? journalUndo.current : journalRedo.current).push(change);
+      setJournalHistoryVersion(v => v + 1);
+      setNotice(redo ? "Journal change restored." : "Journal change undone.");
+      void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
+    });
+    noteWrites.current = task.catch(() => {});
+    return task.finally(() => setJournalHistoryBusy(false));
+  }
   const wearableRequest = useRef(0),
     wearablePending = useRef(false);
   const save = useCallback(async (s: Session) => {
@@ -847,6 +883,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         updatedAt: Math.max(Date.now(), (old?.updatedAt || old?.t || 0) + 1),
       };
       await save({ ...s, journal: mergeNotes(s.journal, [updated]) });
+      rememberJournal({ kind: "note", sessionId: s.id, day: journalDateValue(s.startedAt), id: note.id, before: old, after: updated });
       void sync(owner).catch(() =>
         setSyncState(
           cloudConfigured ? "Sync paused · saved locally" : "On this device",
@@ -880,6 +917,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
         ...latest,
         journal: mergeNotes(latest.journal, [updated]),
       });
+      rememberJournal({ kind: "note", sessionId: latest.id, day: journalDateValue(latest.startedAt), id: note.id, before: old, after: updated });
       await refreshHistory();
       void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
     });
@@ -891,23 +929,8 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       old = s?.journal.find((j) => j.id === id);
     if (!s || !old || old.deletedAt) return;
     const revision = Math.max(Date.now(), (old.updatedAt || old.t) + 1);
-    await addNote({
-      id: old.id,
-      t: old.t,
-      label: "Other",
-      text: "",
-      updatedAt: revision,
-      deletedAt: revision,
-    });
-    const cleanup = await Promise.allSettled(
-      [old.audio?.path, old.capture?.imagePath]
-        .filter((path): path is string => !!path)
-        .map((path) => removePrivateFile(path, owner)),
-    );
-    if (cleanup.some((result) => result.status === "rejected"))
-      setNotice(
-        "Reflection deleted. Some original files could not be removed from this device; retry cleanup in Settings.",
-      );
+    await addNote({ ...old, updatedAt: revision, deletedAt: revision });
+    // Keep attachments under their existing retention policy so Undo can restore this moment.
   }
   async function prepareScreenshot(t: number) {
     if (current.current?.id === "workspace")
@@ -1019,6 +1042,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       };
       sessionSchema.parse(next);
       await save(next);
+      rememberJournal({ kind: "blueprint", sessionId: s.id, day: journalDateValue(s.startedAt), keys: Object.keys(patch).filter(k => k !== "updatedAt") as (keyof SessionBlueprint)[], before: s.blueprint, after: next.blueprint });
       void sync(owner).catch(() => setSyncState("Sync paused · saved locally"));
     });
     noteWrites.current = task.catch(() => {});
@@ -1041,6 +1065,11 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
     settings,
     configure,
     updateBlueprint,
+    undoJournal: () => travelJournal(),
+    redoJournal: () => travelJournal(true),
+    canUndoJournal: !!journalHistoryVersion && journalUndo.current.some(c => c.day === journalDateValue(session?.startedAt ?? Date.now())),
+    canRedoJournal: !!journalHistoryVersion && journalRedo.current.some(c => c.day === journalDateValue(session?.startedAt ?? Date.now())),
+    journalHistoryBusy,
     now,
     insightTime,
     start,

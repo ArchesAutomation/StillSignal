@@ -54,6 +54,13 @@ test("cross-section moves, hiding and adding preserve state; save/reload and can
     assert.equal(document.querySelector('input[aria-label="Draft words"]'), input);
     assert.equal(mounts, 1, "moving never remounts the form");
     await select("Width for Writing", "6");
+    const resize = document.querySelector<HTMLButtonElement>('[aria-label="Resize Writing"]')!;
+    await act(async () => { resize.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "320px");
+    await click("Undo");
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "");
+    await click("Redo");
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "320px");
     await click("Hide Writing module");
     assert.ok(document.querySelector('[hidden] [data-module-id="writing"]'));
     await click("Add modules");
@@ -63,6 +70,7 @@ test("cross-section moves, hiding and adding preserve state; save/reload and can
     await click("Save layout");
     const stored = readModuleLayout(localStorage.getItem(moduleLayoutKey("one", "Journal")));
     assert.equal(stored.modules.writing.width, 6);
+    assert.equal(stored.modules.writing.height, 320);
     await click("Customize workspace"); await click("Reset"); await click("Cancel");
     assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.gridColumn, "span 6");
     await act(async () => root.render(render("two")));
