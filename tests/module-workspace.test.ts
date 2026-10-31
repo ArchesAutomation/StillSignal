@@ -22,7 +22,7 @@ test("module layouts validate sections, reject invalid placement and move betwee
   assert.notEqual(moduleLayoutKey("one", "Journal"), moduleLayoutKey("two", "Journal"));
 });
 
-test("cross-section moves, hiding and adding preserve state; save/reload and cancel restore composition", async () => {
+test("free board movement, custom modules, hiding and adding preserve state across save and reload", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
   for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true })) Object.defineProperty(globalThis, key, { value, configurable: true });
   const root = createRoot(document.getElementById("root")!);
@@ -49,38 +49,43 @@ test("cross-section moves, hiding and adding preserve state; save/reload and can
     const hint = document.querySelector<HTMLInputElement>(".ss-module-parts input")!;
     await act(async () => hint.click());
     assert.equal(document.querySelector<HTMLElement>(".hint")?.style.display, "none", "internal content visibility changes immediately");
-    await select("Section for Writing", "side");
-    assert.ok(document.querySelector('[data-module-section="side"] [data-module-id="writing"]'));
+    const grip = document.querySelector<HTMLButtonElement>('[aria-label="Drag Writing module"]')!;
+    await act(async () => { grip.dispatchEvent(new dom.window.KeyboardEvent("keydown", {key:"ArrowRight",bubbles:true})); });
+    assert.ok(document.querySelector('.ss-free-board > [data-module-id="writing"]'));
     assert.equal(document.querySelector('input[aria-label="Draft words"]'), input);
     assert.equal(mounts, 1, "moving never remounts the form");
-    await select("Width for Writing", "6");
     const resize = document.querySelector<HTMLButtonElement>('[aria-label="Resize Writing"]')!;
     await act(async () => { resize.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); });
-    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "320px");
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "312px");
     await click("Undo");
-    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "");
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "300px");
     await click("Redo");
-    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "320px");
+    assert.equal(document.querySelector<HTMLElement>('[data-module-id="writing"]')!.style.height, "312px");
     await click("Hide Writing module");
     assert.ok(document.querySelector('[hidden] [data-module-id="writing"]'));
     await click("Add modules");
     const card = [...document.querySelectorAll(".ss-module-library article")].find(n => n.textContent?.startsWith("Writing"))!;
     await act(async () => card.querySelector("button")!.click());
     assert.equal(mounts, 1, "adding a hidden module preserves its state");
+    await act(async () => { grip.dispatchEvent(new dom.window.KeyboardEvent("keydown", {key:"ArrowRight",bubbles:true})); });
     await click("Save layout");
     const stored = readModuleLayout(localStorage.getItem(moduleLayoutKey("one", "Journal")));
-    assert.equal(stored.modules.writing.width, 6);
-    assert.equal(stored.modules.writing.height, 320);
+    assert.equal(stored.modules.writing.box!.x, 12);
+    assert.equal(stored.modules.writing.height, 312);
     await click("Customize workspace"); await click("Reset"); await click("Cancel");
-    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.gridColumn, "span 6");
+    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.left, "1%");
     await act(async () => root.render(render("two")));
-    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.gridColumn, "span 12", "another owner gets defaults");
+    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.left, "0%", "another owner gets defaults");
     await act(async () => root.render(render()));
-    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.gridColumn, "span 6", "saved configuration reloads");
+    assert.equal((document.querySelector('[data-module-id="writing"]') as HTMLElement).style.left, "1%", "saved configuration reloads");
     assert.equal(document.querySelector<HTMLElement>(".hint")?.style.display, "none", "internal configuration also reloads");
     await click("Customize workspace");
-    await click("Remove My workspace section");
-    assert.ok(document.querySelector('[data-module-section="top"] [data-module-id="writing"]'), "removing a section moves its modules safely");
+    await click("Create module");
+    assert.ok(document.querySelector(".ss-custom-module"));
+    await click("Undo");
+    assert.equal(document.querySelector(".ss-custom-module"), null);
+    await click("Redo");
+    assert.ok(document.querySelector(".ss-custom-module"));
     assert.equal(document.querySelector('input[aria-label="Draft words"]'), input);
     await click("Cancel");
   } finally { await act(async () => root.unmount()); dom.window.close(); }
