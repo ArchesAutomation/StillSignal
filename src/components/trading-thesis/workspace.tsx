@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import VisualPlan from "./visual-plan";
 import {
   biasSchema,
   createRecord,
@@ -85,6 +86,7 @@ export function ThesisPanel({ store, day, props }: Context) {
             <Badge>{t.body.bias}</Badge>
           </div>
           <p>{t.body.primary || "No primary scenario recorded."}</p>
+          {t.body.scenarios?.map(s => <details key={s.id}><summary>{s.role} · {s.title}</summary><p>If {s.condition || "condition not recorded"}, then {s.action || "action not recorded"}.</p><p>Confirmation: {s.confirmation || "Not recorded"}</p><p>Invalidation: {s.invalidation || "Not recorded"}</p></details>)}
           {t.body.invalidation && (
             <small>Invalidation: {t.body.invalidation}</small>
           )}
@@ -221,13 +223,8 @@ export default function ThesisWorkspace(context: Context) {
                   notes: string(f, "notes"),
                   screenshots: lines(f, "screenshots"),
                   reason: string(f, "reason"),
-                  timeframes: lines(f, "timeframes").map((line) => {
-                    const [timeframe, bias] = line.split("=");
-                    return {
-                      timeframe: timeframe.trim(),
-                      bias: biasSchema.parse(bias?.trim() || "neutral"),
-                    };
-                  }),
+                  timeframes: JSON.parse(string(f, "visualTimeframes")),
+                  scenarios: JSON.parse(string(f, "visualScenarios")),
                 };
                 if (
                   await store.save([
@@ -237,7 +234,7 @@ export default function ThesisWorkspace(context: Context) {
                   setEditor(undefined);
               } catch {
                 store.setError(
-                  "Check timeframe lines: use names such as 15M=bullish, 1H=bearish, or Daily=neutral.",
+                  "Could not read the visual plan. Check the timeframe and scenario fields before saving.",
                 );
               }
             }}
@@ -271,13 +268,7 @@ export default function ThesisWorkspace(context: Context) {
                 </Field>
               )}
             </div>
-            <Area
-              label="Timeframe biases (one per line: 15M=bullish)"
-              name="timeframes"
-              value={editor.body.timeframes
-                .map((v) => `${v.timeframe}=${v.bias}`)
-                .join("\n")}
-            />
+            <VisualPlan key={versionKey} body={editor.body}/>
             <div className="cc-grid">
               {(
                 [

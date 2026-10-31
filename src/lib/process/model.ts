@@ -62,6 +62,8 @@ export const ruleSchema = z
   })
   .strict()
   .superRefine((r, ctx) => {
+    if (r.kind === "thesis" && (new Set(r.body.timeframes.map(f => f.timeframe)).size !== r.body.timeframes.length || new Set(r.body.scenarios?.map(s => s.id)).size !== (r.body.scenarios?.length ?? 0)))
+      ctx.addIssue({code:"custom",message:"Timeframes and scenario IDs must be unique"});
     if (r.verification === "max-size" && r.limit === undefined)
       ctx.addIssue({ code: "custom", message: "Maximum size is required" });
     if (
@@ -241,8 +243,9 @@ export const recordSchema = z
           weeklyId: id.optional(),
           bias: biasSchema,
           timeframes: z
-            .array(z.object({ timeframe: name, bias: biasSchema }).strict())
+            .array(z.object({ timeframe: name, bias: biasSchema, structure: text.optional(), levels: text.optional(), invalidation: text.optional() }).strict())
             .max(12),
+          scenarios: z.array(z.object({id, title:name, role:z.enum(["primary","alternative","no-trade"]), condition:text, confirmation:text, action:text, invalidation:text}).strict()).max(20).optional(),
           structure: text,
           events: text,
           levels: text,
