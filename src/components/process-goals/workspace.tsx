@@ -60,7 +60,7 @@ export default function Missions(context: Context) {
   return (
     <div className="cc-stack">
       <MissionsPanel {...context} />
-      <ProcessDevelopment {...context}/>
+      <ProcessDevelopment {...context} />
       <Panel
         title="Mission builder"
         detail="Automatic goals count real evidence. Subjective goals use manual confirmations."

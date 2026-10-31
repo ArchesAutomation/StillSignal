@@ -242,9 +242,75 @@ export const recordSchema = z
           weeklyId: id.optional(),
           bias: biasSchema,
           timeframes: z
-            .array(z.object({ timeframe: name, bias: biasSchema, structure: text.optional(), levels: text.optional(), invalidation: text.optional() }).strict())
+            .array(
+              z
+                .object({
+                  timeframe: name,
+                  bias: biasSchema,
+                  structure: text.optional(),
+                  levels: text.optional(),
+                  invalidation: text.optional(),
+                })
+                .strict(),
+            )
             .max(12),
-          scenarios: z.array(z.object({id, title:name, role:z.enum(["primary","alternative","no-trade"]), condition:text, confirmation:text, action:text, invalidation:text}).strict()).max(20).optional(),
+          scenarios: z
+            .array(
+              z
+                .object({
+                  id,
+                  title: name,
+                  role: z.enum(["primary", "alternative", "no-trade"]),
+                  condition: text,
+                  confirmation: text,
+                  action: text,
+                  invalidation: text,
+                })
+                .strict(),
+            )
+            .max(20)
+            .optional(),
+          chart: z
+            .object({
+              symbol: name,
+              instrumentId: name,
+              interval: z.union([
+                z.literal(60),
+                z.literal(300),
+                z.literal(900),
+                z.literal(3600),
+              ]),
+              source: z.string().max(160),
+              asOf: timestamp,
+              annotations: z
+                .array(
+                  z
+                    .object({
+                      id,
+                      name,
+                      kind: z.enum([
+                        "support",
+                        "resistance",
+                        "liquidity",
+                        "supply",
+                        "demand",
+                        "entry",
+                        "invalidation",
+                        "target",
+                        "session",
+                        "custom",
+                      ]),
+                      price: z.number().finite(),
+                      endPrice: z.number().finite().optional(),
+                      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+                      recordedAt: timestamp,
+                    })
+                    .strict(),
+                )
+                .max(100),
+            })
+            .strict()
+            .optional(),
           structure: text,
           events: text,
           levels: text,
@@ -460,7 +526,21 @@ export const recordSchema = z
         .object({
           name,
           isDefault: z.boolean(),
-          workspace: z.object({ page:name, definition:workspaceSchema }).strict().optional(),
+          analysisView: z
+            .object({
+              filters: z
+                .record(
+                  z.string().max(40),
+                  z.union([z.string().max(160), z.number().finite()]),
+                )
+                .refine((v) => Object.keys(v).length <= 30),
+            })
+            .strict()
+            .optional(),
+          workspace: z
+            .object({ page: name, definition: workspaceSchema })
+            .strict()
+            .optional(),
           panels: z
             .array(
               z
@@ -473,6 +553,9 @@ export const recordSchema = z
                     "physiology",
                     "process",
                     "variables",
+                    "inspector",
+                    "replay",
+                    "development",
                   ]),
                   visible: z.boolean(),
                   width: z.enum(["normal", "wide"]),
@@ -493,7 +576,7 @@ export const recordSchema = z
                 .strict(),
             )
             .min(6)
-            .max(7),
+            .max(10),
           variableIds: z.array(id).max(200).optional(),
           statusWidgets: z
             .array(
@@ -521,13 +604,31 @@ export const recordSchema = z
     ),
   ])
   .superRefine((r, ctx) => {
-    if (r.kind === "thesis" && (new Set(r.body.timeframes.map(f => f.timeframe)).size !== r.body.timeframes.length || new Set(r.body.scenarios?.map(s => s.id)).size !== (r.body.scenarios?.length ?? 0)))
-      ctx.addIssue({code:"custom",message:"Timeframes and scenario IDs must be unique"});
+    if (
+      r.kind === "thesis" &&
+      (new Set(r.body.timeframes.map((f) => f.timeframe)).size !==
+        r.body.timeframes.length ||
+        new Set(r.body.scenarios?.map((s) => s.id)).size !==
+          (r.body.scenarios?.length ?? 0))
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Timeframes and scenario IDs must be unique",
+      });
     if (
       (r.revision === 1 && (r.rootId !== r.id || r.previousId)) ||
       (r.revision > 1 && (!r.previousId || r.rootId === r.id))
     )
       ctx.addIssue({ code: "custom", message: "Invalid revision chain" });
+    if (
+      r.kind === "thesis" &&
+      r.body.chart &&
+      r.body.chart.symbol !== r.body.instrument
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Chart annotations must match the thesis instrument",
+      });
     if (new TextEncoder().encode(JSON.stringify(r)).byteLength > 200000)
       ctx.addIssue({
         code: "custom",

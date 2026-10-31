@@ -45,6 +45,7 @@ export type ChartProps = {
   onSelect: (event: TradeEvent) => void;
   onMoment?: (t: number) => void;
   moments: HrMoment[];
+  annotations?: {name:string;price:number;endPrice?:number;color:string}[];
 };
 const utc = (t: number) => chartTime(t) as UTCTimestamp;
 export default function SynchronizedChart(props: ChartProps) {
@@ -196,6 +197,12 @@ export default function SynchronizedChart(props: ChartProps) {
       chart.remove();
     };
   }, []);
+  useEffect(() => {
+    const a=api.current;
+    if(!a)return;
+    const lines=(props.annotations ?? []).flatMap(annotation => [annotation.price,...(annotation.endPrice === undefined ? []:[annotation.endPrice])].map(price => a.candle.createPriceLine({price,title:annotation.name,color:annotation.color,lineWidth:1,axisLabelVisible:true})));
+    return () => {if(api.current === a)for(const line of lines)a.candle.removePriceLine(line);};
+  }, [props.annotations]);
   useEffect(() => {
     const a = api.current;
     if (!a) return;

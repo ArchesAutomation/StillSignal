@@ -261,7 +261,7 @@ try {
   await page.getByLabel("Planned units", { exact: true }).fill("1");
   await button("Save assessment").click();
   await page
-    .getByText("Process score not available", { exact: false })
+    .getByText("Process score insufficient evidence (80% coverage required)", { exact: false })
     .waitFor();
   await page
     .getByLabel("Wait for my confirmation adherence", { exact: true })
@@ -627,7 +627,7 @@ try {
   await button("Cancel").click();
   checks.push("Mobile touch-sized controls reorder cards without dragging");
   await nav("Daily journal");
-  await page.locator(".ss-journal-space").waitFor();
+  await page.getByRole("region", {name:"Main journal",exact:true}).waitFor();
   await page.locator(".ss-reference-rhythm").waitFor();
   await fits("Mobile production journal");
   const writer = page.getByRole("region", {
@@ -703,7 +703,7 @@ try {
     })
     .click();
   await freshPage
-    .getByRole("button", { name: "Restore original arrangement", exact: true })
+    .getByRole("button", { name: "Reset layout", exact: true })
     .click();
   await freshPage
     .getByRole("button", { name: "Save dashboard", exact: true })
@@ -737,6 +737,32 @@ try {
   );
   checks.push("Mobile one-click day creation and clearable check-in ratings");
   await freshContext.close();
+  await page.setViewportSize({width:1440,height:1100});
+  await nav("Trading Thesis");
+  await button("New daily thesis").click();
+  await page.getByLabel("Primary scenario",{exact:true}).fill("Draft survives closing the editor.");
+  await page.waitForTimeout(100);
+  await button("Cancel").click();
+  await button("New daily thesis").click();
+  assert.equal(await page.getByLabel("Primary scenario",{exact:true}).inputValue(),"Draft survives closing the editor.");
+  await button("Add scenario").click();
+  await page.getByLabel("Scenario title",{exact:true}).fill("Wait for confirmation");
+  await page.getByLabel("condition",{exact:true}).fill("User-marked demand zone reached");
+  await page.getByLabel("confirmation",{exact:true}).fill("My recorded confirmation");
+  await page.getByLabel("action",{exact:true}).fill("Evaluate the setup manually");
+  await page.locator("article.cc-thesis").filter({has:page.getByLabel("Scenario title",{exact:true})}).getByLabel("invalidation",{exact:true}).fill("Zone fails");
+  await page.screenshot({path:output+"/visual-thesis-desktop.png",fullPage:true});
+  await button("Save thesis").click();
+  await page.getByLabel("Scenario title",{exact:true}).waitFor({state:"hidden"});
+  const savedScenario=await page.evaluate(async () => {const db=await new Promise((resolve,reject) => {const r=indexedDB.open("still-signal-process-v1");r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});const tx=db.transaction("records","readonly");const rows=await new Promise((resolve,reject) => {const r=tx.objectStore("records").getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});db.close();return rows.some(r => r.record.kind === "thesis" && r.record.body.scenarios?.some(s => s.title === "Wait for confirmation" && s.condition === "User-marked demand zone reached"));});
+  assert.equal(savedScenario,true,"Scenario fields persist in the versioned thesis record");
+  await page.getByText("Workspace modes",{exact:true}).click();
+  await page.getByLabel("Mode name",{exact:true}).fill("Review desk");
+  await page.getByRole("button",{name:"Save as new mode",exact:true}).click();
+  await page.getByLabel("Saved workspace mode").getByRole("option",{name:"Review desk · v1",exact:true}).waitFor({state:"attached"});
+  await page.getByRole("button",{name:"Save mode revision",exact:true}).click();
+  await page.getByLabel("Saved workspace mode").getByRole("option",{name:"Review desk · v2",exact:true}).waitFor({state:"attached"});
+  checks.push("Thesis text draft recovery, structured scenario persistence and portable mode revision saves");
   assert.deepEqual(errors, [], "Browser must have no unhandled errors");
   console.log(JSON.stringify({ checks, errors, output }, null, 2));
 } finally {

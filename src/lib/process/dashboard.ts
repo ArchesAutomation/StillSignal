@@ -4,6 +4,18 @@ import { createRecord, type BodyOf, type RecordOf } from "./model";
 export type DashboardLayout = BodyOf<"layout">;
 export type CardId = DashboardLayout["panels"][number]["id"];
 export const cards: Record<CardId, { title: string; detail: string }> = {
+  inspector: {
+    title: "Decision inspector",
+    detail: "Plan a setup and review its pinned rules before execution.",
+  },
+  replay: {
+    title: "Plan versus execution replay",
+    detail: "Inspect historical context and recorded evidence.",
+  },
+  development: {
+    title: "Process development",
+    detail: "Compare daily evidence, reviews and rule adherence.",
+  },
   preparation: {
     title: "Pre-market non-negotiables",
     detail: "Your routine and preparation checklist.",

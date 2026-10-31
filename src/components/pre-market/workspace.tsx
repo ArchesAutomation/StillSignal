@@ -2,6 +2,8 @@
 import { useState } from "react";
 import TemplateTools from "../command-center/template-tools";
 import ConditionEditor from "./condition-editor";
+import { groupedSteps } from "./grouped-steps";
+import { useEditorHistory } from "../use-editor-history";
 import {
   createRecord,
   latest,
@@ -136,7 +138,7 @@ export function PreparationPanel({
               : "Protocol"}{" "}
             · {new Date(run.body.startedAt).toLocaleTimeString()}
           </h3>
-          {run.body.steps.map((s) => {
+          {groupedSteps(run.body.steps, (s) => {
             const response = latest(store.records, "response")
               .filter((r) => r.body.runId === run.id && r.body.stepId === s.id)
               .sort((a, b) => b.createdAt - a.createdAt)[0];
@@ -275,7 +277,7 @@ export default function PreMarket(context: Context) {
   const { store } = context,
     templates = latest(store.records, "protocol", Infinity, true);
   const [editing, setEditing] = useState<RecordOf<"protocol"> | undefined>(),
-    [steps, setSteps] = useState([step()]),
+    [steps, setSteps, stepHistory] = useEditorHistory([step()]),
     [show, setShow] = useState(false);
   return (
     <div className="cc-stack">
@@ -287,7 +289,7 @@ export default function PreMarket(context: Context) {
           <button
             onClick={() => {
               setEditing(undefined);
-              setSteps([step()]);
+              stepHistory.reset([step()]);
               setShow(true);
             }}
           >
@@ -306,11 +308,27 @@ export default function PreMarket(context: Context) {
               </small>
               <History records={store.records} rootId={t.rootId} />
             </div>
-            <button disabled={store.busy} onClick={() => void store.save([createRecord("protocol", {...t.body, name:t.body.name.slice(0,150) + " copy",steps:t.body.steps.map(s => ({...s,id:crypto.randomUUID()}))})])}>Clone</button>
+            <button
+              disabled={store.busy}
+              onClick={() =>
+                void store.save([
+                  createRecord("protocol", {
+                    ...t.body,
+                    name: t.body.name.slice(0, 150) + " copy",
+                    steps: t.body.steps.map((s) => ({
+                      ...s,
+                      id: crypto.randomUUID(),
+                    })),
+                  }),
+                ])
+              }
+            >
+              Clone
+            </button>
             <button
               onClick={() => {
                 setEditing(t);
-                setSteps(t.body.steps);
+                stepHistory.reset(t.body.steps);
                 setShow(true);
               }}
             >
@@ -393,7 +411,27 @@ export default function PreMarket(context: Context) {
                   ),
                 );
               return (
-                <fieldset key={s.id} draggable onDragStart={e => { e.dataTransfer.setData("text/plain", s.id); }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = steps.findIndex(row => row.id === e.dataTransfer.getData("text/plain")); if (from < 0 || from === i) return; setSteps(rows => { const copy = [...rows]; const [moved] = copy.splice(from, 1); copy.splice(i, 0, moved); return copy; }); }}>
+                <fieldset
+                  key={s.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", s.id);
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = steps.findIndex(
+                      (row) => row.id === e.dataTransfer.getData("text/plain"),
+                    );
+                    if (from < 0 || from === i) return;
+                    setSteps((rows) => {
+                      const copy = [...rows];
+                      const [moved] = copy.splice(from, 1);
+                      copy.splice(i, 0, moved);
+                      return copy;
+                    });
+                  }}
+                >
                   <legend>Requirement {i + 1}</legend>
                   <div className="cc-grid">
                     <Field label="Name">
@@ -410,7 +448,20 @@ export default function PreMarket(context: Context) {
                         onChange={(e) => update({ category: e.target.value })}
                       />
                     </Field>
-                    <Field label="Nested groups (separate with /)"><input value={s.groups?.join(" / ") ?? ""} onChange={e => update({groups:e.target.value.split("/").map(v => v.trim()).filter(Boolean).slice(0,4)})}/></Field>
+                    <Field label="Nested groups (separate with /)">
+                      <input
+                        value={s.groups?.join(" / ") ?? ""}
+                        onChange={(e) =>
+                          update({
+                            groups: e.target.value
+                              .split("/")
+                              .map((v) => v.trim())
+                              .filter(Boolean)
+                              .slice(0, 4),
+                          })
+                        }
+                      />
+                    </Field>
                     <Field label="Requirement">
                       <select
                         value={s.requirement}
@@ -466,10 +517,44 @@ export default function PreMarket(context: Context) {
                       />
                     </Field>
                   </div>
-                  {s.requirement === "conditional" && <ConditionEditor value={s.applicability} onChange={applicability => update({applicability})} variables={latest(store.records,"variable").filter(v => ["number","scale","duration","counter"].includes(v.body.type))}/>}
+                  {s.requirement === "conditional" && (
+                    <ConditionEditor
+                      value={s.applicability}
+                      onChange={(applicability) => update({ applicability })}
+                      variables={latest(store.records, "variable").filter((v) =>
+                        ["number", "scale", "duration", "counter"].includes(
+                          v.body.type,
+                        ),
+                      )}
+                    />
+                  )}
                   <div className="cc-actions">
-                    <button type="button" disabled={i === steps.length - 1} onClick={() => setSteps(rows => { const copy = [...rows]; [copy[i],copy[i+1]]=[copy[i+1],copy[i]]; return copy; })}>Move down</button>
-                    <button type="button" disabled={steps.length >= 100} onClick={() => setSteps(rows => [...rows.slice(0,i+1), {...s,id:crypto.randomUUID()}, ...rows.slice(i+1)])}>Duplicate</button>
+                    <button
+                      type="button"
+                      disabled={i === steps.length - 1}
+                      onClick={() =>
+                        setSteps((rows) => {
+                          const copy = [...rows];
+                          [copy[i], copy[i + 1]] = [copy[i + 1], copy[i]];
+                          return copy;
+                        })
+                      }
+                    >
+                      Move down
+                    </button>
+                    <button
+                      type="button"
+                      disabled={steps.length >= 100}
+                      onClick={() =>
+                        setSteps((rows) => [
+                          ...rows.slice(0, i + 1),
+                          { ...s, id: crypto.randomUUID() },
+                          ...rows.slice(i + 1),
+                        ])
+                      }
+                    >
+                      Duplicate
+                    </button>
                     <button
                       type="button"
                       disabled={!i}
@@ -497,6 +582,20 @@ export default function PreMarket(context: Context) {
               );
             })}
             <div className="cc-actions">
+              <button
+                type="button"
+                disabled={!stepHistory.canUndo}
+                onClick={stepHistory.undo}
+              >
+                Undo step edit
+              </button>
+              <button
+                type="button"
+                disabled={!stepHistory.canRedo}
+                onClick={stepHistory.redo}
+              >
+                Redo step edit
+              </button>
               <button
                 type="button"
                 onClick={() => setSteps((rows) => [...rows, step()])}

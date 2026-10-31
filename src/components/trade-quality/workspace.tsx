@@ -70,8 +70,14 @@ export function QualityAssessment({
   const event = props.history
     .find((s) => s.id === assessment.body.sessionId)
     ?.events.find((e) => e.id === assessment.body.tradeId);
-  const prep = preparation(store.records, assessment.body.dayId, assessment.body.assessedAt);
-  const thesis = store.records.find(r => r.kind === "thesis" && r.id === assessment.body.thesisId);
+  const prep = preparation(
+    store.records,
+    assessment.body.dayId,
+    assessment.body.assessedAt,
+  );
+  const thesis = store.records.find(
+    (r) => r.kind === "thesis" && r.id === assessment.body.thesisId,
+  );
   return (
     <article className="cc-assessment">
       <div className="cc-actions">
@@ -88,7 +94,9 @@ export function QualityAssessment({
       </div>
       <p>
         Process score{" "}
-        {score.score === null ? "insufficient evidence (80% coverage required)" : Math.round(score.score) + "%"}{" "}
+        {score.score === null
+          ? "insufficient evidence (80% coverage required)"
+          : Math.round(score.score) + "%"}{" "}
         · evidence coverage{" "}
         {score.coverage === null
           ? "not available"
@@ -102,7 +110,24 @@ export function QualityAssessment({
           : ""}
       </small>
       <p>{assessment.body.notes}</p>
-      <details><summary>Recorded decision context</summary><p>Preparation at assessment: {prep.complete}/{prep.total} required · {prep.unknown} unknown.</p><p>Thesis: {thesis?.kind === "thesis" ? `${thesis.body.instrument} · ${thesis.body.bias} · v${thesis.revision}: ${thesis.body.primary}` : "No pinned thesis recorded"}</p><p>Manual override: {assessment.body.override || "None recorded"}</p><small>This inspection describes adherence and evidence, without estimating trade profitability.</small></details>
+      <details>
+        <summary>Recorded decision context</summary>
+        <p>
+          Preparation at assessment: {prep.complete}/{prep.total} required ·{" "}
+          {prep.unknown} unknown.
+        </p>
+        <p>
+          Thesis:{" "}
+          {thesis?.kind === "thesis"
+            ? `${thesis.body.instrument} · ${thesis.body.bias} · v${thesis.revision}: ${thesis.body.primary}`
+            : "No pinned thesis recorded"}
+        </p>
+        <p>Manual override: {assessment.body.override || "None recorded"}</p>
+        <small>
+          This inspection describes adherence and evidence, without estimating
+          trade profitability.
+        </small>
+      </details>
       {playbook.body.rules.map((rule) => {
         const previous = evaluations.find((e) => e.body.ruleId === rule.id);
         return (
@@ -638,8 +663,13 @@ export default function TradeQuality(context: Context) {
                 tradeId: selected?.event.id,
                 planned,
                 playbookId: string(f, "playbook"),
-                thesisId: thesisAt(store.records,day.rootId,selected?.event.symbol ?? planned?.symbol ?? "",Date.now())?.id,
-                override: string(f,"override"),
+                thesisId: thesisAt(
+                  store.records,
+                  day.rootId,
+                  selected?.event.symbol ?? planned?.symbol ?? "",
+                  Date.now(),
+                )?.id,
+                override: string(f, "override"),
                 retrospective: !!selected,
                 assessedAt: Date.now(),
                 quality: number(f, "quality") ?? null,
@@ -714,7 +744,10 @@ export default function TradeQuality(context: Context) {
             <p className="cc-muted">
               Existing executions are clearly marked as retrospective reviews.
             </p>
-            <Area name="override" label="Optional manual override explanation"/>
+            <Area
+              name="override"
+              label="Optional manual override explanation"
+            />
             <Save store={store}>Save assessment</Save>
           </form>
         )}

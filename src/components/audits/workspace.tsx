@@ -49,7 +49,7 @@ export default function Audits({ store, day, props }: Context) {
   }
   return (
     <div className="cc-stack">
-      <ProcessReplay store={store} day={day} props={props}/>
+      <ProcessReplay store={store} day={day} props={props} />
       <Panel
         title="Audits & reviews"
         detail="Review preparation, outcomes and process separately. Saved evidence summaries retain revision history."
