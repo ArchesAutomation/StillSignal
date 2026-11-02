@@ -14,7 +14,7 @@ export default function SharkBackground({ quiet = false }: { quiet?: boolean }) 
     const host = canvas.parentElement?.parentElement;
     if (!host) return;
     const engine = new OceanEngine(canvas, [
-      { kind: "classic", size: .48 }, { kind: "classic", size: .4 },
+      { kind: "classic", size: .5 }, { kind: "classic", size: .5 },
     ]);
     const targets = [...host.querySelectorAll<HTMLElement>(
       '.auth-brand, .auth-card, .auth-story h1, .auth-story p, .auth-story .eyebrow, .auth-features span, .breathing-orb, .stillness-heading, .notice-card h3, .notice-card p, .notice-card .eyebrow, .notice-prompt, .inline-actions, .return-card h3, .return-card .eyebrow, .practice-step, .practice-steps, progress, .return-controls, .topic-orbit, .topic-response, .stillness-footnote',
