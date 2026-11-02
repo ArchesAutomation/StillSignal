@@ -94,6 +94,10 @@ test("new authenticated workspace is empty and journaling does not require a wea
   assert.equal(button("＋ Add moment").disabled, false);
   await act(async () => button("Daily journal").click());
   assert.match(document.body.textContent!, /Your journal, moment by moment/);
+  await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Stillness"]')!.click());
+  const stillness = document.querySelector('section[aria-label="Post-session Stillness reset"]');
+  assert.ok(stillness, "the real workspace opens the SessionReset screen");
+  assert.ok(stillness.querySelector('.shark-background canvas'), "the active Stillness screen includes the ocean");
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);
   } finally {

@@ -51,6 +51,15 @@
   box-shadow: none;
 }
 .shark-background-quiet canvas { opacity: .65; }
+.ss-app .ss-reset {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.ss-app .ss-reset > :not(.shark-background) {
+  position: relative;
+  z-index: 1;
+}
 @media (max-width: 640px) {
   .shark-background canvas { opacity: .7; }
   .shark-background-quiet canvas { opacity: .6; }
