@@ -19,12 +19,14 @@ export const defaultQuestions = [
   "Confidence in following my process",
   "Mental clarity",
 ];
-export default function Temperature(context: Context) {
+export default function Temperature(
+  context: Context & { initiallyOpen?: boolean },
+) {
   const { day, store } = context,
     rows = latest(store.records, "checkin")
       .filter((r) => r.body.dayId === day.rootId)
       .sort((a, b) => b.body.observedAt - a.body.observedAt),
-    [open, setOpen] = useState(false),
+    [open, setOpen] = useState(context.initiallyOpen ?? false),
     [editQuestions, setEditQuestions] = useState(false),
     [questions, setQuestions] = useState<BodyOf<"checkin">["answers"]>(() =>
       (

@@ -239,9 +239,17 @@ export function ObservationForm({
     </form>
   );
 }
-export default function Variables(context: Context) {
+export default function Variables(
+  context: Context & { preparation?: boolean; variableIds?: string[] },
+) {
   const { day, store } = context,
-    definitions = latest(store.records, "variable", Infinity, true),
+    definitions = latest(store.records, "variable", Infinity, true).filter(
+      (v) =>
+        !context.preparation ||
+        (!v.archived &&
+          !v.body.archived &&
+          (!context.variableIds || context.variableIds.includes(v.rootId))),
+    ),
     observations = latest(store.records, "observation", Infinity, true)
       .filter((o) => o.body.dayId === day.rootId)
       .sort((a, b) => b.body.observedAt - a.body.observedAt);
@@ -279,7 +287,7 @@ export default function Variables(context: Context) {
   }
   return (
     <div className="cc-stack">
-      <Temperature {...context} />
+      {!context.preparation && <Temperature {...context} />}
       <Panel
         title="Environmental variables"
         detail="Create categories and typed measurements. Every observation keeps its definition version."

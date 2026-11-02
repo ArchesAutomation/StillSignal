@@ -38,6 +38,57 @@ export const requirementSchema = z
     ]),
     window: text,
     order: z.number().int().min(0),
+    activity: z
+      .enum([
+        "checklist",
+        "thesis",
+        "variables",
+        "missions",
+        "intentions",
+        "checkin",
+        "custom",
+      ])
+      .optional(),
+    cadence: z
+      .enum(["session", "daily", "weekly", "monthly", "weekdays"])
+      .optional(),
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
+    checklist: z.array(name).max(50).optional(),
+    variableIds: z.array(id).max(100).optional(),
+    thesisFields: z
+      .array(
+        z.enum([
+          "structure",
+          "events",
+          "levels",
+          "liquidity",
+          "primary",
+          "alternate",
+          "entries",
+          "invalidation",
+          "noTrade",
+          "targets",
+          "notes",
+          "screenshots",
+        ]),
+      )
+      .min(1)
+      .max(12)
+      .optional(),
+    prompts: z
+      .array(
+        z
+          .object({
+            id,
+            label: name,
+            type: z.enum(["text", "number", "boolean", "choice"]),
+            required: z.boolean(),
+            choices: z.array(name).max(30),
+          })
+          .strict(),
+      )
+      .max(30)
+      .optional(),
   })
   .strict();
 export const ruleSchema = z
@@ -224,6 +275,14 @@ export const recordSchema = z
           method: z.enum(["manual", "verified"]),
           reason: text,
           evidenceId: id.optional(),
+          answers: z
+            .array(
+              z
+                .object({ id: z.string().min(1).max(160), value: text })
+                .strict(),
+            )
+            .max(100)
+            .optional(),
           completedAt: timestamp.optional(),
         })
         .strict(),

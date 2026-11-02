@@ -99,6 +99,75 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       variableIds: [crypto.randomUUID()],
     });
     await db.query("select pulse_process_append($1,$2)", [alice, [layout]]);
+    const promptId = crypto.randomUUID();
+    const protocol = createRecord("protocol", {
+      name: "Custom weekly prep",
+      description: "",
+      instrument: "ES",
+      strategy: "Personal",
+      session: "Morning",
+      steps: [
+        {
+          id: crypto.randomUUID(),
+          name: "My weekly section",
+          description: "",
+          category: "Preparation",
+          requirement: "required",
+          condition: "",
+          verification: "manual",
+          window: "Before trading",
+          order: 0,
+          activity: "custom",
+          cadence: "weekly",
+          checklist: ["Review my conditions"],
+          prompts: [
+            {
+              id: promptId,
+              label: "My intention",
+              type: "text",
+              required: true,
+              choices: [],
+            },
+          ],
+        },
+      ],
+    });
+    const run = withRefs(
+      createRecord("run", {
+        dayId: d.rootId,
+        templateId: protocol.id,
+        steps: protocol.body.steps,
+        startedAt: Date.now(),
+      }),
+    );
+    const response = withRefs(
+      createRecord("response", {
+        runId: run.id,
+        stepId: protocol.body.steps[0].id,
+        status: "complete",
+        method: "manual",
+        reason: "",
+        completedAt: Date.now(),
+        answers: [
+          { id: "check-0", value: "yes" },
+          { id: promptId, value: "My weekly intention" },
+        ],
+      }),
+    );
+    await db.query("select pulse_process_append($1,$2)", [
+      alice,
+      [protocol, run, response],
+    ]);
+    const storedProtocol = await db.query<{ cadence: string }>(
+      "select data#>>'{body,steps,0,cadence}' as cadence from protocol_templates where id=$1",
+      [protocol.id],
+    );
+    assert.equal(storedProtocol.rows[0].cadence, "weekly");
+    const storedResponse = await db.query<{ value: string }>(
+      "select data#>>'{body,answers,1,value}' as value from protocol_responses where id=$1",
+      [response.id],
+    );
+    assert.equal(storedResponse.rows[0].value, "My weekly intention");
     const invalid = createRecord("checkin", {
       dayId: d.id,
       observedAt: Date.now(),

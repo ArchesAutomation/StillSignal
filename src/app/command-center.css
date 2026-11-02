@@ -1315,3 +1315,21 @@
 .prep-run > *, .prep-focus { min-width: 0; }
 .prep-focus { width: 100%; }
 @media (max-width: 760px) { .prep-run { grid-template-columns: minmax(0, 1fr); } .prep-run nav ol { max-width: 100%; } }
+
+/* Full preparation sections remain usable inside the guided step. */
+.prep-activity, .prep-completion, .prep-section-settings { width: 100%; min-width: 0; }
+.prep-activity .cc-workspace { padding: 0; }
+.prep-activity h3 { font-size: 15px; line-height: 1.4; }
+.prep-activity .cc-panel { width: 100%; }
+.prep-activity .cc-panel > header h2 { font-size: 14px; }
+.prep-activity .cc-stack { gap: 14px; }
+.prep-section-settings { display: grid; gap: 16px; }
+.prep-question-editor { display: grid; gap: 10px; border-top: 1px solid var(--line); padding: 14px 0; }
+.prep-personal-checks, .prep-variable-option { display: grid; gap: 12px; }
+.prep-personal-checks label, .prep-section-settings label:has(input[type="checkbox"]) { display: flex; align-items: start; gap: 10px; }
+.prep-personal-checks input, .prep-section-settings input[type="checkbox"] { width: 16px; min-width: 16px; margin-top: 3px; accent-color: var(--orange); }
+.prep-carried { color: var(--mint); padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); }
+.prep-preview small { display: block; margin-top: 4px; color: var(--muted); }
+.prep-edit-step > button { justify-self: start; }
+.prep-completion { border-top: 1px solid var(--line); padding-top: 18px; }
+@media (max-width: 1000px) { .prep-activity .cc-grid { grid-template-columns: minmax(0, 1fr); } }

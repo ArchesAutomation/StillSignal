@@ -21,6 +21,20 @@ import {
   string,
   type Context,
 } from "../command-center/shared";
+const thesisLabels = {
+  structure: "Market structure",
+  events: "Economic events",
+  levels: "Major price levels",
+  liquidity: "Liquidity zones",
+  primary: "Primary scenario",
+  alternate: "Alternative scenario",
+  entries: "Entry conditions",
+  invalidation: "Invalidation criteria",
+  noTrade: "No-trade conditions",
+  targets: "Price targets",
+  notes: "Notes",
+  screenshots: "Chart screenshots",
+} as const;
 export function emptyThesis(
   day: RecordOf<"day">,
   scope: "daily" | "weekly",
@@ -96,15 +110,41 @@ export function ThesisPanel({ store, day, props }: Context) {
     </Panel>
   );
 }
-export default function ThesisWorkspace(context: Context) {
+export default function ThesisWorkspace(
+  context: Context & {
+    initialScope?: "daily" | "weekly";
+    visibleFields?: NonNullable<
+      BodyOf<"protocol">["steps"][number]["thesisFields"]
+    >;
+  },
+) {
   const { day, store } = context,
-    [editor, setEditor] = useState<{
-      body: BodyOf<"thesis">;
-      previous?: RecordOf<"thesis">;
-    }>(),
+    [editor, setEditor] = useState<
+      | {
+          body: BodyOf<"thesis">;
+          previous?: RecordOf<"thesis">;
+        }
+      | undefined
+    >(() => {
+      if (!context.initialScope) return undefined;
+      const previous = relevantTheses(store.records, day)
+        .filter(
+          (t) =>
+            t.body.scope === context.initialScope &&
+            t.body.instrument === day.body.instrument,
+        )
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      return previous
+        ? undefined
+        : { body: emptyThesis(day, context.initialScope) };
+    }),
     [versionKey, setVersionKey] = useState(0);
-  const rows = relevantTheses(store.records, day),
-    weekly = rows.filter((r) => r.body.scope === "weekly");
+  const rows = relevantTheses(store.records, day).filter(
+      (t) => !context.initialScope || t.body.scope === context.initialScope,
+    ),
+    weekly = relevantTheses(store.records, day).filter(
+      (r) => r.body.scope === "weekly",
+    );
   const open = (body: BodyOf<"thesis">, previous?: RecordOf<"thesis">) => {
     setEditor({ body, previous });
     setVersionKey((n) => n + 1);
@@ -116,12 +156,16 @@ export default function ThesisWorkspace(context: Context) {
         detail="Revisions are timestamped. Trade analysis uses the version available at execution."
         action={
           <div className="cc-actions">
-            <button onClick={() => open(emptyThesis(day, "weekly"))}>
-              New weekly thesis
-            </button>
-            <button onClick={() => open(emptyThesis(day, "daily"))}>
-              New daily thesis
-            </button>
+            {context.initialScope !== "daily" && (
+              <button onClick={() => open(emptyThesis(day, "weekly"))}>
+                New weekly thesis
+              </button>
+            )}
+            {context.initialScope !== "weekly" && (
+              <button onClick={() => open(emptyThesis(day, "daily"))}>
+                New daily thesis
+              </button>
+            )}
           </div>
         }
       >
@@ -141,15 +185,32 @@ export default function ThesisWorkspace(context: Context) {
               <Badge>{t.body.bias}</Badge>
               <span>v{t.revision}</span>
             </div>
-            <p>{t.body.primary}</p>
-            <dl className="cc-definition">
-              <dt>Alternative</dt>
-              <dd>{t.body.alternate || "Not recorded"}</dd>
-              <dt>Invalidation</dt>
-              <dd>{t.body.invalidation || "Not recorded"}</dd>
-              <dt>No-trade conditions</dt>
-              <dd>{t.body.noTrade || "Not recorded"}</dd>
-            </dl>
+            {context.visibleFields ? (
+              <dl className="cc-definition">
+                {context.visibleFields.map((key) => (
+                  <div key={key}>
+                    <dt>{thesisLabels[key]}</dt>
+                    <dd>
+                      {(key === "screenshots"
+                        ? t.body.screenshots.join(" · ")
+                        : t.body[key]) || "Not recorded"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <>
+                <p>{t.body.primary}</p>
+                <dl className="cc-definition">
+                  <dt>Alternative</dt>
+                  <dd>{t.body.alternate || "Not recorded"}</dd>
+                  <dt>Invalidation</dt>
+                  <dd>{t.body.invalidation || "Not recorded"}</dd>
+                  <dt>No-trade conditions</dt>
+                  <dd>{t.body.noTrade || "Not recorded"}</dd>
+                </dl>
+              </>
+            )}
             <div className="cc-actions">
               <button onClick={() => open({ ...t.body, reason: "" }, t)}>
                 Revise thesis
@@ -163,22 +224,23 @@ export default function ThesisWorkspace(context: Context) {
                   Intraday update
                 </button>
               )}
-              {t.body.scope === "weekly" && (
-                <button
-                  onClick={() =>
-                    open({
-                      ...t.body,
-                      scope: "daily",
-                      periodStart: day.body.date,
-                      dayId: day.rootId,
-                      weeklyId: t.id,
-                      reason: "Derived from weekly thesis",
-                    })
-                  }
-                >
-                  Derive daily thesis
-                </button>
-              )}
+              {t.body.scope === "weekly" &&
+                context.initialScope !== "weekly" && (
+                  <button
+                    onClick={() =>
+                      open({
+                        ...t.body,
+                        scope: "daily",
+                        periodStart: day.body.date,
+                        dayId: day.rootId,
+                        weeklyId: t.id,
+                        reason: "Derived from weekly thesis",
+                      })
+                    }
+                  >
+                    Derive daily thesis
+                  </button>
+                )}
             </div>
             <History records={store.records} rootId={t.rootId} />
             {t.body.screenshots.map((url, i) => (
@@ -208,18 +270,28 @@ export default function ThesisWorkspace(context: Context) {
                   instrument: string(f, "instrument"),
                   bias: biasSchema.parse(string(f, "bias")),
                   weeklyId: string(f, "weeklyId") || undefined,
-                  structure: string(f, "structure"),
-                  events: string(f, "events"),
-                  levels: string(f, "levels"),
-                  liquidity: string(f, "liquidity"),
-                  primary: string(f, "primary"),
-                  alternate: string(f, "alternate"),
-                  entries: string(f, "entries"),
-                  invalidation: string(f, "invalidation"),
-                  noTrade: string(f, "noTrade"),
-                  targets: string(f, "targets"),
-                  notes: string(f, "notes"),
-                  screenshots: lines(f, "screenshots"),
+                  structure: f.has("structure")
+                    ? string(f, "structure")
+                    : b.structure,
+                  events: f.has("events") ? string(f, "events") : b.events,
+                  levels: f.has("levels") ? string(f, "levels") : b.levels,
+                  liquidity: f.has("liquidity")
+                    ? string(f, "liquidity")
+                    : b.liquidity,
+                  primary: f.has("primary") ? string(f, "primary") : b.primary,
+                  alternate: f.has("alternate")
+                    ? string(f, "alternate")
+                    : b.alternate,
+                  entries: f.has("entries") ? string(f, "entries") : b.entries,
+                  invalidation: f.has("invalidation")
+                    ? string(f, "invalidation")
+                    : b.invalidation,
+                  noTrade: f.has("noTrade") ? string(f, "noTrade") : b.noTrade,
+                  targets: f.has("targets") ? string(f, "targets") : b.targets,
+                  notes: f.has("notes") ? string(f, "notes") : b.notes,
+                  screenshots: f.has("screenshots")
+                    ? lines(f, "screenshots")
+                    : b.screenshots,
                   reason: string(f, "reason"),
                   timeframes: lines(f, "timeframes").map((line) => {
                     const [timeframe, bias] = line.split("=");
@@ -297,18 +369,24 @@ export default function ThesisWorkspace(context: Context) {
                     "Chart screenshot URLs (HTTPS, one per line)",
                   ],
                 ] as const
-              ).map(([key, label]) => (
-                <Area
-                  key={key}
-                  name={key}
-                  label={label}
-                  value={
-                    key === "screenshots"
-                      ? editor.body.screenshots.join("\n")
-                      : editor.body[key]
-                  }
-                />
-              ))}
+              )
+                .filter(
+                  ([key]) =>
+                    !context.visibleFields ||
+                    context.visibleFields.includes(key),
+                )
+                .map(([key, label]) => (
+                  <Area
+                    key={key}
+                    name={key}
+                    label={label}
+                    value={
+                      key === "screenshots"
+                        ? editor.body.screenshots.join("\n")
+                        : editor.body[key]
+                    }
+                  />
+                ))}
             </div>
             <Area
               label="Reason for this revision"
