@@ -300,7 +300,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
     goal: ["Daily process goal", day.body.goal || "No goal selected"],
   };
   const panels = {
-    preparation: <PreparationPanel {...context} compact />,
+    preparation: null,
     thesis: <ThesisPanel {...context} />,
     temperature: <Temperature {...context} />,
     missions: <MissionsPanel {...context} />,
@@ -327,9 +327,9 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
         </div>
         <button
           className="cc-primary"
-          onClick={() => props.onPage("Live Session")}
+          onClick={() => props.onPage("Pre-Market")}
         >
-          Open live session
+          Start today's preparation
         </button>
       </div>
       <DashboardBoard
@@ -510,7 +510,12 @@ function StartDashboard({
           <h1>Your Command Center</h1>
           <p>A clear plan before your first trade.</p>
         </div>
-        <button onClick={onSettings}>Day settings</button>
+        <div className="cc-actions">
+          <button className="cc-primary" disabled={store.busy} onClick={() => void open("Pre-Market")}>
+            Start today's preparation
+          </button>
+          <button onClick={onSettings}>Day settings</button>
+        </div>
       </div>
       <DashboardBoard
         editor={editor}
