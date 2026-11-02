@@ -4,6 +4,7 @@ import { Activity, ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { authClient, cloudConfigured, clearSyncCache } from "@/lib/cloud";
 import Dashboard from "./dashboard";
+import SharkBackground from "./shark-background";
 export default function AuthGate() {
   const openSignup = process.env.NEXT_PUBLIC_OPEN_SIGNUP === "true";
   const [user, setUser] = useState<User | null>(null),
@@ -124,6 +125,7 @@ export default function AuthGate() {
           : "Welcome to Still Signal.";
   return (
     <main className="auth-page">
+      <SharkBackground />
       <a className="brand auth-brand" href="/">
         <span className="brand-icon">
           <Activity size={23} />

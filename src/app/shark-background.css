@@ -1,0 +1,56 @@
+.shark-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #000;
+}
+.shark-background canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: .65;
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+}
+.shark-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #080c0e55, #080c0e10 55%, #080c0e88);
+}
+.auth-page {
+  position: relative;
+  isolation: isolate;
+}
+.auth-page > .auth-brand,
+.auth-page > .auth-layout {
+  position: relative;
+  z-index: 1;
+}
+.auth-page .auth-card {
+  background: #10191bf0;
+  backdrop-filter: blur(12px);
+}
+.auth-story h1,
+.auth-story > p,
+.auth-story .auth-features {
+  text-shadow: 0 2px 14px #000;
+}
+.stillness-canvas {
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 18px;
+}
+.stillness-canvas > :not(.shark-background) {
+  position: relative;
+  z-index: 1;
+}
+.shark-background-quiet canvas { opacity: .36; }
+.shark-background-quiet::after {
+  background: radial-gradient(ellipse at center, #080c0e88, #080c0e22);
+}
+@media (max-width: 640px) {
+  .shark-background canvas { opacity: .42; }
+  .shark-background-quiet canvas { opacity: .25; }
+}
