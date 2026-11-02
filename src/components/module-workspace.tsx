@@ -8,7 +8,7 @@ import { moduleBoard, modulePlacement, materializeBoard, placeModule, availableM
 
 export type ModulePart = { id: string; title: string; selector: string };
 type Definition = { id: string; title: string; section: string; order: number; width: number; initiallyHidden: boolean; parts: ModulePart[]; host: HTMLDivElement };
-type Registry = { register: (module: Definition) => () => void; editing: boolean; placement: (module: Definition) => ModulePlacement; change: (id: string, patch: Partial<ModulePlacement>) => void; drag: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void; dragging: boolean; resize: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void; resizeKey: (id: string, key: string) => void; moveKey: (id: string, key: string, large: boolean) => void };
+type Registry = { createHost: () => HTMLDivElement; register: (module: Definition) => () => void; editing: boolean; placement: (module: Definition) => ModulePlacement; change: (id: string, patch: Partial<ModulePlacement>) => void; drag: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void; dragging: boolean; resize: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void; resizeKey: (id: string, key: string) => void; moveKey: (id: string, key: string, large: boolean) => void };
 const Context = createContext<Registry | null>(null);
 const noParts: ModulePart[] = [];
 export function ModuleScope({ active, children }: { active: boolean; children: ReactNode }) {
@@ -26,7 +26,7 @@ export function WorkspaceModule({ id, title, section = "main", order = 10, width
   const [host, setHost] = useState<HTMLDivElement>();
   const [options, setOptions] = useState(false);
   const [activated, setActivated] = useState(!initiallyHidden);
-  useEffect(() => { if (ctx) setHost(document.createElement("div")); }, [!!ctx]);
+  useEffect(() => { if (ctx) setHost(ctx.createHost()); }, [!!ctx]);
   const register = ctx?.register;
   const signature = JSON.stringify(parts);
   useLayoutEffect(() => {
@@ -83,7 +83,7 @@ export function WorkspaceModule({ id, title, section = "main", order = 10, width
 }
 
 
-export default function ModuleWorkspace({ owner, page, enabled = true, children }: { owner: string; page: string; enabled?: boolean; children: ReactNode }) {
+export default function ModuleWorkspace({ owner, page, enabled = true, children, editLabel = "Customize workspace", workspaceTitle = "Your workspace", surfaceWindow, onEditingChange }: { owner: string; page: string; enabled?: boolean; children: ReactNode; editLabel?: string; workspaceTitle?: string; surfaceWindow?: Window; onEditingChange?: (editing: boolean) => void }) {
   const [modules, setModules] = useState<Definition[]>([]);
   const [saved, setSaved] = useState<ModuleLayout>(emptyModuleLayout), [draft, setDraft] = useState<ModuleLayout>(emptyModuleLayout);
   const [editing, setEditing] = useState(false), [library, setLibrary] = useState(false), [search, setSearch] = useState("");
@@ -96,6 +96,8 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
   const latest = useRef({ current, modules, boxes, editing, key }); latest.current = { current, modules, boxes, editing, key };
   type Gesture = { mode: "move" | "resize" | "library" | "panel"; id: string; pointer: number; handle: HTMLButtonElement; host: HTMLElement; x: number; y: number; scroll: number; scroller?: HTMLElement; width: number; start: ModuleBox; next: ModuleBox; base: ModuleLayout; key: string; moved: boolean; left?: number; top?: number };
   const gesture = useRef<Gesture | null>(null);
+  const surface = () => (surfaceWindow ?? canvas.current?.ownerDocument.defaultView ?? window) as Window & typeof globalThis;
+  useEffect(() => { onEditingChange?.(editing); }, [editing, onEditingChange]);
   const register = useCallback((module: Definition) => {
     setModules(old => [...old.filter(m => m.id !== module.id), module]);
     return () => { module.host.remove(); setModules(old => old.filter(m => m.host !== module.host)); };
@@ -131,8 +133,9 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
   const ordered = modules.filter(m => !modulePlacement(current, m).hidden).sort((a, b) => (boxes[a.id]?.y ?? 0) - (boxes[b.id]?.y ?? 0) || (boxes[a.id]?.x ?? 0) - (boxes[b.id]?.x ?? 0));
   useLayoutEffect(() => {
     const board = canvas.current; if (!board || !enabled) return;
-    const active = document.activeElement as HTMLElement | null;
-    const field = active instanceof window.HTMLInputElement || active instanceof window.HTMLTextAreaElement ? active : null;
+    const view = surface(), doc = view.document;
+    const active = doc.activeElement as HTMLElement | null;
+    const field = active instanceof view.HTMLInputElement || active instanceof view.HTMLTextAreaElement ? active : null;
     const selection = field ? [field.selectionStart, field.selectionEnd] : null;
     ordered.forEach((module, index) => {
       if (board.children[index] !== module.host) board.insertBefore(module.host, board.children[index] ?? null);
@@ -141,7 +144,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
       module.host.classList.toggle("ss-module-sized", !!raw.box || !!raw.height);
     });
     for (const module of modules) if (modulePlacement(current, module).hidden && module.host.parentElement !== parking.current) parking.current?.appendChild(module.host);
-    if (active?.isConnected && document.activeElement !== active && !active.closest("[hidden],[inert]")) {
+    if (active?.isConnected && doc.activeElement !== active && !active.closest("[hidden],[inert]")) {
       active.focus({ preventScroll: true });
       if (field && selection?.[0] != null && selection[1] != null) field.setSelectionRange(selection[0], selection[1]);
     }
@@ -154,8 +157,9 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
     module.host.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true });
   }, [modules, editing]);
   useLayoutEffect(() => {
-    if (!enabled || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(entries => {
+    const Observer = surface().ResizeObserver;
+    if (!enabled || !Observer) return;
+    const observer = new Observer(entries => {
       if (gesture.current) return;
       setHeights(old => {
         const next = { ...old }; let changed = false;
@@ -170,7 +174,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
     });
     modules.forEach(m => observer.observe(m.host));
     return () => observer.disconnect();
-  }, [modules, enabled, editing]);
+  }, [modules, enabled, editing, surfaceWindow]);
   const viewportTop = () => Math.max(0, -(canvas.current?.getBoundingClientRect().top ?? 0) + 40);
   function addModule(id: string, at?: ModuleBox) {
     const value = resolved(), module = modules.find(m => m.id === id); if (!module) return;
@@ -199,29 +203,31 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
   function startGesture(event: ReactPointerEvent<HTMLButtonElement>, id: string, mode: Gesture["mode"]) {
     if (event.button !== 0 || gesture.current) return;
     const board = canvas.current; if (!board) return;
+    const view = surface(), doc = view.document;
     const module = modules.find(m => m.id === id);
     if (mode !== "panel" && !module) return;
     event.preventDefault(); event.currentTarget.focus();
     let host: HTMLElement = mode === "panel" ? libraryPanel.current! : module!.host;
     const start = latest.current.boxes[id] ?? latest.current.current.modules[id]?.box ?? { x: 0, y: 0, w: 384, h: 288 };
     if (mode === "library") {
-      host = document.createElement("div"); host.className = "ss-module-library-ghost"; host.textContent = module!.title;
-      Object.assign(host.style, { position: "fixed", left: event.clientX + "px", top: event.clientY + "px", pointerEvents: "none" }); document.body.appendChild(host);
+      host = doc.createElement("div"); host.className = "ss-module-library-ghost"; host.textContent = module!.title;
+      Object.assign(host.style, { position: "fixed", left: event.clientX + "px", top: event.clientY + "px", pointerEvents: "none" }); doc.body.appendChild(host);
     }
     let parent = board.parentElement, scroller: HTMLElement | undefined;
-    while (parent && parent !== document.body) { if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(getComputedStyle(parent).overflowY)) { scroller = parent; break; } parent = parent.parentElement; }
+    while (parent && parent !== doc.body) { if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(view.getComputedStyle(parent).overflowY)) { scroller = parent; break; } parent = parent.parentElement; }
     const rect = host.getBoundingClientRect();
-    gesture.current = { mode, id, host, handle: event.currentTarget, pointer: event.pointerId, x: event.clientX, y: event.clientY, scroll: scroller?.scrollTop ?? window.scrollY, scroller, width: board.getBoundingClientRect().width || 1200, start, next: start, base: resolved(), key, moved: false, left: rect.left, top: rect.top };
+    gesture.current = { mode, id, host, handle: event.currentTarget, pointer: event.pointerId, x: event.clientX, y: event.clientY, scroll: scroller?.scrollTop ?? view.scrollY, scroller, width: board.getBoundingClientRect().width || 1200, start, next: start, base: resolved(), key, moved: false, left: rect.left, top: rect.top };
     event.currentTarget.setPointerCapture(event.pointerId);
     if (mode !== "panel") { host.classList.add("ss-module-held"); setDragging(true); }
   }
   useEffect(() => {
+    const view = surface();
     const move = (event: PointerEvent) => {
       const g = gesture.current; if (!g || event.pointerId !== g.pointer) return;
-      const dx = event.clientX - g.x, dy = event.clientY - g.y + (g.scroller?.scrollTop ?? window.scrollY) - g.scroll;
+      const dx = event.clientX - g.x, dy = event.clientY - g.y + (g.scroller?.scrollTop ?? view.scrollY) - g.scroll;
       if (Math.hypot(dx, dy) < 4 && !g.moved) return; g.moved = true;
       if (g.mode === "panel") {
-        const left = Math.max(0, Math.min(window.innerWidth - g.host.offsetWidth, g.left! + dx)), top = Math.max(0, Math.min(window.innerHeight - 60, g.top! + event.clientY - g.y));
+        const left = Math.max(0, Math.min(view.innerWidth - g.host.offsetWidth, g.left! + dx)), top = Math.max(0, Math.min(view.innerHeight - 60, g.top! + event.clientY - g.y));
         Object.assign(g.host.style, { left: left + "px", top: top + "px", right: "auto", maxHeight: `calc(100dvh - ${top + 12}px)` }); return;
       }
       const snap = (n: number) => Math.round(n / 12) * 12;
@@ -236,8 +242,8 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
         g.next = boundModuleBox({ ...g.start, w: g.start.w + snap(dx * 1200 / g.width), h: g.start.h + snap(dy) });
         g.host.style.width = g.next.w / 12 + "%"; g.host.style.height = g.next.h + "px";
       }
-      if (event.clientY > window.innerHeight - 45) { if (g.scroller) g.scroller.scrollTop += 16; else window.scrollBy(0, 16); }
-      else if (event.clientY < 45) { if (g.scroller) g.scroller.scrollTop -= 16; else window.scrollBy(0, -16); }
+      if (event.clientY > view.innerHeight - 45) { if (g.scroller) g.scroller.scrollTop += 16; else view.scrollBy(0, 16); }
+      else if (event.clientY < 45) { if (g.scroller) g.scroller.scrollTop -= 16; else view.scrollBy(0, -16); }
     };
     const up = (event: PointerEvent) => {
       const g = gesture.current; if (!g || event.pointerId !== g.pointer) return;
@@ -248,10 +254,10 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
     };
     const cancel = () => cancelGesture();
     const key = (event: KeyboardEvent) => { if (event.key === "Escape" && gesture.current) { event.preventDefault(); cancelGesture(); setMessage("Move canceled."); } };
-    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", cancel); window.addEventListener("blur", cancel); window.addEventListener("keydown", key);
-    return () => { cancelGesture(); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", cancel); window.removeEventListener("blur", cancel); window.removeEventListener("keydown", key); };
-  }, []);
-  const context: Registry = { register, editing, placement, change, dragging, drag: (event, id) => startGesture(event, id, "move"), resize: (event, id) => startGesture(event, id, "resize"), resizeKey: (id, key) => moveKey(id, key, true), moveKey: (id, key, large) => moveKey(id, key, false, large) };
+    view.addEventListener("pointermove", move); view.addEventListener("pointerup", up); view.addEventListener("pointercancel", cancel); view.addEventListener("blur", cancel); view.addEventListener("keydown", key);
+    return () => { cancelGesture(); view.removeEventListener("pointermove", move); view.removeEventListener("pointerup", up); view.removeEventListener("pointercancel", cancel); view.removeEventListener("blur", cancel); view.removeEventListener("keydown", key); };
+  }, [surfaceWindow]);
+  const context: Registry = { createHost: () => surface().document.createElement("div"), register, editing, placement, change, dragging, drag: (event, id) => startGesture(event, id, "move"), resize: (event, id) => startGesture(event, id, "resize"), resizeKey: (id, key) => moveKey(id, key, true), moveKey: (id, key, large) => moveKey(id, key, false, large) };
   const boardHeight = Math.max(800, ...Object.values(boxes).map(b => b.y + b.h + (editing ? 600 : 24)));
   function createCustom() {
     const id = "custom-" + crypto.randomUUID(), value = resolved(), box = availableModuleBox(boxes, viewportTop());
@@ -262,7 +268,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
   }
   return <Context.Provider value={enabled ? context : null}><div className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}`}>
     {enabled && <div className="ss-module-toolbar">
-      <div><strong>{editing ? "Make this board yours" : "Your workspace"}</strong><small>{editing ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules." : "Your board is saved for this page on this browser."}</small></div>
+      <div><strong>{editing ? "Make this board yours" : workspaceTitle}</strong><small>{editing ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules." : "Your board is saved for this page on this browser."}</small></div>
       <div>{editing ? <>
         <button disabled={dragging || !undo.length} onClick={() => { setRedo(rows => [...rows, current]); setDraft(undo.at(-1)!); setUndo(rows => rows.slice(0, -1)); }}><Undo2 size={15} /> Undo</button>
         <button disabled={dragging || !redo.length} onClick={() => { setUndo(rows => [...rows, current]); setDraft(redo.at(-1)!); setRedo(rows => rows.slice(0, -1)); }}><Redo2 size={15} /> Redo</button>
@@ -271,7 +277,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children 
         <button disabled={dragging} onClick={() => commit({ ...emptyModuleLayout(), custom: current.custom, modules: Object.fromEntries(Object.entries(current.modules).filter(([id]) => id.startsWith("custom-")).map(([id, p]) => [id, { ...p, hidden: true }])) }, "Original arrangement restored. Custom cards are kept in your library.")}><RotateCcw size={14} /> Reset</button>
         <button disabled={dragging} onClick={() => { setDraft(saved); setEditing(false); setLibrary(false); }}>Cancel</button>
         <button disabled={dragging} className="ss-module-save" onClick={() => { try { localStorage.setItem(key, JSON.stringify(current)); setSaved(current); setEditing(false); setLibrary(false); setUndo([]); setRedo([]); setMessage("Board saved."); } catch { setMessage("Could not save this board. Your draft is still available."); } }}>Save layout</button>
-      </> : <button onClick={() => { setDraft(saved); setEditing(true); setUndo([]); setRedo([]); setMessage(""); }}>Customize workspace</button>}</div>
+      </> : <button onClick={() => { setDraft(saved); setEditing(true); setUndo([]); setRedo([]); setMessage(""); }}>{editLabel}</button>}</div>
     </div>}
     <p className="ss-module-message" role="status" aria-live="polite">{message}</p>
     {editing && library && <section ref={libraryPanel} className="ss-module-library" aria-label="Module library"><div><button className="ss-module-library-handle" aria-label="Move module library" onPointerDown={event => startGesture(event, "", "panel")}><GripVertical size={16} /> Add a module</button><button disabled={dragging} aria-label="Close module library" onClick={() => setLibrary(false)}><X size={16} /></button></div>

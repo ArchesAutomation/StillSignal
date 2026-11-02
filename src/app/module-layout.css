@@ -119,3 +119,17 @@
   .ss-free-board > .ss-workspace-module { position:relative; left:auto!important; top:auto!important; width:100%!important; flex-shrink:0; }
   .ss-module-toolbar { position:relative; }
 }
+/* The floating recorder uses the same saved widget board as full pages. */
+.ss-floating-widgets .ss-module-toolbar { gap: 8px; padding-top: 0; }
+.ss-floating-widgets .ss-module-toolbar > div:last-child { width: auto; }
+.ss-floating-widgets .ss-module-toolbar small { max-width: 240px; }
+.ss-floating-widgets .ss-module-library { top: 12px; max-height: calc(100dvh - 24px); }
+.ss-floating-widgets .ss-free-board { display: flex; flex-direction: column; gap: 16px; min-height: 0 !important; }
+.ss-floating-widgets .ss-module-content { overflow: visible; }
+.ss-floating-widgets .ss-recorder-baseline, .ss-floating-widgets .ss-recorder-screen-state,
+.ss-floating-widgets .ss-recorder-actions { margin: 0; }
+.ss-floating-widgets .ss-module-sources .ss-capture-expanded { margin-bottom: 16px; }
+.ss-floating-widgets .ss-popup-write { padding: 10px 0; }
+/* Popup width can differ from the opener's viewport; keep its board in a readable stack. */
+.ss-floating-widgets .ss-free-board > .ss-workspace-module { position: relative; left: auto !important; top: auto !important; width: 100% !important; flex-shrink: 0; }
+.ss-floating-widgets .ss-module-sized > .ss-module-content { overflow: auto; }

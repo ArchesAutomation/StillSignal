@@ -62,7 +62,10 @@ export default function DashboardBoard({
   const nameInput = useRef<HTMLInputElement>(null);
   const wasEditing = useRef(false);
   const editing = !!draft;
-  const layout = draft ?? saved;
+  // Preparation is a single entry button in Command Center, not a dashboard card.
+  // Keep stored layouts compatible without mounting the old checklist module.
+  const sourceLayout = draft ?? saved;
+  const layout = { ...sourceLayout, panels: sourceLayout.panels.filter(p => p.id !== "preparation") };
   const visible = layout.panels.filter((p) => p.visible);
   const stale =
     editing &&
