@@ -30,7 +30,9 @@ export class OceanEngine {
   constructor(private canvas: HTMLCanvasElement, sharks?: SharkSpec[]) {
     this.world = new World(sharks);
     this.renderer = new AsciiRenderer(canvas);
-    this.renderer.setFontFamily(getComputedStyle(canvas).fontFamily);
+    // Workspace modules can initialize while detached or hidden.
+    const fontFamily = getComputedStyle(canvas).fontFamily || "ui-monospace, monospace";
+    this.renderer.setFontFamily(fontFamily);
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -49,7 +51,7 @@ export class OceanEngine {
 
     this.resize();
     // Canvas text can't trigger a webfont load; once the mono face is in, redraw.
-    document.fonts?.load(`600 16px ${getComputedStyle(canvas).fontFamily}`).then(() => {
+    document.fonts?.load(`600 16px ${fontFamily}`).then(() => {
       if (!this.disposed && this.reducedMotion.matches) this.drawStill();
     });
     this.schedule();

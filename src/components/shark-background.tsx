@@ -14,11 +14,17 @@ export default function SharkBackground({ quiet = false }: { quiet?: boolean }) 
     const host = canvas.parentElement?.parentElement;
     if (!host) return;
     const engine = new OceanEngine(canvas, [
-      { kind: "classic", size: .5 }, { kind: "classic", size: .5 },
+      { kind: "classic", size: .8 }, { kind: "classic", size: .8 },
     ]);
     const targets = [...host.querySelectorAll<HTMLElement>(
       '.auth-brand, .auth-card, .auth-story h1, .auth-story p, .auth-story .eyebrow, .auth-features span, .breathing-orb, .stillness-heading, .notice-card h3, .notice-card p, .notice-card .eyebrow, .notice-prompt, .inline-actions, .return-card h3, .return-card .eyebrow, .practice-step, .practice-steps, progress, .return-controls, .topic-orbit, .topic-response, .stillness-footnote',
     )];
+    // The current workspace renders SessionReset for its Stillness tab.
+    if (host.matches('.ss-reset')) {
+      targets.push(...host.querySelectorAll<HTMLElement>(
+        '.ss-eyebrow, h1, h2, p, small, .ss-breathing-square, button, label',
+      ));
+    }
     const update = () => {
       const origin = canvas.getBoundingClientRect();
       if (!origin.width || !origin.height) return;
@@ -26,7 +32,7 @@ export default function SharkBackground({ quiet = false }: { quiet?: boolean }) 
         const rect = target.getBoundingClientRect();
         if (!rect.width || !rect.height) return [];
         const rects: DOMRect[] = [];
-        if (target.matches('.auth-card, .auth-brand, .breathing-orb, .inline-actions, progress, .practice-steps, .return-controls, .topic-orbit')) {
+        if (target.matches('.auth-card, .auth-brand, .breathing-orb, .inline-actions, progress, .practice-steps, .return-controls, .topic-orbit, .ss-breathing-square, button, label')) {
           rects.push(rect);
         } else {
           // Protect the visible lines, not the entire width of their containers.
