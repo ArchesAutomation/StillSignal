@@ -146,17 +146,10 @@ export default function AuthGate() {
             One timeline for your heart rate, your trading activity, and your
             own reflections.
           </p>
-          <div className="pulse-sculpture" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
+          <p className="auth-footnote">
+            Start with an empty journal. Add trades, import CSV, or connect
+            TradingView. A wearable is optional.
+          </p>
           <div className="auth-features">
             <span>
               <ShieldCheck size={17} />A private workspace for each account
@@ -170,10 +163,6 @@ export default function AuthGate() {
               Your sessions belong to you
             </span>
           </div>
-          <p className="auth-footnote">
-            Start with an empty journal. Add trades, import CSV, or connect
-            TradingView. A wearable is optional.
-          </p>
         </div>
         <div className="glass auth-card">
           <h2>{title}</h2>

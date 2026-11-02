@@ -4,53 +4,59 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: #000;
 }
-.shark-background canvas {
+.shark-background .shark-lane {
+  position: absolute;
   display: block;
   width: 100%;
-  height: 100%;
-  opacity: .65;
+  height: 140px;
+  opacity: .52;
   font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
 }
-.shark-background::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #080c0e55, #080c0e10 55%, #080c0e88);
-}
+.shark-lane-top { top: 88px; }
+.shark-lane-bottom { bottom: 12px; }
 .auth-page {
   position: relative;
   isolation: isolate;
+  padding-bottom: 180px;
 }
 .auth-page > .auth-brand,
 .auth-page > .auth-layout {
   position: relative;
   z-index: 1;
 }
-.auth-page .auth-card {
-  background: #10191bf0;
-  backdrop-filter: blur(12px);
+.auth-page > .auth-layout {
+  margin-top: 180px;
+  min-height: 0;
 }
-.auth-story h1,
-.auth-story > p,
+.auth-story .auth-footnote {
+  margin-top: 12px;
+}
 .auth-story .auth-features {
-  text-shadow: 0 2px 14px #000;
+  margin-top: 22px;
+}
+.auth-page .auth-card {
+  background: #10191b;
 }
 .stillness-canvas {
   isolation: isolate;
   overflow: hidden;
   border-radius: 18px;
+  padding-top: 170px;
+  padding-bottom: 170px;
 }
 .stillness-canvas > :not(.shark-background) {
   position: relative;
   z-index: 1;
 }
-.shark-background-quiet canvas { opacity: .36; }
-.shark-background-quiet::after {
-  background: radial-gradient(ellipse at center, #080c0e88, #080c0e22);
-}
+.shark-background-quiet .shark-lane { opacity: .32; }
+.shark-background-quiet .shark-lane-top { top: 10px; }
 @media (max-width: 640px) {
-  .shark-background canvas { opacity: .42; }
-  .shark-background-quiet canvas { opacity: .25; }
+  .auth-page { padding-bottom: 155px; }
+  .auth-page > .auth-layout { margin-top: 155px; }
+  .shark-background .shark-lane { height: 120px; opacity: .42; }
+  .shark-lane-top { top: 72px; }
+  .shark-background-quiet .shark-lane { opacity: .28; }
+  .stillness-canvas { padding-top: 145px; padding-bottom: 145px; }
 }
