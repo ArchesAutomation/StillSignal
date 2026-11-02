@@ -815,7 +815,7 @@ function Run({ context, run }: { context: Context; run: RecordOf<"run"> }) {
     </Panel>
   );
 }
-export default function GuidedPreparation(context: Context) {
+export default function GuidedPreparation(context: Context & { editRequest?: number }) {
   const { store, day } = context;
   const templates = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
@@ -828,6 +828,9 @@ export default function GuidedPreparation(context: Context) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState("");
   const [creating, setCreating] = useState(false);
+  useEffect(() => {
+    if (context.editRequest) { setCreating(false); setEditing(true); }
+  }, [context.editRequest]);
   const previousRun = latest(store.records, "run").sort(
     (a, b) => b.createdAt - a.createdAt,
   )[0];

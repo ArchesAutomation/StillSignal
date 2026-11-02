@@ -481,7 +481,7 @@ export default function ConceptWorkspace(props: Props) {
           <button disabled={!p.canRedoJournal || p.journalHistoryBusy} onClick={() => void p.redoJournal().catch(e => p.setError((e as Error).message))}>↷ Redo</button>
           <small>Saved writing, moment edits and journal details · this visit</small>
         </div>}
-        <ModuleWorkspace owner={p.owner} page={page} enabled={page !== "Command Center"}>
+        <ModuleWorkspace owner={p.owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>
         {s.demo && (
           <p className={cx("demo-notice")}>
             DEMO DATA · Simulated heart rate, trades and reflections. No broker
