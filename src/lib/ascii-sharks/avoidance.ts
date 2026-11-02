@@ -21,7 +21,7 @@ export function swimClearance(x: number, y: number, heading: number, limit: numb
         near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b));
       }
     }
-    if (far >= near) clear = Math.min(clear, Math.max(0, near - 1));
+    if (far > near && far > 1e-5) clear = Math.min(clear, Math.max(0, near - 1));
   }
   return clear;
 }

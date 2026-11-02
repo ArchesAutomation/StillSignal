@@ -577,7 +577,7 @@ export class World {
       if (this.readingAreas.length) {
         const lookAhead = Math.max(100, L * .7);
         const clearance = (angle: number) => swimClearance(hx, hy, angle, lookAhead,
-          this.readingAreas, L * .3 + 16, W, H);
+          this.readingAreas, L * .3 + 12, W, H);
         if (clearance(desired) < lookAhead || clearance(sh.heading) < lookAhead) {
           let score = -Infinity, best = sh.heading;
           for (let i = 0; i < 64; i++) {
@@ -606,7 +606,7 @@ export class World {
 
       const travel = this.readingAreas.length
         ? Math.min(sh.speed * dt, swimClearance(hx, hy, sh.heading, sh.speed * dt,
-          this.readingAreas, L * .3 + 16, W, H))
+          this.readingAreas, L * .3 + 12, W, H))
         : sh.speed * dt;
       nodes[0] += Math.cos(sh.heading) * travel;
       nodes[1] += Math.sin(sh.heading) * travel;

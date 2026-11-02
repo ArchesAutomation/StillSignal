@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { World } from "../src/lib/ascii-sharks/world";
-import { escapeReadingArea, overlapsReadingArea } from "../src/lib/ascii-sharks/avoidance";
+import { escapeReadingArea, overlapsReadingArea, swimClearance } from "../src/lib/ascii-sharks/avoidance";
 
 test("reading clearance includes the fins and leaves open water available", () => {
   const area = { left: 300, top: 250, right: 600, bottom: 350 };
@@ -10,6 +10,8 @@ test("reading clearance includes the fins and leaves open water available", () =
   assert.deepEqual(escape, { x: -40, y: 0 });
   assert.equal(overlapsReadingArea(new Float32Array([280, 300]), 100, [area]), true);
   assert.equal(overlapsReadingArea(new Float32Array([200, 300]), 100, [area]), false);
+  assert.equal(swimClearance(270, 300, Math.PI, 100, [area], 30, 1200, 900), 100,
+    "a shark touching an obstacle can swim away from it");
 });
 
 test("a shark initially over copy is placed in visible open water and steers clear", () => {
