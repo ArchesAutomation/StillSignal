@@ -1333,3 +1333,19 @@
 .prep-edit-step > button { justify-self: start; }
 .prep-completion { border-top: 1px solid var(--line); padding-top: 18px; }
 @media (max-width: 1000px) { .prep-activity .cc-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Preparation tools stay visible independently of the saved routine. */
+.prep-module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.cc-workspace .prep-module-grid button { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; padding: 16px; background: var(--panel); border-color: var(--line); }
+.cc-workspace .prep-module-grid button[aria-pressed="true"] { border-color: var(--orange); background: var(--surface-raised); }
+.prep-module-grid strong { font-size: 14px; }
+.prep-module-grid span, .prep-module-grid small { color: var(--muted); }
+.prep-module-grid small { margin-top: auto; color: var(--mint); }
+.prep-tool-panel[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .prep-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-workspace .prep-module-grid button { padding: 12px; gap: 6px; }
+  .prep-module-grid strong { font-size: 12px; }
+  .prep-module-grid span { display: none; }
+  .prep-module-grid small { font-size: 10px; }
+}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import GuidedPreparation from "./guided-preparation";
+import PreparationTools from "./preparation-tools";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import TemplateTools from "../command-center/template-tools";
 import {
@@ -529,7 +529,7 @@ export default function PreMarket(context: Context) {
     <WorkspaceModule id="guided-preparation" title="Pre-trading workflow">
       <ModuleScope active={false}>
         <div className="cc-stack">
-          <GuidedPreparation {...context} />
+          <PreparationTools {...context} />
           <button
             className="prep-library"
             aria-expanded={advanced}
