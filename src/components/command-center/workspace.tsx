@@ -665,7 +665,28 @@ export default function ProcessWorkspace(props: Props) {
           <button onClick={() => store.setError("")}>Dismiss</button>
         </div>
       )}
-      {!day && !editDay && (
+      {!day && !editDay && props.page === "Pre-Market" && (
+        <Panel title="Your pre-trading routine" detail="Set up your workflow once. Follow it each session.">
+          <p>Open today's preparation to build or follow your saved routine.</p>
+          <button
+            className="cc-primary"
+            disabled={store.busy}
+            onClick={() => void store.save([createRecord("day", {
+              date: selectedDate,
+              timezone: zone,
+              status: "preparing",
+              instrument: "",
+              account: "",
+              timeframes: [],
+              sessionIds: [],
+              goal: "",
+            })])}
+          >
+            Open today's preparation →
+          </button>
+        </Panel>
+      )}
+      {!day && !editDay && props.page !== "Pre-Market" && (
         <StartDashboard
           editor={dashboardEditor}
           store={store}

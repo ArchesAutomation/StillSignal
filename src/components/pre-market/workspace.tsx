@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import GuidedPreparation from "./guided-preparation";
+import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import TemplateTools from "../command-center/template-tools";
 import {
   createRecord,
@@ -88,7 +90,13 @@ export function PreparationPanel({
           : "Your preparation, defined by you"
       }
       action={
-        <button onClick={() => props.onPage("Pre-Market")}>Manage</button>
+        <button onClick={() => props.onPage("Pre-Market")}>
+          {runs.length
+            ? "Continue walkthrough"
+            : templates.length
+              ? "Begin routine"
+              : "Set up my routine"}
+        </button>
       }
     >
       {!runs.length && !compact && (
@@ -275,7 +283,7 @@ export function PreparationPanel({
     </Panel>
   );
 }
-export default function PreMarket(context: Context) {
+export function ProtocolManager(context: Context) {
   const { store } = context,
     templates = latest(store.records, "protocol", Infinity, true);
   const [editing, setEditing] = useState<RecordOf<"protocol"> | undefined>(),
@@ -513,5 +521,25 @@ export default function PreMarket(context: Context) {
         )}
       </Panel>
     </div>
+  );
+}
+export default function PreMarket(context: Context) {
+  const [advanced, setAdvanced] = useState(false);
+  return (
+    <WorkspaceModule id="guided-preparation" title="Pre-trading workflow">
+      <ModuleScope active={false}>
+        <div className="cc-stack">
+          <GuidedPreparation {...context} />
+          <button
+            className="prep-library"
+            aria-expanded={advanced}
+            onClick={() => setAdvanced((v) => !v)}
+          >
+            Routine library & advanced settings {advanced ? "−" : "+"}
+          </button>
+          {advanced && <ProtocolManager {...context} />}
+        </div>
+      </ModuleScope>
+    </WorkspaceModule>
   );
 }
