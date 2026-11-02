@@ -15,7 +15,7 @@
  */
 import { angleDiff, clamp, current, rand, randInt, TAU } from "./math";
 import { pickSpecies, SPECIES } from "./species";
-import { escapeReadingArea, overlapsReadingArea, type ReadingArea } from "./avoidance";
+import { swimClearance, overlapsReadingArea, type ReadingArea } from "./avoidance";
 
 export const SHARK_NODES = 20;
 
@@ -88,6 +88,7 @@ const BLIND_COS = -0.6; // ~127° either side of the heading is visible
 
 export class World {
   readingAreas: ReadingArea[] = [];
+  private trails = new WeakMap<Shark, number[]>();
 
   /** Find open water after first layout or a responsive reflow. */
   placeSharks() {
@@ -116,7 +117,7 @@ export class World {
           }
         }
       }
-      if (best) nodes.set(best);
+      if (best) { nodes.set(best); this.trails.delete(shark); }
     }
   }
   width = 0;
@@ -557,22 +558,8 @@ export class World {
         }
       }
 
-      // Look ahead and turn around the actual text, wherever layout places it.
+      // Choose a clear direction instead of summing opposing escape forces.
       let avoiding = false;
-      for (const area of this.readingAreas) {
-        const ahead = L * .6;
-        const escape = escapeReadingArea(
-          hx + Math.cos(sh.heading) * ahead,
-          hy + Math.sin(sh.heading) * ahead, area, L * .3 + 30,
-        );
-        if (escape) {
-          const d = Math.hypot(escape.x, escape.y) || 1;
-          dx += escape.x / d * 16;
-          dy += escape.y / d * 16;
-          avoiding = true;
-          sh.target = null;
-        }
-      }
 
       // Turn back once the snout leaves the frame, so bodies dip off-screen
       // now and then but the sharks never wander away for good.
@@ -586,7 +573,25 @@ export class World {
         dy += (toY / d) * w;
       }
 
-      const desired = Math.atan2(dy, dx);
+      let desired = Math.atan2(dy, dx);
+      if (this.readingAreas.length) {
+        const lookAhead = Math.max(100, L * .7);
+        const clearance = (angle: number) => swimClearance(hx, hy, angle, lookAhead,
+          this.readingAreas, L * .3 + 16, W, H);
+        if (clearance(desired) < lookAhead || clearance(sh.heading) < lookAhead) {
+          let score = -Infinity, best = sh.heading;
+          for (let i = 0; i < 64; i++) {
+            const angle = sh.heading + i / 64 * TAU;
+            const value = clearance(angle) / lookAhead * 5 +
+              Math.cos(angle - desired) * .8 + Math.cos(angle - sh.heading) * 1.2 +
+              Math.sin(angle - sh.heading) * sh.orbitDir * .15;
+            if (value > score) { score = value; best = angle; }
+          }
+          desired = best;
+          avoiding = true;
+          sh.target = null;
+        }
+      }
       // Sharks can't pivot on the spot: the turning circle grows with speed.
       const agility = avoiding ? 2.8 : Math.min(hunting ? 1.7 + closing : 0.8, sh.speed / (L * 0.22));
       const maxTurn = agility * dt;
@@ -599,15 +604,19 @@ export class World {
       sh.speed += (targetSpeed - sh.speed) * Math.min(1, dt * 1.1);
       sh.phase += dt * (2 + sh.speed / 24);
 
-      nodes[0] += Math.cos(sh.heading) * sh.speed * dt;
-      nodes[1] += Math.sin(sh.heading) * sh.speed * dt;
+      const travel = this.readingAreas.length
+        ? Math.min(sh.speed * dt, swimClearance(hx, hy, sh.heading, sh.speed * dt,
+          this.readingAreas, L * .3 + 16, W, H))
+        : sh.speed * dt;
+      nodes[0] += Math.cos(sh.heading) * travel;
+      nodes[1] += Math.sin(sh.heading) * travel;
 
       // Follow-the-leader spine, with a stiffness limit per joint so the
       // body bends into a C at most and never folds back on itself.
       const seg = L / (SHARK_NODES - 1);
       const maxBend = 0.16;
       let prevAngle = sh.heading + Math.PI;
-      for (let k = 1; k < SHARK_NODES; k++) {
+      for (let k = 1; !this.readingAreas.length && k < SHARK_NODES; k++) {
         const px = nodes[(k - 1) * 2];
         const py = nodes[(k - 1) * 2 + 1];
         let angle = Math.atan2(nodes[k * 2 + 1] - py, nodes[k * 2] - px);
@@ -617,22 +626,25 @@ export class World {
         prevAngle = angle;
       }
 
-      // Initial placement and layout changes can land a body inside text.
-      // Move the whole spine together so its shape stays intact.
-      for (let pass = 0; pass < 12; pass++) {
-        let moved = false;
-        for (const area of this.readingAreas) {
-          for (let k = 0; k < nodes.length; k += 2) {
-            const escape = escapeReadingArea(nodes[k], nodes[k + 1], area, L * .3 + 14);
-            if (!escape) continue;
-            for (let n = 0; n < nodes.length; n += 2) {
-              nodes[n] += escape.x;
-              nodes[n + 1] += escape.y;
+      if (this.readingAreas.length) {
+        let trail = this.trails.get(sh);
+        if (!trail) { trail = Array.from(nodes); trail[0] = hx; trail[1] = hy; this.trails.set(sh, trail); }
+        if (travel > 1e-5) trail.unshift(nodes[0], nodes[1]);
+        let index = 0, traversed = 0;
+        for (let k = 1; k < SHARK_NODES; k++) {
+          const distance = seg * k;
+          while (index + 3 < trail.length) {
+            const d = Math.hypot(trail[index + 2] - trail[index], trail[index + 3] - trail[index + 1]);
+            if (traversed + d >= distance) {
+              const mix = d ? (distance - traversed) / d : 0;
+              nodes[k * 2] = trail[index] + (trail[index + 2] - trail[index]) * mix;
+              nodes[k * 2 + 1] = trail[index + 1] + (trail[index + 3] - trail[index + 1]) * mix;
+              break;
             }
-            moved = true;
+            traversed += d; index += 2;
           }
         }
-        if (!moved) break;
+        if (index + 4 < trail.length) trail.splice(index + 4);
       }
 
       // Feed.
