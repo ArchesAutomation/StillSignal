@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Circle, Mic, Pause, Play, RotateCcw } from "lucide-react";
 import type { ReflectionDraft } from "./reflection-editor";
+import SharkBackground from "./shark-background";
 
 const steps = [
   "Let your breath find a comfortable rhythm. There is no need to force it.",
@@ -46,6 +47,7 @@ export default function Stillness({
   const step = Math.min(3, Math.floor(elapsed / 15));
   return (
     <div className="stillness-canvas">
+      <SharkBackground quiet />
       <div
         className={`breathing-orb${running ? " breathing" : ""}`}
         aria-hidden="true"

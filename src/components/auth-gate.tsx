@@ -4,6 +4,7 @@ import { Activity, ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { authClient, cloudConfigured, clearSyncCache } from "@/lib/cloud";
 import Dashboard from "./dashboard";
+import SharkBackground from "./shark-background";
 export default function AuthGate() {
   const openSignup = process.env.NEXT_PUBLIC_OPEN_SIGNUP === "true";
   const [user, setUser] = useState<User | null>(null),
@@ -124,6 +125,7 @@ export default function AuthGate() {
           : "Welcome to Still Signal.";
   return (
     <main className="auth-page">
+      <SharkBackground />
       <a className="brand auth-brand" href="/">
         <span className="brand-icon">
           <Activity size={23} />
@@ -144,17 +146,10 @@ export default function AuthGate() {
             One timeline for your heart rate, your trading activity, and your
             own reflections.
           </p>
-          <div className="pulse-sculpture" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
+          <p className="auth-footnote">
+            Start with an empty journal. Add trades, import CSV, or connect
+            TradingView. A wearable is optional.
+          </p>
           <div className="auth-features">
             <span>
               <ShieldCheck size={17} />A private workspace for each account
@@ -168,10 +163,6 @@ export default function AuthGate() {
               Your sessions belong to you
             </span>
           </div>
-          <p className="auth-footnote">
-            Start with an empty journal. Add trades, import CSV, or connect
-            TradingView. A wearable is optional.
-          </p>
         </div>
         <div className="glass auth-card">
           <h2>{title}</h2>
