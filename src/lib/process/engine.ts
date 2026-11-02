@@ -2,6 +2,12 @@ import type { Session, TradeEvent } from "../model";
 import { isActualExecution } from "../trade-context";
 import { validateValue } from "../environment/values";
 import {
+  activityEvidenceError,
+  answerError,
+  preparationResponse,
+  scheduledOn,
+} from "./preparation-workflow";
+import {
   createRecord,
   dateInZone,
   latest,
@@ -60,12 +66,15 @@ export function preparation(
     skipped = 0,
     excluded = 0;
   const completions: number[] = [];
+  const day = latest(records, "day", at).find((d) => d.rootId === dayId);
   for (const run of runs)
     for (const step of run.body.steps) {
-      const response = latest(records, "response", at)
-        .filter((r) => r.body.runId === run.id && r.body.stepId === step.id)
-        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      const response = preparationResponse(records, run, step, at);
       if (step.requirement === "optional") continue;
+      if (day && !scheduledOn(step, day.body.date)) {
+        excluded++;
+        continue;
+      }
       if (response?.body.status === "not-applicable") {
         excluded++;
         continue;
@@ -76,7 +85,9 @@ export function preparation(
         response.body.completedAt! <= at
       ) {
         complete++;
-        completions.push(response.body.completedAt!);
+        completions.push(
+          Math.max(run.body.startedAt, response.body.completedAt!),
+        );
       } else if (!response || response.body.status === "unverified") unknown++;
       else if (response.body.status === "skipped") skipped++;
     }
@@ -266,7 +277,18 @@ export function verificationEvidence(
               r.body.primary.trim() ||
               r.body.notes.trim() ||
               r.body.noTrade.trim() ||
-              r.body.structure.trim()
+              r.body.structure.trim() ||
+              (step.activity === "thesis" &&
+                [
+                  r.body.events,
+                  r.body.levels,
+                  r.body.liquidity,
+                  r.body.alternate,
+                  r.body.entries,
+                  r.body.invalidation,
+                  r.body.targets,
+                  ...r.body.screenshots,
+                ].some((value) => value.trim()))
             ) &&
             (step.verification === "daily-thesis"
               ? r.body.dayId === run.body.dayId && r.body.scope !== "weekly"
@@ -362,6 +384,21 @@ export function validateAppend(
     }
     if (row.kind === "response") {
       const run = get("run", row.body.runId);
+      const requirement = run.body.steps.find((s) => s.id === row.body.stepId);
+      if (row.body.status === "complete" && requirement) {
+        const message =
+          answerError(requirement, row.body.answers ?? []) ||
+          activityEvidenceError(records, run.body.dayId, requirement);
+        if (message) throw new Error(message);
+        if (
+          (requirement.activity === "thesis" ||
+            requirement.activity === "checkin") &&
+          !verificationEvidence(records, run, requirement.id, row.createdAt)
+        )
+          throw new Error(
+            "Save the supporting thesis or check-in before completing this section.",
+          );
+      }
       if (
         previous?.kind === "response" &&
         (previous.body.runId !== row.body.runId ||

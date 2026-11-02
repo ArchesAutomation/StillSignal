@@ -117,6 +117,11 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
       "skipped",
     );
     await submit("Complete & continue");
+    assert.match(error, /Save your trading thesis/);
+    (document.querySelector('[name="primary"]') as HTMLTextAreaElement).value =
+      "My weekly scenario";
+    await submit("Save thesis");
+    await submit("Complete & continue");
     await act(async () => root.unmount());
     const resumed = createRoot(document.getElementById("root")!);
     await act(async () =>
@@ -139,7 +144,7 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
     records.push(edited);
     const run = records.find((r) => r.kind === "run")!;
     if (run.kind !== "run") throw Error("missing run");
-    assert.equal(run.body.steps.length, 5);
+    assert.equal(run.body.steps.length, 7);
     sessionId = crypto.randomUUID(); // A new recording on the same day gets a fresh checklist.
     const fresh = createRoot(document.getElementById("root")!);
     await act(async () =>
@@ -152,4 +157,3 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
     dom.window.close();
   }
 });
-

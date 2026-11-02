@@ -6,6 +6,18 @@ import {
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
+import {
+  activities,
+  activityOf,
+  answerError,
+  activityEvidenceError,
+  cadences,
+  preparationResponse,
+  scheduledOn,
+} from "@/lib/process/preparation-workflow";
+import { verificationEvidence } from "@/lib/process/engine";
+import StepSettings from "./step-settings";
+import StepActivity from "./step-activity";
 import { Panel, Field, type Context } from "../command-center/shared";
 
 type Step = BodyOf<"protocol">["steps"][number];
@@ -14,32 +26,58 @@ const suggestions = [
     "Arrive & check in",
     "Pause and record your focus, energy and stress.",
     "checkin",
+    "checkin",
+    "session",
   ],
   [
     "Review the bigger picture",
-    "Review your weekly outlook and the conditions that matter today.",
+    "Create your weekly market outlook and the conditions that matter.",
     "weekly-thesis",
+    "thesis",
+    "weekly",
   ],
   [
     "Build today's trading plan",
-    "Define your scenarios, key levels, entries and invalidation.",
+    "Define scenarios, key levels, entries and invalidation.",
     "daily-thesis",
+    "thesis",
+    "daily",
   ],
   [
     "Set your risk boundaries",
-    "Confirm your position size, loss limit and when you will stop trading.",
+    "Define and check your personal non-negotiables before trading.",
     "manual",
+    "checklist",
+    "session",
   ],
   [
     "Review your process goal",
-    "Choose the habit you want to practice this session.",
+    "Create and review the missions you want to work on.",
     "manual",
+    "missions",
+    "daily",
+  ],
+  [
+    "Record my personal variables",
+    "Create and record the conditions that matter to your process.",
+    "manual",
+    "variables",
+    "daily",
+  ],
+  [
+    "Set my intentions",
+    "Decide how you want to show up for this session.",
+    "manual",
+    "intentions",
+    "daily",
   ],
 ] as const;
 function makeStep(
-  name = "My custom step",
+  name = "My custom section",
   description = "",
   verification: Step["verification"] = "manual",
+  activity: Step["activity"] = "custom",
+  cadence: Step["cadence"] = "session",
 ): Step {
   return {
     id: crypto.randomUUID(),
@@ -51,6 +89,28 @@ function makeStep(
     condition: "",
     window: "Before the first trade",
     order: 0,
+    activity,
+    cadence,
+    checklist:
+      activity === "checklist"
+        ? [
+            "Review my risk limits",
+            "Confirm my entry criteria",
+            "Check my no-trade conditions",
+          ]
+        : [],
+    prompts:
+      activity === "intentions"
+        ? [
+            {
+              id: crypto.randomUUID(),
+              label: "What does following my process look like?",
+              type: "text",
+              required: true,
+              choices: [],
+            },
+          ]
+        : [],
   };
 }
 function Setup({
@@ -60,22 +120,56 @@ function Setup({
 }: {
   context: Context;
   template?: RecordOf<"protocol">;
-  onClose: () => void;
+  onClose: (savedId?: string) => void;
 }) {
   const { store } = context;
   const [stage, setStage] = useState(0);
   const [name, setName] = useState(
     template?.body.name ?? "My pre-trading routine",
   );
+  const [profile, setProfile] = useState({
+    instrument: template?.body.instrument ?? "",
+    strategy: template?.body.strategy ?? "",
+    session: template?.body.session ?? "",
+  });
   const [steps, setSteps] = useState<Step[]>(
     () =>
-      template?.body.steps.map((s) => ({ ...s })) ??
-      suggestions.map(([n, d, v], order) => ({ ...makeStep(n, d, v), order })),
+      template?.body.steps.map((s) => {
+        const preset = suggestions.find(([name]) => name === s.name);
+        const defaults = preset
+          ? makeStep(...preset)
+          : makeStep(s.name, s.description, s.verification, activityOf(s));
+        return {
+          ...defaults,
+          ...s,
+          activity: s.activity ?? defaults.activity,
+          cadence: s.cadence ?? defaults.cadence,
+          checklist: s.checklist ?? defaults.checklist,
+          prompts: s.prompts ?? defaults.prompts,
+        };
+      }) ??
+      suggestions.map(([n, d, v, a, c], order) => ({
+        ...makeStep(n, d, v, a, c),
+        order,
+      })),
   );
+  const [expanded, setExpanded] = useState<string | undefined>(steps[0]?.id);
   const valid =
     name.trim().length > 0 &&
     steps.length > 0 &&
-    steps.every((s) => s.name.trim() && s.category.trim());
+    steps.every(
+      (s) =>
+        s.name.trim() &&
+        s.category.trim() &&
+        (s.cadence !== "weekdays" ||
+          (s.weekdays ?? [1, 2, 3, 4, 5]).length > 0) &&
+        (s.thesisFields === undefined || s.thesisFields.length > 0) &&
+        (s.prompts ?? []).every(
+          (p) =>
+            p.label.trim() &&
+            (p.type !== "choice" || p.choices.some((c) => c.trim())),
+        ),
+    );
   const update = (id: string, patch: Partial<Step>) =>
     setSteps((rows) => rows.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   function move(index: number, offset: number) {
@@ -117,22 +211,41 @@ function Setup({
               strategy: "",
               session: "",
             }),
+            ...profile,
             name: name.trim(),
-            steps: steps.map((s, order) => ({ ...s, order })),
+            steps: steps.map((s, order) => ({
+              ...s,
+              order,
+              weekdays: s.weekdays?.length ? s.weekdays : undefined,
+              checklist: s.checklist?.map((v) => v.trim()).filter(Boolean),
+              prompts: s.prompts?.map((p) => ({
+                ...p,
+                choices: p.choices.map((c) => c.trim()).filter(Boolean),
+              })),
+            })),
           };
-          if (await store.save([createRecord("protocol", body, template)]))
-            onClose();
+          const record = createRecord("protocol", body, template);
+          if (await store.save([record])) onClose(record.rootId);
         }}
       >
         {stage === 0 && (
           <>
             <h3>What helps you feel prepared?</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setSteps([]);
+                setStage(1);
+              }}
+            >
+              Start with a blank routine
+            </button>
             <p className="cc-muted">
               Start with these steps. Remove anything you do not need, or add
               your own.
             </p>
             <div className="prep-choices">
-              {suggestions.map(([n, d, v]) => {
+              {suggestions.map(([n, d, v, a, c]) => {
                 const selected = steps.some((s) => s.name === n);
                 return (
                   <button
@@ -143,7 +256,7 @@ function Setup({
                       setSteps((rows) =>
                         selected
                           ? rows.filter((s) => s.name !== n)
-                          : [...rows, makeStep(n, d, v)],
+                          : [...rows, makeStep(n, d, v, a, c)],
                       )
                     }
                   >
@@ -154,7 +267,10 @@ function Setup({
                 );
               })}
             </div>
-            <p>{steps.length} steps in your routine</p>
+            <p>
+              {steps.length} sections in your routine. Each section has its own
+              schedule and completion rules.
+            </p>
           </>
         )}
         {stage === 1 && (
@@ -167,80 +283,118 @@ function Setup({
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
+            <div className="cc-grid">
+              {(["instrument", "strategy", "session"] as const).map((key) => (
+                <Field key={key} label={key + " (optional)"}>
+                  <input
+                    maxLength={
+                      key === "instrument" ? 40 : key === "session" ? 80 : 160
+                    }
+                    value={profile[key]}
+                    onChange={(e) =>
+                      setProfile((p) => ({ ...p, [key]: e.target.value }))
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
             <p className="cc-muted">
               Arrange your steps in the order you want to follow them.
             </p>
             {steps.map((s, i) => (
               <fieldset className="prep-edit-step" key={s.id}>
-                <legend>Step {i + 1}</legend>
-                <Field label="Step name">
-                  <input
-                    required
-                    maxLength={160}
-                    value={s.name}
-                    onChange={(e) => update(s.id, { name: e.target.value })}
-                  />
-                </Field>
-                <Field label="Instructions for yourself">
-                  <textarea
-                    maxLength={8000}
-                    value={s.description}
-                    onChange={(e) =>
-                      update(s.id, { description: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Completion">
-                  <select
-                    value={s.requirement}
-                    onChange={(e) =>
-                      update(s.id, {
-                        requirement: e.target.value as Step["requirement"],
-                      })
-                    }
-                  >
-                    <option value="required">Required</option>
-                    <option value="optional">Optional</option>
-                    <option value="conditional">Only when applicable</option>
-                  </select>
-                </Field>
-                {s.requirement === "conditional" && (
-                  <Field label="When does this apply?">
-                    <input
-                      value={s.condition}
-                      maxLength={8000}
-                      onChange={(e) =>
-                        update(s.id, { condition: e.target.value })
-                      }
+                <legend>
+                  Section {i + 1} · {s.name} ·{" "}
+                  {cadences[s.cadence ?? "session"]}
+                </legend>
+                <button
+                  type="button"
+                  aria-expanded={expanded === s.id}
+                  onClick={() =>
+                    setExpanded(expanded === s.id ? undefined : s.id)
+                  }
+                >
+                  {expanded === s.id ? "Close section" : "Customize section"}
+                </button>
+                {expanded === s.id && (
+                  <>
+                    <Field label="Step name">
+                      <input
+                        required
+                        maxLength={160}
+                        value={s.name}
+                        onChange={(e) => update(s.id, { name: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Instructions for yourself">
+                      <textarea
+                        maxLength={8000}
+                        value={s.description}
+                        onChange={(e) =>
+                          update(s.id, { description: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Completion">
+                      <select
+                        value={s.requirement}
+                        onChange={(e) =>
+                          update(s.id, {
+                            requirement: e.target.value as Step["requirement"],
+                          })
+                        }
+                      >
+                        <option value="required">Required</option>
+                        <option value="optional">Optional</option>
+                        <option value="conditional">
+                          Only when applicable
+                        </option>
+                      </select>
+                    </Field>
+                    {s.requirement === "conditional" && (
+                      <Field label="When does this apply?">
+                        <input
+                          value={s.condition}
+                          maxLength={8000}
+                          onChange={(e) =>
+                            update(s.id, { condition: e.target.value })
+                          }
+                        />
+                      </Field>
+                    )}
+                    <StepSettings
+                      step={s}
+                      context={context}
+                      onChange={(patch) => update(s.id, patch)}
                     />
-                  </Field>
+                    <div className="cc-actions">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => move(i, -1)}
+                        aria-label={`Move ${s.name} up`}
+                      >
+                        ↑ Move up
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === steps.length - 1}
+                        onClick={() => move(i, 1)}
+                        aria-label={`Move ${s.name} down`}
+                      >
+                        ↓ Move down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSteps((rows) => rows.filter((r) => r.id !== s.id))
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
                 )}
-                <div className="cc-actions">
-                  <button
-                    type="button"
-                    disabled={i === 0}
-                    onClick={() => move(i, -1)}
-                    aria-label={`Move ${s.name} up`}
-                  >
-                    ↑ Move up
-                  </button>
-                  <button
-                    type="button"
-                    disabled={i === steps.length - 1}
-                    onClick={() => move(i, 1)}
-                    aria-label={`Move ${s.name} down`}
-                  >
-                    ↓ Move down
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSteps((rows) => rows.filter((r) => r.id !== s.id))
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
               </fieldset>
             ))}
           </div>
@@ -251,7 +405,9 @@ function Setup({
             type="button"
             disabled={steps.length >= 100}
             onClick={() => {
-              setSteps((rows) => [...rows, makeStep()]);
+              const section = makeStep();
+              setSteps((rows) => [...rows, section]);
+              setExpanded(section.id);
               setStage(1);
             }}
           >
@@ -263,7 +419,8 @@ function Setup({
             <h3>{name}</h3>
             <p className="cc-muted">
               Saved for future sessions. Each day gets a fresh checklist; your
-              previous preparation stays intact.
+              previous preparation stays intact. Weekly and monthly sections
+              reuse their saved completion for that calendar period.
             </p>
             <ol className="prep-review">
               {steps.map((s) => (
@@ -283,7 +440,7 @@ function Setup({
               stage
                 ? () => setStage(stage - 1)
                 : template
-                  ? onClose
+                  ? () => onClose()
                   : () => context.props.onPage("Command Center")
             }
           >
@@ -306,15 +463,31 @@ function Setup({
   );
 }
 function Run({ context, run }: { context: Context; run: RecordOf<"run"> }) {
-  const { store, props } = context;
+  const { store, props, day } = context;
+  const source = store.records.find(
+    (r): r is RecordOf<"protocol"> =>
+      r.kind === "protocol" && r.id === run.body.templateId,
+  );
+  const activityContext = {
+    ...context,
+    day: {
+      ...day,
+      body: {
+        ...day.body,
+        instrument: source?.body.instrument || day.body.instrument,
+      },
+    },
+  };
   const responses = latest(store.records, "response");
-  const responseFor = (id: string) =>
+  const ownResponse = (id: string) =>
     responses
       .filter((r) => r.body.runId === run.id && r.body.stepId === id)
       .sort((a, b) => b.createdAt - a.createdAt)[0];
+  const responseFor = (s: Step) => preparationResponse(store.records, run, s);
   const resolved = (s: Step) => {
-    const status = responseFor(s.id)?.body.status;
+    const status = responseFor(s)?.body.status;
     return (
+      !scheduledOn(s, day.body.date) ||
       status === "complete" ||
       status === "not-applicable" ||
       (s.requirement === "optional" && status === "skipped")
@@ -328,17 +501,17 @@ function Run({ context, run }: { context: Context; run: RecordOf<"run"> }) {
     heading.current?.focus();
   }, [current?.id]);
   const completed = run.body.steps.length - remaining.length;
-  const response = current ? responseFor(current.id) : undefined;
-  const page =
-    current?.verification === "checkin"
-      ? "Command Center"
-      : current?.verification.includes("thesis")
-        ? "Trading Thesis"
-        : undefined;
+  const response = current ? responseFor(current) : undefined;
+  const own = current ? ownResponse(current.id) : undefined;
+  const carried = response && response.body.runId !== run.id;
+  const values = new Map(
+    response?.body.answers?.map((a) => [a.id, a.value]) ?? [],
+  );
+  const due = current ? scheduledOn(current, day.body.date) : false;
   return (
     <Panel
       title="Your pre-trading walkthrough"
-      detail={`${completed} of ${run.body.steps.length} steps resolved · progress saved as you go`}
+      detail={`${completed} of ${run.body.steps.length} sections resolved · progress saved as you go`}
     >
       <progress
         className="prep-progress"
@@ -349,136 +522,286 @@ function Run({ context, run }: { context: Context; run: RecordOf<"run"> }) {
       <div className="prep-run">
         <nav aria-label="Routine steps">
           <ol>
-            {run.body.steps.map((s, i) => (
-              <li key={s.id}>
-                <button
-                  aria-current={current?.id === s.id ? "step" : undefined}
-                  onClick={() => setSelected(s.id)}
-                >
-                  <span>{resolved(s) ? "✓" : i + 1}</span>
-                  <span>
-                    {s.name}
-                    <small>
-                      {responseFor(s.id)?.body.status.replaceAll("-", " ") ??
-                        s.requirement}
-                    </small>
-                  </span>
-                </button>
-              </li>
-            ))}
+            {run.body.steps.map((s, i) => {
+              const response = responseFor(s);
+              const reused = response && response.body.runId !== run.id;
+              return (
+                <li key={s.id}>
+                  <button
+                    aria-current={current?.id === s.id ? "step" : undefined}
+                    onClick={() => setSelected(s.id)}
+                  >
+                    <span>{resolved(s) ? "✓" : i + 1}</span>
+                    <span>
+                      {s.name}
+                      <small>
+                        {!scheduledOn(s, day.body.date)
+                          ? "Not scheduled today"
+                          : reused
+                            ? "Already completed this period"
+                            : (response?.body.status.replaceAll("-", " ") ??
+                              s.requirement)}{" "}
+                        · {cadences[s.cadence ?? "session"]}
+                      </small>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ol>
         </nav>
         {current ? (
-          <form
-            key={current.id + (response?.id ?? "")}
-            className="prep-focus"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const data = new FormData(
-                e.currentTarget,
-                (e.nativeEvent as SubmitEvent).submitter,
-              );
-              const status =
-                data.get("action") === "skip"
-                  ? "skipped"
-                  : data.get("action") === "na"
-                    ? "not-applicable"
-                    : "complete";
-              if (
-                status !== "complete" &&
-                !String(data.get("note") ?? "").trim()
-              ) {
-                store.setError(
-                  "Add a note explaining why this step is skipped or does not apply.",
-                );
-                return;
-              }
-              if (
-                await store.save([
-                  createRecord(
-                    "response",
-                    {
-                      runId: run.id,
-                      stepId: current.id,
-                      status,
-                      method: "manual",
-                      reason: String(data.get("note") ?? ""),
-                      completedAt:
-                        status === "complete" ? Date.now() : undefined,
-                    },
-                    response,
-                  ),
-                ])
-              )
-                setSelected(null);
-            }}
-          >
+          <section className="prep-focus" key={current.id}>
             <span className="cc-eyebrow">
-              Step {run.body.steps.indexOf(current) + 1} · {current.requirement}
+              Section {run.body.steps.indexOf(current) + 1} ·{" "}
+              {activities[activityOf(current)][0]} ·{" "}
+              {cadences[current.cadence ?? "session"]}
             </span>
             <h3 ref={heading} tabIndex={-1}>
               {current.name}
             </h3>
             <p>
               {current.description ||
-                "Take a moment to complete this step before moving on."}
+                "Complete the work that helps you prepare for this session."}
             </p>
             {current.condition && (
               <p className="cc-muted">Applies when: {current.condition}</p>
             )}
-            {page && (
-              <button type="button" onClick={() => props.onPage(page)}>
-                Open {page === "Trading Thesis" ? "trading thesis" : "check-in"}{" "}
-                ↗
-              </button>
+            {carried && (
+              <p className="prep-carried" role="status">
+                Already completed for this period on{" "}
+                {new Date(response.body.completedAt!).toLocaleString()}. Your
+                saved work is shown below. You can revise it and record a new
+                completion.
+              </p>
             )}
-            <Field label="Notes (required when skipping or excluding a step)">
-              <textarea
-                name="note"
-                maxLength={8000}
-                defaultValue={response?.body.reason ?? ""}
-                placeholder="Anything you want to carry into this session…"
-              />
-            </Field>
-            <div className="cc-actions">
-              <button
-                type="submit"
-                name="action"
-                value="complete"
-                className="cc-primary"
-                disabled={store.busy}
-              >
-                Complete & continue →
-              </button>
-              {current.requirement === "optional" && (
-                <button
-                  type="submit"
-                  name="action"
-                  value="skip"
-                  disabled={store.busy}
+            {!due ? (
+              <p>
+                This section is not scheduled for {day.body.date}. It stays in
+                your routine and becomes due on your selected weekdays.
+              </p>
+            ) : (
+              <>
+                <StepActivity context={activityContext} step={current} />
+                <form
+                  className="prep-completion cc-stack"
+                  key={current.id + (own?.id ?? "")}
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const f = new FormData(
+                      e.currentTarget,
+                      (e.nativeEvent as SubmitEvent).submitter,
+                    );
+                    const status =
+                      f.get("action") === "skip"
+                        ? "skipped"
+                        : f.get("action") === "na"
+                          ? "not-applicable"
+                          : "complete";
+                    const answers = [
+                      ...(current.checklist ?? []).map((_, i) => ({
+                        id: "check-" + i,
+                        value: f.get("check-" + i) === "yes" ? "yes" : "no",
+                      })),
+                      ...(current.prompts ?? []).map((p) => ({
+                        id: p.id,
+                        value: String(f.get(p.id) ?? ""),
+                      })),
+                    ];
+                    if (
+                      status !== "complete" &&
+                      !String(f.get("note") ?? "").trim()
+                    ) {
+                      store.setError(
+                        "Add a note explaining why this step is skipped or does not apply.",
+                      );
+                      return;
+                    }
+                    if (status === "complete") {
+                      const issue =
+                        answerError(current, answers) ||
+                        activityEvidenceError(
+                          store.records,
+                          day.rootId,
+                          current,
+                        );
+                      if (issue) {
+                        store.setError(issue);
+                        return;
+                      }
+                      if (
+                        (current.activity === "thesis" ||
+                          current.activity === "checkin") &&
+                        !verificationEvidence(
+                          store.records,
+                          run,
+                          current.id,
+                          Date.now(),
+                        )
+                      ) {
+                        store.setError(
+                          "Save your " +
+                            (current.activity === "thesis"
+                              ? "trading thesis"
+                              : "check-in") +
+                            " in this section before completing it.",
+                        );
+                        return;
+                      }
+                    }
+                    const batch = [
+                      createRecord(
+                        "response",
+                        {
+                          runId: run.id,
+                          stepId: current.id,
+                          status,
+                          method: "manual",
+                          reason: String(f.get("note") ?? ""),
+                          answers,
+                          completedAt:
+                            status === "complete" ? Date.now() : undefined,
+                        },
+                        own,
+                      ),
+                    ];
+                    const intention = answers
+                      .find((a) =>
+                        current.prompts?.some(
+                          (p) => p.id === a.id && p.type === "text",
+                        ),
+                      )
+                      ?.value.trim();
+                    const currentDay =
+                      latest(store.records, "day").find(
+                        (d) => d.rootId === day.rootId,
+                      ) ?? day;
+                    const updates =
+                      status === "complete" &&
+                      current.activity === "intentions" &&
+                      !["weekly", "monthly"].includes(current.cadence ?? "") &&
+                      intention
+                        ? [
+                            createRecord(
+                              "day",
+                              { ...currentDay.body, goal: intention },
+                              currentDay,
+                            ),
+                            ...batch,
+                          ]
+                        : batch;
+                    if (await store.save(updates)) setSelected(null);
+                  }}
                 >
-                  Skip this step
-                </button>
-              )}
-              {current.requirement === "conditional" && (
-                <button
-                  type="submit"
-                  name="action"
-                  value="na"
-                  disabled={store.busy}
-                >
-                  Does not apply today
-                </button>
-              )}
-            </div>
-          </form>
+                  {!!current.checklist?.length && (
+                    <fieldset className="prep-personal-checks">
+                      <legend>My non-negotiables</legend>
+                      {current.checklist.map((label, i) => (
+                        <label key={i}>
+                          <input
+                            type="checkbox"
+                            name={"check-" + i}
+                            value="yes"
+                            defaultChecked={values.get("check-" + i) === "yes"}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+                  {(current.prompts ?? []).map((prompt) => (
+                    <Field
+                      key={prompt.id}
+                      label={
+                        prompt.label + (prompt.required ? " *" : " (optional)")
+                      }
+                    >
+                      {prompt.type === "text" ? (
+                        <textarea
+                          name={prompt.id}
+                          maxLength={8000}
+                          required={prompt.required}
+                          defaultValue={values.get(prompt.id) ?? ""}
+                        />
+                      ) : prompt.type === "number" ? (
+                        <input
+                          name={prompt.id}
+                          type="number"
+                          step="any"
+                          required={prompt.required}
+                          defaultValue={values.get(prompt.id) ?? ""}
+                        />
+                      ) : (
+                        <select
+                          name={prompt.id}
+                          required={prompt.required}
+                          defaultValue={values.get(prompt.id) ?? ""}
+                        >
+                          <option value="">Choose an answer</option>
+                          {(prompt.type === "boolean"
+                            ? ["yes", "no"]
+                            : prompt.choices
+                          ).map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </Field>
+                  ))}
+                  <Field label="Notes (required when skipping or excluding a step)">
+                    <textarea
+                      name="note"
+                      maxLength={8000}
+                      defaultValue={response?.body.reason ?? ""}
+                      placeholder="Anything you want to carry into this session…"
+                    />
+                  </Field>
+                  <div className="cc-actions">
+                    <button
+                      type="submit"
+                      name="action"
+                      value="complete"
+                      className="cc-primary"
+                      disabled={store.busy}
+                    >
+                      Complete & continue →
+                    </button>
+                    {current.requirement === "optional" && (
+                      <button
+                        type="submit"
+                        formNoValidate
+                        name="action"
+                        value="skip"
+                        disabled={store.busy}
+                      >
+                        Skip this step
+                      </button>
+                    )}
+                    {current.requirement === "conditional" && (
+                      <button
+                        type="submit"
+                        formNoValidate
+                        name="action"
+                        value="na"
+                        disabled={store.busy}
+                      >
+                        Does not apply today
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </>
+            )}
+          </section>
         ) : (
           <div className="prep-focus" role="status">
             <span className="cc-eyebrow">Preparation complete</span>
             <h3>Your routine is checked off.</h3>
             <p>
-              Your preparation is saved. You can revisit any step or continue to
-              your session.
+              Today's required work is saved. Weekly and monthly work stays
+              available until its next period.
             </p>
             <button
               className="cc-primary"
@@ -504,6 +827,7 @@ export default function GuidedPreparation(context: Context) {
   );
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState("");
+  const [creating, setCreating] = useState(false);
   const previousRun = latest(store.records, "run").sort(
     (a, b) => b.createdAt - a.createdAt,
   )[0];
@@ -517,10 +841,14 @@ export default function GuidedPreparation(context: Context) {
   if (editing || !templates.length)
     return (
       <Setup
-        key={template?.id ?? "new"}
+        key={creating ? "new" : (template?.id ?? "new")}
         context={context}
-        template={template}
-        onClose={() => setEditing(false)}
+        template={creating ? undefined : template}
+        onClose={(savedId) => {
+          if (savedId) setSelected(savedId);
+          setEditing(false);
+          setCreating(false);
+        }}
       />
     );
   return (
@@ -529,9 +857,26 @@ export default function GuidedPreparation(context: Context) {
         title="Prepare with intention"
         detail="Your routine. One clear step at a time."
         action={
-          <button disabled={store.busy} onClick={() => setEditing(true)}>
-            Edit my routine
-          </button>
+          <div className="cc-actions">
+            <button
+              disabled={store.busy}
+              onClick={() => {
+                setCreating(false);
+                setEditing(true);
+              }}
+            >
+              Edit my routine
+            </button>
+            <button
+              disabled={store.busy}
+              onClick={() => {
+                setCreating(true);
+                setEditing(true);
+              }}
+            >
+              + New routine
+            </button>
+          </div>
         }
       >
         {!runs.length ? (
@@ -552,9 +897,21 @@ export default function GuidedPreparation(context: Context) {
                 ))}
               </select>
             </Field>
+            <p className="cc-muted">
+              {[
+                template.body.instrument,
+                template.body.strategy,
+                template.body.session,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
             <ol className="prep-preview">
               {template.body.steps.map((s) => (
-                <li key={s.id}>{s.name}</li>
+                <li key={s.id}>
+                  {s.name}
+                  <small>{cadences[s.cadence ?? "session"]}</small>
+                </li>
               ))}
             </ol>
             <button
