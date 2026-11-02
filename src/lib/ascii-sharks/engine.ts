@@ -1,5 +1,6 @@
 import { AsciiRenderer } from "./renderer";
 import { World, type SharkSpec } from "./world";
+import type { ReadingArea } from "./avoidance";
 
 const STEP = 1 / 60;
 const MAX_STEPS = 4;
@@ -19,6 +20,12 @@ export class OceanEngine {
   private resizeObserver: ResizeObserver;
   private intersectionObserver: IntersectionObserver;
   private disposed = false;
+
+  setReadingAreas(areas: ReadingArea[]) {
+    this.world.readingAreas = areas;
+    this.world.placeSharks();
+    if (this.reducedMotion.matches) this.drawStill();
+  }
 
   constructor(private canvas: HTMLCanvasElement, sharks?: SharkSpec[]) {
     this.world = new World(sharks);

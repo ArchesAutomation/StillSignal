@@ -15,6 +15,7 @@
  */
 import { angleDiff, clamp, current, rand, randInt, TAU } from "./math";
 import { pickSpecies, SPECIES } from "./species";
+import { escapeReadingArea, overlapsReadingArea, type ReadingArea } from "./avoidance";
 
 export const SHARK_NODES = 20;
 
@@ -86,6 +87,38 @@ const FISH_FLEE_K = 1100;
 const BLIND_COS = -0.6; // ~127° either side of the heading is visible
 
 export class World {
+  readingAreas: ReadingArea[] = [];
+
+  /** Find open water after first layout or a responsive reflow. */
+  placeSharks() {
+    for (const shark of this.sharks) {
+      const { nodes, length } = shark;
+      const margin = length * .3 + 14;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let k = 0; k < nodes.length; k += 2) {
+        minX = Math.min(minX, nodes[k]); maxX = Math.max(maxX, nodes[k]);
+        minY = Math.min(minY, nodes[k + 1]); maxY = Math.max(maxY, nodes[k + 1]);
+      }
+      if (!overlapsReadingArea(nodes, length, this.readingAreas) &&
+          minX >= 0 && maxX <= this.width && minY >= 0 && maxY <= this.height) continue;
+      let best: Float32Array | null = null, score = Infinity;
+      const candidate = new Float32Array(nodes.length);
+      for (let y = margin; y <= this.height - (maxY - minY) - margin; y += 24) {
+        for (let x = margin; x <= this.width - (maxX - minX) - margin; x += 24) {
+          const dx = x - minX, dy = y - minY;
+          const distance = dx * dx + dy * dy;
+          if (distance >= score) continue;
+          for (let k = 0; k < nodes.length; k += 2) {
+            candidate[k] = nodes[k] + dx; candidate[k + 1] = nodes[k + 1] + dy;
+          }
+          if (!overlapsReadingArea(candidate, length, this.readingAreas)) {
+            best = candidate.slice(); score = distance;
+          }
+        }
+      }
+      if (best) nodes.set(best);
+    }
+  }
   width = 0;
   height = 0;
   time = 0;
@@ -524,15 +557,21 @@ export class World {
         }
       }
 
-      // Keep the headline mostly clear: a soft elliptical no-swim zone.
-      const ex = (hx - cxW) / (W * 0.3);
-      const ey = (hy - cyW) / (H * 0.16);
-      const e2 = ex * ex + ey * ey;
-      if (e2 < 1) {
-        const e = Math.sqrt(e2) || 1e-3;
-        const w = (1 - e) * (hunting ? 1 : 2.5);
-        dx += (ex / e) * w;
-        dy += (ey / e) * w;
+      // Look ahead and turn around the actual text, wherever layout places it.
+      let avoiding = false;
+      for (const area of this.readingAreas) {
+        const ahead = L * .6;
+        const escape = escapeReadingArea(
+          hx + Math.cos(sh.heading) * ahead,
+          hy + Math.sin(sh.heading) * ahead, area, L * .3 + 30,
+        );
+        if (escape) {
+          const d = Math.hypot(escape.x, escape.y) || 1;
+          dx += escape.x / d * 16;
+          dy += escape.y / d * 16;
+          avoiding = true;
+          sh.target = null;
+        }
       }
 
       // Turn back once the snout leaves the frame, so bodies dip off-screen
@@ -549,7 +588,7 @@ export class World {
 
       const desired = Math.atan2(dy, dx);
       // Sharks can't pivot on the spot: the turning circle grows with speed.
-      const agility = Math.min(hunting ? 1.7 + closing : 0.8, sh.speed / (L * 0.22));
+      const agility = avoiding ? 2.8 : Math.min(hunting ? 1.7 + closing : 0.8, sh.speed / (L * 0.22));
       const maxTurn = agility * dt;
       const turned = clamp(angleDiff(sh.heading, desired), -maxTurn, maxTurn);
       sh.heading += turned;
@@ -576,6 +615,24 @@ export class World {
         nodes[k * 2] = px + Math.cos(angle) * seg;
         nodes[k * 2 + 1] = py + Math.sin(angle) * seg;
         prevAngle = angle;
+      }
+
+      // Initial placement and layout changes can land a body inside text.
+      // Move the whole spine together so its shape stays intact.
+      for (let pass = 0; pass < 12; pass++) {
+        let moved = false;
+        for (const area of this.readingAreas) {
+          for (let k = 0; k < nodes.length; k += 2) {
+            const escape = escapeReadingArea(nodes[k], nodes[k + 1], area, L * .3 + 14);
+            if (!escape) continue;
+            for (let n = 0; n < nodes.length; n += 2) {
+              nodes[n] += escape.x;
+              nodes[n + 1] += escape.y;
+            }
+            moved = true;
+          }
+        }
+        if (!moved) break;
       }
 
       // Feed.

@@ -7,6 +7,7 @@
  *      shaded by the light, dense glyphs, and shimmering accent colours
  */
 import { clamp, hash3, smoothstep } from "./math";
+import { overlapsReadingArea } from "./avoidance";
 import { SHARK_NODES, type Shark, type SharkKind, type World } from "./world";
 
 const ALPHA_LEVELS = 6;
@@ -250,7 +251,7 @@ function inTriangle(
 /** Visible dark-grey cell grid, snapped to device pixels. Shared with the sidebar backdrop. */
 export function paintGrid(g: CanvasRenderingContext2D, W: number, H: number, cw: number, ch: number, dpr: number) {
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.strokeStyle = "rgba(255,255,255,0.055)";
+  g.strokeStyle = "rgba(255,255,255,0.025)";
   g.lineWidth = 1;
   g.beginPath();
   for (let c = 0; c <= Math.ceil(W / cw); c++) {
@@ -395,7 +396,7 @@ export class AsciiRenderer {
     if (!g) return;
     const { width: W, height: H, dpr, cw, ch } = this;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = "#000";
+    g.fillStyle = "#080c0e";
     g.fillRect(0, 0, W, H);
     paintGrid(g, W, H, cw, ch, dpr);
   }
@@ -406,7 +407,9 @@ export class AsciiRenderer {
     const t = world.time;
 
     this.consumeEvents(world);
-    this.rasterizeSharks(world.sharks, t);
+    // Never paint a shark over copy, including on the first frame after reflow.
+    this.rasterizeSharks(world.sharks.filter(sh =>
+      !overlapsReadingArea(sh.nodes, sh.length, world.readingAreas)), t);
     this.depositWake(world);
     this.diffuse(dt);
 

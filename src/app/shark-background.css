@@ -4,59 +4,54 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  background: #080c0e;
 }
-.shark-background .shark-lane {
-  position: absolute;
+.shark-background canvas {
   display: block;
   width: 100%;
-  height: 140px;
-  opacity: .52;
+  height: 100%;
+  opacity: .8;
   font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
-  mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
 }
-.shark-lane-top { top: 88px; }
-.shark-lane-bottom { bottom: 12px; }
 .auth-page {
   position: relative;
   isolation: isolate;
-  padding-bottom: 180px;
+  max-width: none;
 }
 .auth-page > .auth-brand,
 .auth-page > .auth-layout {
   position: relative;
   z-index: 1;
 }
-.auth-page > .auth-layout {
-  margin-top: 180px;
-  min-height: 0;
+.auth-page > .auth-brand {
+  max-width: 1150px;
+  margin-inline: auto;
 }
-.auth-story .auth-footnote {
-  margin-top: 12px;
+.auth-page .auth-story {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
-.auth-story .auth-features {
-  margin-top: 22px;
-}
-.auth-page .auth-card {
-  background: #10191b;
-}
+.auth-story .auth-footnote { margin-top: 12px; }
+.auth-story .auth-features { margin-top: 22px; }
+.auth-page .auth-card { background: #10191b; }
 .stillness-canvas {
   isolation: isolate;
   overflow: hidden;
-  border-radius: 18px;
-  padding-top: 170px;
-  padding-bottom: 170px;
+  border-radius: 0;
 }
 .stillness-canvas > :not(.shark-background) {
   position: relative;
   z-index: 1;
 }
-.shark-background-quiet .shark-lane { opacity: .32; }
-.shark-background-quiet .shark-lane-top { top: 10px; }
+.stillness-canvas .notice-card,
+.stillness-canvas .return-card {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.shark-background-quiet canvas { opacity: .65; }
 @media (max-width: 640px) {
-  .auth-page { padding-bottom: 155px; }
-  .auth-page > .auth-layout { margin-top: 155px; }
-  .shark-background .shark-lane { height: 120px; opacity: .42; }
-  .shark-lane-top { top: 72px; }
-  .shark-background-quiet .shark-lane { opacity: .28; }
-  .stillness-canvas { padding-top: 145px; padding-bottom: 145px; }
+  .shark-background canvas { opacity: .7; }
+  .shark-background-quiet canvas { opacity: .6; }
 }
