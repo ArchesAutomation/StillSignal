@@ -208,6 +208,7 @@ export const recordSchema = z
         .object({
           dayId: id,
           templateId: id,
+          sessionId: id.optional(),
           steps: z.array(requirementSchema).min(1).max(100),
           startedAt: timestamp,
         })

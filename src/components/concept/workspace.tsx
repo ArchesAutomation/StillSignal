@@ -141,6 +141,10 @@ export default function ConceptWorkspace(props: Props) {
       p.setError(e instanceof Error ? e.message : "Please try again.");
     }
   }
+  async function startPreparedSession() {
+    await p.start();
+    props.onPage("Pre-Market");
+  }
   const go = (next: Page) => {
     setWeekly(false);
     if (next !== "Journal") setFocusTime(undefined);
@@ -413,7 +417,7 @@ export default function ConceptWorkspace(props: Props) {
             ) : page === "Command Center" ? (
               <button
                 className={cx("primary")}
-                onClick={() => void act(p.active ? p.stop : p.start)}
+                onClick={() => void act(p.active ? p.stop : startPreparedSession)}
               >
                 {p.active ? "End session" : "Start session"}
               </button>
@@ -534,12 +538,13 @@ export default function ConceptWorkspace(props: Props) {
             <section className={cx("hero")}>
               <div>
                 <div className={cx("eyebrow")}>Before the market</div>
-                <h1>Choose your intentions.</h1>
+                <h1>Prepare with intention.</h1>
                 <p>A few commitments to come back to. Yours to define.</p>
               </div>
+              <button className={cx("primary")} onClick={() => props.onPage("Pre-Market")}>Open guided routine →</button>
               <button
                 className={cx("primary")}
-                onClick={() => void act(p.active ? p.stop : p.start)}
+                onClick={() => void act(p.active ? p.stop : startPreparedSession)}
               >
                 {p.active ? "End session" : "Start session"}
               </button>
@@ -614,7 +619,7 @@ export default function ConceptWorkspace(props: Props) {
                           await p.stop();
                           if (p.settings.startWithStillness !== false)
                             go("Stillness");
-                        } else await p.start();
+                        } else await startPreparedSession();
                       }, p.active)
                     }
                   >
@@ -727,7 +732,7 @@ export default function ConceptWorkspace(props: Props) {
                 </button>
                 <button
                   className={cx("ghost")}
-                  onClick={() => void act(p.active ? p.stop : p.start)}
+                  onClick={() => void act(p.active ? p.stop : startPreparedSession)}
                 >
                   {p.active ? "End session" : "Start session"}
                 </button>
