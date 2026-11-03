@@ -3,6 +3,8 @@ import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
+import PostExitInvitation from "../post-exit-invitation";
+import SavedStillness from "../saved-stillness";
 import CapturePanel from "./capture-panel";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { cx, type Page, type Props } from "./shared";
@@ -508,6 +510,7 @@ export default function ConceptWorkspace(props: Props) {
             </button>
           </div>
         )}
+        <PostExitInvitation props={viewProps} />
         {<ProcessWorkspace key={p.owner} {...viewProps} />}
         {(page === "Overview" || page === "Journal") && (
           <WeeklyReminder
@@ -776,6 +779,7 @@ export default function ConceptWorkspace(props: Props) {
           </>
         )}
         <ModuleScope active={page === "Stillness"}><div hidden={page !== "Stillness"}>
+          <WorkspaceModule id="personal-stillness" title="My stillness routine"><SavedStillness props={viewProps} /></WorkspaceModule>
           <WorkspaceModule id="stillness" title="Stillness practice" parts={[{id:"breathing",title:"Breathing guide",selector:".ss-breathing-square"},{id:"presets",title:"Practice choices",selector:".ss-reset-modules"}]}><SessionReset
             key={s.id}
             active={page === "Stillness"}

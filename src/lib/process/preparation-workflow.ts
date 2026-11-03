@@ -136,14 +136,15 @@ export function preparationResponse(
 export function answerError(
   step: PreparationStep,
   answers: NonNullable<BodyOf<"response">["answers"]>,
+  skippedPromptIds: string[] = [],
 ) {
   const values = new Map(answers.map((a) => [a.id, a.value]));
   for (const [index, label] of (step.checklist ?? []).entries())
-    if (values.get("check-" + index) !== "yes")
+    if (step.checklistMode !== "reminder" && values.get("check-" + index) !== "yes")
       return `Check “${label}” before completing this section.`;
   for (const prompt of step.prompts ?? []) {
     const value = values.get(prompt.id)?.trim() ?? "";
-    if (prompt.required && !value)
+    if (prompt.required && !value && !(step.allowReflectionSkip && skippedPromptIds.includes(prompt.id)))
       return `Answer “${prompt.label}” before completing this section.`;
     if (!value) continue;
     if (prompt.type === "number" && !Number.isFinite(Number(value)))

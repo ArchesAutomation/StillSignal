@@ -69,11 +69,13 @@ export function WorkspaceModule({ id, title, section = "main", order = 10, width
     {ctx.editing && options && <fieldset className="ss-module-options" disabled={ctx.dragging}>
       <legend>Customize {title}</legend>
       <label>Module title<input maxLength={80} value={placement.title ?? title} onChange={event => ctx.change(id, { title: event.target.value })} /></label>
-      <label>Width<input aria-label={`Width for ${title}`} type="number" min={180} max={1200} value={placement.box?.w ?? placement.width * 100} onChange={event => ctx.change(id, { box: boundModuleBox({ ...(placement.box ?? {x:0,y:0,w:384,h:300}), w: +event.target.value }) })} /></label>
+      <label><input type="checkbox" checked={placement.heightMode === "fixed"} onChange={event => ctx.change(id, { heightMode: event.target.checked ? "fixed" : "auto" })} /> Keep a fixed height (otherwise fit content)</label>
+      <details><summary>Advanced placement & spacing</summary><label>Width<input aria-label={`Width for ${title}`} type="number" min={180} max={1200} value={placement.box?.w ?? placement.width * 100} onChange={event => ctx.change(id, { box: boundModuleBox({ ...(placement.box ?? {x:0,y:0,w:384,h:300}), w: +event.target.value }) })} /></label>
       <label>Horizontal position<input aria-label={`Horizontal position for ${title}`} type="number" min={0} max={1200} value={placement.box?.x ?? 0} onChange={event => ctx.change(id, { box: boundModuleBox({ ...(placement.box ?? {x:0,y:0,w:384,h:300}), x: +event.target.value }) })} /></label>
       <label>Vertical position<input aria-label={`Vertical position for ${title}`} type="number" min={0} max={50000} value={placement.box?.y ?? 0} onChange={event => ctx.change(id, { box: boundModuleBox({ ...(placement.box ?? {x:0,y:0,w:384,h:300}), y: +event.target.value }) })} /></label>
       <label>Height<input aria-label={`Height for ${title}`} type="number" min={120} max={2400} value={placement.height ?? placement.box?.h ?? 300} onChange={event => { if (event.target.value) ctx.change(id, { box: boundModuleBox({ ...(placement.box ?? {x:0,y:0,w:384,h:300}), h: +event.target.value }) }); }} /></label>
       <label><input type="checkbox" checked={placement.compact ?? false} onChange={event => ctx.change(id, { compact: event.target.checked })} /> Compact spacing</label>
+      </details>
       {!!parts.length && <div className="ss-module-parts"><strong>Inside this module</strong>{parts.map(part => <label key={part.id}><input type="checkbox" checked={!placement.hiddenParts?.includes(part.id)} onChange={event => ctx.change(id, { hiddenParts: event.target.checked ? placement.hiddenParts?.filter(value => value !== part.id) : [...(placement.hiddenParts || []), part.id] })} />{part.title}</label>)}</div>}
       <button type="button" onClick={() => setOptions(false)}>Done</button>
     </fieldset>}
@@ -141,8 +143,8 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
     ordered.forEach((module, index) => {
       if (board.children[index] !== module.host) board.insertBefore(module.host, board.children[index] ?? null);
       const box = boxes[module.id], raw = modulePlacement(current, module); if (!box) return;
-      Object.assign(module.host.style, { left: box.x / 12 + "%", top: box.y + "px", width: box.w / 12 + "%", height: raw.box || raw.height ? box.h + "px" : "" });
-      module.host.classList.toggle("ss-module-sized", !!raw.box || !!raw.height);
+      Object.assign(module.host.style, { left: box.x / 12 + "%", top: box.y + "px", width: box.w / 12 + "%", height: raw.heightMode === "fixed" ? box.h + "px" : "" });
+      module.host.classList.toggle("ss-module-sized", raw.heightMode === "fixed");
     });
     for (const module of modules) if (modulePlacement(current, module).hidden && module.host.parentElement !== parking.current) parking.current?.appendChild(module.host);
     if (active?.isConnected && doc.activeElement !== active && !active.closest("[hidden],[inert]")) {
@@ -166,7 +168,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
         const next = { ...old }; let changed = false;
         for (const entry of entries) {
           const host = entry.target as HTMLElement, id = host.dataset.moduleId;
-          if (!id || latest.current.current.modules[id]?.box || latest.current.current.modules[id]?.height) continue;
+          if (!id || latest.current.current.modules[id]?.heightMode === "fixed") continue;
           const height = Math.ceil(host.getBoundingClientRect().height);
           if (height > 0 && next[id] !== height) { next[id] = height; changed = true; }
         }
@@ -259,7 +261,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
     return () => { cancelGesture(); view.removeEventListener("pointermove", move); view.removeEventListener("pointerup", up); view.removeEventListener("pointercancel", cancel); view.removeEventListener("blur", cancel); view.removeEventListener("keydown", key); };
   }, [surfaceWindow]);
   const context: Registry = { createHost: () => surface().document.createElement("div"), register, editing, placement, change, dragging, drag: (event, id) => startGesture(event, id, "move"), resize: (event, id) => startGesture(event, id, "resize"), resizeKey: (id, key) => moveKey(id, key, true), moveKey: (id, key, large) => moveKey(id, key, false, large) };
-  const boardHeight = Math.max(800, ...Object.values(boxes).map(b => b.y + b.h + (editing ? 600 : 24)));
+  const boardHeight = Math.max(editing ? 800 : 120, ...Object.values(boxes).map(b => b.y + b.h + (editing ? 600 : 24)));
   function createCustom() {
     const id = "custom-" + crypto.randomUUID(), value = resolved(), box = availableModuleBox(boxes, viewportTop());
     value.custom = [...(value.custom ?? []), { id, title: "My module", text: "" }];
@@ -285,9 +287,9 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
       <p>Pick up a module and drop it anywhere on your board.</p>
       <input aria-label="Search modules" placeholder="Find a module…" value={search} onChange={event => setSearch(event.target.value)} />
       <button disabled={dragging} onClick={createCustom}><Plus size={15} /> Create your own module</button>
-      <div className="ss-module-library-grid">{modules.filter(m => m.title.toLowerCase().includes(search.toLowerCase())).map(m => <article key={m.id}><strong>{modulePlacement(current, m).title || m.title}</strong><small>{modulePlacement(current, m).hidden ? "Available to add" : "On your board"}</small><button disabled={dragging} onClick={() => addModule(m.id)}>{modulePlacement(current, m).hidden ? "Add module" : "Place in view"}</button><button disabled={dragging} className="ss-module-library-grip" aria-label={`Drag ${m.title} from library`} onPointerDown={event => startGesture(event, m.id, "library")}><GripVertical size={16} /> Pick up</button></article>)}</div>
+      <div className="ss-module-library-grid">{modules.filter(m => m.title.toLowerCase().includes(search.toLowerCase())).map(m => <article key={m.id}><strong>{modulePlacement(current, m).title || m.title}</strong><small>{modulePlacement(current, m).hidden ? "Hidden · available to restore" : "On your board"}</small><button disabled={dragging} onClick={() => addModule(m.id)}>{modulePlacement(current, m).hidden ? "Restore module" : "Place in view"}</button><button disabled={dragging} className="ss-module-library-grip" aria-label={`Drag ${m.title} from library`} onPointerDown={event => startGesture(event, m.id, "library")}><GripVertical size={16} /> Pick up</button></article>)}</div>
     </section>}
-    <div className="ss-module-sources">{children}{enabled && current.custom?.map(custom => <WorkspaceModule key={custom.id} id={custom.id} title={custom.title} section={current.sections[0].id}><section className="ss-custom-module"><h2>{current.modules[custom.id]?.title || custom.title}</h2>{editing ? <textarea aria-label={`Content for ${current.modules[custom.id]?.title || custom.title}`} placeholder="Your notes, reminders, rules…" maxLength={10000} value={custom.text} onChange={event => commit({ ...resolved(), custom: current.custom!.map(c => c.id === custom.id ? { ...c, text: event.target.value } : c) })} /> : <p>{custom.text || "Your own space for notes, reminders and rules."}</p>}</section></WorkspaceModule>)}</div>
+    <div className="ss-module-sources">{children}{enabled && current.custom?.map(custom => <WorkspaceModule key={custom.id} id={custom.id} title={custom.title} section={current.sections[0].id}><section className="ss-custom-module" style={{fontSize:custom.fontSize ?? 18}}><h2>{current.modules[custom.id]?.title || custom.title}</h2>{editing ? <><label>Title<input maxLength={80} value={custom.title} onChange={event => commit({ ...resolved(), custom: current.custom!.map(c => c.id === custom.id ? { ...c, title: event.target.value } : c) })} /></label><label>Text size<select value={custom.fontSize ?? 18} onChange={event => commit({ ...resolved(), custom: current.custom!.map(c => c.id === custom.id ? { ...c, fontSize: +event.target.value } : c) })}>{[14,18,22,28,36].map(size => <option key={size} value={size}>{size} px</option>)}</select></label><textarea aria-label={`Content for ${current.modules[custom.id]?.title || custom.title}`} placeholder="Your notes, reminders, rules…" maxLength={10000} value={custom.text} onChange={event => commit({ ...resolved(), custom: current.custom!.map(c => c.id === custom.id ? { ...c, text: event.target.value } : c) })} /><p className="ss-custom-preview">{custom.text || "Your reminder preview"}</p></> : <p>{custom.text || "Your own space for notes, reminders and rules."}</p>}</section></WorkspaceModule>)}</div>
     <div ref={canvas} hidden={!enabled} className={`ss-free-board${editing ? " ss-free-board-editing" : ""}`} style={{ minHeight: boardHeight }} aria-label="Workspace board" />
     <div ref={parking} hidden inert />
   </div></Context.Provider>;

@@ -16,13 +16,21 @@ export function moduleBoard(layout: ModuleLayout, modules: BoardModule[], height
     const members = modules.filter(m => { const p = modulePlacement(layout, m); return !p.hidden && p.section === section.id; }).sort((a, b) => modulePlacement(layout, a).order - modulePlacement(layout, b).order);
     for (const module of members) {
       const p = modulePlacement(layout, module);
-      if (p.box) { result[module.id] = boundModuleBox({ ...p.box, h: p.height ?? p.box.h }); continue; }
+      if (p.box) { result[module.id] = { ...boundModuleBox(p.box), h: p.heightMode === "fixed" ? p.height ?? p.box.h : heights[module.id] ?? p.box.h }; continue; }
       const w = Math.max(180, sectionWidth * p.width / 12 - 16), h = p.height ?? heights[module.id] ?? 300;
       if (x + w > sectionWidth && x) { x = 0; y += height + 16; height = 0; }
       result[module.id] = boundModuleBox({ x: rowX + x, y: rowY + y, w, h });
       x += w + 16; height = Math.max(height, h);
     }
     rowHeight = Math.max(rowHeight, y + height); rowX += sectionWidth;
+  }
+  // Reflow the rendered content; never rewrite a user's saved coordinates on a dated view.
+  const placed: ModuleBox[] = [];
+  for (const id of Object.keys(result).sort((a,b) => result[a].y-result[b].y || result[a].x-result[b].x)) {
+    const box = result[id];
+    let collision: ModuleBox | undefined;
+    while ((collision = placed.find(other => box.x < other.x + other.w && box.x + box.w > other.x && box.y < other.y + other.h + 16 && box.y + box.h + 16 > other.y))) box.y = collision.y + collision.h + 16;
+    placed.push(box);
   }
   return result;
 }

@@ -64,12 +64,20 @@ export function preparation(
     complete = 0,
     unknown = 0,
     skipped = 0,
-    excluded = 0;
+    excluded = 0,
+    sections = 0,
+    resolved = 0,
+    omissions = 0;
   const completions: number[] = [];
   const day = latest(records, "day", at).find((d) => d.rootId === dayId);
   for (const run of runs)
     for (const step of run.body.steps) {
       const response = preparationResponse(records, run, step, at);
+      if (!day || scheduledOn(step, day.body.date)) {
+        sections++;
+        if (["complete", "skipped", "not-applicable"].includes(response?.body.status ?? "")) resolved++;
+        if (response?.body.status === "skipped" || response?.body.skippedPromptIds?.length) omissions++;
+      }
       if (step.requirement === "optional") continue;
       if (day && !scheduledOn(step, day.body.date)) {
         excluded++;
@@ -93,6 +101,9 @@ export function preparation(
     }
   return {
     runs,
+    sections,
+    resolved,
+    omissions,
     total,
     complete,
     unknown,
@@ -272,7 +283,7 @@ export function verificationEvidence(
                 r.body.reflection.trim()
               ))
           : r.kind === "thesis" &&
-            (!instrument || r.body.instrument === instrument) &&
+            (!instrument || !r.body.instrument || r.body.instrument.toUpperCase() === instrument.toUpperCase()) &&
             !!(
               r.body.primary.trim() ||
               r.body.notes.trim() ||
@@ -387,7 +398,7 @@ export function validateAppend(
       const requirement = run.body.steps.find((s) => s.id === row.body.stepId);
       if (row.body.status === "complete" && requirement) {
         const message =
-          answerError(requirement, row.body.answers ?? []) ||
+          answerError(requirement, row.body.answers ?? [], row.body.skippedPromptIds) ||
           activityEvidenceError(records, run.body.dayId, requirement);
         if (message) throw new Error(message);
         if (
@@ -399,6 +410,10 @@ export function validateAppend(
             "Save the supporting thesis or check-in before completing this section.",
           );
       }
+      if (row.body.skippedPromptIds?.some(id =>
+        !requirement?.allowReflectionSkip || !requirement.prompts?.some(p => p.id === id) ||
+        row.body.answers?.some(a => a.id === id && a.value.trim())))
+        throw new Error("Skipped questions must belong to this section and have no answer.");
       if (
         previous?.kind === "response" &&
         (previous.body.runId !== row.body.runId ||
@@ -434,7 +449,7 @@ export function validateAppend(
           );
       }
       if (
-        ["skipped", "not-applicable"].includes(row.body.status) &&
+        row.body.status === "not-applicable" &&
         !row.body.reason.trim()
       )
         throw new Error(

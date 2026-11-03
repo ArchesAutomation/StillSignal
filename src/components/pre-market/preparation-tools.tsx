@@ -121,7 +121,7 @@ export default function PreparationTools(context: Context) {
   };
   return (
     <div className="cc-stack">
-      <Panel
+      <details className="guide-advanced"><summary>Other preparation tools</summary><Panel
         title="Preparation workspace"
         detail="All your preparation tools are available here, including when your saved routine does not contain them."
       >
@@ -139,7 +139,7 @@ export default function PreparationTools(context: Context) {
             </button>
           ))}
         </nav>
-      </Panel>
+      </Panel></details>
       {/* Keep visited tools mounted so switching tools preserves unfinished writing. */}
       {modules.map(
         ([id, title]) =>

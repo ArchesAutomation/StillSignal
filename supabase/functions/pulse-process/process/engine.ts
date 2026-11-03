@@ -2,6 +2,12 @@ import type { Session, TradeEvent } from "../model.ts";
 import { isActualExecution } from "../trade-context.ts";
 import { validateValue } from "../environment/values.ts";
 import {
+  activityEvidenceError,
+  answerError,
+  preparationResponse,
+  scheduledOn,
+} from "./preparation-workflow.ts";
+import {
   createRecord,
   dateInZone,
   latest,
@@ -58,14 +64,25 @@ export function preparation(
     complete = 0,
     unknown = 0,
     skipped = 0,
-    excluded = 0;
+    excluded = 0,
+    sections = 0,
+    resolved = 0,
+    omissions = 0;
   const completions: number[] = [];
+  const day = latest(records, "day", at).find((d) => d.rootId === dayId);
   for (const run of runs)
     for (const step of run.body.steps) {
-      const response = latest(records, "response", at)
-        .filter((r) => r.body.runId === run.id && r.body.stepId === step.id)
-        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      const response = preparationResponse(records, run, step, at);
+      if (!day || scheduledOn(step, day.body.date)) {
+        sections++;
+        if (["complete", "skipped", "not-applicable"].includes(response?.body.status ?? "")) resolved++;
+        if (response?.body.status === "skipped" || response?.body.skippedPromptIds?.length) omissions++;
+      }
       if (step.requirement === "optional") continue;
+      if (day && !scheduledOn(step, day.body.date)) {
+        excluded++;
+        continue;
+      }
       if (response?.body.status === "not-applicable") {
         excluded++;
         continue;
@@ -76,12 +93,17 @@ export function preparation(
         response.body.completedAt! <= at
       ) {
         complete++;
-        completions.push(response.body.completedAt!);
+        completions.push(
+          Math.max(run.body.startedAt, response.body.completedAt!),
+        );
       } else if (!response || response.body.status === "unverified") unknown++;
       else if (response.body.status === "skipped") skipped++;
     }
   return {
     runs,
+    sections,
+    resolved,
+    omissions,
     total,
     complete,
     unknown,
@@ -261,12 +283,23 @@ export function verificationEvidence(
                 r.body.reflection.trim()
               ))
           : r.kind === "thesis" &&
-            (!instrument || r.body.instrument === instrument) &&
+            (!instrument || !r.body.instrument || r.body.instrument.toUpperCase() === instrument.toUpperCase()) &&
             !!(
               r.body.primary.trim() ||
               r.body.notes.trim() ||
               r.body.noTrade.trim() ||
-              r.body.structure.trim()
+              r.body.structure.trim() ||
+              (step.activity === "thesis" &&
+                [
+                  r.body.events,
+                  r.body.levels,
+                  r.body.liquidity,
+                  r.body.alternate,
+                  r.body.entries,
+                  r.body.invalidation,
+                  r.body.targets,
+                  ...r.body.screenshots,
+                ].some((value) => value.trim()))
             ) &&
             (step.verification === "daily-thesis"
               ? r.body.dayId === run.body.dayId && r.body.scope !== "weekly"
@@ -362,6 +395,25 @@ export function validateAppend(
     }
     if (row.kind === "response") {
       const run = get("run", row.body.runId);
+      const requirement = run.body.steps.find((s) => s.id === row.body.stepId);
+      if (row.body.status === "complete" && requirement) {
+        const message =
+          answerError(requirement, row.body.answers ?? [], row.body.skippedPromptIds) ||
+          activityEvidenceError(records, run.body.dayId, requirement);
+        if (message) throw new Error(message);
+        if (
+          (requirement.activity === "thesis" ||
+            requirement.activity === "checkin") &&
+          !verificationEvidence(records, run, requirement.id, row.createdAt)
+        )
+          throw new Error(
+            "Save the supporting thesis or check-in before completing this section.",
+          );
+      }
+      if (row.body.skippedPromptIds?.some(id =>
+        !requirement?.allowReflectionSkip || !requirement.prompts?.some(p => p.id === id) ||
+        row.body.answers?.some(a => a.id === id && a.value.trim())))
+        throw new Error("Skipped questions must belong to this section and have no answer.");
       if (
         previous?.kind === "response" &&
         (previous.body.runId !== row.body.runId ||
@@ -397,7 +449,7 @@ export function validateAppend(
           );
       }
       if (
-        ["skipped", "not-applicable"].includes(row.body.status) &&
+        row.body.status === "not-applicable" &&
         !row.body.reason.trim()
       )
         throw new Error(

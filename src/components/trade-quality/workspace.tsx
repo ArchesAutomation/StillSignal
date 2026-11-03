@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TemplateTools from "../command-center/template-tools";
 import {
+  ruleSchema,
+  recordSchema,
   adherenceSchema,
   createRecord,
   latest,
@@ -29,6 +31,8 @@ import {
   string,
   type Context,
 } from "../command-center/shared";
+import PersistentForm, { clearFormDraft } from "../persistent-form";
+import GuidedRuleBuilder from "./guided-rule-builder";
 const newRule = (): Rule => ({
   id: crypto.randomUUID(),
   name: "",
@@ -325,6 +329,11 @@ export default function TradeQuality(context: Context) {
     }>(),
     [rules, setRules] = useState<Rule[]>([newRule()]),
     [assessing, setAssessing] = useState(false);
+  const [guided, setGuided] = useState(false);
+  const editorKey = `ss-playbook-editor:${props.pulse?.owner ?? "local"}`;
+  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem(editorKey) ?? "null"); if (saved) { const parsed = recordSchema.parse(createRecord("playbook", saved.body)); if (parsed.kind === "playbook") { setEditor({body:parsed.body,previous:store.records.find((r): r is RecordOf<"playbook"> => r.kind === "playbook" && r.id === saved.previousId)}); setRules(parsed.body.rules); } } } catch {} }, [editorKey]);
+  useEffect(() => { if (editor && rules.length) { try { localStorage.setItem(editorKey, JSON.stringify({body:{...editor.body,rules},previousId:editor.previous?.id})); } catch {} } }, [editor, rules, editorKey]);
+  const formKey = editorKey + ":" + (editor?.previous?.id ?? "new");
   const assessments = latest(store.records, "assessment").filter(
       (a) => a.body.dayId === day.rootId,
     ),
@@ -334,6 +343,8 @@ export default function TradeQuality(context: Context) {
     );
   return (
     <div className="cc-stack">
+      <button onClick={() => setGuided(v => !v)}>{guided ? "Close rule guide" : "Build my first rule with a guide"}</button>
+      {(guided || !books.length) && <GuidedRuleBuilder context={context} onClose={() => setGuided(false)} />}
       <Panel
         title="Strategy playbooks"
         detail="User-defined execution and behavioral rules, with versioned weights."
@@ -387,7 +398,8 @@ export default function TradeQuality(context: Context) {
           </div>
         ))}
         {editor && (
-          <form
+          <PersistentForm
+            draftKey={formKey}
             className="cc-form"
             key={editor.previous?.id ?? "new"}
             onSubmit={async (e) => {
@@ -410,8 +422,7 @@ export default function TradeQuality(context: Context) {
                 await store.save([
                   createRecord("playbook", body, editor.previous),
                 ])
-              )
-                setEditor(undefined);
+              ) { clearFormDraft(formKey); clearFormDraft(editorKey); setEditor(undefined); }
             }}
           >
             <div className="cc-grid">
@@ -596,7 +607,7 @@ export default function TradeQuality(context: Context) {
                 Cancel
               </button>
             </div>
-          </form>
+          </PersistentForm>
         )}
       </Panel>
       <Panel

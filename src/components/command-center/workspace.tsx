@@ -1,6 +1,6 @@
 "use client";
 import { GlassPanel } from "../glassyui/glass-panel";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
 import { useProcess } from "./use-process";
@@ -27,6 +27,8 @@ import {
   validBaseline,
 } from "@/lib/pattern-engine/physiology";
 import { isActualExecution } from "@/lib/trade-context";
+import SessionReviewGuide from "../session-review-guide";
+import PreparationSummary from "../pre-market/preparation-summary";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
 import TradingThesis, {
   relevantTheses,
@@ -273,9 +275,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
     ],
     preparation: [
       "Preparation",
-      prep.total
-        ? `${prep.complete}/${prep.total} required · ${prep.unknown} unverified`
-        : "No preparation run",
+      prep.runs.length ? `${prep.resolved}/${prep.sections} sections resolved · ${prep.omissions} with omissions` : "No preparation run",
     ],
     readiness: [
       "Self-reported readiness",
@@ -330,9 +330,11 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
           className="cc-primary"
           onClick={() => props.onPage("Pre-Market")}
         >
-          Start today's preparation
+          Start / resume preparation
         </button>
+        <button onClick={() => props.onPage("Trade Quality")}>Finish session / review today</button>
       </GlassPanel>
+      <PreparationSummary {...context} />
       <DashboardBoard
         editor={context.editor}
         store={store}
@@ -595,6 +597,16 @@ export default function ProcessWorkspace(props: Props) {
       days.find(
         (d) => d.body.date === selectedDate && d.body.timezone === zone,
       ) ?? days.find((d) => d.body.date === selectedDate);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const requested = (event as CustomEvent<string>).detail;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(requested)) return;
+      setDate(requested);
+      if (!days.some(d => d.body.date === requested)) void store.save([createRecord("day", { date: requested, timezone: zone, status: "reviewing", instrument: "", account: "", timeframes: [], sessionIds: [], goal: "" })]);
+    };
+    window.addEventListener("ss-review-day", open);
+    return () => window.removeEventListener("ss-review-day", open);
+  }, [store.records, zone]);
   if (!processPages.has(props.page)) return null;
   if (!store.loaded)
     return (
@@ -655,7 +667,9 @@ export default function ProcessWorkspace(props: Props) {
             }}
           />
         </Field>
+        <button onClick={() => setDate(dateInZone(Date.now(), zone))}>Today</button>
         <span role="status">{store.syncState}</span>
+        {store.syncState.includes("awaiting") || store.syncState.includes("Saved locally ·") ? <button onClick={() => void store.refresh()}>Retry sync</button> : null}
         {store.error && (
           <button onClick={() => void store.refresh()}>Retry sync</button>
         )}
@@ -824,7 +838,7 @@ export default function ProcessWorkspace(props: Props) {
             <TradingThesis key={day!.rootId} {...context} />
           )}
           {props.page === "Trade Quality" && (
-            <TradeQuality key={day!.rootId} {...context} />
+            <><SessionReviewGuide key={"review-" + day!.rootId} {...context} /><TradeQuality key={day!.rootId} {...context} /></>
           )}
           {props.page === "Rule Violations" && <Violations {...context} />}
           {props.page === "Settings & Variables" && (

@@ -160,7 +160,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
           !rec.current
         ) {
           const latest = sessions.find(
-            (s) => s.events.length || s.journal.length,
+            (s) => journalDateValue(s.startedAt) === journalDateValue(Date.now()) && (s.events.length || s.journal.length),
           );
           if (latest) await openSession(latest);
         }

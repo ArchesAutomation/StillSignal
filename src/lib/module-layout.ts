@@ -1,7 +1,7 @@
 export type ModuleSection = { id: string; title: string; width: number; height?: number };
 export type ModuleBox = { x: number; y: number; w: number; h: number };
-export type CustomModule = { id: string; title: string; text: string };
-export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; compact?: boolean; hiddenParts?: string[]; box?: ModuleBox };
+export type CustomModule = { id: string; title: string; text: string; fontSize?: number };
+export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; heightMode?: "auto" | "fixed"; compact?: boolean; hiddenParts?: string[]; box?: ModuleBox };
 export type ModuleLayout = { sections: ModuleSection[]; modules: Record<string, ModulePlacement>; custom?: CustomModule[] };
 export const defaultSections: ModuleSection[] = [
   { id: "top", title: "At a glance", width: 12 },
@@ -28,12 +28,13 @@ export function readModuleLayout(value: string | null): ModuleLayout {
       modules[id] = { section: p.section, order: p.order, width: p.width, hidden: p.hidden === true,
         title: typeof p.title === "string" ? p.title.slice(0, 80) : undefined,
         height: Number.isFinite(p.height) ? Math.max(120, Math.min(1600, p.height!)) : undefined,
+        heightMode: p.heightMode === "fixed" ? "fixed" : "auto",
         compact: p.compact === true,
         hiddenParts: Array.isArray(p.hiddenParts) ? p.hiddenParts.filter((s): s is string => typeof s === "string" && s.length < 100).slice(0, 30) : [],
         ...(p.box && [p.box.x, p.box.y, p.box.w, p.box.h].every(Number.isFinite) ? { box: boundModuleBox(p.box) } : {}),
       };
     }
-    const custom: CustomModule[] = Array.isArray(raw.custom) ? raw.custom.slice(0, 50).filter((c: CustomModule, i: number, all: CustomModule[]) => c && /^custom-[a-zA-Z0-9_-]{1,100}$/.test(c.id) && all.findIndex(n => n?.id === c.id) === i && typeof c.title === "string" && typeof c.text === "string").map((c: CustomModule) => ({ id: c.id, title: c.title.slice(0, 80), text: c.text.slice(0, 10000) })) : [];
+    const custom: CustomModule[] = Array.isArray(raw.custom) ? raw.custom.slice(0, 50).filter((c: CustomModule, i: number, all: CustomModule[]) => c && /^custom-[a-zA-Z0-9_-]{1,100}$/.test(c.id) && all.findIndex(n => n?.id === c.id) === i && typeof c.title === "string" && typeof c.text === "string").map((c: CustomModule) => ({ id: c.id, title: c.title.slice(0, 80), text: c.text.slice(0, 10000), ...(Number.isFinite(c.fontSize) ? { fontSize: Math.max(14, Math.min(36, c.fontSize!)) } : {}) })) : [];
     return { sections, modules, ...(custom.length ? { custom } : {}) };
   } catch { return emptyModuleLayout(); }
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { journalProfileSchema } from "./journal-guide";
 const id = z.uuid(),
   text = z.string().trim().max(8000),
   name = z.string().trim().min(1).max(160);
@@ -54,6 +55,8 @@ export const requirementSchema = z
       .optional(),
     weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
     checklist: z.array(name).max(50).optional(),
+    checklistMode: z.enum(["reminder", "confirmation"]).optional(),
+    allowReflectionSkip: z.boolean().optional(),
     variableIds: z.array(id).max(100).optional(),
     thesisFields: z
       .array(
@@ -250,6 +253,7 @@ export const recordSchema = z
           strategy: z.string().max(160),
           session: z.string().max(80),
           steps: z.array(requirementSchema).min(1).max(100),
+          profile: journalProfileSchema.optional(),
         })
         .strict(),
     ),
@@ -275,6 +279,7 @@ export const recordSchema = z
           method: z.enum(["manual", "verified"]),
           reason: text,
           evidenceId: id.optional(),
+          skippedPromptIds: z.array(id).max(30).optional(),
           answers: z
             .array(
               z
@@ -316,7 +321,7 @@ export const recordSchema = z
               z
                 .string()
                 .max(1000)
-                .regex(/^https:\/\//),
+                .regex(/^(https:\/\/|local-image:)/),
             )
             .max(12),
           reason: text,
@@ -365,6 +370,9 @@ export const recordSchema = z
         .object({
           dayId: id,
           observedAt: timestamp,
+          phase: z.enum(["pre-market", "during", "post-session"]).optional(),
+          sessionId: id.optional(),
+          tradeId: z.string().min(1).max(160).optional(),
           answers: z
             .array(
               z

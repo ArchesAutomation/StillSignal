@@ -47,6 +47,13 @@ export async function privateFile(path: string, owner: string) {
   }
   return row.blob;
 }
+/** A user's reusable message has no session-audio retention deadline. */
+export async function keepRoutineAudio(owner: string, blob: Blob) {
+  if (blob.size > 10 * 1024 * 1024) throw new Error("Keep your recording under 10 MB.");
+  const key = `local-audio:${owner}:routine-${crypto.randomUUID()}`;
+  await (await db()).put("files", { key, owner, kind: "audio", blob });
+  return key;
+}
 export async function removePrivateFile(path: string, owner: string) {
   const d = await db(),
     row = await d.get("files", path);

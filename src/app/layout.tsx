@@ -3,6 +3,7 @@ import "./tailwind.css";
 import "./appearance-colors.css";
 import "./liquid-glass.css";
 import type { Metadata, Viewport } from "next";
+import "./journal-guide.css";
 import SharkBackground from "@/components/shark-background";
 import { GlassProvider } from "@/components/glassyui/glass-provider";
 import { AppearanceProvider } from "@/components/appearance-context";
