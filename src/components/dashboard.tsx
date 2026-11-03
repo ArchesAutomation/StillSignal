@@ -45,6 +45,7 @@ import ConceptWorkspace from "./concept/workspace";
 import { PhaseLabelsContext } from "./phase-label-context";
 import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
 import BlueprintPreferences from "./blueprint-preferences";
+import SharkSettings from "./shark-settings";
 import PhaseLabelPreferences from "./phase-label-preferences";
 import SignalCalendar from "./signal-calendar";
 import SignalOverview from "./signal-overview";
@@ -1842,6 +1843,7 @@ export default function Dashboard({
               )}
               {tab === "Settings" && (
                 <div className="settings-grid">
+                  <WorkspaceModule id="sharks-appearance" title="Sharks & appearance" section="main" order={0}><SharkSettings /></WorkspaceModule>
                   <WorkspaceModule id="stage-label-preferences" title="Your stage labels" section="main"><PhaseLabelPreferences
                     settings={p.settings}
                     onChange={p.configure}

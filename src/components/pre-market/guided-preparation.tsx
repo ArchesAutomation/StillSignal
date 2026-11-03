@@ -1,23 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createRecord,
   latest,
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import {
-  activities,
-  activityOf,
-  answerError,
-  activityEvidenceError,
-  cadences,
-  preparationResponse,
-  scheduledOn,
-} from "@/lib/process/preparation-workflow";
-import { verificationEvidence } from "@/lib/process/engine";
+import { activityOf, cadences } from "@/lib/process/preparation-workflow";
 import StepSettings from "./step-settings";
-import StepActivity from "./step-activity";
+import JournalSetup from "./journal-setup";
+import FocusedRun from "./focused-run";
 import { Panel, Field, type Context } from "../command-center/shared";
 
 type Step = BodyOf<"protocol">["steps"][number];
@@ -113,7 +105,7 @@ function makeStep(
         : [],
   };
 }
-function Setup({
+function AdvancedSetup({
   context,
   template,
   onClose,
@@ -462,360 +454,9 @@ function Setup({
     </Panel>
   );
 }
-function Run({ context, run }: { context: Context; run: RecordOf<"run"> }) {
-  const { store, props, day } = context;
-  const source = store.records.find(
-    (r): r is RecordOf<"protocol"> =>
-      r.kind === "protocol" && r.id === run.body.templateId,
-  );
-  const activityContext = {
-    ...context,
-    day: {
-      ...day,
-      body: {
-        ...day.body,
-        instrument: source?.body.instrument || day.body.instrument,
-      },
-    },
-  };
-  const responses = latest(store.records, "response");
-  const ownResponse = (id: string) =>
-    responses
-      .filter((r) => r.body.runId === run.id && r.body.stepId === id)
-      .sort((a, b) => b.createdAt - a.createdAt)[0];
-  const responseFor = (s: Step) => preparationResponse(store.records, run, s);
-  const resolved = (s: Step) => {
-    const status = responseFor(s)?.body.status;
-    return (
-      !scheduledOn(s, day.body.date) ||
-      status === "complete" ||
-      status === "not-applicable" ||
-      (s.requirement === "optional" && status === "skipped")
-    );
-  };
-  const remaining = run.body.steps.filter((s) => !resolved(s));
-  const [selected, setSelected] = useState<string | null>(null);
-  const current = run.body.steps.find((s) => s.id === selected) ?? remaining[0];
-  const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    heading.current?.focus();
-  }, [current?.id]);
-  const completed = run.body.steps.length - remaining.length;
-  const response = current ? responseFor(current) : undefined;
-  const own = current ? ownResponse(current.id) : undefined;
-  const carried = response && response.body.runId !== run.id;
-  const values = new Map(
-    response?.body.answers?.map((a) => [a.id, a.value]) ?? [],
-  );
-  const due = current ? scheduledOn(current, day.body.date) : false;
-  return (
-    <Panel
-      title="Your pre-trading walkthrough"
-      detail={`${completed} of ${run.body.steps.length} sections resolved · progress saved as you go`}
-    >
-      <progress
-        className="prep-progress"
-        value={completed}
-        max={run.body.steps.length}
-        aria-label="Routine progress"
-      />
-      <div className="prep-run">
-        <nav aria-label="Routine steps">
-          <ol>
-            {run.body.steps.map((s, i) => {
-              const response = responseFor(s);
-              const reused = response && response.body.runId !== run.id;
-              return (
-                <li key={s.id}>
-                  <button
-                    aria-current={current?.id === s.id ? "step" : undefined}
-                    onClick={() => setSelected(s.id)}
-                  >
-                    <span>{resolved(s) ? "✓" : i + 1}</span>
-                    <span>
-                      {s.name}
-                      <small>
-                        {!scheduledOn(s, day.body.date)
-                          ? "Not scheduled today"
-                          : reused
-                            ? "Already completed this period"
-                            : (response?.body.status.replaceAll("-", " ") ??
-                              s.requirement)}{" "}
-                        · {cadences[s.cadence ?? "session"]}
-                      </small>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-        {current ? (
-          <section className="prep-focus" key={current.id}>
-            <span className="cc-eyebrow">
-              Section {run.body.steps.indexOf(current) + 1} ·{" "}
-              {activities[activityOf(current)][0]} ·{" "}
-              {cadences[current.cadence ?? "session"]}
-            </span>
-            <h3 ref={heading} tabIndex={-1}>
-              {current.name}
-            </h3>
-            <p>
-              {current.description ||
-                "Complete the work that helps you prepare for this session."}
-            </p>
-            {current.condition && (
-              <p className="cc-muted">Applies when: {current.condition}</p>
-            )}
-            {carried && (
-              <p className="prep-carried" role="status">
-                Already completed for this period on{" "}
-                {new Date(response.body.completedAt!).toLocaleString()}. Your
-                saved work is shown below. You can revise it and record a new
-                completion.
-              </p>
-            )}
-            {!due ? (
-              <p>
-                This section is not scheduled for {day.body.date}. It stays in
-                your routine and becomes due on your selected weekdays.
-              </p>
-            ) : (
-              <>
-                <StepActivity context={activityContext} step={current} />
-                <form
-                  className="prep-completion cc-stack"
-                  key={current.id + (own?.id ?? "")}
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const f = new FormData(
-                      e.currentTarget,
-                      (e.nativeEvent as SubmitEvent).submitter,
-                    );
-                    const status =
-                      f.get("action") === "skip"
-                        ? "skipped"
-                        : f.get("action") === "na"
-                          ? "not-applicable"
-                          : "complete";
-                    const answers = [
-                      ...(current.checklist ?? []).map((_, i) => ({
-                        id: "check-" + i,
-                        value: f.get("check-" + i) === "yes" ? "yes" : "no",
-                      })),
-                      ...(current.prompts ?? []).map((p) => ({
-                        id: p.id,
-                        value: String(f.get(p.id) ?? ""),
-                      })),
-                    ];
-                    if (
-                      status !== "complete" &&
-                      !String(f.get("note") ?? "").trim()
-                    ) {
-                      store.setError(
-                        "Add a note explaining why this step is skipped or does not apply.",
-                      );
-                      return;
-                    }
-                    if (status === "complete") {
-                      const issue =
-                        answerError(current, answers) ||
-                        activityEvidenceError(
-                          store.records,
-                          day.rootId,
-                          current,
-                        );
-                      if (issue) {
-                        store.setError(issue);
-                        return;
-                      }
-                      if (
-                        (current.activity === "thesis" ||
-                          current.activity === "checkin") &&
-                        !verificationEvidence(
-                          store.records,
-                          run,
-                          current.id,
-                          Date.now(),
-                        )
-                      ) {
-                        store.setError(
-                          "Save your " +
-                            (current.activity === "thesis"
-                              ? "trading thesis"
-                              : "check-in") +
-                            " in this section before completing it.",
-                        );
-                        return;
-                      }
-                    }
-                    const batch = [
-                      createRecord(
-                        "response",
-                        {
-                          runId: run.id,
-                          stepId: current.id,
-                          status,
-                          method: "manual",
-                          reason: String(f.get("note") ?? ""),
-                          answers,
-                          completedAt:
-                            status === "complete" ? Date.now() : undefined,
-                        },
-                        own,
-                      ),
-                    ];
-                    const intention = answers
-                      .find((a) =>
-                        current.prompts?.some(
-                          (p) => p.id === a.id && p.type === "text",
-                        ),
-                      )
-                      ?.value.trim();
-                    const currentDay =
-                      latest(store.records, "day").find(
-                        (d) => d.rootId === day.rootId,
-                      ) ?? day;
-                    const updates =
-                      status === "complete" &&
-                      current.activity === "intentions" &&
-                      !["weekly", "monthly"].includes(current.cadence ?? "") &&
-                      intention
-                        ? [
-                            createRecord(
-                              "day",
-                              { ...currentDay.body, goal: intention },
-                              currentDay,
-                            ),
-                            ...batch,
-                          ]
-                        : batch;
-                    if (await store.save(updates)) setSelected(null);
-                  }}
-                >
-                  {!!current.checklist?.length && (
-                    <fieldset className="prep-personal-checks">
-                      <legend>My non-negotiables</legend>
-                      {current.checklist.map((label, i) => (
-                        <label key={i}>
-                          <input
-                            type="checkbox"
-                            name={"check-" + i}
-                            value="yes"
-                            defaultChecked={values.get("check-" + i) === "yes"}
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </fieldset>
-                  )}
-                  {(current.prompts ?? []).map((prompt) => (
-                    <Field
-                      key={prompt.id}
-                      label={
-                        prompt.label + (prompt.required ? " *" : " (optional)")
-                      }
-                    >
-                      {prompt.type === "text" ? (
-                        <textarea
-                          name={prompt.id}
-                          maxLength={8000}
-                          required={prompt.required}
-                          defaultValue={values.get(prompt.id) ?? ""}
-                        />
-                      ) : prompt.type === "number" ? (
-                        <input
-                          name={prompt.id}
-                          type="number"
-                          step="any"
-                          required={prompt.required}
-                          defaultValue={values.get(prompt.id) ?? ""}
-                        />
-                      ) : (
-                        <select
-                          name={prompt.id}
-                          required={prompt.required}
-                          defaultValue={values.get(prompt.id) ?? ""}
-                        >
-                          <option value="">Choose an answer</option>
-                          {(prompt.type === "boolean"
-                            ? ["yes", "no"]
-                            : prompt.choices
-                          ).map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </Field>
-                  ))}
-                  <Field label="Notes (required when skipping or excluding a step)">
-                    <textarea
-                      name="note"
-                      maxLength={8000}
-                      defaultValue={response?.body.reason ?? ""}
-                      placeholder="Anything you want to carry into this session…"
-                    />
-                  </Field>
-                  <div className="cc-actions">
-                    <button
-                      type="submit"
-                      name="action"
-                      value="complete"
-                      className="cc-primary"
-                      disabled={store.busy}
-                    >
-                      Complete & continue →
-                    </button>
-                    {current.requirement === "optional" && (
-                      <button
-                        type="submit"
-                        formNoValidate
-                        name="action"
-                        value="skip"
-                        disabled={store.busy}
-                      >
-                        Skip this step
-                      </button>
-                    )}
-                    {current.requirement === "conditional" && (
-                      <button
-                        type="submit"
-                        formNoValidate
-                        name="action"
-                        value="na"
-                        disabled={store.busy}
-                      >
-                        Does not apply today
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </>
-            )}
-          </section>
-        ) : (
-          <div className="prep-focus" role="status">
-            <span className="cc-eyebrow">Preparation complete</span>
-            <h3>Your routine is checked off.</h3>
-            <p>
-              Today's required work is saved. Weekly and monthly work stays
-              available until its next period.
-            </p>
-            <button
-              className="cc-primary"
-              onClick={() => props.onPage("Live Session")}
-            >
-              Continue to live session →
-            </button>
-          </div>
-        )}
-      </div>
-    </Panel>
-  );
-}
-export default function GuidedPreparation(context: Context & { editRequest?: number }) {
+export default function GuidedPreparation(
+  context: Context & { editRequest?: number },
+) {
   const { store, day } = context;
   const templates = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
@@ -825,11 +466,15 @@ export default function GuidedPreparation(context: Context & { editRequest?: num
       r.body.dayId === day.rootId &&
       (!r.body.sessionId || r.body.sessionId === context.props.session?.id),
   );
+  const [advancedSetup, setAdvancedSetup] = useState(false);
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState("");
   const [creating, setCreating] = useState(false);
   useEffect(() => {
-    if (context.editRequest) { setCreating(false); setEditing(true); }
+    if (context.editRequest) {
+      setCreating(false);
+      setEditing(true);
+    }
   }, [context.editRequest]);
   const previousRun = latest(store.records, "run").sort(
     (a, b) => b.createdAt - a.createdAt,
@@ -841,15 +486,30 @@ export default function GuidedPreparation(context: Context & { editRequest?: num
     templates.find((t) => t.rootId === selected) ??
     templates.find((t) => t.rootId === previousTemplate?.rootId) ??
     templates[0];
+  if ((editing || !templates.length) && !advancedSetup)
+    return (
+      <JournalSetup
+        context={context}
+        template={creating ? undefined : template}
+        onAdvanced={() => setAdvancedSetup(true)}
+        onClose={(id) => {
+          if (id) setSelected(id);
+          setEditing(false);
+          setCreating(false);
+          if (!id) context.props.onPage("Command Center");
+        }}
+      />
+    );
   if (editing || !templates.length)
     return (
-      <Setup
+      <AdvancedSetup
         key={creating ? "new" : (template?.id ?? "new")}
         context={context}
         template={creating ? undefined : template}
         onClose={(savedId) => {
           if (savedId) setSelected(savedId);
           setEditing(false);
+          setAdvancedSetup(false);
           setCreating(false);
         }}
       />
@@ -943,7 +603,7 @@ export default function GuidedPreparation(context: Context & { editRequest?: num
         )}
       </Panel>
       {runs.map((run) => (
-        <Run key={run.id} context={context} run={run} />
+        <FocusedRun key={run.id} context={context} run={run} />
       ))}
     </div>
   );

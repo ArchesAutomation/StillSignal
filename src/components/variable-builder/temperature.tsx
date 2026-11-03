@@ -1,17 +1,8 @@
 "use client";
 import { useState } from "react";
-import { temperatureRecords } from "@/lib/environment/temperature";
-import { createRecord, latest, type BodyOf } from "@/lib/process/model";
-import {
-  Area,
-  Empty,
-  Field,
-  History,
-  Panel,
-  Save,
-  string,
-  type Context,
-} from "../command-center/shared";
+import { latest, type RecordOf } from "@/lib/process/model";
+import { Empty, History, Panel, type Context } from "../command-center/shared";
+import GuidedCheckin from "./guided-checkin";
 export const defaultQuestions = [
   "Focus",
   "Energy",
@@ -22,32 +13,34 @@ export const defaultQuestions = [
 export default function Temperature(
   context: Context & { initiallyOpen?: boolean },
 ) {
-  const { day, store } = context,
-    rows = latest(store.records, "checkin")
-      .filter((r) => r.body.dayId === day.rootId)
-      .sort((a, b) => b.body.observedAt - a.body.observedAt),
-    [open, setOpen] = useState(context.initiallyOpen ?? false),
-    [editQuestions, setEditQuestions] = useState(false),
-    [questions, setQuestions] = useState<BodyOf<"checkin">["answers"]>(() =>
-      (
-        latest(store.records, "checkin").sort(
-          (a, b) => b.createdAt - a.createdAt,
-        )[0]?.body.answers ??
-        defaultQuestions.map((question) => ({ question, value: null }))
-      ).map((q) => ({ ...q, value: null })),
-    );
+  const { day, store } = context;
+  const rows = latest(store.records, "checkin")
+    .filter((r) => r.body.dayId === day.rootId)
+    .sort((a, b) => b.body.observedAt - a.body.observedAt);
+  const [open, setOpen] = useState(
+    (context.initiallyOpen ?? false) && !rows.length,
+  );
+  const [editing, setEditing] = useState<RecordOf<"checkin">>();
   return (
     <Panel
       title="Temperature check"
       detail="Self-reported conditions · never inferred from heart rate"
       action={
-        <button onClick={() => setOpen((v) => !v)}>
+        <button
+          onClick={() => {
+            setEditing(undefined);
+            setOpen((v) => !v);
+          }}
+        >
           {open ? "Close check-in" : "Check in now"}
         </button>
       }
     >
       {!rows.length && (
-        <Empty>No check-in recorded for this trading day.</Empty>
+        <Empty>
+          No check-in recorded for this trading day. A few optional questions
+          help you record how you are arriving.
+        </Empty>
       )}
       {rows[0] && (
         <>
@@ -56,142 +49,58 @@ export default function Temperature(
               <div key={a.question}>
                 <small>{a.question}</small>
                 <strong>
-                  {a.value === null ? "Not recorded" : a.value + "/10"}
+                  {a.value === null ? "Not recorded" : `${a.value}/10`}
                 </strong>
               </div>
             ))}
           </div>
           <p>{rows[0].body.physical}</p>
           <p>{rows[0].body.circumstances}</p>
+          <p>{rows[0].body.reflection}</p>
           <small>
-            {new Date(rows[0].body.observedAt).toLocaleString()} · {rows.length}{" "}
-            check-in{rows.length === 1 ? "" : "s"}
+            {new Date(rows[0].body.observedAt).toLocaleString()} ·{" "}
+            {rows[0].body.phase ?? "during"}
           </small>
+          <button
+            onClick={() => {
+              setEditing(rows[0]);
+              setOpen(true);
+            }}
+          >
+            Correct this check-in
+          </button>
         </>
       )}
       {open && (
-        <form
-          className="cc-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            if (
-              await store.save(
-                temperatureRecords(store.records, {
-                  dayId: day.rootId,
-                  observedAt: Date.now(),
-                  answers: questions,
-                  physical: string(f, "physical"),
-                  circumstances: string(f, "circumstances"),
-                  reflection: string(f, "reflection"),
-                }),
-              )
-            ) {
-              setOpen(false);
-              setQuestions((q) => q.map((a) => ({ ...a, value: null })));
-            }
+        <GuidedCheckin
+          key={day.rootId + (editing?.id ?? "new")}
+          context={context}
+          previous={editing}
+          onClose={() => {
+            setOpen(false);
+            setEditing(undefined);
           }}
-        >
-          {questions.map((q, i) => (
-            <fieldset className="cc-rating" key={i}>
-              <legend>{q.question}</legend>
-              {editQuestions && (
-                <div className="cc-inline">
-                  <Field label="Question">
-                    <input
-                      required
-                      maxLength={160}
-                      value={q.question}
-                      onChange={(e) =>
-                        setQuestions((rows) =>
-                          rows.map((a, n) =>
-                            n === i ? { ...a, question: e.target.value } : a,
-                          ),
-                        )
-                      }
-                    />
-                  </Field>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setQuestions((rows) => rows.filter((_, n) => n !== i))
-                    }
-                  >
-                    Remove question
-                  </button>
-                </div>
-              )}
-              <div className="cc-rating-values">
-                {Array.from({ length: 10 }, (_, n) => n + 1).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-label={`${q.question}: ${value} of 10`}
-                    aria-pressed={q.value === value}
-                    onClick={() =>
-                      setQuestions((rows) =>
-                        rows.map((a, n) =>
-                          n === i
-                            ? { ...a, value: a.value === value ? null : value }
-                            : a,
-                        ),
-                      )
-                    }
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-              <small>
-                {q.value === null
-                  ? "Not recorded"
-                  : `${q.value}/10 · tap again to clear`}
-              </small>
-            </fieldset>
-          ))}
-          <button type="button" onClick={() => setEditQuestions((v) => !v)}>
-            {editQuestions ? "Done editing questions" : "Edit questions"}
-          </button>
-          {editQuestions && (
-            <button
-              type="button"
-              onClick={() =>
-                setQuestions((rows) => [
-                  ...rows,
-                  { question: "New question", value: null },
-                ])
-              }
-            >
-              Add question
-            </button>
-          )}
-          <Area label="Physical condition" name="physical" />
-          <Area label="Unusual circumstances" name="circumstances" />
-          <Area label="Reflection (optional)" name="reflection" />
-          <Save store={store}>Record check-in</Save>
-        </form>
+        />
       )}
       {rows.length > 0 && (
         <details className="cc-history">
-          <summary>Earlier check-ins</summary>
+          <summary>Earlier check-ins & corrections</summary>
           {rows.map((r) => (
             <div key={r.id}>
               <p>
                 {new Date(r.body.observedAt).toLocaleString()} ·{" "}
                 {r.body.answers
-                  .map((a) => `${a.question}: ${a.value ?? "missing"}`)
+                  .map((a) => `${a.question}: ${a.value ?? "not recorded"}`)
                   .join(" · ")}
               </p>
               <History records={store.records} rootId={r.rootId} />
               <button
-                disabled={store.busy}
-                onClick={() =>
-                  void store.save([
-                    { ...createRecord("checkin", r.body, r), archived: true },
-                  ])
-                }
+                onClick={() => {
+                  setEditing(r);
+                  setOpen(true);
+                }}
               >
-                Remove from current analyses
+                Correct this record
               </button>
             </div>
           ))}

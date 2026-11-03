@@ -1,4 +1,5 @@
 "use client";
+import { GlassPanel } from "../glassyui/glass-panel";
 import {
   useEffect,
   useLayoutEffect,
@@ -403,7 +404,7 @@ export default function DashboardCanvas({
           }
         }
         return (
-          <div
+          <GlassPanel preset="standard"
             key={id}
             data-card={id}
             data-grid={JSON.stringify(box)}
@@ -534,7 +535,7 @@ export default function DashboardCanvas({
                 <MoveDiagonal2 size={16} />
               </button>
             )}
-          </div>
+          </GlassPanel>
         );
       })}
     </div>

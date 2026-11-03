@@ -13,9 +13,22 @@ export async function POST(request: Request) {
   try {
     const { db, user } = await authenticated(request);
     await rate(db, "process:" + user.id, 240);
-    const payload = processActionSchema.parse(
+    const parsed = processActionSchema.safeParse(
       await boundedJson(request, 512000),
     );
+    if (!parsed.success)
+      return Response.json(
+        {
+          error:
+            "These process records could not be synced. Update the app and retry; your local records are preserved.",
+          fields: parsed.error.issues.slice(0, 5).map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    const payload = parsed.data;
     if (payload.action === "list") {
       const { data, error } = await db
         .from(tables[payload.kind])
@@ -80,7 +93,19 @@ export async function POST(request: Request) {
       sessions.push(...(data ?? []).map((r) => r.data as Session));
     }
     const prepared = payload.records.map(withRefs);
-    validateAppend(records, prepared, sessions);
+    try {
+      validateAppend(records, prepared, sessions);
+    } catch (error) {
+      return Response.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "These process records need attention before syncing.",
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const { error } = await db.rpc("pulse_process_append", {
       p_user: user.id,
       p_records: prepared,

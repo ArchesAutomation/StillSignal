@@ -12,6 +12,7 @@ export function useProcess(owner: string, sessions: Session[]) {
     [syncState, setSyncState] = useState("Loading process records…"),
     [busy, setBusy] = useState(false);
   const currentOwner = useRef(owner);
+  const saveInFlight = useRef(false);
   currentOwner.current = owner;
   const reload = useCallback(async () => {
     const rows = await readProcess(owner);
@@ -61,6 +62,8 @@ export function useProcess(owner: string, sessions: Session[]) {
     };
   }, [reload, sync]);
   async function save(batch: ProcessRecord[]) {
+    if (saveInFlight.current) return false;
+    saveInFlight.current = true;
     setBusy(true);
     setError("");
     try {
@@ -78,6 +81,7 @@ export function useProcess(owner: string, sessions: Session[]) {
       );
       return false;
     } finally {
+      saveInFlight.current = false;
       setBusy(false);
     }
   }

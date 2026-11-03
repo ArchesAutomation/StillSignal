@@ -2,6 +2,8 @@
 import ThesisWorkspace from "../trading-thesis/workspace";
 import Variables from "../variable-builder/workspace";
 import Temperature from "../variable-builder/temperature";
+import { MissionsPanel } from "../process-goals/workspace";
+import QuickCaffeine from "../variable-builder/quick-caffeine";
 import Missions from "../process-goals/workspace";
 import {
   activityOf,
@@ -30,10 +32,24 @@ export default function StepActivity({
           />
         )}
         {activity === "variables" && (
-          <Variables {...context} preparation variableIds={step.variableIds} />
+          <>
+            <QuickCaffeine {...context} />
+            <Variables
+              {...context}
+              preparation
+              variableIds={step.variableIds}
+            />
+          </>
         )}
         {activity === "checkin" && <Temperature {...context} initiallyOpen />}
-        {activity === "missions" && <Missions {...context} />}
+        {activity === "missions" && (
+          <>
+            <MissionsPanel {...context} />
+            <button onClick={() => context.props.onPage("Missions")}>
+              Create or edit a reusable mission
+            </button>
+          </>
+        )}
         {activity === "intentions" && (
           <p className="cc-muted">
             Write your intentions in the questions below. Daily and per-session

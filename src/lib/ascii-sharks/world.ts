@@ -22,10 +22,10 @@ export const SHARK_NODES = 20;
 export type SharkKind = "classic" | "hammerhead" | "zebra" | "tiger" | "greathammer" | "mako" | "thresher" | "nurse";
 
 /** Which sharks to put in the water; size is relative to the biggest. */
-export type SharkSpec = { kind: SharkKind; size: number };
+export type SharkSpec = { key?: string; kind: SharkKind; size: number; color?: string };
 
 // The landing hero: four of the same shark at different depths.
-const DEFAULT_SHARKS: SharkSpec[] = [
+export const DEFAULT_SHARKS: SharkSpec[] = [
   { kind: "classic", size: 1 },
   { kind: "classic", size: 0.7 },
   { kind: "classic", size: 0.84 },
@@ -53,6 +53,8 @@ export interface Fish {
 }
 
 export interface Shark {
+  key?: string;
+  color?: string;
   id: number;
   kind: SharkKind;
   length: number;
@@ -146,10 +148,12 @@ export class World {
   constructor(
     private sharkSpecs: SharkSpec[] = DEFAULT_SHARKS,
     private fishCount?: number,
+    private viewportScale = false,
   ) {}
 
   resize(width: number, height: number, cellW: number, cellH: number) {
     const first = this.width === 0;
+    const previousWidth = this.width, previousHeight = this.height;
     this.width = width;
     this.height = height;
     // Spacing is set in grid cells so every fish lands in its own cell.
@@ -166,18 +170,60 @@ export class World {
       f.x = clamp(f.x, 0, width);
       f.y = clamp(f.y, 0, height);
     }
+    if (this.viewportScale) {
+      // Reflow the snouts with the viewport, then resize each body around its
+      // snout. A desktop-to-mobile resize must not leave them far off-screen.
+      for (const shark of this.sharks) {
+        const dx = shark.nodes[0] * (width / previousWidth - 1);
+        const dy = shark.nodes[1] * (height / previousHeight - 1);
+        for (let node = 0; node < shark.nodes.length; node += 2) {
+          shark.nodes[node] += dx; shark.nodes[node + 1] += dy;
+        }
+        shark.orbitRadius *= Math.min(width, height) / Math.min(previousWidth, previousHeight);
+      }
+      this.seedSharks([...this.sharks]);
+    }
   }
 
-  seed() {
+  private sharkSequence = 0;
+
+  setSharks(specs: SharkSpec[]) {
+    this.sharkSpecs = specs;
+    if (this.width && this.height) this.seedSharks([...this.sharks]);
+  }
+
+  private seedSharks(previous: Shark[] = []) {
     const { width: W, height: H } = this;
     const minSide = Math.min(W, H);
-    const baseLength = clamp(minSide * 0.44, 170, 430);
+    // Match the reference's proportions at desktop sizes, while bounding very
+    // large monitors. Legacy canvases retain upstream's original sizing.
+    const baseLength = clamp(minSide * 0.44, 170, this.viewportScale ? 800 : 430);
     const sharkCount = this.sharkSpecs.length;
 
     this.sharks = [];
     for (let i = 0; i < sharkCount; i++) {
-      const { kind, size } = this.sharkSpecs[i];
+      const { key, kind, size, color } = this.sharkSpecs[i];
       const length = baseLength * size;
+      const match = previous.findIndex(shark => key ? shark.key === key : !shark.key && shark.kind === kind && Math.abs(shark.length - length) < .01);
+      if (match >= 0) {
+        const [shark] = previous.splice(match, 1);
+        shark.kind = kind;
+        shark.color = color;
+        if (Math.abs(shark.length - length) > .01) {
+          // Resize this animal around its snout; retain its identity, turn,
+          // hunting target, phase and all the other swimmers' positions.
+          const ratio = length / shark.length;
+          for (let node = 2; node < shark.nodes.length; node += 2) {
+            shark.nodes[node] = shark.nodes[0] + (shark.nodes[node] - shark.nodes[0]) * ratio;
+            shark.nodes[node + 1] = shark.nodes[1] + (shark.nodes[node + 1] - shark.nodes[1]) * ratio;
+          }
+          shark.length = length;
+          shark.depth = size;
+          this.trails.delete(shark);
+        }
+        this.sharks.push(shark);
+        continue;
+      }
       const orbitRadius = minSide * rand(0.28, 0.4);
       const a = (i / sharkCount) * TAU + rand(-0.4, 0.4);
       const orbitDir: 1 | -1 = i % 2 === 0 ? 1 : -1;
@@ -191,7 +237,9 @@ export class World {
         nodes[n * 2 + 1] = y - Math.sin(heading) * seg * n;
       }
       this.sharks.push({
-        id: i + 1,
+        id: ++this.sharkSequence,
+        key,
+        color,
         kind,
         length,
         nodes,
@@ -211,6 +259,11 @@ export class World {
     // Smaller (farther) sharks draw first so the big one swims over them.
     this.sharks.sort((a, b) => a.length - b.length);
 
+  }
+
+  seed() {
+    this.seedSharks();
+    const { width: W, height: H } = this;
     const total = this.fishCount ?? clamp(Math.round((W * H) / 4400), 85, 340);
     this.fish = [];
     while (this.fish.length < total) {
@@ -560,6 +613,19 @@ export class World {
 
       // Choose a clear direction instead of summing opposing escape forces.
       let avoiding = false;
+
+      // Upstream's soft central no-swim zone for the full-page ocean.
+      if (!this.readingAreas.length) {
+        const ex = (hx - cxW) / (W * 0.3);
+        const ey = (hy - cyW) / (H * 0.16);
+        const e2 = ex * ex + ey * ey;
+        if (e2 < 1) {
+          const e = Math.sqrt(e2) || 1e-3;
+          const w = (1 - e) * (hunting ? 1 : 2.5);
+          dx += (ex / e) * w;
+          dy += (ey / e) * w;
+        }
+      }
 
       // Turn back once the snout leaves the frame, so bodies dip off-screen
       // now and then but the sharks never wander away for good.

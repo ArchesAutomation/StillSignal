@@ -1,0 +1,40 @@
+const { chromium } = require("playwright");
+(async () => {
+  const b = await chromium.launch({ headless: true, channel: "msedge" });
+  const p = await b.newPage({ viewport: { width: 1440, height: 1080 } });
+  const errors = [];
+  p.on("pageerror", (e) => errors.push(e.message));
+  await p.goto("http://127.0.0.1:3001/review");
+  await p
+    .getByRole("button", { name: "Command Center", exact: true })
+    .first()
+    .click();
+  await p
+    .getByRole("button", {
+      name: /Start today.s preparation|Start \/ resume preparation/,
+    })
+    .first()
+    .click();
+  if (await p.getByRole("button", { name: /Open today.s preparation/ }).count())
+    await p.getByRole("button", { name: /Open today.s preparation/ }).click();
+  await p
+    .getByRole("heading", { name: "A clear path through your trading day" })
+    .waitFor();
+  await p.screenshot({
+    path: "../../outputs/guided-setup-desktop.png",
+    fullPage: true,
+  });
+  console.log(
+    JSON.stringify({
+      errors,
+      text: (await p.locator(".journal-guide").innerText()).slice(0, 500),
+      overflow: await p.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    }),
+  );
+  await b.close();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

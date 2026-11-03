@@ -1,20 +1,13 @@
+import "./legacy.css";
+import "./tailwind.css";
+import "./appearance-colors.css";
+import "./liquid-glass.css";
 import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import "./workspace.css";
-import "./signal.css";
-import "./concept.css";
-import "./concept-integration.css";
-import "./v4-reference.css";
-import "./v4-functional.css";
-import "./blueprint.css";
-import "./journal-reference.css";
-import "./implementation-plan.css";
-import "./journal-space.css";
-import "./page-layout.css";
-import "./journal-select.css";
-import "./command-center.css";
-import "./module-layout.css";
-import "./shark-background.css";
+import "./journal-guide.css";
+import SharkBackground from "@/components/shark-background";
+import { GlassProvider } from "@/components/glassyui/glass-provider";
+import { AppearanceProvider } from "@/components/appearance-context";
+import Appearance from "@/components/appearance";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:
@@ -34,8 +27,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <GlassProvider>
+          <AppearanceProvider>
+            <SharkBackground />
+            {children}
+            <Appearance />
+          </AppearanceProvider>
+        </GlassProvider>
+      </body>
     </html>
   );
 }

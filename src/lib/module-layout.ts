@@ -1,63 +1,200 @@
-export type ModuleSection = { id: string; title: string; width: number; height?: number };
+export type ModuleSection = {
+  id: string;
+  title: string;
+  width: number;
+  height?: number;
+};
 export type ModuleBox = { x: number; y: number; w: number; h: number };
-export type CustomModule = { id: string; title: string; text: string };
-export type ModulePlacement = { section: string; order: number; width: number; hidden: boolean; title?: string; height?: number; compact?: boolean; hiddenParts?: string[]; box?: ModuleBox };
-export type ModuleLayout = { sections: ModuleSection[]; modules: Record<string, ModulePlacement>; custom?: CustomModule[] };
+export type CustomModule = {
+  id: string;
+  title: string;
+  text: string;
+  fontSize?: number;
+};
+export type ModulePlacement = {
+  section: string;
+  order: number;
+  width: number;
+  hidden: boolean;
+  title?: string;
+  height?: number;
+  heightMode?: "auto" | "fixed";
+  compact?: boolean;
+  hiddenParts?: string[];
+  box?: ModuleBox;
+};
+export type ModuleLayout = {
+  sections: ModuleSection[];
+  modules: Record<string, ModulePlacement>;
+  custom?: CustomModule[];
+};
 export const defaultSections: ModuleSection[] = [
   { id: "top", title: "At a glance", width: 12 },
   { id: "main", title: "My workspace", width: 9 },
   { id: "side", title: "Alongside", width: 3 },
   { id: "bottom", title: "More to explore", width: 12 },
 ];
-export const moduleLayoutKey = (owner: string, page: string) => `still-signal-modules-v2:${encodeURIComponent(owner)}:${encodeURIComponent(page)}`;
-export const emptyModuleLayout = (): ModuleLayout => ({ sections: defaultSections.map(s => ({ ...s })), modules: {} });
+export const moduleLayoutKey = (owner: string, page: string) =>
+  `still-signal-modules-v2:${encodeURIComponent(owner)}:${encodeURIComponent(page)}`;
+export const emptyModuleLayout = (): ModuleLayout => ({
+  sections: defaultSections.map((s) => ({ ...s })),
+  modules: {},
+});
 export function readModuleLayout(value: string | null): ModuleLayout {
   try {
     const raw = JSON.parse(value || "null");
-    if (!raw || !Array.isArray(raw.sections) || !raw.modules || typeof raw.modules !== "object") return emptyModuleLayout();
+    if (
+      !raw ||
+      !Array.isArray(raw.sections) ||
+      !raw.modules ||
+      typeof raw.modules !== "object"
+    )
+      return emptyModuleLayout();
     const ids = new Set<string>();
-    const sections: ModuleSection[] = raw.sections.slice(0, 12).filter((s: ModuleSection) => {
-      if (!s || typeof s.id !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(s.id) || ids.has(s.id) || typeof s.title !== "string" || !s.title.trim() || !Number.isInteger(s.width) || s.width < 3 || s.width > 12) return false;
-      ids.add(s.id); return true;
-    }).map((s: ModuleSection) => ({ id: s.id, width: s.width, title: s.title.slice(0, 60), ...(Number.isFinite(s.height) ? { height: Math.max(120, Math.min(1600, s.height!)) } : {}) }));
+    const sections: ModuleSection[] = raw.sections
+      .slice(0, 12)
+      .filter((s: ModuleSection) => {
+        if (
+          !s ||
+          typeof s.id !== "string" ||
+          !/^[a-zA-Z0-9_-]{1,80}$/.test(s.id) ||
+          ids.has(s.id) ||
+          typeof s.title !== "string" ||
+          !s.title.trim() ||
+          !Number.isInteger(s.width) ||
+          s.width < 3 ||
+          s.width > 12
+        )
+          return false;
+        ids.add(s.id);
+        return true;
+      })
+      .map((s: ModuleSection) => ({
+        id: s.id,
+        width: s.width,
+        title: s.title.slice(0, 60),
+        ...(Number.isFinite(s.height)
+          ? { height: Math.max(120, Math.min(1600, s.height!)) }
+          : {}),
+      }));
     if (!sections.length) return emptyModuleLayout();
     const modules: Record<string, ModulePlacement> = {};
     for (const [id, value] of Object.entries(raw.modules).slice(0, 150)) {
       const p = value as ModulePlacement;
-      if (!/^[a-zA-Z0-9_-]{1,150}$/.test(id) || ["__proto__", "constructor", "prototype"].includes(id) || !p || !ids.has(p.section) || !Number.isInteger(p.order) || p.order < 0 || p.order > 200 || !Number.isInteger(p.width) || p.width < 3 || p.width > 12) continue;
-      modules[id] = { section: p.section, order: p.order, width: p.width, hidden: p.hidden === true,
+      if (
+        !/^[a-zA-Z0-9_-]{1,150}$/.test(id) ||
+        ["__proto__", "constructor", "prototype"].includes(id) ||
+        !p ||
+        !ids.has(p.section) ||
+        !Number.isInteger(p.order) ||
+        p.order < 0 ||
+        p.order > 200 ||
+        !Number.isInteger(p.width) ||
+        p.width < 3 ||
+        p.width > 12
+      )
+        continue;
+      modules[id] = {
+        section: p.section,
+        order: p.order,
+        width: p.width,
+        hidden: p.hidden === true,
         title: typeof p.title === "string" ? p.title.slice(0, 80) : undefined,
-        height: Number.isFinite(p.height) ? Math.max(120, Math.min(1600, p.height!)) : undefined,
+        height: Number.isFinite(p.height)
+          ? Math.max(120, Math.min(1600, p.height!))
+          : undefined,
+        heightMode: p.heightMode === "fixed" ? "fixed" : "auto",
         compact: p.compact === true,
-        hiddenParts: Array.isArray(p.hiddenParts) ? p.hiddenParts.filter((s): s is string => typeof s === "string" && s.length < 100).slice(0, 30) : [],
-        ...(p.box && [p.box.x, p.box.y, p.box.w, p.box.h].every(Number.isFinite) ? { box: boundModuleBox(p.box) } : {}),
+        hiddenParts: Array.isArray(p.hiddenParts)
+          ? p.hiddenParts
+              .filter(
+                (s): s is string => typeof s === "string" && s.length < 100,
+              )
+              .slice(0, 30)
+          : [],
+        ...(p.box && [p.box.x, p.box.y, p.box.w, p.box.h].every(Number.isFinite)
+          ? { box: boundModuleBox(p.box) }
+          : {}),
       };
     }
-    const custom: CustomModule[] = Array.isArray(raw.custom) ? raw.custom.slice(0, 50).filter((c: CustomModule, i: number, all: CustomModule[]) => c && /^custom-[a-zA-Z0-9_-]{1,100}$/.test(c.id) && all.findIndex(n => n?.id === c.id) === i && typeof c.title === "string" && typeof c.text === "string").map((c: CustomModule) => ({ id: c.id, title: c.title.slice(0, 80), text: c.text.slice(0, 10000) })) : [];
+    const custom: CustomModule[] = Array.isArray(raw.custom)
+      ? raw.custom
+          .slice(0, 50)
+          .filter(
+            (c: CustomModule, i: number, all: CustomModule[]) =>
+              c &&
+              /^custom-[a-zA-Z0-9_-]{1,100}$/.test(c.id) &&
+              all.findIndex((n) => n?.id === c.id) === i &&
+              typeof c.title === "string" &&
+              typeof c.text === "string",
+          )
+          .map((c: CustomModule) => ({
+            id: c.id,
+            title: c.title.slice(0, 80),
+            text: c.text.slice(0, 10000),
+            ...(Number.isFinite(c.fontSize)
+              ? { fontSize: Math.max(14, Math.min(36, c.fontSize!)) }
+              : {}),
+          }))
+      : [];
     return { sections, modules, ...(custom.length ? { custom } : {}) };
-  } catch { return emptyModuleLayout(); }
+  } catch {
+    return emptyModuleLayout();
+  }
 }
 
 export const MODULE_BOARD_WIDTH = 1200;
 export function boundModuleBox(box: ModuleBox): ModuleBox {
   const w = Math.max(180, Math.min(MODULE_BOARD_WIDTH, Math.round(box.w)));
-  return { x: Math.max(0, Math.min(MODULE_BOARD_WIDTH - w, Math.round(box.x))), y: Math.max(0, Math.min(50000, Math.round(box.y))), w, h: Math.max(120, Math.min(2400, Math.round(box.h))) };
+  return {
+    x: Math.max(0, Math.min(MODULE_BOARD_WIDTH - w, Math.round(box.x))),
+    y: Math.max(0, Math.min(50000, Math.round(box.y))),
+    w,
+    h: Math.max(120, Math.min(2400, Math.round(box.h))),
+  };
 }
 
 /** Shared by pointer and keyboard resizing; dimensions stay on the section grid. */
-export function resizeModule(width: number, height: number, dx: number, dy: number, gridWidth: number, gap: number) {
+export function resizeModule(
+  width: number,
+  height: number,
+  dx: number,
+  dy: number,
+  gridWidth: number,
+  gap: number,
+) {
   const column = (gridWidth + gap) / 12;
   return {
-    width: Math.max(3, Math.min(12, width + Math.round(dx / Math.max(1, column)))),
+    width: Math.max(
+      3,
+      Math.min(12, width + Math.round(dx / Math.max(1, column))),
+    ),
     height: Math.max(120, Math.min(1600, Math.round(height + dy))),
   };
 }
-export function moveModule(layout: ModuleLayout, id: string, placement: ModulePlacement, section: string, before?: string): ModuleLayout {
-  if (!layout.sections.some(s => s.id === section) || id === before) return layout;
-  const next = { ...layout, modules: { ...layout.modules, [id]: { ...placement, section, hidden: false } } };
-  const peers = Object.entries(next.modules).filter(([key, p]) => key !== id && p.section === section && !p.hidden).sort((a, b) => a[1].order - b[1].order);
+export function moveModule(
+  layout: ModuleLayout,
+  id: string,
+  placement: ModulePlacement,
+  section: string,
+  before?: string,
+): ModuleLayout {
+  if (!layout.sections.some((s) => s.id === section) || id === before)
+    return layout;
+  const next = {
+    ...layout,
+    modules: {
+      ...layout.modules,
+      [id]: { ...placement, section, hidden: false },
+    },
+  };
+  const peers = Object.entries(next.modules)
+    .filter(([key, p]) => key !== id && p.section === section && !p.hidden)
+    .sort((a, b) => a[1].order - b[1].order);
   const at = before ? peers.findIndex(([key]) => key === before) : -1;
   peers.splice(at < 0 ? peers.length : at, 0, [id, next.modules[id]]);
-  peers.forEach(([key, p], order) => { next.modules[key] = { ...p, order }; });
+  peers.forEach(([key, p], order) => {
+    next.modules[key] = { ...p, order };
+  });
   return next;
 }

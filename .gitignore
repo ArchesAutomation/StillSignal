@@ -13,3 +13,6 @@ extension/test-results/
 .vercel
 
 .next-command-center-qa/
+
+.next-*/
+out/

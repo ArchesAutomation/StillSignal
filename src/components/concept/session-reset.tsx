@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { cx } from "./shared";
-import SharkBackground from "../shark-background";
 const modules = {
   "Box breathing": [
     "Inhale comfortably",
@@ -71,7 +70,6 @@ export default function SessionReset({
         : modules[module][Math.min(3, Math.floor((elapsed / duration) * 4))];
   return (
     <section className={cx("reset")} aria-label="Post-session Stillness reset">
-      <SharkBackground quiet />
       <div className={cx("eyebrow")}>Arrive · breathe · observe · choose</div>
       <h1>A little space after the session.</h1>
       <p>{instruction}</p>

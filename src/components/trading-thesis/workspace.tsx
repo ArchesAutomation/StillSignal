@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  recordSchema,
   biasSchema,
   createRecord,
   latest,
@@ -21,6 +22,9 @@ import {
   string,
   type Context,
 } from "../command-center/shared";
+import PersistentForm, { clearFormDraft } from "../persistent-form";
+import ThesisAttachments from "../thesis-attachments";
+import PrivateImage from "../private-image";
 const thesisLabels = {
   structure: "Market structure",
   events: "Economic events",
@@ -139,6 +143,40 @@ export default function ThesisWorkspace(
         : { body: emptyThesis(day, context.initialScope) };
     }),
     [versionKey, setVersionKey] = useState(0);
+  const editorKey = `ss-thesis-editor:${context.props.pulse?.owner ?? "local"}:${day.rootId}:${context.initialScope ?? "all"}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(editorKey) ?? "null");
+      if (saved) {
+        const parsed = recordSchema.parse(createRecord("thesis", saved.body));
+        if (parsed.kind === "thesis")
+          setEditor({
+            body: parsed.body,
+            previous: store.records.find(
+              (r): r is RecordOf<"thesis"> =>
+                r.kind === "thesis" && r.id === saved.previousId,
+            ),
+          });
+      }
+    } catch {
+      /* Saved records stay untouched if a draft is malformed. */
+    }
+  }, [editorKey]);
+  useEffect(() => {
+    if (editor) {
+      try {
+        localStorage.setItem(
+          editorKey,
+          JSON.stringify({
+            body: editor.body,
+            previousId: editor.previous?.id,
+          }),
+        );
+      } catch {}
+    }
+  }, [editor, editorKey]);
+  const formKey =
+    editorKey + ":" + (editor?.previous?.id ?? editor?.body.scope ?? "new");
   const rows = relevantTheses(store.records, day).filter(
       (t) => !context.initialScope || t.body.scope === context.initialScope,
     ),
@@ -169,6 +207,38 @@ export default function ThesisWorkspace(
           </div>
         }
       >
+        <details>
+          <summary>Archived plans</summary>
+          {latest(store.records, "thesis", Infinity, true)
+            .filter(
+              (t) =>
+                t.archived &&
+                (t.body.dayId === day.rootId || t.body.scope === "weekly"),
+            )
+            .map((t) => (
+              <p key={t.id}>
+                {t.body.scope} · {t.body.periodStart} ·{" "}
+                {t.body.instrument || "All instruments"}
+                <button
+                  disabled={store.busy}
+                  onClick={() =>
+                    void store.save([
+                      {
+                        ...createRecord(
+                          "thesis",
+                          { ...t.body, reason: "Restored archived plan" },
+                          t,
+                        ),
+                        archived: false,
+                      },
+                    ])
+                  }
+                >
+                  Restore plan
+                </button>
+              </p>
+            ))}
+        </details>
         {!rows.length && (
           <Empty>
             Write your first plan or derive a daily plan from your weekly
@@ -243,11 +313,44 @@ export default function ThesisWorkspace(
                 )}
             </div>
             <History records={store.records} rootId={t.rootId} />
-            {t.body.screenshots.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noreferrer">
-                Chart screenshot {i + 1}
-              </a>
-            ))}
+            <div className="guide-thesis-images">
+              {t.body.screenshots.map((url, i) =>
+                url.startsWith("local-image:") ? (
+                  <PrivateImage
+                    key={url}
+                    path={url}
+                    owner={context.props.pulse?.owner ?? "local"}
+                    name={`Chart screenshot ${i + 1}`}
+                  />
+                ) : (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt={`Chart screenshot ${i + 1}`} />
+                  </a>
+                ),
+              )}
+            </div>
+            <button
+              disabled={store.busy}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Archive this mistaken plan? Original versions and linked review evidence will remain in history.",
+                  )
+                )
+                  void store.save([
+                    {
+                      ...createRecord(
+                        "thesis",
+                        { ...t.body, reason: "Archived mistaken plan" },
+                        t,
+                      ),
+                      archived: true,
+                    },
+                  ]);
+              }}
+            >
+              Archive mistaken plan
+            </button>
           </article>
         ))}
       </Panel>
@@ -257,7 +360,8 @@ export default function ThesisWorkspace(
             editor.previous ? "Save a thesis revision" : "Write your thesis"
           }
         >
-          <form
+          <PersistentForm
+            draftKey={formKey}
             key={versionKey}
             className="cc-form"
             onSubmit={async (e) => {
@@ -305,8 +409,12 @@ export default function ThesisWorkspace(
                   await store.save([
                     createRecord("thesis", body, editor.previous),
                   ])
-                )
+                ) {
+                  clearFormDraft(formKey);
+                  clearFormDraft(formKey + ":images");
+                  clearFormDraft(editorKey);
                   setEditor(undefined);
+                }
               } catch {
                 store.setError(
                   "Check timeframe lines: use names such as 15M=bullish, 1H=bearish, or Daily=neutral.",
@@ -372,8 +480,9 @@ export default function ThesisWorkspace(
               )
                 .filter(
                   ([key]) =>
-                    !context.visibleFields ||
-                    context.visibleFields.includes(key),
+                    key !== "screenshots" &&
+                    (!context.visibleFields ||
+                      context.visibleFields.includes(key)),
                 )
                 .map(([key, label]) => (
                   <Area
@@ -388,6 +497,22 @@ export default function ThesisWorkspace(
                   />
                 ))}
             </div>
+            {(!context.visibleFields ||
+              context.visibleFields.includes("screenshots")) && (
+              <ThesisAttachments
+                key={formKey}
+                draftKey={formKey + ":images"}
+                owner={context.props.pulse?.owner ?? "local"}
+                initial={editor.body.screenshots}
+                onChange={(screenshots) =>
+                  setEditor((current) =>
+                    current
+                      ? { ...current, body: { ...current.body, screenshots } }
+                      : current,
+                  )
+                }
+              />
+            )}
             <Area
               label="Reason for this revision"
               name="reason"
@@ -402,7 +527,7 @@ export default function ThesisWorkspace(
                 Cancel
               </button>
             </div>
-          </form>
+          </PersistentForm>
         </Panel>
       )}
     </div>

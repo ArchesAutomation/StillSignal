@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { GlassPanel } from "../glassyui/glass-panel";
+import { useEffect, useState } from "react";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
 import { useProcess } from "./use-process";
@@ -26,6 +27,9 @@ import {
   validBaseline,
 } from "@/lib/pattern-engine/physiology";
 import { isActualExecution } from "@/lib/trade-context";
+import MarketOutlook from "./market-outlook";
+import SessionReviewGuide from "../session-review-guide";
+import PreparationSummary from "../pre-market/preparation-summary";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
 import TradingThesis, {
   relevantTheses,
@@ -272,8 +276,8 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
     ],
     preparation: [
       "Preparation",
-      prep.total
-        ? `${prep.complete}/${prep.total} required · ${prep.unknown} unverified`
+      prep.runs.length
+        ? `${prep.resolved}/${prep.sections} sections resolved · ${prep.omissions} with omissions`
         : "No preparation run",
     ],
     readiness: [
@@ -310,7 +314,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
   };
   return (
     <>
-      <div className="cc-greeting">
+      <GlassPanel preset="standard" className="cc-greeting">
         <div>
           <span className="cc-eyebrow">Your trading process, in context</span>
           <h1>
@@ -329,9 +333,13 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
           className="cc-primary"
           onClick={() => props.onPage("Pre-Market")}
         >
-          Start today's preparation
+          Start / resume preparation
         </button>
-      </div>
+        <button onClick={() => props.onPage("Trade Quality")}>
+          Finish session / review today
+        </button>
+      </GlassPanel>
+      <PreparationSummary {...context} />
       <DashboardBoard
         editor={context.editor}
         store={store}
@@ -354,37 +362,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
             ]),
           ) as Parameters<typeof DashboardBoard>[0]["status"]
         }
-        market={
-          <div className="cc-market-strip" aria-label="Recorded market bias">
-            <span>Market outlook</span>
-            {["weekly", "daily"].map((scope) => {
-              const plan = thesis
-                .filter((t) => t.body.scope === scope)
-                .sort((a, b) => b.createdAt - a.createdAt)[0];
-              return (
-                <Badge key={scope}>
-                  {scope} · {plan?.body.bias ?? "unrecorded"}
-                </Badge>
-              );
-            })}
-            {day.body.timeframes.map((timeframe) => {
-              const plan = thesis
-                .filter(
-                  (t) =>
-                    t.body.scope !== "weekly" &&
-                    t.body.instrument === day.body.instrument,
-                )
-                .sort((a, b) => b.createdAt - a.createdAt)[0];
-              return (
-                <Badge key={timeframe}>
-                  {timeframe} ·{" "}
-                  {plan?.body.timeframes.find((f) => f.timeframe === timeframe)
-                    ?.bias ?? "unrecorded"}
-                </Badge>
-              );
-            })}
-          </div>
-        }
+        market={<MarketOutlook {...context} />}
       />
       <footer className="cc-dashboard-footer">
         <span>Review & refine</span>
@@ -504,19 +482,23 @@ function StartDashboard({
   ) as Parameters<typeof DashboardBoard>[0]["panels"];
   return (
     <>
-      <div className="cc-greeting">
+      <GlassPanel preset="standard" className="cc-greeting">
         <div>
           <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
           <h1>Your Command Center</h1>
           <p>A clear plan before your first trade.</p>
         </div>
         <div className="cc-actions">
-          <button className="cc-primary" disabled={store.busy} onClick={() => void open("Pre-Market")}>
+          <button
+            className="cc-primary"
+            disabled={store.busy}
+            onClick={() => void open("Pre-Market")}
+          >
             Start today's preparation
           </button>
           <button onClick={onSettings}>Day settings</button>
         </div>
-      </div>
+      </GlassPanel>
       <DashboardBoard
         editor={editor}
         store={store}
@@ -594,6 +576,28 @@ export default function ProcessWorkspace(props: Props) {
       days.find(
         (d) => d.body.date === selectedDate && d.body.timezone === zone,
       ) ?? days.find((d) => d.body.date === selectedDate);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const requested = (event as CustomEvent<string>).detail;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(requested)) return;
+      setDate(requested);
+      if (!days.some((d) => d.body.date === requested))
+        void store.save([
+          createRecord("day", {
+            date: requested,
+            timezone: zone,
+            status: "reviewing",
+            instrument: "",
+            account: "",
+            timeframes: [],
+            sessionIds: [],
+            goal: "",
+          }),
+        ]);
+    };
+    window.addEventListener("ss-review-day", open);
+    return () => window.removeEventListener("ss-review-day", open);
+  }, [store.records, zone]);
   if (!processPages.has(props.page)) return null;
   if (!store.loaded)
     return (
@@ -605,40 +609,82 @@ export default function ProcessWorkspace(props: Props) {
   const context = day ? { store, day, props } : undefined;
   if (props.page === "Journal" || props.page === "Live Session")
     return (
-      <><WorkspaceModule id="process-context" title="Trading day context" section="top" order={3}><div className="cc-workspace cc-context-strip">
-        {context ? (
-          <JournalContext key={props.session.id} {...context} />
-        ) : (
-          <details className="cc-journal-context">
-            <summary>Trading process context · no linked trading day</summary>
-            <p>
-              Preparation, thesis and personal variables can be linked without
-              changing this journal.
-            </p>
-            <button
-              onClick={() => {
-                setDate(selectedDate);
-                props.onPage("Command Center");
-              }}
-            >
-              Open this day in Command Center
-            </button>
-          </details>
-        )}
-      </div></WorkspaceModule>
-      {([
-        ["preparation", "Pre-market non-negotiables", PreparationPanel],
-        ["thesis", "Trading thesis", ThesisPanel],
-        ["variables", "Personal variables", VariablesPanel],
-        ["missions", "Missions", MissionsPanel],
-        ["quality", "Trade quality", ProcessPanel],
-      ] as const).map(([id, title, Component]) => <WorkspaceModule key={id} id={"linked-" + id} title={title} initiallyHidden section="side"><ModuleScope active={false}>{context ? <Component {...context} /> : <section className="cc-panel"><h2>{title}</h2><p>Link this journal date to a trading day to show the same records used in Command Center.</p><button onClick={() => { setDate(selectedDate); props.onPage("Command Center"); }}>Open Command Center</button></section>}</ModuleScope></WorkspaceModule>)}
+      <>
+        <WorkspaceModule
+          id="process-context"
+          title="Trading day context"
+          section="top"
+          order={3}
+        >
+          <div className="cc-workspace cc-context-strip">
+            {context ? (
+              <JournalContext key={props.session.id} {...context} />
+            ) : (
+              <details className="cc-journal-context">
+                <summary>
+                  Trading process context · no linked trading day
+                </summary>
+                <p>
+                  Preparation, thesis and personal variables can be linked
+                  without changing this journal.
+                </p>
+                <button
+                  onClick={() => {
+                    setDate(selectedDate);
+                    props.onPage("Command Center");
+                  }}
+                >
+                  Open this day in Command Center
+                </button>
+              </details>
+            )}
+          </div>
+        </WorkspaceModule>
+        {(
+          [
+            ["preparation", "Pre-market non-negotiables", PreparationPanel],
+            ["thesis", "Trading thesis", ThesisPanel],
+            ["variables", "Personal variables", VariablesPanel],
+            ["missions", "Missions", MissionsPanel],
+            ["quality", "Trade quality", ProcessPanel],
+          ] as const
+        ).map(([id, title, Component]) => (
+          <WorkspaceModule
+            key={id}
+            id={"linked-" + id}
+            title={title}
+            initiallyHidden
+            section="side"
+          >
+            <ModuleScope active={false}>
+              {context ? (
+                <Component {...context} />
+              ) : (
+                <section className="cc-panel">
+                  <h2>{title}</h2>
+                  <p>
+                    Link this journal date to a trading day to show the same
+                    records used in Command Center.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setDate(selectedDate);
+                      props.onPage("Command Center");
+                    }}
+                  >
+                    Open Command Center
+                  </button>
+                </section>
+              )}
+            </ModuleScope>
+          </WorkspaceModule>
+        ))}
       </>
     );
 
   return (
     <div className="cc-workspace">
-      <div className="cc-daybar">
+      <GlassPanel preset="standard" className="cc-daybar">
         {props.page !== "Command Center" && (
           <button onClick={() => props.onPage("Command Center")}>
             ← Command Center
@@ -654,7 +700,14 @@ export default function ProcessWorkspace(props: Props) {
             }}
           />
         </Field>
+        <button onClick={() => setDate(dateInZone(Date.now(), zone))}>
+          Today
+        </button>
         <span role="status">{store.syncState}</span>
+        {store.syncState.includes("awaiting") ||
+        store.syncState.includes("Saved locally ·") ? (
+          <button onClick={() => void store.refresh()}>Retry sync</button>
+        ) : null}
         {store.error && (
           <button onClick={() => void store.refresh()}>Retry sync</button>
         )}
@@ -663,7 +716,7 @@ export default function ProcessWorkspace(props: Props) {
             Edit trading-day context
           </button>
         )}
-      </div>
+      </GlassPanel>
       {store.error && (
         <div className="cc-error" role="alert">
           <p>{store.error}</p>
@@ -671,21 +724,28 @@ export default function ProcessWorkspace(props: Props) {
         </div>
       )}
       {!day && !editDay && props.page === "Pre-Market" && (
-        <Panel title="Your pre-trading routine" detail="Set up your workflow once. Follow it each session.">
+        <Panel
+          title="Your pre-trading routine"
+          detail="Set up your workflow once. Follow it each session."
+        >
           <p>Open today's preparation to build or follow your saved routine.</p>
           <button
             className="cc-primary"
             disabled={store.busy}
-            onClick={() => void store.save([createRecord("day", {
-              date: selectedDate,
-              timezone: zone,
-              status: "preparing",
-              instrument: "",
-              account: "",
-              timeframes: [],
-              sessionIds: [],
-              goal: "",
-            })])}
+            onClick={() =>
+              void store.save([
+                createRecord("day", {
+                  date: selectedDate,
+                  timezone: zone,
+                  status: "preparing",
+                  instrument: "",
+                  account: "",
+                  timeframes: [],
+                  sessionIds: [],
+                  goal: "",
+                }),
+              ])
+            }
           >
             Open today's preparation →
           </button>
@@ -823,7 +883,10 @@ export default function ProcessWorkspace(props: Props) {
             <TradingThesis key={day!.rootId} {...context} />
           )}
           {props.page === "Trade Quality" && (
-            <TradeQuality key={day!.rootId} {...context} />
+            <>
+              <SessionReviewGuide key={"review-" + day!.rootId} {...context} />
+              <TradeQuality key={day!.rootId} {...context} />
+            </>
           )}
           {props.page === "Rule Violations" && <Violations {...context} />}
           {props.page === "Settings & Variables" && (

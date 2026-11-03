@@ -1,10 +1,13 @@
 "use client";
+import { GlassPanel } from "@/components/glassyui/glass-panel";
+import { GlassInput } from "@/components/glassyui/glass-input";
+import { GlassButton } from "@/components/glassyui/glass-button";
+
 import { useEffect, useState } from "react";
 import { Activity, ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { authClient, cloudConfigured, clearSyncCache } from "@/lib/cloud";
 import Dashboard from "./dashboard";
-import SharkBackground from "./shark-background";
 export default function AuthGate() {
   const openSignup = process.env.NEXT_PUBLIC_OPEN_SIGNUP === "true";
   const [user, setUser] = useState<User | null>(null),
@@ -125,7 +128,6 @@ export default function AuthGate() {
           : "Welcome to Still Signal.";
   return (
     <main className="auth-page">
-      <SharkBackground />
       <a className="brand auth-brand" href="/">
         <span className="brand-icon">
           <Activity size={23} />
@@ -164,7 +166,7 @@ export default function AuthGate() {
             </span>
           </div>
         </div>
-        <div className="glass auth-card">
+        <GlassPanel className="auth-card" preset="subtle">
           <h2>{title}</h2>
           <p>
             {mode === "signup"
@@ -194,7 +196,7 @@ export default function AuthGate() {
             {mode !== "new-password" && (
               <label>
                 Email
-                <input
+                <GlassInput
                   type="email"
                   autoComplete="email"
                   required
@@ -207,7 +209,7 @@ export default function AuthGate() {
             {mode !== "reset" && (
               <label>
                 Password
-                <input
+                <GlassInput
                   type="password"
                   autoComplete={
                     mode === "signin" ? "current-password" : "new-password"
@@ -224,7 +226,7 @@ export default function AuthGate() {
                 />
               </label>
             )}
-            <button
+            <GlassButton type="submit" lens={false}
               className="button primary full"
               disabled={busy || !cloudConfigured}
             >
@@ -238,7 +240,7 @@ export default function AuthGate() {
                       ? "Update password"
                       : "Sign in"}
               <ArrowUpRight size={15} />
-            </button>
+            </GlassButton>
           </form>
           {!openSignup && (
             <p className="auth-footnote">
@@ -248,7 +250,7 @@ export default function AuthGate() {
           <div className="auth-links">
             {mode === "signin" && openSignup ? (
               <>
-                <button
+                <GlassButton type="submit" lens={false}
                   className="text-button"
                   onClick={() => {
                     setMode("signup");
@@ -257,8 +259,8 @@ export default function AuthGate() {
                   }}
                 >
                   Create an account
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton type="submit" lens={false}
                   className="text-button"
                   onClick={() => {
                     setMode("reset");
@@ -267,10 +269,10 @@ export default function AuthGate() {
                   }}
                 >
                   Forgot password?
-                </button>
+                </GlassButton>
               </>
             ) : mode !== "signin" ? (
-              <button
+              <GlassButton type="submit" lens={false}
                 className="text-button"
                 onClick={() => {
                   setMode("signin");
@@ -279,13 +281,13 @@ export default function AuthGate() {
                 }}
               >
                 Back to sign in
-              </button>
+              </GlassButton>
             ) : null}
           </div>
           <a className="auth-privacy" href="/privacy">
             Privacy & data details
           </a>
-        </div>
+        </GlassPanel>
       </section>
     </main>
   );

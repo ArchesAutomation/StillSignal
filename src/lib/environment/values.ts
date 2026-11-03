@@ -18,7 +18,9 @@ export function validateValue(
       (d.min !== undefined && v < d.min) ||
       (d.max !== undefined && v > d.max)
     )
-      throw new Error("Value is outside this definition's range.");
+      throw new Error(
+        `${d.name}: enter ${d.min !== undefined ? `at least ${d.min}` : "a value"}${d.max !== undefined ? ` and at most ${d.max}` : ""}${d.unit ? ` ${d.unit}` : ""}. This bound belongs to the saved variable definition; edit its definition to change it.`,
+      );
     if (
       ((d.type === "duration" || d.type === "counter") && v < 0) ||
       (d.type === "counter" && !Number.isInteger(v))
@@ -58,8 +60,7 @@ export function activeObservations(records: ProcessRecord[]) {
         (r) => r.kind === "checkin" && r.id === ref.id,
       );
       return (
-        source &&
-        latest(records, "checkin").some((r) => r.rootId === source.rootId)
+        source && latest(records, "checkin").some((r) => r.id === source.id)
       );
     }),
   );

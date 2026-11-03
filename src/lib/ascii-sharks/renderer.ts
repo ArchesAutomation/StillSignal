@@ -293,6 +293,8 @@ export class AsciiRenderer {
   private sharkFlag = new Uint8Array(0);
   private sharkShade = new Float32Array(0);
   private sharkKey = new Uint32Array(0);
+  private sharkColor = new Uint32Array(0);
+  private sharkColors = new Map<number, [number, number, number]>();
   private sharkDepth = new Float32Array(0);
   private sharkKind = new Uint8Array(0);
   /** Cells darkened by a shark's shadow on the seabed. */
@@ -351,7 +353,8 @@ export class AsciiRenderer {
     this.width = width;
     this.height = height;
     this.dpr = dpr;
-    this.cw = clamp(Math.round(width / 124), 8, 13);
+    this.cw = Math.max(clamp(Math.round(width / 124), 8, 13),
+      Math.ceil(Math.sqrt(width * height / (1.45 * 14000))));
     this.ch = Math.round(this.cw * 1.45);
     this.cols = Math.ceil(width / this.cw);
     this.rows = Math.ceil(height / this.ch);
@@ -374,6 +377,7 @@ export class AsciiRenderer {
       this.sharkFlag = new Uint8Array(n);
       this.sharkShade = new Float32Array(n);
       this.sharkKey = new Uint32Array(n);
+      this.sharkColor = new Uint32Array(n);
       this.sharkDepth = new Float32Array(n);
       this.sharkKind = new Uint8Array(n);
       this.sharkShadow = new Uint8Array(n);
@@ -391,12 +395,22 @@ export class AsciiRenderer {
     this.paintBackground();
   }
 
+  private sharkTint: [number, number, number] = [.53, .73, .79];
+  private backgroundColor = "";
+  refreshAppearance() {
+    const style = getComputedStyle(document.documentElement);
+    const hex = style.getPropertyValue("--shark-color").trim() || "#87b9ca";
+    this.sharkTint = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 180) as [number, number, number];
+    if ((style.getPropertyValue("--ocean-bg").trim() || "#080c0e") !== this.backgroundColor) this.paintBackground();
+  }
+
   private paintBackground() {
     const g = this.bg.getContext("2d");
     if (!g) return;
     const { width: W, height: H, dpr, cw, ch } = this;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = "#080c0e";
+    this.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue("--ocean-bg").trim() || "#080c0e";
+    g.fillStyle = this.backgroundColor;
     g.fillRect(0, 0, W, H);
     paintGrid(g, W, H, cw, ch, dpr);
   }
@@ -649,10 +663,16 @@ export class AsciiRenderer {
    */
   private rasterizeSharks(sharks: Shark[], t: number) {
     const { sharkFlag, sharkShade, sharkKey, sharkDepth, sharkKind, sharkShadow, spine, arc, cw, ch, cols, rows } = this;
+    this.sharkColors.clear();
     sharkFlag.fill(0);
     sharkShadow.fill(0);
 
     for (const sh of sharks) {
+      const color = sh.color && /^#[0-9a-f]{6}$/i.test(sh.color) ? parseInt(sh.color.slice(1), 16) + 1 : 0;
+      if (color) {
+        const rgb = color - 1;
+        this.sharkColors.set(color, [(rgb >> 16 & 255) / 180, (rgb >> 8 & 255) / 180, (rgb & 255) / 180]);
+      }
       const L = sh.length;
       const N = SHARK_NODES;
       const n = sh.nodes;
@@ -734,6 +754,7 @@ export class AsciiRenderer {
           // Body-anchored key so each glyph rides along with the skin.
           const key = (hash3(Math.round(s * 52), Math.round(v / (cw * 0.9)), sh.id) * 4294967295) >>> 0;
           sharkKey[i] = key;
+          this.sharkColor[i] = color;
           sharkDepth[i] = sh.depth;
           sharkKind[i] = kindIndex;
 
@@ -766,7 +787,7 @@ export class AsciiRenderer {
       const key = sharkKey[i];
       const shade = sharkShade[i];
       const dim = 0.7 + 0.3 * sharkDepth[i];
-      const [tr, tg, tb] = SHAPES[KINDS[sharkKind[i]]].tint;
+      const [tr, tg, tb] = this.sharkColors.get(this.sharkColor[i]) ?? this.sharkTint;
 
       // Colours re-roll on a staggered clock so the hide shimmers.
       const tick = Math.floor(t * 2.4 + (key % 997) / 97);

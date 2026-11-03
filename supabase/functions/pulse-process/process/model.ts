@@ -1,4 +1,5 @@
 import { z } from "npm:zod@4.6.7";
+import { journalProfileSchema } from "./journal-guide.ts";
 const id = z.uuid(),
   text = z.string().trim().max(8000),
   name = z.string().trim().min(1).max(160);
@@ -38,6 +39,59 @@ export const requirementSchema = z
     ]),
     window: text,
     order: z.number().int().min(0),
+    activity: z
+      .enum([
+        "checklist",
+        "thesis",
+        "variables",
+        "missions",
+        "intentions",
+        "checkin",
+        "custom",
+      ])
+      .optional(),
+    cadence: z
+      .enum(["session", "daily", "weekly", "monthly", "weekdays"])
+      .optional(),
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
+    checklist: z.array(name).max(50).optional(),
+    checklistMode: z.enum(["reminder", "confirmation"]).optional(),
+    allowReflectionSkip: z.boolean().optional(),
+    variableIds: z.array(id).max(100).optional(),
+    thesisFields: z
+      .array(
+        z.enum([
+          "structure",
+          "events",
+          "levels",
+          "liquidity",
+          "primary",
+          "alternate",
+          "entries",
+          "invalidation",
+          "noTrade",
+          "targets",
+          "notes",
+          "screenshots",
+        ]),
+      )
+      .min(1)
+      .max(12)
+      .optional(),
+    prompts: z
+      .array(
+        z
+          .object({
+            id,
+            label: name,
+            type: z.enum(["text", "number", "boolean", "choice"]),
+            required: z.boolean(),
+            choices: z.array(name).max(30),
+          })
+          .strict(),
+      )
+      .max(30)
+      .optional(),
   })
   .strict();
 export const ruleSchema = z
@@ -199,6 +253,7 @@ export const recordSchema = z
           strategy: z.string().max(160),
           session: z.string().max(80),
           steps: z.array(requirementSchema).min(1).max(100),
+          profile: journalProfileSchema.optional(),
         })
         .strict(),
     ),
@@ -208,6 +263,7 @@ export const recordSchema = z
         .object({
           dayId: id,
           templateId: id,
+          sessionId: id.optional(),
           steps: z.array(requirementSchema).min(1).max(100),
           startedAt: timestamp,
         })
@@ -223,6 +279,15 @@ export const recordSchema = z
           method: z.enum(["manual", "verified"]),
           reason: text,
           evidenceId: id.optional(),
+          skippedPromptIds: z.array(id).max(30).optional(),
+          answers: z
+            .array(
+              z
+                .object({ id: z.string().min(1).max(160), value: text })
+                .strict(),
+            )
+            .max(100)
+            .optional(),
           completedAt: timestamp.optional(),
         })
         .strict(),
@@ -256,7 +321,7 @@ export const recordSchema = z
               z
                 .string()
                 .max(1000)
-                .regex(/^https:\/\//),
+                .regex(/^(https:\/\/|local-image:)/),
             )
             .max(12),
           reason: text,
@@ -305,6 +370,9 @@ export const recordSchema = z
         .object({
           dayId: id,
           observedAt: timestamp,
+          phase: z.enum(["pre-market", "during", "post-session"]).optional(),
+          sessionId: id.optional(),
+          tradeId: z.string().min(1).max(160).optional(),
           answers: z
             .array(
               z
