@@ -1,4 +1,5 @@
 "use client";
+import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
@@ -198,7 +199,7 @@ export default function ConceptWorkspace(props: Props) {
   const viewProps = { ...props, onPage: go };
   return (
     <div className={cx("app", "reference-app")}>
-      <header className={cx("reference-topbar")}>
+      <GlassPanel role="banner" preset="subtle" className={cx("reference-topbar")}>
         <button
           className={cx("reference-brand")}
           onClick={() => go("Command Center")}
@@ -269,7 +270,7 @@ export default function ConceptWorkspace(props: Props) {
             {(p.email || "You").slice(0, 2).toUpperCase()}
           </span>
         </div>
-      </header>
+      </GlassPanel>
       <aside className={cx("sidebar")}>
         <div className={cx("brand")}>
           <div className={cx("brandmark")}>⌁</div>
@@ -475,12 +476,12 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
-        {page === "Journal" && <div className="ss-journal-history" role="group" aria-label="Journal history">
+        {page === "Journal" && <GlassPanel preset="standard" className="ss-journal-history" role="group" aria-label="Journal history">
           <span>Daily journal</span>
           <button disabled={!p.canUndoJournal || p.journalHistoryBusy} onClick={() => void p.undoJournal().catch(e => p.setError((e as Error).message))}>↶ Undo</button>
           <button disabled={!p.canRedoJournal || p.journalHistoryBusy} onClick={() => void p.redoJournal().catch(e => p.setError((e as Error).message))}>↷ Redo</button>
           <small>Saved writing, moment edits and journal details · this visit</small>
-        </div>}
+        </GlassPanel>}
         <ModuleWorkspace owner={p.owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>
         {s.demo && (
           <p className={cx("demo-notice")}>

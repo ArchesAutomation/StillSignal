@@ -1,0 +1,17 @@
+@layer legacy, theme, base, components, utilities;
+@import "./globals.css" layer(legacy);
+@import "./workspace.css" layer(legacy);
+@import "./signal.css" layer(legacy);
+@import "./concept.css" layer(legacy);
+@import "./concept-integration.css" layer(legacy);
+@import "./v4-reference.css" layer(legacy);
+@import "./v4-functional.css" layer(legacy);
+@import "./blueprint.css" layer(legacy);
+@import "./journal-reference.css" layer(legacy);
+@import "./implementation-plan.css" layer(legacy);
+@import "./journal-space.css" layer(legacy);
+@import "./page-layout.css" layer(legacy);
+@import "./journal-select.css" layer(legacy);
+@import "./command-center.css" layer(legacy);
+@import "./module-layout.css" layer(legacy);
+@import "./shark-background.css" layer(legacy);

@@ -1,4 +1,5 @@
 "use client";
+import { GlassPanel } from "../glassyui/glass-panel";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Plus, RotateCcw, Undo2 } from "lucide-react";
 import DashboardCanvas from "./dashboard-canvas";
@@ -121,7 +122,7 @@ export default function DashboardBoard({
   };
   return (
     <ModuleScope active={false}><div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
-      <div className="cc-dashboard-toolbar">
+      <GlassPanel preset="standard" className="cc-dashboard-toolbar">
         {draft ? (
           <>
             <div className="cc-dashboard-editor-title">
@@ -221,7 +222,7 @@ export default function DashboardBoard({
             </div>
           </>
         )}
-      </div>
+      </GlassPanel>
       <p className="cc-dashboard-announcement" role="status" aria-live="polite">
         {message}
       </p>
@@ -291,11 +292,11 @@ export default function DashboardBoard({
       )}
       {layout.showMarket && market}
       {!!layout.statusWidgets.length && (
-        <div className="cc-status-grid">
+        <GlassPanel preset="standard" className="cc-status-grid">
           {layout.statusWidgets.map((id) => (
             <div key={id}>{status[id]}</div>
           ))}
-        </div>
+        </GlassPanel>
       )}
       <DashboardCanvas
         layout={layout}

@@ -1,71 +1,26 @@
 "use client";
-
 import { useEffect, useRef } from "react";
+import { APPEARANCE_KEY, readAppearance, oceanSharkSpecs, type AppearancePreferences } from "@/lib/appearance-preferences";
 import { OceanEngine } from "@/lib/ascii-sharks/engine";
-
-/** One continuous ocean, with invisible reading areas used only for steering. */
-export default function SharkBackground({ quiet = false }: { quiet?: boolean }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
+export default function SharkBackground() {
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || typeof ResizeObserver === "undefined" ||
-        typeof IntersectionObserver === "undefined" || !canvas.getContext("2d")) return;
-    const host = canvas.parentElement?.parentElement;
-    if (!host) return;
-    const engine = new OceanEngine(canvas, [
-      { kind: "classic", size: .8 }, { kind: "classic", size: .8 },
-    ]);
-    const targets = [...host.querySelectorAll<HTMLElement>(
-      '.auth-brand, .auth-card, .auth-story h1, .auth-story p, .auth-story .eyebrow, .auth-features span, .breathing-orb, .stillness-heading, .notice-card h3, .notice-card p, .notice-card .eyebrow, .notice-prompt, .inline-actions, .return-card h3, .return-card .eyebrow, .practice-step, .practice-steps, progress, .return-controls, .topic-orbit, .topic-response, .stillness-footnote',
-    )];
-    // The current workspace renders SessionReset for its Stillness tab.
-    if (host.matches('.ss-reset')) {
-      targets.push(...host.querySelectorAll<HTMLElement>(
-        '.ss-eyebrow, h1, h2, p, small, .ss-breathing-square, button, label',
-      ));
-    }
-    const update = () => {
-      const origin = canvas.getBoundingClientRect();
-      if (!origin.width || !origin.height) return;
-      engine.setReadingAreas(targets.flatMap(target => {
-        const rect = target.getBoundingClientRect();
-        if (!rect.width || !rect.height) return [];
-        const rects: DOMRect[] = [];
-        if (target.matches('.auth-card, .auth-brand, .breathing-orb, .inline-actions, progress, .practice-steps, .return-controls, .topic-orbit, .ss-breathing-square, button, label')) {
-          rects.push(rect);
-        } else {
-          // Protect the visible lines, not the entire width of their containers.
-          const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-          let node: Node | null;
-          while ((node = walker.nextNode())) {
-            if (!node.textContent?.trim()) continue;
-            const range = document.createRange();
-            range.selectNodeContents(node);
-            rects.push(...range.getClientRects());
-          }
-        }
-        return rects.map(line => ({
-          left: line.left - origin.left - 10, top: line.top - origin.top - 10,
-          right: line.right - origin.left + 10, bottom: line.bottom - origin.top + 10,
-        }));
-      }));
+    // Let the renderer create the first context with alpha:false.
+    if (!ref.current) return;
+    const initial = readAppearance();
+    let sharks = initial.sharks;
+    const engine = new OceanEngine(ref.current, oceanSharkSpecs(initial));
+    engine.refreshAppearance();
+    const refresh = (event: Event) => {
+      const preferences = (event as CustomEvent<AppearancePreferences>).detail ?? readAppearance();
+      if (sharks !== preferences.sharks) {
+        engine.setSharks(oceanSharkSpecs(preferences));
+        sharks = preferences.sharks;
+      }
+      engine.refreshAppearance();
     };
-    const observer = new ResizeObserver(update);
-    observer.observe(host);
-    targets.forEach(target => observer.observe(target));
-    window.addEventListener("resize", update);
-    update();
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-      engine.destroy();
-    };
+    window.addEventListener(APPEARANCE_KEY, refresh);
+    return () => { window.removeEventListener(APPEARANCE_KEY, refresh); engine.destroy(); };
   }, []);
-
-  return (
-    <div className={`shark-background${quiet ? " shark-background-quiet" : ""}`} aria-hidden="true">
-      <canvas ref={canvasRef} />
-    </div>
-  );
+  return <div className="shark-background" aria-hidden="true"><canvas ref={ref} /></div>;
 }

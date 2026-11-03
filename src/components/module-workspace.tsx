@@ -1,5 +1,6 @@
 "use client";
 import { createContext, isValidElement, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
+import { GlassPanel } from "./glassyui/glass-panel";
 import { createPortal } from "react-dom";
 import { GripVertical, Plus, RotateCcw, Undo2, Redo2, MoveDiagonal2, Settings2, X, EyeOff } from "lucide-react";
 import { emptyModuleLayout, moduleLayoutKey, readModuleLayout, boundModuleBox, type ModuleLayout, type ModulePlacement, type ModuleBox } from "@/lib/module-layout";
@@ -77,7 +78,7 @@ export function WorkspaceModule({ id, title, section = "main", order = 10, width
       <button type="button" onClick={() => setOptions(false)}>Done</button>
     </fieldset>}
     {placement.title && placement.title !== title && <h2 className="ss-module-custom-title">{placement.title}</h2>}
-    <div className="ss-module-content">{children}</div>
+    <GlassPanel preset="standard" lens={false} className="ss-module-content ss-module-glass">{children}</GlassPanel>
     {ctx.editing && <button className="ss-module-resize" aria-label={`Resize ${title}`} title="Drag to resize. Arrow keys adjust width and height; Home fits the content." onPointerDown={event => ctx.resize(event, id)} onKeyDown={event => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home"].includes(event.key)) { event.preventDefault(); ctx.resizeKey(id, event.key); } }}><MoveDiagonal2 size={16} /></button>}
   </>, host, id);
 }
@@ -267,7 +268,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
     commit(value, "Custom module created. Open its settings to name it, and write inside it.");
   }
   return <Context.Provider value={enabled ? context : null}><div className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}`}>
-    {enabled && <div className="ss-module-toolbar">
+    {enabled && <GlassPanel preset="standard" className="ss-module-toolbar">
       <div><strong>{editing ? "Make this board yours" : workspaceTitle}</strong><small>{editing ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules." : "Your board is saved for this page on this browser."}</small></div>
       <div>{editing ? <>
         <button disabled={dragging || !undo.length} onClick={() => { setRedo(rows => [...rows, current]); setDraft(undo.at(-1)!); setUndo(rows => rows.slice(0, -1)); }}><Undo2 size={15} /> Undo</button>
@@ -278,7 +279,7 @@ export default function ModuleWorkspace({ owner, page, enabled = true, children,
         <button disabled={dragging} onClick={() => { setDraft(saved); setEditing(false); setLibrary(false); }}>Cancel</button>
         <button disabled={dragging} className="ss-module-save" onClick={() => { try { localStorage.setItem(key, JSON.stringify(current)); setSaved(current); setEditing(false); setLibrary(false); setUndo([]); setRedo([]); setMessage("Board saved."); } catch { setMessage("Could not save this board. Your draft is still available."); } }}>Save layout</button>
       </> : <button onClick={() => { setDraft(saved); setEditing(true); setUndo([]); setRedo([]); setMessage(""); }}>{editLabel}</button>}</div>
-    </div>}
+    </GlassPanel>}
     <p className="ss-module-message" role="status" aria-live="polite">{message}</p>
     {editing && library && <section ref={libraryPanel} className="ss-module-library" aria-label="Module library"><div><button className="ss-module-library-handle" aria-label="Move module library" onPointerDown={event => startGesture(event, "", "panel")}><GripVertical size={16} /> Add a module</button><button disabled={dragging} aria-label="Close module library" onClick={() => setLibrary(false)}><X size={16} /></button></div>
       <p>Pick up a module and drop it anywhere on your board.</p>

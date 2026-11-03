@@ -1,4 +1,5 @@
 "use client";
+import { GlassPanel } from "../glassyui/glass-panel";
 import { useState } from "react";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
@@ -310,7 +311,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
   };
   return (
     <>
-      <div className="cc-greeting">
+      <GlassPanel preset="standard" className="cc-greeting">
         <div>
           <span className="cc-eyebrow">Your trading process, in context</span>
           <h1>
@@ -331,7 +332,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
         >
           Start today's preparation
         </button>
-      </div>
+      </GlassPanel>
       <DashboardBoard
         editor={context.editor}
         store={store}
@@ -504,7 +505,7 @@ function StartDashboard({
   ) as Parameters<typeof DashboardBoard>[0]["panels"];
   return (
     <>
-      <div className="cc-greeting">
+      <GlassPanel preset="standard" className="cc-greeting">
         <div>
           <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
           <h1>Your Command Center</h1>
@@ -516,7 +517,7 @@ function StartDashboard({
           </button>
           <button onClick={onSettings}>Day settings</button>
         </div>
-      </div>
+      </GlassPanel>
       <DashboardBoard
         editor={editor}
         store={store}
@@ -638,7 +639,7 @@ export default function ProcessWorkspace(props: Props) {
 
   return (
     <div className="cc-workspace">
-      <div className="cc-daybar">
+      <GlassPanel preset="standard" className="cc-daybar">
         {props.page !== "Command Center" && (
           <button onClick={() => props.onPage("Command Center")}>
             ← Command Center
@@ -663,7 +664,7 @@ export default function ProcessWorkspace(props: Props) {
             Edit trading-day context
           </button>
         )}
-      </div>
+      </GlassPanel>
       {store.error && (
         <div className="cc-error" role="alert">
           <p>{store.error}</p>

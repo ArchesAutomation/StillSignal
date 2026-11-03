@@ -97,7 +97,7 @@ test("new authenticated workspace is empty and journaling does not require a wea
   await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Stillness"]')!.click());
   const stillness = document.querySelector('section[aria-label="Post-session Stillness reset"]');
   assert.ok(stillness, "the real workspace opens the SessionReset screen");
-  assert.ok(stillness.querySelector('.shark-background canvas'), "the active Stillness screen includes the ocean");
+  assert.equal(stillness.querySelector('.shark-background canvas'), null, "Stillness uses the shared root ocean without mounting a second engine");
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);
   } finally {
