@@ -1,6 +1,6 @@
 # Guided journal implementation
 
-This change implements the Revision 3 preparation, setup and review direction on the verified source of the existing production UI. See [production-source.md](production-source.md) for the source/deployment reconciliation. The global ocean, optimized renderer, shark species and palettes, liquid-glass components and appearance provider remain the production versions.
+This change implements the Revision 3 preparation, setup and review direction on the verified source of the existing production UI. See [production-source.md](production-source.md) for the source/deployment reconciliation. The global ocean, optimized renderer, supported species and palettes, liquid-glass components and appearance provider remain the production versions. The approved default lineup is a large tiger, a large hammerhead, a medium mako and a medium thresher. Exact saved copies of the previous starter lineup migrate automatically; customized oceans are retained.
 
 ## Using the flow
 

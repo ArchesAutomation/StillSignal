@@ -31,10 +31,10 @@ export const SHARK_SIZE_OPTIONS = [
 export const MAX_OCEAN_SHARKS = 6;
 export type OceanShark = { id: string; kind: SharkKind; palette: SharkPalette; size: number };
 export const DEFAULT_OCEAN_SHARKS: OceanShark[] = [
-  { id: "ocean-1", kind: "classic", palette: "steel", size: 1 },
-  { id: "ocean-2", kind: "classic", palette: "sand", size: .7 },
-  { id: "ocean-3", kind: "classic", palette: "slate", size: .84 },
-  { id: "ocean-4", kind: "classic", palette: "reef", size: .77 },
+  { id: "ocean-1", kind: "tiger", palette: "steel", size: 1 },
+  { id: "ocean-2", kind: "hammerhead", palette: "sand", size: 1 },
+  { id: "ocean-3", kind: "mako", palette: "slate", size: .84 },
+  { id: "ocean-4", kind: "thresher", palette: "reef", size: .84 },
 ];
 const MERGED_PALETTES: Record<string, SharkPalette> = { pearl: "steel", bronze: "sand", copper: "sand", glacier: "teal", blush: "rose", maroon: "rose", lilac: "purple", coral: "red", olive: "reef", navy: "slate" };
 export function sharkPalette(id: string) {
@@ -42,6 +42,14 @@ export function sharkPalette(id: string) {
 }
 export function parseOceanSharks(value: unknown): OceanShark[] {
   if (!Array.isArray(value)) return DEFAULT_OCEAN_SHARKS.map(shark => ({ ...shark }));
+  // Existing browsers saved the former default automatically. Upgrade that exact
+  // starter lineup while retaining deliberately customized oceans.
+  const previousSizes = [1, .7, .84, .77];
+  const previousPalettes = ["steel", "sand", "slate", "reef"];
+  if (value.length === 4 && value.every((entry, index) => entry &&
+    entry.id === `ocean-${index + 1}` && (entry.kind === "classic" || entry.kind === undefined) &&
+    entry.palette === previousPalettes[index] && entry.size === previousSizes[index]))
+    return DEFAULT_OCEAN_SHARKS.map(shark => ({ ...shark }));
   const used = new Set<string>();
   return value.slice(0, MAX_OCEAN_SHARKS).map((raw, index) => {
     const entry = raw && typeof raw === "object" ? raw : {};

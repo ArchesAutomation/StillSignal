@@ -17,12 +17,26 @@ test("appearance migrates old population settings and preserves valid theme colo
 test("10 distinct palette colors enforce population and size budgets", () => {
   assert.equal(SHARK_PALETTES.length, 10);
   assert.equal(new Set(SHARK_PALETTES.map(palette => palette.color)).size, 10);
-  assert.deepEqual(defaultAppearance.sharks.map(shark => shark.size), [1, .7, .84, .77]);
+  assert.deepEqual(defaultAppearance.sharks.map(shark => shark.size), [1, 1, .84, .84]);
+  assert.deepEqual(defaultAppearance.sharks.map(shark => shark.kind), ["tiger", "hammerhead", "mako", "thresher"]);
   const parsed = parseAppearance({ sharks: Array.from({ length: 99 }, () => ({ id: "duplicate", palette: "invalid", size: 999 })) });
   assert.equal(parsed.sharks.length, MAX_OCEAN_SHARKS);
   assert.equal(new Set(parsed.sharks.map(shark => shark.id)).size, MAX_OCEAN_SHARKS);
   assert.ok(parsed.sharks.every(shark => shark.size <= 1 && shark.palette === "steel"));
   assert.deepEqual(parseAppearance({ sharks: [] }).sharks, []);
+});
+
+test("saved copies of the former default ocean upgrade while custom lineups stay intact", () => {
+  const previous = [
+    { id: "ocean-1", kind: "classic", palette: "steel", size: 1 },
+    { id: "ocean-2", kind: "classic", palette: "sand", size: .7 },
+    { id: "ocean-3", kind: "classic", palette: "slate", size: .84 },
+    { id: "ocean-4", kind: "classic", palette: "reef", size: .77 },
+  ];
+  assert.deepEqual(parseAppearance({ sharks: previous }).sharks, DEFAULT_OCEAN_SHARKS);
+  const customized = previous.map(shark => ({ ...shark, kind: "nurse" }));
+  assert.deepEqual(parseAppearance({ sharks: customized }).sharks, customized);
+  assert.equal(parseAppearance({ sharks: [] }).sharks.length, 0);
 });
 
 test("per-shark color and size edits preserve every swimmer, snout, phase, target and fish", () => {
