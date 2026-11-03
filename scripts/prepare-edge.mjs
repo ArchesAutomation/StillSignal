@@ -111,8 +111,19 @@ for (const [name, source] of [
         "analytics.ts",
       ]
     : source === "extension"
-      ? ["model.ts", "validation.ts", "blueprint-schema.ts", "journal-command.ts"]
-      : ["model.ts", "validation.ts", "blueprint-schema.ts", "analytics.ts", "trade-context.ts"])
+      ? [
+          "model.ts",
+          "validation.ts",
+          "blueprint-schema.ts",
+          "journal-command.ts",
+        ]
+      : [
+          "model.ts",
+          "validation.ts",
+          "blueprint-schema.ts",
+          "analytics.ts",
+          "trade-context.ts",
+        ])
     await writeFile(
       directory + "/" + file,
       edge(await readFile("src/lib/" + file, "utf8")),
@@ -126,7 +137,8 @@ for (const [name, source] of [
     for (const file of await readdir("src/lib/" + sub)) {
       if (
         !file.endsWith(".ts") ||
-        (source === "process" && file === "storage.ts")
+        (source === "process" &&
+          ["storage.ts", "session-review.ts"].includes(file))
       )
         continue;
       await writeFile(

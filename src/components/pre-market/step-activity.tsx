@@ -32,10 +32,24 @@ export default function StepActivity({
           />
         )}
         {activity === "variables" && (
-          <><QuickCaffeine {...context} /><Variables {...context} preparation variableIds={step.variableIds} /></>
+          <>
+            <QuickCaffeine {...context} />
+            <Variables
+              {...context}
+              preparation
+              variableIds={step.variableIds}
+            />
+          </>
         )}
         {activity === "checkin" && <Temperature {...context} initiallyOpen />}
-        {activity === "missions" && <><MissionsPanel {...context} /><button onClick={() => context.props.onPage("Missions")}>Create or edit a reusable mission</button></>}
+        {activity === "missions" && (
+          <>
+            <MissionsPanel {...context} />
+            <button onClick={() => context.props.onPage("Missions")}>
+              Create or edit a reusable mission
+            </button>
+          </>
+        )}
         {activity === "intentions" && (
           <p className="cc-muted">
             Write your intentions in the questions below. Daily and per-session

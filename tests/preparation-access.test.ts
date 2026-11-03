@@ -204,6 +204,7 @@ test("preparation exposes every tool with a legacy routine and preserves drafts 
     );
     await open("Pre-market non-negotiables");
     await click("Edit my non-negotiables");
+    await click("Advanced routine settings");
     assert.match(
       document.querySelector("#prep-tool-routine")!.textContent!,
       /Make your routine yours/,

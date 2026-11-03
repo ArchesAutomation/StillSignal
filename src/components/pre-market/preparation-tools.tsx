@@ -121,25 +121,28 @@ export default function PreparationTools(context: Context) {
   };
   return (
     <div className="cc-stack">
-      <details className="guide-advanced"><summary>Other preparation tools</summary><Panel
-        title="Preparation workspace"
-        detail="All your preparation tools are available here, including when your saved routine does not contain them."
-      >
-        <nav className="prep-module-grid" aria-label="Preparation modules">
-          {modules.map(([id, title, description]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={active === id}
-              onClick={() => open(id)}
-            >
-              <strong>{title}</strong>
-              <span>{description}</span>
-              <small>{status[id]}</small>
-            </button>
-          ))}
-        </nav>
-      </Panel></details>
+      <details className="guide-advanced">
+        <summary>Other preparation tools</summary>
+        <Panel
+          title="Preparation workspace"
+          detail="All your preparation tools are available here, including when your saved routine does not contain them."
+        >
+          <nav className="prep-module-grid" aria-label="Preparation modules">
+            {modules.map(([id, title, description]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active === id}
+                onClick={() => open(id)}
+              >
+                <strong>{title}</strong>
+                <span>{description}</span>
+                <small>{status[id]}</small>
+              </button>
+            ))}
+          </nav>
+        </Panel>
+      </details>
       {/* Keep visited tools mounted so switching tools preserves unfinished writing. */}
       {modules.map(
         ([id, title]) =>

@@ -8,7 +8,7 @@ import { createRecord, type ProcessRecord } from "../src/lib/process/model";
 import { validateAppend, withRefs } from "../src/lib/process/engine";
 import type { Context } from "../src/components/command-center/shared";
 
-test("guided routine setup, skip reason, resume, version safety and fresh same-day session progress", async () => {
+test("guided discovery, honest skipping, save failure recovery, resume and immutable run snapshots", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://still-signal.test",
   });
@@ -16,6 +16,10 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
     window: dom.window,
     document: dom.window.document,
     FormData: dom.window.FormData,
+    localStorage: dom.window.localStorage,
+    HTMLInputElement: dom.window.HTMLInputElement,
+    HTMLTextAreaElement: dom.window.HTMLTextAreaElement,
+    HTMLSelectElement: dom.window.HTMLSelectElement,
     IS_REACT_ACT_ENVIRONMENT: true,
   }))
     Object.defineProperty(globalThis, key, { value, configurable: true });
@@ -37,7 +41,12 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
   const context = () =>
     ({
       day,
-      props: { session: { id: sessionId }, onPage() {} },
+      props: {
+        pulse: { owner: "guide-test" },
+        history: [],
+        session: { id: sessionId },
+        onPage() {},
+      },
       store: {
         records,
         loaded: true,
@@ -88,40 +97,51 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
   };
   try {
     await render();
-    assert.match(document.body.textContent!, /Choose your steps/);
+    assert.match(
+      document.body.textContent!,
+      /A clear path through your trading day/,
+    );
     await click("Continue →");
-    const select = document.querySelector(
-      "fieldset select",
+    const holding = document.querySelector(
+      ".guide-focus select",
     ) as HTMLSelectElement;
     await act(async () => {
-      select.value = "optional";
-      select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+      holding.value = "position";
+      holding.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
     });
     await click("Continue →");
+    assert.match(document.body.textContent!, /What tends to pull you away/);
+    await click("Continue →");
+    await click("Continue →");
+    const approval = document.querySelector(
+      ".guide-approval input",
+    ) as HTMLInputElement;
+    await act(async () => approval.click());
+    await click("Continue →");
+    await click("Continue →");
+    await click("Continue →");
     fail = true;
-    await submit("Save my routine");
+    await click("Save & open my preparation");
     assert.equal(records.filter((r) => r.kind === "protocol").length, 0);
+    assert.match(document.body.textContent!, /could not be saved/);
     fail = false;
-    await submit("Save my routine");
+    await click("Save & open my preparation");
     const template = records.find((r) => r.kind === "protocol")!;
     assert.equal(template.kind, "protocol");
-    await click("Begin today's routine");
-    await submit("Skip this step");
-    assert.match(error, /Add a note/);
-    assert.equal(records.filter((r) => r.kind === "response").length, 0);
-    (document.querySelector('[name="note"]') as HTMLTextAreaElement).value =
-      "Already checked in before opening the routine";
-    await submit("Skip this step");
+    if (template.kind !== "protocol") throw Error("missing template");
+    assert.equal(template.body.profile?.holding, "position");
+    await click("Skip this section for today");
     assert.equal(
       records.find((r) => r.kind === "response")?.body.status,
       "skipped",
     );
-    await submit("Complete & continue");
-    assert.match(error, /Save your trading thesis/);
+    assert.match(document.body.textContent!, /Review the bigger picture/);
+    await click("Continue →");
     (document.querySelector('[name="primary"]') as HTMLTextAreaElement).value =
       "My weekly scenario";
     await submit("Save thesis");
-    await submit("Complete & continue");
+    await click("Continue →");
+    await click("Save section & continue");
     await act(async () => root.unmount());
     const resumed = createRoot(document.getElementById("root")!);
     await act(async () =>
@@ -151,7 +171,7 @@ test("guided routine setup, skip reason, resume, version safety and fresh same-d
       fresh.render(createElement(GuidedPreparation, context())),
     );
     assert.match(document.body.textContent!, /Begin today's routine/);
-    assert.equal(document.querySelector("progress"), null);
+    assert.equal(document.querySelector(".prep-focus"), null);
     await act(async () => fresh.unmount());
   } finally {
     dom.window.close();

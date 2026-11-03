@@ -140,11 +140,18 @@ export function answerError(
 ) {
   const values = new Map(answers.map((a) => [a.id, a.value]));
   for (const [index, label] of (step.checklist ?? []).entries())
-    if (step.checklistMode !== "reminder" && values.get("check-" + index) !== "yes")
+    if (
+      step.checklistMode !== "reminder" &&
+      values.get("check-" + index) !== "yes"
+    )
       return `Check “${label}” before completing this section.`;
   for (const prompt of step.prompts ?? []) {
     const value = values.get(prompt.id)?.trim() ?? "";
-    if (prompt.required && !value && !(step.allowReflectionSkip && skippedPromptIds.includes(prompt.id)))
+    if (
+      prompt.required &&
+      !value &&
+      !(step.allowReflectionSkip && skippedPromptIds.includes(prompt.id))
+    )
       return `Answer “${prompt.label}” before completing this section.`;
     if (!value) continue;
     if (prompt.type === "number" && !Number.isFinite(Number(value)))
@@ -209,4 +216,26 @@ export function activityEvidenceError(
       return "Create a mission that applies to this trading day before completing this section.";
   }
   return "";
+}
+/** One end-of-routine reminder can name omissions across all earlier sections. */
+export function unansweredReflections(
+  records: ProcessRecord[],
+  run: RecordOf<"run">,
+) {
+  return run.body.steps.flatMap((step) => {
+    const response = preparationResponse(records, run, step);
+    return (step.prompts ?? [])
+      .filter(
+        (prompt) =>
+          !response?.body.answers
+            ?.find((a) => a.id === prompt.id)
+            ?.value.trim(),
+      )
+      .map((prompt) => ({
+        stepId: step.id,
+        promptId: prompt.id,
+        label: prompt.label,
+        section: step.name,
+      }));
+  });
 }

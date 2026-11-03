@@ -30,16 +30,31 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <WorkspaceModule id={"process-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} title={title} parts={[{id:"description",title:"Description",selector:"header p"},{id:"summary",title:"Supporting explanation",selector:".cc-muted"}]}><div className="cc-workspace ss-module-process-content"><GlassPanel preset="standard" className={"cc-panel " + className}>
-      <header>
-        <div>
-          <h2>{title}</h2>
-          {detail && <p>{detail}</p>}
-        </div>
-        {action}
-      </header>
-      <div className="cc-panel-body">{children}</div>
-    </GlassPanel></div></WorkspaceModule>
+    <WorkspaceModule
+      id={"process-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+      title={title}
+      parts={[
+        { id: "description", title: "Description", selector: "header p" },
+        {
+          id: "summary",
+          title: "Supporting explanation",
+          selector: ".cc-muted",
+        },
+      ]}
+    >
+      <div className="cc-workspace ss-module-process-content">
+        <GlassPanel preset="standard" className={"cc-panel " + className}>
+          <header>
+            <div>
+              <h2>{title}</h2>
+              {detail && <p>{detail}</p>}
+            </div>
+            {action}
+          </header>
+          <div className="cc-panel-body">{children}</div>
+        </GlassPanel>
+      </div>
+    </WorkspaceModule>
   );
 }
 export function Field({
@@ -123,9 +138,16 @@ export function Save({
   children?: ReactNode;
 }) {
   return (
-    <button className="cc-primary" disabled={store.busy} type="submit">
-      {store.busy ? "Saving…" : children}
-    </button>
+    <>
+      <button className="cc-primary" disabled={store.busy} type="submit">
+        {store.busy ? "Saving…" : children}
+      </button>
+      {store.error && (
+        <p role="alert" className="guide-error">
+          {store.error} Your inputs are still here.
+        </p>
+      )}
+    </>
   );
 }
 export function History({

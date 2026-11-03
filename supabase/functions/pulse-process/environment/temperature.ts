@@ -58,7 +58,14 @@ export function temperatureRecords(
           source: "manual",
           provenance: "Self-reported temperature check: " + answer.question,
         },
-        previous ? latest(records, "observation").find(o => o.refs.some(ref => ref.kind === "checkin" && ref.id === previous.id) && o.body.definitionId === definition.id) : undefined,
+        previous
+          ? latest(records, "observation").find(
+              (o) =>
+                o.refs.some(
+                  (ref) => ref.kind === "checkin" && ref.id === previous.id,
+                ) && o.body.definitionId === definition.id,
+            )
+          : undefined,
         [{ kind: "checkin", id: checkin.id }],
       ),
     );

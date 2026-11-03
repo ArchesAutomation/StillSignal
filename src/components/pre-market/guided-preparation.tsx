@@ -1,23 +1,13 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createRecord,
   latest,
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import {
-  activities,
-  activityOf,
-  answerError,
-  activityEvidenceError,
-  cadences,
-  preparationResponse,
-  scheduledOn,
-} from "@/lib/process/preparation-workflow";
-import { verificationEvidence } from "@/lib/process/engine";
+import { activityOf, cadences } from "@/lib/process/preparation-workflow";
 import StepSettings from "./step-settings";
-import StepActivity from "./step-activity";
 import JournalSetup from "./journal-setup";
 import FocusedRun from "./focused-run";
 import { Panel, Field, type Context } from "../command-center/shared";
@@ -464,7 +454,9 @@ function AdvancedSetup({
     </Panel>
   );
 }
-export default function GuidedPreparation(context: Context & { editRequest?: number }) {
+export default function GuidedPreparation(
+  context: Context & { editRequest?: number },
+) {
   const { store, day } = context;
   const templates = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
@@ -479,7 +471,10 @@ export default function GuidedPreparation(context: Context & { editRequest?: num
   const [selected, setSelected] = useState("");
   const [creating, setCreating] = useState(false);
   useEffect(() => {
-    if (context.editRequest) { setCreating(false); setEditing(true); }
+    if (context.editRequest) {
+      setCreating(false);
+      setEditing(true);
+    }
   }, [context.editRequest]);
   const previousRun = latest(store.records, "run").sort(
     (a, b) => b.createdAt - a.createdAt,
@@ -492,7 +487,19 @@ export default function GuidedPreparation(context: Context & { editRequest?: num
     templates.find((t) => t.rootId === previousTemplate?.rootId) ??
     templates[0];
   if ((editing || !templates.length) && !advancedSetup)
-    return <JournalSetup context={context} template={creating ? undefined : template} onAdvanced={() => setAdvancedSetup(true)} onClose={(id) => { if (id) setSelected(id); setEditing(false); setCreating(false); if (!id) context.props.onPage("Command Center"); }} />;
+    return (
+      <JournalSetup
+        context={context}
+        template={creating ? undefined : template}
+        onAdvanced={() => setAdvancedSetup(true)}
+        onClose={(id) => {
+          if (id) setSelected(id);
+          setEditing(false);
+          setCreating(false);
+          if (!id) context.props.onPage("Command Center");
+        }}
+      />
+    );
   if (editing || !templates.length)
     return (
       <AdvancedSetup

@@ -45,7 +45,12 @@ export function dashboardGrid(
 ): Grid {
   const grid: Grid = {};
   const visible = layout.panels.filter((p) => p.visible);
-  for (const p of visible.filter((p) => p.grid)) grid[p.id] = { ...p.grid!, h: Math.max(p.grid!.h, rowsForHeight(heights[p.id] ?? 0)) };
+  for (const p of visible.filter((p) => p.grid))
+    grid[p.id] = {
+      ...p.grid!,
+      h:
+        heights[p.id] === undefined ? p.grid!.h : rowsForHeight(heights[p.id]!),
+    };
   const settled = settleGrid(grid);
   for (const p of visible.filter((p) => !p.grid)) {
     const box = {

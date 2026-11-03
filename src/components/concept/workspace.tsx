@@ -3,6 +3,7 @@ import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
+import WorkspaceAppearance from "../workspace-appearance";
 import PostExitInvitation from "../post-exit-invitation";
 import SavedStillness from "../saved-stillness";
 import CapturePanel from "./capture-panel";
@@ -12,7 +13,10 @@ import { Calendar, weekStart } from "./calendar";
 import Journal from "./journal";
 import SessionDays from "./session-days";
 import JournalDayPicker from "./journal-day-picker";
-import ModuleWorkspace, { WorkspaceModule, ModuleScope } from "../module-workspace";
+import ModuleWorkspace, {
+  WorkspaceModule,
+  ModuleScope,
+} from "../module-workspace";
 import Overview from "./overview";
 import ProcessWorkspace from "../command-center/workspace";
 import Stillness, { reflections } from "./stillness";
@@ -201,7 +205,11 @@ export default function ConceptWorkspace(props: Props) {
   const viewProps = { ...props, onPage: go };
   return (
     <div className={cx("app", "reference-app")}>
-      <GlassPanel role="banner" preset="subtle" className={cx("reference-topbar")}>
+      <GlassPanel
+        role="banner"
+        preset="subtle"
+        className={cx("reference-topbar")}
+      >
         <button
           className={cx("reference-brand")}
           onClick={() => go("Command Center")}
@@ -351,6 +359,7 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
+        <WorkspaceAppearance props={viewProps} />
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             Workspace{" "}
@@ -420,7 +429,9 @@ export default function ConceptWorkspace(props: Props) {
             ) : page === "Command Center" ? (
               <button
                 className={cx("primary")}
-                onClick={() => void act(p.active ? p.stop : startPreparedSession)}
+                onClick={() =>
+                  void act(p.active ? p.stop : startPreparedSession)
+                }
               >
                 {p.active ? "End session" : "Start session"}
               </button>
@@ -478,314 +489,533 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
         </header>
-        {page === "Journal" && <GlassPanel preset="standard" className="ss-journal-history" role="group" aria-label="Journal history">
-          <span>Daily journal</span>
-          <button disabled={!p.canUndoJournal || p.journalHistoryBusy} onClick={() => void p.undoJournal().catch(e => p.setError((e as Error).message))}>↶ Undo</button>
-          <button disabled={!p.canRedoJournal || p.journalHistoryBusy} onClick={() => void p.redoJournal().catch(e => p.setError((e as Error).message))}>↷ Redo</button>
-          <small>Saved writing, moment edits and journal details · this visit</small>
-        </GlassPanel>}
-        <ModuleWorkspace owner={p.owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>
-        {s.demo && (
-          <p className={cx("demo-notice")}>
-            DEMO DATA · Simulated heart rate, trades and reflections. No broker
-            or wearable is connected to this dataset.
-          </p>
-        )}
-        {p.error && (
-          <div className={cx("message", "error")} role="alert">
-            <span>{p.error}</span>
-            <button aria-label="Dismiss error" onClick={() => p.setError("")}>
-              ×
-            </button>
-          </div>
-        )}
-        {p.notice && (
-          <div className={cx("message")} role="status">
-            <span>{p.notice}</span>
+        {page === "Journal" && (
+          <GlassPanel
+            preset="standard"
+            className="ss-journal-history"
+            role="group"
+            aria-label="Journal history"
+          >
+            <span>Daily journal</span>
             <button
-              aria-label="Dismiss notification"
-              onClick={() => p.setNotice("")}
+              disabled={!p.canUndoJournal || p.journalHistoryBusy}
+              onClick={() =>
+                void p
+                  .undoJournal()
+                  .catch((e) => p.setError((e as Error).message))
+              }
             >
-              ×
+              ↶ Undo
             </button>
-          </div>
+            <button
+              disabled={!p.canRedoJournal || p.journalHistoryBusy}
+              onClick={() =>
+                void p
+                  .redoJournal()
+                  .catch((e) => p.setError((e as Error).message))
+              }
+            >
+              ↷ Redo
+            </button>
+            <small>
+              Saved writing, moment edits and journal details · this visit
+            </small>
+          </GlassPanel>
         )}
-        <PostExitInvitation props={viewProps} />
-        {<ProcessWorkspace key={p.owner} {...viewProps} />}
-        {(page === "Overview" || page === "Journal") && (
-          <WeeklyReminder
-            sessions={[s, ...history]}
-            owner={s.owner}
-            active={p.active || capturePending}
-            enabled={p.settings.weeklyReminders !== false}
-            onOpen={(key) => {
-              setReviewWeek(key);
-              setWeekly(true);
-              props.onPage("Journal");
-            }}
-            onPreference={(enabled) =>
-              p.configure({ ...p.settings, weeklyReminders: enabled })
-            }
-          />
-        )}
-        {page === "Overview" && <WorkspaceModule id="performance" title="Performance overview" parts={[{id:"metrics",title:"Summary numbers",selector:".ss-metrics"},{id:"stories",title:"Session stories",selector:".ss-storygrid"}]}><Overview {...viewProps} onReview={review} /></WorkspaceModule>}
-        {page === "Overview" && (
-          <WorkspaceModule id="session-environment" title="Session environment"><SessionContext
-            key={s.id}
-            session={s}
-            history={history}
-            onSave={p.updateBlueprint}
-          /></WorkspaceModule>
-        )}
-        {page === "Prepare" && (
-          <>
-            <section className={cx("hero")}>
-              <div>
-                <div className={cx("eyebrow")}>Before the market</div>
-                <h1>Prepare with intention.</h1>
-                <p>A few commitments to come back to. Yours to define.</p>
-              </div>
-              <button className={cx("primary")} onClick={() => props.onPage("Pre-Market")}>Open guided routine →</button>
-              <button
-                className={cx("primary")}
-                onClick={() => void act(p.active ? p.stop : startPreparedSession)}
-              >
-                {p.active ? "End session" : "Start session"}
+        <ModuleWorkspace
+          owner={p.owner}
+          page={page}
+          enabled={page !== "Command Center" && page !== "Pre-Market"}
+        >
+          {s.demo && (
+            <p className={cx("demo-notice")}>
+              DEMO DATA · Simulated heart rate, trades and reflections. No
+              broker or wearable is connected to this dataset.
+            </p>
+          )}
+          {p.error && (
+            <div className={cx("message", "error")} role="alert">
+              <span>{p.error}</span>
+              <button aria-label="Dismiss error" onClick={() => p.setError("")}>
+                ×
               </button>
-            </section>
-            <WorkspaceModule id="preparation-context" title="Preparation and intentions"><ReferenceContext key={s.id} {...viewProps} /></WorkspaceModule>
-          </>
-        )}
-        <ModuleScope active={journal}><div hidden={!journal} className={cx("reference-journal-grid")}>
-          <WorkspaceModule id="dates" title="Date overview" section="top" order={0} parts={[{id:"week",title:"Week strip",selector:".ss-week"},{id:"picker",title:"Date picker",selector:".ss-journal-day-picker"},{id:"navigation",title:"Week navigation",selector:".ss-datecontrols"}]}><section className={cx("journal-date-overview")} data-layout-id="journal-date-overview" data-layout-title="Date overview" data-layout-span="12">
-            <div className={cx("journal-date-heading")}>
-              <div>
-                <div className={cx("eyebrow")}>Daily journal</div>
-                <h1>{new Date(s.startedAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h1>
-              </div>
-              <JournalDayPicker key={s.id} date={s.startedAt} disabled={p.active || openingDay || capturePending} onOpen={openDay} />
             </div>
-            <div className={cx("datecontrols")}>
-              <button className={cx("iconbtn")} aria-label="Previous week" onClick={() => setWeek(n => n - 1)}>‹</button>
-              <span>{ws.getDate()}–{we.getDate()} {we.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
-              <button className={cx("iconbtn")} aria-label="Next week" onClick={() => setWeek(n => n + 1)}>›</button>
+          )}
+          {p.notice && (
+            <div className={cx("message")} role="status">
+              <span>{p.notice}</span>
+              <button
+                aria-label="Dismiss notification"
+                onClick={() => p.setNotice("")}
+              >
+                ×
+              </button>
             </div>
-            <Calendar weekdaysOnly sessions={history} selected={s} offset={week} disabled={p.active || openingDay || capturePending}
-              onOpen={target => void act(() => p.openSession(target))} onEmptyDay={date => void openDay(date)} />
-          </section></WorkspaceModule>
-          <div className={cx("reference-day")} data-layout-panel data-layout-id="journal-content" data-layout-title="Daily journal" data-layout-span="9">
-            {weekly ? (
-              <>
-                <button onClick={() => setWeekly(false)}>
-                  Back to journal
-                </button>
-                <WorkspaceModule id="weekly-review" title="Weekly intentions and review"><ReferenceWeek
-                  key={s.id + reviewWeek}
-                  {...viewProps}
-                  week={reviewWeek}
-                /></WorkspaceModule>
-              </>
-            ) : (
-              <>
-                <WorkspaceModule id="session-controls" title="Session controls" section="top" order={1}><section
-                  className={cx(
-                    "session-controls",
-                    "v4-sessionbar",
-                    !p.active && "idle",
-                  )}
-                  aria-label="Session controls"
-                >
-                  <div className={cx("session-state")}>
-                    <i />
-                    <div>
-                      <strong>
-                        {p.active
-                          ? "Recording"
-                          : s.endedAt
-                            ? "Session ended"
-                            : "Session not started"}
-                      </strong>
-                      <small>
-                        {p.active
-                          ? p.recording
-                            ? "Heart rate and journal"
-                            : "Journal only · wearable optional"
-                          : p.syncState}
-                      </small>
-                    </div>
-                  </div>
-                  <button
-                    disabled={capturePending && !p.active}
-                    className={cx(p.active ? "ghost end-session" : "primary")}
-                    onClick={() =>
-                      void act(async () => {
-                        if (p.active) {
-                          await p.stop();
-                          if (p.settings.startWithStillness !== false)
-                            go("Stillness");
-                        } else await startPreparedSession();
-                      }, p.active)
-                    }
-                  >
-                    {p.active ? "End Session" : "Start Session"}
-                  </button>
-                  {p.active && !p.recording && (
-                    <button
-                      className={cx("ghost")}
-                      disabled={p.connectingWhoop}
-                      onClick={() => void act(p.attachWhoop)}
-                    >
-                      {p.connectingWhoop
-                        ? "Connecting WHOOP…"
-                        : "Connect heart rate"}
-                    </button>
-                  )}
-                  <button
-                    className={cx("ghost")}
-                    onClick={() =>
-                      capturePending
-                        ? p.setError(
-                            "Confirm or discard your capture draft before importing.",
-                          )
-                        : props.onCsv()
-                    }
-                  >
-                    Import market data
-                  </button>
-                  <span role="status">
-                    {s.events.some((e) => e.provenance !== "alert" && !e.voided)
-                      ? "Executions matched"
-                      : "No trades recorded · journal ready"}
-                  </span>
-                </section></WorkspaceModule>
-                <Journal
-                  {...viewProps}
-                  focusTime={focusTime}
-                  view={page === "Patterns" ? "patterns" : view}
-                  setView={(v) => {
-                    setView(v);
-                    props.onPage(v === "patterns" ? "Patterns" : "Journal");
-                  }}
-                />
-              </>
-            )}
-          </div>
-          <WorkspaceModule id="calendar" title="Calendar & previous entries" section="side" order={0} parts={[{id:"calendar",title:"Month calendar",selector:".ss-mini-month"},{id:"search",title:"Search your words",selector:"input[type=search],.ss-search-results"},{id:"weekly",title:"Weekly review",selector:".ss-reference-card:nth-child(2)"},{id:"record",title:"Saved record summary",selector:".ss-reference-card:nth-child(3)"}]}><div className={cx("journal-calendar-side")} data-layout-panel data-layout-id="journal-calendar" data-layout-title="Calendar & previous entries" data-layout-span="3">
-            <ReferenceHistory
-              session={s}
-              sessions={history}
-              disabled={p.active || openingDay || capturePending}
-              onDay={(date) => void openDay(date)}
-              onWeek={() => setWeekly((v) => !v)}
-              onNote={(source, n) =>
-                void act(async () => {
-                  if (source.id !== s.id && !(await p.openSession(source)))
-                    return;
-                  go("Journal");
-                  props.onReflect({ t: n.t, entry: n });
-                })
+          )}
+          <PostExitInvitation props={viewProps} />
+          {<ProcessWorkspace key={p.owner} {...viewProps} />}
+          {(page === "Overview" || page === "Journal") && (
+            <WeeklyReminder
+              sessions={[s, ...history]}
+              owner={s.owner}
+              active={p.active || capturePending}
+              enabled={p.settings.weeklyReminders !== false}
+              onOpen={(key) => {
+                setReviewWeek(key);
+                setWeekly(true);
+                props.onPage("Journal");
+              }}
+              onPreference={(enabled) =>
+                p.configure({ ...p.settings, weeklyReminders: enabled })
               }
             />
-          </div></WorkspaceModule>
-        </div></ModuleScope>
-        {page === "Sessions" && (
-          <>
-            <section className={cx("hero")}>
-              <div>
-                <div className={cx("eyebrow")}>Recorded data sources</div>
-                <h1>Sessions</h1>
-                <p>
-                  Your recordings and reflections, organised by day. Expand a
-                  day to see its story, then open any recording or entry.
-                </p>
-              </div>
-            </section>
-            <div className={cx("analysisexplainer")}>
-              <strong>One day at a time.</strong>
-              <p>
-                Each day gathers your own reflection labels, heart-rate
-                recordings and trades. Open a recording to see the details.
-              </p>
-            </div>
-            <div className={cx("sectiontitle")}>
-              <div>
-                <h2>Your days</h2>
-                <p>
-                  {history.length} recordings ·{" "}
-                  {history.filter((h) => h.endedAt).length} completed
-                </p>
-              </div>
-              <div className={cx("topactions")}>
-                <JournalDayPicker
-                  key={s.id}
-                  date={s.startedAt}
-                  disabled={p.active || openingDay || capturePending}
-                  onOpen={openDay}
-                />
+          )}
+          {page === "Overview" && (
+            <WorkspaceModule
+              id="performance"
+              title="Performance overview"
+              parts={[
+                {
+                  id: "metrics",
+                  title: "Summary numbers",
+                  selector: ".ss-metrics",
+                },
+                {
+                  id: "stories",
+                  title: "Session stories",
+                  selector: ".ss-storygrid",
+                },
+              ]}
+            >
+              <Overview {...viewProps} onReview={review} />
+            </WorkspaceModule>
+          )}
+          {page === "Overview" && (
+            <WorkspaceModule
+              id="session-environment"
+              title="Session environment"
+            >
+              <SessionContext
+                key={s.id}
+                session={s}
+                history={history}
+                onSave={p.updateBlueprint}
+              />
+            </WorkspaceModule>
+          )}
+          {page === "Prepare" && (
+            <>
+              <section className={cx("hero")}>
+                <div>
+                  <div className={cx("eyebrow")}>Before the market</div>
+                  <h1>Prepare with intention.</h1>
+                  <p>A few commitments to come back to. Yours to define.</p>
+                </div>
                 <button
-                  className={cx("ghost")}
-                  onClick={() =>
-                    void act(async () => {
-                      await pullSessions(p.owner);
-                      await p.refreshHistory();
-                      p.setNotice("Cloud sessions refreshed.");
-                    })
-                  }
+                  className={cx("primary")}
+                  onClick={() => props.onPage("Pre-Market")}
                 >
-                  Refresh cloud
+                  Open guided routine →
                 </button>
                 <button
-                  className={cx("ghost")}
-                  onClick={() => void act(p.active ? p.stop : startPreparedSession)}
+                  className={cx("primary")}
+                  onClick={() =>
+                    void act(p.active ? p.stop : startPreparedSession)
+                  }
                 >
                   {p.active ? "End session" : "Start session"}
                 </button>
+              </section>
+              <WorkspaceModule
+                id="preparation-context"
+                title="Preparation and intentions"
+              >
+                <ReferenceContext key={s.id} {...viewProps} />
+              </WorkspaceModule>
+            </>
+          )}
+          <ModuleScope active={journal}>
+            <div hidden={!journal} className={cx("reference-journal-grid")}>
+              <WorkspaceModule
+                id="dates"
+                title="Date overview"
+                section="top"
+                order={0}
+                parts={[
+                  { id: "week", title: "Week strip", selector: ".ss-week" },
+                  {
+                    id: "picker",
+                    title: "Date picker",
+                    selector: ".ss-journal-day-picker",
+                  },
+                  {
+                    id: "navigation",
+                    title: "Week navigation",
+                    selector: ".ss-datecontrols",
+                  },
+                ]}
+              >
+                <section
+                  className={cx("journal-date-overview")}
+                  data-layout-id="journal-date-overview"
+                  data-layout-title="Date overview"
+                  data-layout-span="12"
+                >
+                  <div className={cx("journal-date-heading")}>
+                    <div>
+                      <div className={cx("eyebrow")}>Daily journal</div>
+                      <h1>
+                        {new Date(s.startedAt).toLocaleDateString("en-GB", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </h1>
+                    </div>
+                    <JournalDayPicker
+                      key={s.id}
+                      date={s.startedAt}
+                      disabled={p.active || openingDay || capturePending}
+                      onOpen={openDay}
+                    />
+                  </div>
+                  <div className={cx("datecontrols")}>
+                    <button
+                      className={cx("iconbtn")}
+                      aria-label="Previous week"
+                      onClick={() => setWeek((n) => n - 1)}
+                    >
+                      ‹
+                    </button>
+                    <span>
+                      {ws.getDate()}–{we.getDate()}{" "}
+                      {we.toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <button
+                      className={cx("iconbtn")}
+                      aria-label="Next week"
+                      onClick={() => setWeek((n) => n + 1)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <Calendar
+                    weekdaysOnly
+                    sessions={history}
+                    selected={s}
+                    offset={week}
+                    disabled={p.active || openingDay || capturePending}
+                    onOpen={(target) => void act(() => p.openSession(target))}
+                    onEmptyDay={(date) => void openDay(date)}
+                  />
+                </section>
+              </WorkspaceModule>
+              <div
+                className={cx("reference-day")}
+                data-layout-panel
+                data-layout-id="journal-content"
+                data-layout-title="Daily journal"
+                data-layout-span="9"
+              >
+                {weekly ? (
+                  <>
+                    <button onClick={() => setWeekly(false)}>
+                      Back to journal
+                    </button>
+                    <WorkspaceModule
+                      id="weekly-review"
+                      title="Weekly intentions and review"
+                    >
+                      <ReferenceWeek
+                        key={s.id + reviewWeek}
+                        {...viewProps}
+                        week={reviewWeek}
+                      />
+                    </WorkspaceModule>
+                  </>
+                ) : (
+                  <>
+                    <WorkspaceModule
+                      id="session-controls"
+                      title="Session controls"
+                      section="top"
+                      order={1}
+                    >
+                      <section
+                        className={cx(
+                          "session-controls",
+                          "v4-sessionbar",
+                          !p.active && "idle",
+                        )}
+                        aria-label="Session controls"
+                      >
+                        <div className={cx("session-state")}>
+                          <i />
+                          <div>
+                            <strong>
+                              {p.active
+                                ? "Recording"
+                                : s.endedAt
+                                  ? "Session ended"
+                                  : "Session not started"}
+                            </strong>
+                            <small>
+                              {p.active
+                                ? p.recording
+                                  ? "Heart rate and journal"
+                                  : "Journal only · wearable optional"
+                                : p.syncState}
+                            </small>
+                          </div>
+                        </div>
+                        <button
+                          disabled={capturePending && !p.active}
+                          className={cx(
+                            p.active ? "ghost end-session" : "primary",
+                          )}
+                          onClick={() =>
+                            void act(async () => {
+                              if (p.active) {
+                                await p.stop();
+                                if (p.settings.startWithStillness !== false)
+                                  go("Stillness");
+                              } else await startPreparedSession();
+                            }, p.active)
+                          }
+                        >
+                          {p.active ? "End Session" : "Start Session"}
+                        </button>
+                        {p.active && !p.recording && (
+                          <button
+                            className={cx("ghost")}
+                            disabled={p.connectingWhoop}
+                            onClick={() => void act(p.attachWhoop)}
+                          >
+                            {p.connectingWhoop
+                              ? "Connecting WHOOP…"
+                              : "Connect heart rate"}
+                          </button>
+                        )}
+                        <button
+                          className={cx("ghost")}
+                          onClick={() =>
+                            capturePending
+                              ? p.setError(
+                                  "Confirm or discard your capture draft before importing.",
+                                )
+                              : props.onCsv()
+                          }
+                        >
+                          Import market data
+                        </button>
+                        <span role="status">
+                          {s.events.some(
+                            (e) => e.provenance !== "alert" && !e.voided,
+                          )
+                            ? "Executions matched"
+                            : "No trades recorded · journal ready"}
+                        </span>
+                      </section>
+                    </WorkspaceModule>
+                    <Journal
+                      {...viewProps}
+                      focusTime={focusTime}
+                      view={page === "Patterns" ? "patterns" : view}
+                      setView={(v) => {
+                        setView(v);
+                        props.onPage(v === "patterns" ? "Patterns" : "Journal");
+                      }}
+                    />
+                  </>
+                )}
               </div>
+              <WorkspaceModule
+                id="calendar"
+                title="Calendar & previous entries"
+                section="side"
+                order={0}
+                parts={[
+                  {
+                    id: "calendar",
+                    title: "Month calendar",
+                    selector: ".ss-mini-month",
+                  },
+                  {
+                    id: "search",
+                    title: "Search your words",
+                    selector: "input[type=search],.ss-search-results",
+                  },
+                  {
+                    id: "weekly",
+                    title: "Weekly review",
+                    selector: ".ss-reference-card:nth-child(2)",
+                  },
+                  {
+                    id: "record",
+                    title: "Saved record summary",
+                    selector: ".ss-reference-card:nth-child(3)",
+                  },
+                ]}
+              >
+                <div
+                  className={cx("journal-calendar-side")}
+                  data-layout-panel
+                  data-layout-id="journal-calendar"
+                  data-layout-title="Calendar & previous entries"
+                  data-layout-span="3"
+                >
+                  <ReferenceHistory
+                    session={s}
+                    sessions={history}
+                    disabled={p.active || openingDay || capturePending}
+                    onDay={(date) => void openDay(date)}
+                    onWeek={() => setWeekly((v) => !v)}
+                    onNote={(source, n) =>
+                      void act(async () => {
+                        if (
+                          source.id !== s.id &&
+                          !(await p.openSession(source))
+                        )
+                          return;
+                        go("Journal");
+                        props.onReflect({ t: n.t, entry: n });
+                      })
+                    }
+                  />
+                </div>
+              </WorkspaceModule>
             </div>
-            <WorkspaceModule id="session-history" title="Your saved days"><SessionDays
-              history={history}
-              selected={s}
-              selectedSamples={p.samples}
-              owner={p.owner}
-              baselineSeconds={p.settings.baselineSeconds}
-              active={p.active}
-              onOpen={(item) =>
-                void act(async () => {
-                  if (item.id !== s.id) await p.openSession(item);
-                  setFocusTime(undefined);
-                  go("Journal");
-                })
-              }
-              onManage={(item) =>
-                void act(async () => {
-                  if (item.id !== s.id) await p.openSession(item);
-                  go("Settings");
-                })
-              }
-              onEntry={(item, entry) =>
-                void act(async () => {
-                  if (item.id !== s.id) await p.openSession(item);
-                  setFocusTime(entry.t);
-                  go("Journal");
-                })
-              }
-            /></WorkspaceModule>
-            {!history.length && (
-              <p className={cx("empty-note")}>
-                Choose a journal date to begin. Trades and CSV uploads are
-                optional.
-              </p>
-            )}
-          </>
-        )}
-        <ModuleScope active={page === "Stillness"}><div hidden={page !== "Stillness"}>
-          <WorkspaceModule id="personal-stillness" title="My stillness routine"><SavedStillness props={viewProps} /></WorkspaceModule>
-          <WorkspaceModule id="stillness" title="Stillness practice" parts={[{id:"breathing",title:"Breathing guide",selector:".ss-breathing-square"},{id:"presets",title:"Practice choices",selector:".ss-reset-modules"}]}><SessionReset
-            key={s.id}
-            active={page === "Stillness"}
-            onChoice={finishReset}
-          /></WorkspaceModule>
-        </div></ModuleScope>
+          </ModuleScope>
+          {page === "Sessions" && (
+            <>
+              <section className={cx("hero")}>
+                <div>
+                  <div className={cx("eyebrow")}>Recorded data sources</div>
+                  <h1>Sessions</h1>
+                  <p>
+                    Your recordings and reflections, organised by day. Expand a
+                    day to see its story, then open any recording or entry.
+                  </p>
+                </div>
+              </section>
+              <div className={cx("analysisexplainer")}>
+                <strong>One day at a time.</strong>
+                <p>
+                  Each day gathers your own reflection labels, heart-rate
+                  recordings and trades. Open a recording to see the details.
+                </p>
+              </div>
+              <div className={cx("sectiontitle")}>
+                <div>
+                  <h2>Your days</h2>
+                  <p>
+                    {history.length} recordings ·{" "}
+                    {history.filter((h) => h.endedAt).length} completed
+                  </p>
+                </div>
+                <div className={cx("topactions")}>
+                  <JournalDayPicker
+                    key={s.id}
+                    date={s.startedAt}
+                    disabled={p.active || openingDay || capturePending}
+                    onOpen={openDay}
+                  />
+                  <button
+                    className={cx("ghost")}
+                    onClick={() =>
+                      void act(async () => {
+                        await pullSessions(p.owner);
+                        await p.refreshHistory();
+                        p.setNotice("Cloud sessions refreshed.");
+                      })
+                    }
+                  >
+                    Refresh cloud
+                  </button>
+                  <button
+                    className={cx("ghost")}
+                    onClick={() =>
+                      void act(p.active ? p.stop : startPreparedSession)
+                    }
+                  >
+                    {p.active ? "End session" : "Start session"}
+                  </button>
+                </div>
+              </div>
+              <WorkspaceModule id="session-history" title="Your saved days">
+                <SessionDays
+                  history={history}
+                  selected={s}
+                  selectedSamples={p.samples}
+                  owner={p.owner}
+                  baselineSeconds={p.settings.baselineSeconds}
+                  active={p.active}
+                  onOpen={(item) =>
+                    void act(async () => {
+                      if (item.id !== s.id) await p.openSession(item);
+                      setFocusTime(undefined);
+                      go("Journal");
+                    })
+                  }
+                  onManage={(item) =>
+                    void act(async () => {
+                      if (item.id !== s.id) await p.openSession(item);
+                      go("Settings");
+                    })
+                  }
+                  onEntry={(item, entry) =>
+                    void act(async () => {
+                      if (item.id !== s.id) await p.openSession(item);
+                      setFocusTime(entry.t);
+                      go("Journal");
+                    })
+                  }
+                />
+              </WorkspaceModule>
+              {!history.length && (
+                <p className={cx("empty-note")}>
+                  Choose a journal date to begin. Trades and CSV uploads are
+                  optional.
+                </p>
+              )}
+            </>
+          )}
+          <ModuleScope active={page === "Stillness"}>
+            <div hidden={page !== "Stillness"}>
+              <WorkspaceModule
+                id="personal-stillness"
+                title="My stillness routine"
+              >
+                {page === "Stillness" && <SavedStillness props={viewProps} />}
+              </WorkspaceModule>
+              <WorkspaceModule
+                id="stillness"
+                title="Stillness practice"
+                parts={[
+                  {
+                    id: "breathing",
+                    title: "Breathing guide",
+                    selector: ".ss-breathing-square",
+                  },
+                  {
+                    id: "presets",
+                    title: "Practice choices",
+                    selector: ".ss-reset-modules",
+                  },
+                ]}
+              >
+                <SessionReset
+                  key={s.id}
+                  active={page === "Stillness"}
+                  onChoice={finishReset}
+                />
+              </WorkspaceModule>
+            </div>
+          </ModuleScope>
         </ModuleWorkspace>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">

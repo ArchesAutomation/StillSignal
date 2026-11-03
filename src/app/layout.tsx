@@ -28,7 +28,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body><GlassProvider><AppearanceProvider><SharkBackground />{children}<Appearance /></AppearanceProvider></GlassProvider></body>
+      <body>
+        <GlassProvider>
+          <AppearanceProvider>
+            <SharkBackground />
+            {children}
+            <Appearance />
+          </AppearanceProvider>
+        </GlassProvider>
+      </body>
     </html>
   );
 }

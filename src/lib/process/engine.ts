@@ -75,8 +75,17 @@ export function preparation(
       const response = preparationResponse(records, run, step, at);
       if (!day || scheduledOn(step, day.body.date)) {
         sections++;
-        if (["complete", "skipped", "not-applicable"].includes(response?.body.status ?? "")) resolved++;
-        if (response?.body.status === "skipped" || response?.body.skippedPromptIds?.length) omissions++;
+        if (
+          ["complete", "skipped", "not-applicable"].includes(
+            response?.body.status ?? "",
+          )
+        )
+          resolved++;
+        if (
+          response?.body.status === "skipped" ||
+          response?.body.skippedPromptIds?.length
+        )
+          omissions++;
       }
       if (step.requirement === "optional") continue;
       if (day && !scheduledOn(step, day.body.date)) {
@@ -283,7 +292,9 @@ export function verificationEvidence(
                 r.body.reflection.trim()
               ))
           : r.kind === "thesis" &&
-            (!instrument || !r.body.instrument || r.body.instrument.toUpperCase() === instrument.toUpperCase()) &&
+            (!instrument ||
+              !r.body.instrument ||
+              r.body.instrument.toUpperCase() === instrument.toUpperCase()) &&
             !!(
               r.body.primary.trim() ||
               r.body.notes.trim() ||
@@ -398,8 +409,11 @@ export function validateAppend(
       const requirement = run.body.steps.find((s) => s.id === row.body.stepId);
       if (row.body.status === "complete" && requirement) {
         const message =
-          answerError(requirement, row.body.answers ?? [], row.body.skippedPromptIds) ||
-          activityEvidenceError(records, run.body.dayId, requirement);
+          answerError(
+            requirement,
+            row.body.answers ?? [],
+            row.body.skippedPromptIds,
+          ) || activityEvidenceError(records, run.body.dayId, requirement);
         if (message) throw new Error(message);
         if (
           (requirement.activity === "thesis" ||
@@ -410,10 +424,17 @@ export function validateAppend(
             "Save the supporting thesis or check-in before completing this section.",
           );
       }
-      if (row.body.skippedPromptIds?.some(id =>
-        !requirement?.allowReflectionSkip || !requirement.prompts?.some(p => p.id === id) ||
-        row.body.answers?.some(a => a.id === id && a.value.trim())))
-        throw new Error("Skipped questions must belong to this section and have no answer.");
+      if (
+        row.body.skippedPromptIds?.some(
+          (id) =>
+            !requirement?.allowReflectionSkip ||
+            !requirement.prompts?.some((p) => p.id === id) ||
+            row.body.answers?.some((a) => a.id === id && a.value.trim()),
+        )
+      )
+        throw new Error(
+          "Skipped questions must belong to this section and have no answer.",
+        );
       if (
         previous?.kind === "response" &&
         (previous.body.runId !== row.body.runId ||
@@ -448,10 +469,7 @@ export function validateAppend(
             "Automatic completion requires its supporting record.",
           );
       }
-      if (
-        row.body.status === "not-applicable" &&
-        !row.body.reason.trim()
-      )
+      if (row.body.status === "not-applicable" && !row.body.reason.trim())
         throw new Error(
           "Record a reason for skipping or excluding a requirement.",
         );
@@ -467,7 +485,9 @@ export function validateAppend(
     if (row.kind === "thesis" && row.body.scope !== "weekly" && !row.body.dayId)
       throw new Error("Daily and intraday theses require a trading day.");
     if (
-      (row.kind === "assessment" || row.kind === "observation") &&
+      (row.kind === "assessment" ||
+        row.kind === "observation" ||
+        row.kind === "checkin") &&
       row.body.sessionId
     ) {
       const session = sessions.find(
