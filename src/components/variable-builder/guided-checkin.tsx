@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { temperatureRecords } from "@/lib/environment/temperature";
+import { currentTimeOnDay, observationTime, observationTimeInput } from "@/lib/environment/observation-time";
 import { latest, type RecordOf } from "@/lib/process/model";
 import { mergeEvents } from "@/lib/trade-context";
 import { positionIdeas } from "@/lib/position-ideas";
@@ -29,6 +30,7 @@ const schema = z.object({
   reflection: z.string().max(8000),
   phase: z.enum(["pre-market", "during", "post-session"]),
   association: z.string(),
+  at: z.string().optional(),
 });
 export default function GuidedCheckin({
   context,
@@ -56,6 +58,9 @@ export default function GuidedCheckin({
           ? ("pre-market" as const)
           : ("during" as const)),
       association: previous?.body.tradeId ?? "",
+      at: previous
+        ? observationTimeInput(previous.body.observedAt, day.body.timezone)
+        : currentTimeOnDay(day.body.date, day.body.timezone),
     }),
     (v) => schema.parse(v),
   );
@@ -101,7 +106,13 @@ export default function GuidedCheckin({
         store.records,
         {
           dayId: day.rootId,
-          observedAt: previous?.body.observedAt ?? Date.now(),
+          observedAt: observationTime(
+            draft.value.at ?? (previous
+              ? observationTimeInput(previous.body.observedAt, day.body.timezone)
+              : currentTimeOnDay(day.body.date, day.body.timezone)),
+            day.body.timezone,
+            previous?.body.observedAt,
+          ),
           answers,
           physical: draft.value.physical,
           circumstances: draft.value.circumstances,
@@ -134,7 +145,7 @@ export default function GuidedCheckin({
     <section className="guide-checkin">
       <small>
         Check-in · {Math.min(page + 1, answers.length + 1)} of{" "}
-        {answers.length + 1} · {day.body.date}
+        {answers.length + 1} · {day.body.date} · {day.body.timezone}
       </small>
       <h3 ref={heading} tabIndex={-1}>
         {question
@@ -259,6 +270,15 @@ export default function GuidedCheckin({
           ))}
           <details>
             <summary>Timing & ongoing position (optional)</summary>
+            <Field label={`Check-in time (${day.body.timezone})`}>
+              <input
+                type="datetime-local"
+                value={draft.value.at ?? (previous
+                  ? observationTimeInput(previous.body.observedAt, day.body.timezone)
+                  : currentTimeOnDay(day.body.date, day.body.timezone))}
+                onChange={(e) => draft.update((v) => ({ ...v, at: e.target.value }))}
+              />
+            </Field>
             <Field label="When in your day?">
               <select
                 value={draft.value.phase}

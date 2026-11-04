@@ -5,6 +5,9 @@ import { activeObservations, validateValue } from "@/lib/environment/values";
 import { Field, type Context } from "../command-center/shared";
 import { currentTimeOnDay, observationTimeInput, observationTime, earlierObservationTime } from "@/lib/environment/observation-time";
 export default function QuickCaffeine({ store, day, props }: Context) {
+  return <CaffeineEntry key={`${props.pulse?.owner ?? "local"}:${day.rootId}`} store={store} day={day} props={props} />;
+}
+function CaffeineEntry({ store, day, props }: Context) {
   const [dose, setDose] = useState("95"),
     [quantity, setQuantity] = useState("1"),
     [drink, setDrink] = useState("Coffee"),
@@ -12,16 +15,20 @@ export default function QuickCaffeine({ store, day, props }: Context) {
       () => currentTimeOnDay(day.body.date, day.body.timezone),
     ),
     [editing, setEditing] = useState<RecordOf<"observation">>(),
+    [tracker, setTracker] = useState(""),
     [message, setMessage] = useState("");
-  const definition = (editing && store.records.find(
-    (r): r is RecordOf<"variable"> => r.kind === "variable" && r.id === editing.body.definitionId,
-  )) || latest(store.records, "variable").find(
-    (v) =>
-      !v.body.archived &&
-      /caffeine/i.test(v.body.name) &&
-      v.body.unit.toLowerCase() === "mg" &&
+  const definitions = latest(store.records, "variable").filter(
+    (v) => !v.body.archived && /caffeine/i.test(v.body.name) &&
+      v.body.unit.trim().toLowerCase() === "mg" &&
       ["number", "counter"].includes(v.body.type),
   );
+  const otherCaffeine = latest(store.records, "variable").some(
+    (v) => !v.body.archived && /caffeine/i.test(v.body.name),
+  );
+  const definition = editing ? store.records.find(
+    (r): r is RecordOf<"variable"> => r.kind === "variable" && r.id === editing.body.definitionId,
+  ) : definitions.find((d) => d.rootId === tracker) ||
+    (!tracker && definitions.length === 1 ? definitions[0] : undefined);
   const observations = activeObservations(store.records).filter(
     (o) =>
       o.body.dayId === day.rootId &&
@@ -30,7 +37,7 @@ export default function QuickCaffeine({ store, day, props }: Context) {
           d.kind === "variable" &&
           d.id === o.body.definitionId &&
           /caffeine/i.test(d.body.name) &&
-          d.body.unit.toLowerCase() === "mg",
+          d.body.unit.trim().toLowerCase() === "mg",
       ) &&
       o.body.missing === "recorded" &&
       typeof o.body.value === "number",
@@ -66,6 +73,20 @@ export default function QuickCaffeine({ store, day, props }: Context) {
         onSubmit={async (e) => {
           e.preventDefault();
           setMessage("");
+          if (!definition && (editing || tracker)) {
+            setMessage(editing
+              ? "The original caffeine definition is unavailable. Refresh before correcting this entry; its definition has not been replaced."
+              : "The selected caffeine tracker is no longer available. Choose a tracker again before saving.");
+            return;
+          }
+          if (!definition && definitions.length > 1) {
+            setMessage("Choose a caffeine tracker before saving this drink.");
+            return;
+          }
+          if (!definition && otherCaffeine) {
+            setMessage("Your caffeine variable uses another unit or value type. Record it in Personal variables, or create an mg tracker explicitly. No units or limits have been changed.");
+            return;
+          }
           let observedAt: number;
           try {
             observedAt = observationTime(at, day.body.timezone, editing?.body.observedAt);
@@ -120,6 +141,7 @@ export default function QuickCaffeine({ store, day, props }: Context) {
             return;
           }
           if (await store.save([...(definition ? [] : [d]), observation])) {
+            setTracker(d.rootId);
             setEditing(undefined);
             setMessage("Caffeine entry saved.");
           } else
@@ -128,6 +150,15 @@ export default function QuickCaffeine({ store, day, props }: Context) {
             );
         }}
       >
+        {!editing && (definitions.length > 1 || (!!tracker && !definition)) && (
+          <Field label="Caffeine tracker">
+            <select value={definition?.rootId ?? ""} onChange={(e) => setTracker(e.target.value)}>
+              <option value="">Choose a caffeine tracker…</option>
+              {definitions.map((d) => <option key={d.id} value={d.rootId}>{d.body.name} · v{d.revision}</option>)}
+            </select>
+          </Field>
+        )}
+        {editing && definition && <p>Correcting {definition.body.name} · original definition v{definition.revision}. Its saved limits still apply.</p>}
         <div className="cc-grid">
           <Field label="Drink / serving description">
             <input
@@ -189,11 +220,14 @@ export default function QuickCaffeine({ store, day, props }: Context) {
         </div>
         {definition && (
           <p>
-            Configured range: {definition.body.min ?? "no minimum"} –{" "}
+            {definition.body.name} · configured range: {definition.body.min ?? "no minimum"} –{" "}
             {definition.body.max ?? "no maximum"} mg.{" "}
             <button
               type="button"
-              onClick={() => props.onPage("Settings & Variables")}
+              onClick={() => {
+                try { sessionStorage.setItem(`ss-edit-variable:${props.pulse?.owner ?? "local"}`, definition.rootId); } catch {}
+                props.onPage("Settings & Variables");
+              }}
             >
               Inspect / edit variable definition
             </button>
@@ -203,7 +237,7 @@ export default function QuickCaffeine({ store, day, props }: Context) {
       <p>
         {observations.length} entries ·{" "}
         {observations.reduce((n, o) => n + Number(o.body.value), 0)} mg recorded
-        today
+        for {day.body.date} ({day.body.timezone})
       </p>
       {observations.map((o) => (
         <p key={o.id}>

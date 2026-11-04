@@ -1,0 +1,123 @@
+// Local-only fixtures. Never run this script against a hosted account.
+require("tsx/cjs");
+const { chromium } = require("playwright");
+const assert = require("node:assert/strict");
+const { createRecord, latest } = require("../src/lib/process/model.ts");
+const { withRefs } = require("../src/lib/process/engine.ts");
+const { activeObservations } = require("../src/lib/environment/values.ts");
+const base = process.env.BATCH2_QA_URL || "http://127.0.0.1:3002";
+const output = process.env.BATCH2_QA_OUTPUT || "../../outputs/batch2";
+if (!["127.0.0.1", "localhost"].includes(new URL(base).hostname))
+  throw Error("This fixture check only supports localhost.");
+const owner = "88888888-8888-4888-8888-888888888888";
+const day = createRecord("day", { date: "2026-10-27", timezone: "America/New_York", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
+const variable = (name, max) => createRecord("variable", { name, category: "Personal conditions", type: "number", unit: "mg", min: 0, max, choices: [], frequency: "event", phases: ["pre-market", "during"], required: false, source: "manual", archived: false, analytics: true });
+const a = variable("Caffeine workdays", 60), b = variable("Caffeine weekends", 300);
+const step = (name, activity, verification, order) => ({ id: crypto.randomUUID(), name, description: "Isolated Batch 2 acceptance check", category: "Preparation", requirement: "required", condition: "", verification, activity, window: "", order });
+const steps = [step("Historical check-in", "checkin", "checkin", 0), { ...step("Personal variables", "variables", "manual", 1), variableIds: [a.rootId, b.rootId] }];
+const protocol = createRecord("protocol", { name: "Batch 2 fixture routine", description: "", instrument: "ES", strategy: "", session: "", steps });
+const run = createRecord("run", { dayId: day.rootId, templateId: protocol.id, steps, startedAt: Date.now() });
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: "msedge" });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: "Pacific/Honolulu" });
+  const page = await context.newPage(), errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  const nav = () => page.locator(".ss-reference-nav").getByRole("button", { name: "Command Center", exact: true });
+  const focus = () => page.locator(".guide-focus:visible");
+  const footer = () => page.locator(".journal-guide:visible > .guide-footer");
+  const next = () => footer().getByRole("button", { name: "Continue →", exact: true }).click();
+  const records = () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open("still-signal-process-v1", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result, result = db.transaction("records").objectStore("records").getAll();
+      result.onsuccess = () => { db.close(); resolve(result.result.map(r => r.record)); };
+      result.onerror = () => { db.close(); reject(result.error); };
+    };
+  }));
+  const openRoutine = async () => {
+    await nav().click();
+    await page.getByLabel("Trading date", { exact: true }).fill(day.body.date);
+    await page.getByRole("button", { name: /Start today.s preparation|Start \/ resume preparation/ }).first().click();
+  };
+  try {
+    await page.goto(base + "/review");
+    await nav().waitFor();
+    await page.evaluate(({ owner, rows }) => new Promise((resolve, reject) => {
+      const request = indexedDB.open("still-signal-process-v1", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("records", { keyPath: ["owner", "id"] }).createIndex("owner", "owner");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result, tx = db.transaction("records", "readwrite");
+        rows.forEach((record, i) => tx.objectStore("records").put({ owner, id: record.id, record, pending: 0, order: i + 1 }));
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      };
+    }), { owner, rows: [day, a, b, protocol, run].map(withRefs) });
+    await openRoutine();
+    await next();
+    await focus().getByRole("button", { name: "Focus: 7 of 10", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    for (let i = 0; i < 5; i++) await focus().getByRole("button", { name: "Continue check-in →", exact: true }).click();
+    await focus().getByText("Timing & ongoing position (optional)", { exact: true }).click();
+    assert.match(await focus().getByLabel("Check-in time (America/New_York)").inputValue(), /^2026-10-27T/);
+    await focus().getByRole("button", { name: "Record check-in", exact: true }).click();
+    const originalCheckin = latest(await records(), "checkin")[0];
+    assert.equal(new Intl.DateTimeFormat("en-CA", { timeZone: day.body.timezone }).format(originalCheckin.body.observedAt), day.body.date);
+    assert.equal(originalCheckin.body.phase, "pre-market");
+    assert.equal(originalCheckin.body.answers[1].value, null);
+    await next();
+    await footer().getByRole("button", { name: "Save section & continue →", exact: true }).click();
+    await next();
+    const caffeine = () => focus().locator(".guide-caffeine");
+    await caffeine().getByRole("button", { name: /Pepsi/ }).click();
+    await caffeine().getByRole("button", { name: "Add caffeine entry", exact: true }).click();
+    await caffeine().getByRole("status").getByText(/Choose a caffeine tracker/).waitFor();
+    await caffeine().getByLabel("Caffeine tracker", { exact: true }).selectOption(a.rootId);
+    await caffeine().getByRole("button", { name: /Monster/ }).click();
+    await caffeine().getByRole("button", { name: "Add caffeine entry", exact: true }).click();
+    await caffeine().getByRole("status").getByText(/at most 60 mg/).waitFor();
+    assert.equal((await records()).filter(r => r.kind === "observation" && r.body.definitionId === a.id).length, 0);
+    await caffeine().getByLabel("Caffeine per serving (mg, editable)").fill("30");
+    await caffeine().getByLabel("Number of servings").fill("2");
+    await caffeine().getByRole("button", { name: "Add caffeine entry", exact: true }).click();
+    await caffeine().getByText(/1 entries · 60 mg recorded for/).waitFor();
+    await caffeine().getByLabel("Caffeine tracker", { exact: true }).selectOption(b.rootId);
+    await caffeine().getByLabel("Caffeine per serving (mg, editable)").fill("100");
+    await caffeine().getByLabel("Number of servings").fill("1");
+    await caffeine().getByRole("button", { name: "Add caffeine entry", exact: true }).click();
+    await caffeine().getByText(/2 entries · 160 mg recorded for/).waitFor();
+    await caffeine().getByRole("button", { name: "Correct amount / time", exact: true }).first().click();
+    await caffeine().getByLabel("Caffeine per serving (mg, editable)").fill("40");
+    await caffeine().getByRole("button", { name: "Save correction", exact: true }).click();
+    await caffeine().getByText(/2 entries · 140 mg recorded for/).waitFor();
+    await page.screenshot({ path: output + "/batch2-historical-caffeine.png", fullPage: true });
+    await caffeine().getByRole("button", { name: /Inspect \/ edit variable definition/ }).click();
+    await page.locator('input[name="max"]').waitFor();
+    assert.equal(await page.locator('input[name="max"]').inputValue(), "60");
+    await page.locator('input[name="max"]').fill("120");
+    await page.getByRole("button", { name: "Save definition", exact: true }).click();
+    await page.locator('input[name="max"]').waitFor({ state: "hidden" });
+    const afterRange = await records();
+    assert.equal(afterRange.find(r => r.id === a.id).body.max, 60);
+    assert.equal(latest(afterRange, "variable").find(r => r.rootId === a.rootId).body.max, 120);
+    assert.equal(activeObservations(afterRange).find(r => r.body.definitionId === a.id).body.value, 40);
+    const history = () => page.locator(".cc-panel").filter({ has: page.getByRole("heading", { name: "Observation history", exact: true }) });
+    await history().locator(".cc-list-row").filter({ hasText: "Focus: 7" }).getByRole("button", { name: "Correct check-in", exact: true }).click();
+    await page.locator(".guide-checkin").getByRole("button", { name: "Focus: 9 of 10", exact: true }).click();
+    for (let i = 0; i < 5; i++) await page.locator(".guide-checkin").getByRole("button", { name: "Continue check-in →", exact: true }).click();
+    await page.locator(".guide-checkin").getByRole("button", { name: "Save check-in correction", exact: true }).click();
+    await history().getByText("Focus: 9 1–10", { exact: true }).waitFor();
+    const afterCorrection = await records(), correctedCheckin = latest(afterCorrection, "checkin")[0];
+    assert.equal(correctedCheckin.body.answers[0].value, 9);
+    assert.equal(correctedCheckin.body.observedAt, originalCheckin.body.observedAt);
+    assert.equal(afterCorrection.find(r => r.id === originalCheckin.id).body.answers[0].value, 7);
+    await page.screenshot({ path: output + "/batch2-shared-correction.png", fullPage: true });
+    await page.reload();
+    await openRoutine();
+    await focus().locator(".guide-caffeine").getByText(/2 entries · 140 mg recorded for/).waitFor();
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ passed: true, errors, checks: ["historical check-in in trading timezone with a different device timezone", "keyboard rating", "explicit caffeine tracker selection", "unchanged configured limit rejects dose", "two drinks and quantity", "correction does not double-count", "exact range-edit route and pinned historical definitions", "shared source correction and retained original", "reload retains historical records and date selection"] }));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

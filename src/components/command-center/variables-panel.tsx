@@ -56,16 +56,18 @@ export default function VariablesPanel({
               <small>{d.body.name}</small>
               <strong>
                 {observation && pinned
-                  ? displayValue(observation, pinned)
+                  ? pinned.body.type === "timestamp" && observation.body.missing === "recorded" && typeof observation.body.value === "number"
+                    ? `${new Date(observation.body.value).toLocaleString([], { timeZone: day.body.timezone })} (${day.body.timezone})`
+                    : displayValue(observation, pinned)
                   : "Not recorded"}
               </strong>
               {observation && (
                 <small>
                   {new Date(observation.body.observedAt).toLocaleTimeString(
                     [],
-                    { hour: "2-digit", minute: "2-digit" },
+                    { hour: "2-digit", minute: "2-digit", timeZone: day.body.timezone },
                   )}{" "}
-                  · {observation.body.phase.replaceAll("-", " ")}
+                  ({day.body.timezone}) · {observation.body.phase.replaceAll("-", " ")}
                 </small>
               )}
             </div>
