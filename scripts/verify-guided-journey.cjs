@@ -285,7 +285,7 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
       .getByRole("button", { name: "Add caffeine entry", exact: true })
       .click();
     await focus()
-      .getByText("1 entries · 150 mg recorded today", { exact: true })
+      .getByText(/1 entries · 150 mg recorded for/)
       .waitFor();
     await focus()
       .getByRole("button", { name: "Correct amount / time", exact: true })
@@ -295,7 +295,7 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
       .getByRole("button", { name: "Save correction", exact: true })
       .click();
     await focus()
-      .getByText("1 entries · 175 mg recorded today", { exact: true })
+      .getByText(/1 entries · 175 mg recorded for/)
       .waitFor();
     await next();
     await footer()

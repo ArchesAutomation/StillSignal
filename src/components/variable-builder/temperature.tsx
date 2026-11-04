@@ -58,7 +58,7 @@ export default function Temperature(
           <p>{rows[0].body.circumstances}</p>
           <p>{rows[0].body.reflection}</p>
           <small>
-            {new Date(rows[0].body.observedAt).toLocaleString()} ·{" "}
+            {new Date(rows[0].body.observedAt).toLocaleString([], { timeZone: day.body.timezone })} ({day.body.timezone}) ·{" "}
             {rows[0].body.phase ?? "during"}
           </small>
           <button
@@ -88,7 +88,7 @@ export default function Temperature(
           {rows.map((r) => (
             <div key={r.id}>
               <p>
-                {new Date(r.body.observedAt).toLocaleString()} ·{" "}
+                {new Date(r.body.observedAt).toLocaleString([], { timeZone: day.body.timezone })} ({day.body.timezone}) ·{" "}
                 {r.body.answers
                   .map((a) => `${a.question}: ${a.value ?? "not recorded"}`)
                   .join(" · ")}

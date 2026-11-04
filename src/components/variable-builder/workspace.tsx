@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createRecord,
   latest,
@@ -11,6 +11,7 @@ import { displayValue } from "@/lib/environment/values";
 import { currentTimeOnDay, observationTimeInput, observationTime } from "@/lib/environment/observation-time";
 import PersistentForm, { clearFormDraft } from "../persistent-form";
 import Temperature from "./temperature";
+import GuidedCheckin from "./guided-checkin";
 import {
   Area,
   Badge,
@@ -38,6 +39,16 @@ const empty: BodyOf<"variable"> = {
   archived: false,
   analytics: true,
 };
+const typeLabels: Record<BodyOf<"variable">["type"], string> = {
+  number: "Number", scale: "Rating scale", duration: "Duration",
+  counter: "Whole-number count", boolean: "Yes / no", text: "Written note",
+  timestamp: "Date and time", "single-select": "Choose one", "multi-select": "Choose several",
+};
+const examples: BodyOf<"variable">[] = [
+  { ...empty, name: "Sleep", category: "Personal conditions", unit: "hours", min: 0 },
+  { ...empty, name: "Caffeine", category: "Personal conditions", unit: "mg", min: 0, frequency: "event" },
+  { ...empty, name: "Noise", category: "Environment", type: "single-select", choices: ["Low", "Moderate", "High"] },
+];
 export function ObservationForm({
   context,
   definition,
@@ -123,7 +134,7 @@ export function ObservationForm({
             name="phase"
             defaultValue={previous?.body.phase ?? d.phases[0]}
           >
-            {d.phases.map((v) => (
+            {[...new Set([...d.phases, ...(previous ? [previous.body.phase] : [])])].map((v) => (
               <option key={v}>{v}</option>
             ))}
           </select>
@@ -208,6 +219,9 @@ export function ObservationForm({
             defaultValue={previous?.body.sessionId ?? ""}
           >
             <option value="">Day-level observation</option>
+            {previous?.body.sessionId && !props.history.some((s) => !s.demo && s.id === previous.body.sessionId) && (
+              <option value={previous.body.sessionId}>Original recording (not loaded)</option>
+            )}
             {props.history
               .filter((s) => !s.demo)
               .map((s) => (
@@ -220,6 +234,9 @@ export function ObservationForm({
         <Field label="Specific execution (optional)">
           <select name="tradeId" defaultValue={previous?.body.tradeId ?? ""}>
             <option value="">No specific trade</option>
+            {previous?.body.tradeId && !props.history.some((s) => !s.demo && s.events.some((e) => e.id === previous.body.tradeId)) && (
+              <option value={previous.body.tradeId}>Original execution (not loaded)</option>
+            )}
             {props.history
               .filter((s) => !s.demo)
               .flatMap((s) =>
@@ -267,7 +284,20 @@ export default function Variables(
       definition: RecordOf<"variable">;
       previous?: RecordOf<"observation">;
     }>(),
+    [editingCheckin, setEditingCheckin] = useState<RecordOf<"checkin">>(),
     file = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const key = `ss-edit-variable:${context.props.pulse?.owner ?? "local"}`;
+    try {
+      const rootId = sessionStorage.getItem(key);
+      if (!rootId) return;
+      const definition = definitions.find((d) => d.rootId === rootId);
+      if (definition) {
+        sessionStorage.removeItem(key);
+        setEditor({ value: definition.body, previous: definition });
+      }
+    } catch { /* The full definition list remains available without session storage. */ }
+  }, [context.props.pulse?.owner, store.records]);
   const active = definitions.filter((d) => !d.archived && !d.body.archived);
   function exportTemplates() {
     const url = URL.createObjectURL(
@@ -295,9 +325,11 @@ export default function Variables(
     <div className="cc-stack">
       {!context.preparation && <Temperature {...context} />}
       <Panel
-        title="Environmental variables"
-        detail="Create categories and typed measurements. Every observation keeps its definition version."
+        title="Personal variables"
+        detail="Record your conditions for this trading day. Saved observations keep the units and limits used when you recorded them."
         action={
+          <details open={context.preparation ? undefined : true}>
+            <summary>Manage variable definitions</summary>
           <div className="cc-actions">
             <button onClick={() => setEditor({ value: empty })}>
               Create variable
@@ -307,6 +339,7 @@ export default function Variables(
               Import template
             </button>
           </div>
+          </details>
         }
       >
         <input
@@ -366,6 +399,8 @@ export default function Variables(
               >
                 Record value
               </button>
+              <details>
+                <summary>Manage this variable</summary>
               <button onClick={() => setEditor({ value: d.body, previous: d })}>
                 Edit definition
               </button>
@@ -386,12 +421,13 @@ export default function Variables(
               >
                 {d.archived ? "Restore" : "Archive"}
               </button>
+              </details>
             </div>
           </div>
         ))}
         {editor && (
           <form
-            key={editor.previous?.id ?? "new"}
+            key={editor.previous?.id ?? editor.value.name}
             className="cc-form"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -424,6 +460,16 @@ export default function Variables(
                 setEditor(undefined);
             }}
           >
+            {!editor.previous && (
+              <div className="cc-actions">
+                <span>Start with an example:</span>
+                {examples.map((example) => (
+                  <button key={example.name} type="button" onClick={() => setEditor({ value: example })}>
+                    {example.name}{example.unit ? ` (${example.unit})` : ""}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="cc-grid">
               <Input
                 label="Display name"
@@ -438,13 +484,14 @@ export default function Variables(
                 required
               />
               <Field label="Value type">
-                <select name="type" defaultValue={editor.value.type}>
+                <select name="type" value={editor.value.type} onChange={(e) => setEditor({ ...editor, value: { ...editor.value, type: e.target.value as BodyOf<"variable">["type"] } })}>
                   {variableSchema.shape.type.options.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{typeLabels[v]}</option>
                   ))}
                 </select>
               </Field>
               <Input label="Unit" name="unit" value={editor.value.unit} />
+              {["number", "scale", "duration", "counter"].includes(editor.value.type) && <>
               <Input
                 label="Minimum (optional)"
                 name="min"
@@ -459,6 +506,16 @@ export default function Variables(
                 step="any"
                 value={editor.value.max}
               />
+              </>}
+            </div>
+            {editor.value.type.includes("select") && <Area
+              label="Available choices (one per line)"
+              name="choices"
+              value={editor.value.choices.join("\n")}
+            />}
+            <details className="guide-advanced">
+              <summary>Collection settings (optional)</summary>
+              <div className="cc-grid">
               <Field label="Collection frequency">
                 <select name="frequency" defaultValue={editor.value.frequency}>
                   {variableSchema.shape.frequency.options.map((v) => (
@@ -466,19 +523,15 @@ export default function Variables(
                   ))}
                 </select>
               </Field>
-              <Field label="Definition source">
+              <Field label="How values are collected">
                 <select name="source" defaultValue={editor.value.source}>
                   {variableSchema.shape.source.options.map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{({ manual: "Entered by me", imported: "From an import", device: "From a device" })[v]}</option>
                   ))}
                 </select>
               </Field>
             </div>
-            <Area
-              label="Available choices (one per line, for select variables)"
-              name="choices"
-              value={editor.value.choices.join("\n")}
-            />
+            <p className="cc-muted">This describes the source. It does not connect a device, import data, or automate collection.</p>
             <fieldset>
               <legend>Collection phases</legend>
               <div className="cc-actions">
@@ -522,6 +575,7 @@ export default function Variables(
                 Enable comparisons
               </label>
             </div>
+            </details>
             {editor.previous && (
               <p className="cc-muted">
                 Changes create a new version. Old numeric values keep their
@@ -551,6 +605,16 @@ export default function Variables(
           />
         </Panel>
       )}
+      {editingCheckin && (
+        <Panel title="Correct shared check-in">
+          <GuidedCheckin
+            key={editingCheckin.id}
+            context={context}
+            previous={editingCheckin}
+            onClose={() => setEditingCheckin(undefined)}
+          />
+        </Panel>
+      )}
       <Panel
         title="Observation history"
         detail="Corrections create revisions; removed values are excluded from current comparisons."
@@ -559,6 +623,11 @@ export default function Variables(
           <Empty>No observations recorded for this day.</Empty>
         )}
         {observations.map((o) => {
+          const sourceId = o.refs.find((ref) => ref.kind === "checkin")?.id;
+          const source = sourceId ? store.records.find(
+            (r): r is RecordOf<"checkin"> => r.kind === "checkin" && r.id === sourceId,
+          ) : undefined;
+          const currentSource = source && latest(store.records, "checkin").some((r) => r.id === source.id);
           const d = store.records.find(
             (r): r is RecordOf<"variable"> =>
               r.kind === "variable" && r.id === o.body.definitionId,
@@ -578,7 +647,18 @@ export default function Variables(
                     {o.archived ? " · removed" : ""}
                   </small>
                   <History records={store.records} rootId={o.rootId} />
+                  {sourceId && !currentSource && (
+                    <small>Superseded check-in answer · retained in history; excluded from current comparisons.</small>
+                  )}
                 </div>
+                {sourceId ? (
+                  currentSource && (
+                    <button onClick={() => setEditingCheckin(source)}>
+                      Correct check-in
+                    </button>
+                  )
+                ) : (
+                  <>
                 <button
                   onClick={() => setObserving({ definition: d, previous: o })}
                 >
@@ -597,6 +677,8 @@ export default function Variables(
                 >
                   {o.archived ? "Restore" : "Remove"}
                 </button>
+                  </>
+                )}
               </div>
             )
           );
