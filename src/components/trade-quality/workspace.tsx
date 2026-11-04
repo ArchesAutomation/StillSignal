@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import TemplateTools from "../command-center/template-tools";
 import {
@@ -60,6 +60,26 @@ const draftRulesSchema = z.array(z.object({
   weight: z.number(),
   limit: z.number().optional(),
 })).min(1).max(100);
+function restorePlaybookDraft(raw: string, records: Context["store"]["records"]) {
+  const saved = JSON.parse(raw);
+  const rules = draftRulesSchema.parse(saved.body.rules);
+  const parsed = recordSchema.parse(createRecord("playbook", {
+    ...saved.body,
+    name: saved.body.name || "My draft",
+    rules: rules.map((r) => ({
+      ...r, name: r.name || "Draft rule", weight: 1,
+      verification: "manual", limit: undefined,
+      startMinute: undefined, endMinute: undefined,
+    })),
+  }));
+  if (parsed.kind !== "playbook") throw Error("Invalid playbook draft.");
+  const previous = records.find(
+    (r): r is RecordOf<"playbook"> => r.kind === "playbook" && r.id === saved.previousId,
+  );
+  if (saved.previousId && !previous)
+    throw Error("The draft's original playbook version is not loaded. Refresh before resuming; the draft is preserved.");
+  return { editor: { body: { ...parsed.body, name: saved.body.name }, previous }, rules };
+}
 export function QualityAssessment({
   context,
   assessment,
@@ -329,6 +349,9 @@ export function Violations(context: Context) {
   );
 }
 export default function TradeQuality(context: Context) {
+  return <PlaybookWorkspace key={context.props.pulse?.owner ?? "local"} {...context} />;
+}
+function PlaybookWorkspace(context: Context) {
   const { store, day, props } = context,
     books = latest(store.records, "playbook", Infinity, true),
     [editor, setEditor] = useState<{
@@ -339,54 +362,84 @@ export default function TradeQuality(context: Context) {
     [assessing, setAssessing] = useState(false);
   const [guided, setGuided] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [draftMessage, setDraftMessage] = useState("");
+  const [acting, setActing] = useState(false);
+  const actionInFlight = useRef(false);
   const editorKey = `ss-playbook-editor:${props.pulse?.owner ?? "local"}`;
+  const scopedDraftKey = (previousId?: string) => `${editorKey}:${previousId ?? "new"}:editor`;
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(editorKey) ?? "null");
-      if (saved) {
-        const draftRules = draftRulesSchema.parse(saved.body.rules);
-        const parsed = recordSchema.parse(
-          createRecord("playbook", {
-            ...saved.body,
-            name: saved.body.name || "My draft",
-            rules: draftRules.map((r) => ({
-              ...r,
-              name: r.name || "Draft rule",
-              weight: 1,
-              verification: "manual",
-              limit: undefined,
-              startMinute: undefined,
-              endMinute: undefined,
-            })),
-          }),
-        );
-        if (parsed.kind === "playbook") {
-          setEditor({
-            body: { ...parsed.body, name: saved.body.name },
-            previous: store.records.find(
-              (r): r is RecordOf<"playbook"> =>
-                r.kind === "playbook" && r.id === saved.previousId,
-            ),
-          });
-          setRules(draftRules);
-        }
+      const raw = localStorage.getItem(editorKey);
+      if (raw) {
+        const restored = restorePlaybookDraft(raw, store.records);
+        setEditor(restored.editor);
+        setRules(restored.rules);
       }
-    } catch {}
+    } catch (error) {
+      setDraftMessage(error instanceof Error ? error.message : "This draft could not be restored. Saved playbooks are unchanged.");
+    }
   }, [editorKey]);
   useEffect(() => {
     if (editor && rules.length) {
       try {
-        localStorage.setItem(
-          editorKey,
-          JSON.stringify({
+        const saved = JSON.stringify({
             body: { ...editor.body, rules },
             previousId: editor.previous?.id,
-          }),
-        );
-      } catch {}
+          });
+        localStorage.setItem(scopedDraftKey(editor.previous?.id), saved);
+        localStorage.setItem(editorKey, saved);
+        setDraftMessage("");
+      } catch {
+        setDraftMessage("Could not store the playbook rule draft on this device. Keep the editor open until you save.");
+      }
     }
   }, [editor, rules, editorKey]);
   const formKey = editorKey + ":" + (editor?.previous?.id ?? "new");
+  function openEditor(body: BodyOf<"playbook">, previous?: RecordOf<"playbook">) {
+    setSaveMessage("");
+    setActionError("");
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(scopedDraftKey(previous?.id));
+    } catch {
+      setDraftMessage("Draft storage is unavailable. Keep this editor open until you save.");
+    }
+    if (raw) {
+      try {
+        const restored = restorePlaybookDraft(raw, store.records);
+        setEditor(restored.editor);
+        setRules(restored.rules);
+        return;
+      } catch (error) {
+        setDraftMessage(error instanceof Error ? error.message : "Could not restore the rule draft. Your saved records are unchanged.");
+        return;
+      }
+    }
+    setEditor({ body, previous });
+    setRules(previous?.body.rules ?? [newRule()]);
+  }
+  async function write(batch: Context["store"]["records"], success: string, failure: string) {
+    if (actionInFlight.current) return false;
+    actionInFlight.current = true;
+    setActing(true);
+    setActionError("");
+    setSaveMessage("");
+    try {
+      if (!await store.save(batch)) {
+        setActionError(failure + " The action was not confirmed. Retry when saving is available.");
+        return false;
+      }
+      setSaveMessage(success);
+      return true;
+    } catch (error) {
+      setActionError(failure + " " + (error instanceof Error ? error.message : "Retry when saving is available."));
+      return false;
+    } finally {
+      actionInFlight.current = false;
+      setActing(false);
+    }
+  }
   const assessments = latest(store.records, "assessment").filter(
       (a) => a.body.dayId === day.rootId,
     ),
@@ -407,23 +460,22 @@ export default function TradeQuality(context: Context) {
         detail="User-defined execution and behavioral rules, with versioned weights."
         action={
           <button
-            onClick={() => {
-              setSaveMessage("");
-              setEditor({ body: blank });
-              setRules([newRule()]);
-            }}
+            onClick={() => openEditor(blank)}
           >
             New playbook
           </button>
         }
       >
         {saveMessage && <p role="status">{saveMessage}</p>}
+        {actionError && <p role="alert">{actionError}</p>}
+        {draftMessage && <p role="status">{draftMessage}</p>}
+        <p className="cc-muted">Each playbook has one current version. Earlier versions stay in History. Archive removes a playbook from new use; linked reviews remain and Restore brings it back.</p>
         <TemplateTools kind="playbook" store={store} />
         {!books.length && (
           <Empty>Define your strategy before reviewing setup quality.</Empty>
         )}
         {books.map((b) => (
-          <div key={b.id} className="cc-list-row">
+          <div key={b.rootId} className="cc-list-row">
             <div>
               <strong>{b.body.name}</strong>
               <small>
@@ -434,23 +486,19 @@ export default function TradeQuality(context: Context) {
               <History records={store.records} rootId={b.rootId} />
             </div>
             <button
-              onClick={() => {
-                setSaveMessage("");
-                setEditor({ body: b.body, previous: b });
-                setRules(b.body.rules);
-              }}
+              onClick={() => openEditor(b.body, b)}
             >
               Edit next version
             </button>
             <button
-              disabled={store.busy}
+              disabled={store.busy || acting}
               onClick={() =>
-                void store.save([
+                void write([
                   {
                     ...createRecord("playbook", b.body, b),
                     archived: !b.archived,
                   },
-                ])
+                ], `${b.archived ? "Restored" : "Archived"} “${b.body.name}”. Earlier versions and linked reviews are retained.`, `Could not ${b.archived ? "restore" : "archive"} “${b.body.name}”.`)
               }
             >
               {b.archived ? "Restore" : "Archive"}
@@ -479,14 +527,14 @@ export default function TradeQuality(context: Context) {
                 rules,
               };
               if (
-                await store.save([
+                await write([
                   createRecord("playbook", body, editor.previous),
-                ])
+                ], `Saved “${body.name}”. Your playbook is listed above; use Edit next version to revise it.`, "Could not save this playbook.")
               ) {
                 clearFormDraft(formKey);
                 clearFormDraft(editorKey);
+                clearFormDraft(scopedDraftKey(editor.previous?.id));
                 setEditor(undefined);
-                setSaveMessage(`Saved “${body.name}”. Your playbook is listed above; use Edit next version to revise it.`);
               }
             }}
           >
@@ -667,8 +715,11 @@ export default function TradeQuality(context: Context) {
               >
                 Add rule
               </button>
-              <Save store={store}>Save playbook version</Save>
-              <button type="button" onClick={() => setEditor(undefined)}>
+              <Save store={{ ...store, busy: store.busy || acting }}>Save playbook version</Save>
+              <button type="button" onClick={() => {
+                setEditor(undefined);
+                setSaveMessage("Draft kept on this device. Reopen this playbook to continue editing; nothing was committed.");
+              }}>
                 Cancel
               </button>
             </div>

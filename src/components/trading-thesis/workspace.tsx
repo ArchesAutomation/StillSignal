@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   recordSchema,
   biasSchema,
@@ -141,6 +141,34 @@ export default function ThesisWorkspace(
         : { body: emptyThesis(day, context.initialScope) };
     }),
     [versionKey, setVersionKey] = useState(0);
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [acting, setActing] = useState(false);
+  const actionInFlight = useRef(false);
+  async function changeArchive(thesis: RecordOf<"thesis">, archived: boolean) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActing(true);
+    setActionMessage("");
+    setActionError("");
+    try {
+      const saved = await store.save([{
+        ...createRecord("thesis", {
+          ...thesis.body,
+          reason: archived ? "Archived mistaken plan" : "Restored archived plan",
+        }, thesis),
+        archived,
+      }]);
+      if (saved)
+        setActionMessage(`${archived ? "Archived" : "Restored"} this plan. Original versions and linked evidence are retained.`);
+      else setActionError(`Could not ${archived ? "archive" : "restore"} this plan. The action was not confirmed; retry when saving is available.`);
+    } catch (error) {
+      setActionError(`Could not ${archived ? "archive" : "restore"} this plan. ${error instanceof Error ? error.message : "Retry when saving is available."}`);
+    } finally {
+      actionInFlight.current = false;
+      setActing(false);
+    }
+  }
   const editorKey = `ss-thesis-editor:${context.props.pulse?.owner ?? "local"}:${day.rootId}:${context.initialScope ?? "all"}`;
   useEffect(() => {
     try {
@@ -210,6 +238,9 @@ export default function ThesisWorkspace(
           </div>
         }
       >
+        {actionMessage && <p role="status">{actionMessage}</p>}
+        {actionError && <p role="alert">{actionError}</p>}
+        <p className="cc-muted">Archive removes a plan from current use without deleting its versions or linked reviews. Restore brings it back.</p>
         <details>
           <summary>Archived plans</summary>
           {latest(store.records, "thesis", Infinity, true)
@@ -223,18 +254,9 @@ export default function ThesisWorkspace(
                 {t.body.scope} · {t.body.periodStart} ·{" "}
                 {t.body.instrument || "All instruments"}
                 <button
-                  disabled={store.busy}
+                  disabled={store.busy || acting}
                   onClick={() =>
-                    void store.save([
-                      {
-                        ...createRecord(
-                          "thesis",
-                          { ...t.body, reason: "Restored archived plan" },
-                          t,
-                        ),
-                        archived: false,
-                      },
-                    ])
+                    void changeArchive(t, false)
                   }
                 >
                   Restore plan
@@ -249,7 +271,7 @@ export default function ThesisWorkspace(
           </Empty>
         )}
         {rows.map((t) => (
-          <article key={t.id} className="cc-thesis">
+          <article key={t.rootId} className="cc-thesis">
             <div className="cc-actions">
               <h3>
                 {t.body.scope} · {t.body.periodStart} ·{" "}
@@ -333,23 +355,14 @@ export default function ThesisWorkspace(
               )}
             </div>
             <button
-              disabled={store.busy}
+              disabled={store.busy || acting}
               onClick={() => {
                 if (
                   window.confirm(
                     "Archive this mistaken plan? Original versions and linked review evidence will remain in history.",
                   )
                 )
-                  void store.save([
-                    {
-                      ...createRecord(
-                        "thesis",
-                        { ...t.body, reason: "Archived mistaken plan" },
-                        t,
-                      ),
-                      archived: true,
-                    },
-                  ]);
+                  void changeArchive(t, true);
               }}
             >
               Archive mistaken plan
