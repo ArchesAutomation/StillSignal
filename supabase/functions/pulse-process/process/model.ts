@@ -536,6 +536,7 @@ export const recordSchema = z
                   ]),
                   visible: z.boolean(),
                   width: z.enum(["normal", "wide"]),
+                  heightMode: z.enum(["auto", "fixed"]).optional(),
                   grid: z
                     .object({
                       x: z.number().int().min(0).max(11),
