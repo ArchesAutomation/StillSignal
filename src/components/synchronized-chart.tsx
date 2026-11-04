@@ -70,6 +70,8 @@ export default function SynchronizedChart(props: ChartProps) {
   useEffect(() => {
     if (!container.current) return;
     const chart = createChart(container.current, {
+      handleScroll: { mouseWheel: false },
+      handleScale: { mouseWheel: false },
       autoSize: true,
       height: 440,
       layout: {

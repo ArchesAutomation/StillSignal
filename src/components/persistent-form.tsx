@@ -40,10 +40,13 @@ export default function PersistentForm({
           )
             continue;
           if (
-            input instanceof HTMLInputElement &&
+            input.tagName === "INPUT" &&
             ["checkbox", "radio"].includes(input.type)
           )
-            input.checked = values.includes(input.value);
+            (input as HTMLInputElement).checked = values.includes(input.value);
+          else if (input.tagName === "SELECT" && (input as HTMLSelectElement).multiple)
+            for (const option of (input as HTMLSelectElement).options)
+              option.selected = values.includes(option.value);
           else input.value = values[0] ?? "";
         }
       if (saved) setMessage("Your unsaved draft was restored on this device.");
@@ -52,11 +55,20 @@ export default function PersistentForm({
         "Draft storage is unavailable. Keep this form open until you save.",
       );
     }
-    node.scrollIntoView?.({ block: "nearest" });
+    if (!node.closest("[hidden]")) {
+      node.scrollIntoView?.({ block: "start" });
+      node.querySelector<HTMLElement>("input:not([type=hidden]),textarea,select")
+        ?.focus({ preventScroll: true });
+    }
   }, [draftKey]);
   function persist() {
     if (!form.current) return;
     const saved: Record<string, string[]> = {};
+    // FormData omits unchecked boxes and empty multi-selects. Persist their
+    // empty state too, otherwise restoring the draft resurrects default values.
+    for (const input of form.current.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input[name],textarea[name],select[name]"))
+      if (input.type !== "file" && input.dataset.controlled !== "true")
+        saved[input.name] ??= [];
     for (const [name, value] of new FormData(form.current))
       if (typeof value === "string") (saved[name] ??= []).push(value);
     try {

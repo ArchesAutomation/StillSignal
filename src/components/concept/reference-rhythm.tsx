@@ -154,6 +154,7 @@ export default function ReferenceRhythm({
     const el = svg.current;
     if (!el || showPrice) return;
     function wheel(e: WheelEvent) {
+      if (!e.altKey) return;
       e.preventDefault();
       if (!wheelTimer.current) remember();
       clearTimeout(wheelTimer.current);
@@ -644,8 +645,9 @@ export default function ReferenceRhythm({
         </svg>
       )}
       <div className={cx("chart-tip")}>
-        Scroll to zoom at your cursor · drag to move through time · double-click
-        to fit session · touch: pinch to zoom
+        {showPrice
+          ? "Drag to move through time · drag an axis to scale · touch: pinch to zoom"
+          : "Alt + scroll to zoom at your cursor · drag to move through time · double-click to fit session · touch: pinch to zoom"}
       </div>
       <small>
         {clock(at)} · {point ? `${point.bpm} BPM` : "HR unavailable"} · Open P&L{" "}

@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import TemplateTools from "../command-center/template-tools";
 import {
   recordSchema,
+  ruleSchema,
   adherenceSchema,
   createRecord,
   latest,
@@ -51,6 +53,13 @@ const blank: BodyOf<"playbook"> = {
   behavioral: "",
   rules: [],
 };
+// Drafts are allowed to be unfinished; committed records still use ruleSchema.
+const draftRulesSchema = z.array(z.object({
+  ...ruleSchema.shape,
+  name: z.string().max(160),
+  weight: z.number(),
+  limit: z.number().optional(),
+})).min(1).max(100);
 export function QualityAssessment({
   context,
   assessment,
@@ -329,21 +338,25 @@ export default function TradeQuality(context: Context) {
     [rules, setRules] = useState<Rule[]>([newRule()]),
     [assessing, setAssessing] = useState(false);
   const [guided, setGuided] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
   const editorKey = `ss-playbook-editor:${props.pulse?.owner ?? "local"}`;
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(editorKey) ?? "null");
       if (saved) {
+        const draftRules = draftRulesSchema.parse(saved.body.rules);
         const parsed = recordSchema.parse(
           createRecord("playbook", {
             ...saved.body,
             name: saved.body.name || "My draft",
-            rules: saved.body.rules.map((r: Rule) => ({
+            rules: draftRules.map((r) => ({
               ...r,
               name: r.name || "Draft rule",
-              ...(r.verification === "max-size" && r.limit === undefined
-                ? { limit: 1 }
-                : {}),
+              weight: 1,
+              verification: "manual",
+              limit: undefined,
+              startMinute: undefined,
+              endMinute: undefined,
             })),
           }),
         );
@@ -355,15 +368,7 @@ export default function TradeQuality(context: Context) {
                 r.kind === "playbook" && r.id === saved.previousId,
             ),
           });
-          setRules(
-            parsed.body.rules.map((r, i) => ({
-              ...r,
-              name: saved.body.rules[i].name,
-              ...(saved.body.rules[i].limit === undefined
-                ? { limit: undefined }
-                : {}),
-            })),
-          );
+          setRules(draftRules);
         }
       }
     } catch {}
@@ -403,6 +408,7 @@ export default function TradeQuality(context: Context) {
         action={
           <button
             onClick={() => {
+              setSaveMessage("");
               setEditor({ body: blank });
               setRules([newRule()]);
             }}
@@ -411,6 +417,7 @@ export default function TradeQuality(context: Context) {
           </button>
         }
       >
+        {saveMessage && <p role="status">{saveMessage}</p>}
         <TemplateTools kind="playbook" store={store} />
         {!books.length && (
           <Empty>Define your strategy before reviewing setup quality.</Empty>
@@ -428,6 +435,7 @@ export default function TradeQuality(context: Context) {
             </div>
             <button
               onClick={() => {
+                setSaveMessage("");
                 setEditor({ body: b.body, previous: b });
                 setRules(b.body.rules);
               }}
@@ -478,6 +486,7 @@ export default function TradeQuality(context: Context) {
                 clearFormDraft(formKey);
                 clearFormDraft(editorKey);
                 setEditor(undefined);
+                setSaveMessage(`Saved “${body.name}”. Your playbook is listed above; use Edit next version to revise it.`);
               }
             }}
           >
@@ -610,7 +619,7 @@ export default function TradeQuality(context: Context) {
                               const [h, m] = e.target.value
                                 .split(":")
                                 .map(Number);
-                              update({ startMinute: h * 60 + m });
+                              update({ startMinute: e.target.value ? h * 60 + m : undefined });
                             }}
                           />
                         </Field>
@@ -632,7 +641,7 @@ export default function TradeQuality(context: Context) {
                               const [h, m] = e.target.value
                                 .split(":")
                                 .map(Number);
-                              update({ endMinute: h * 60 + m });
+                              update({ endMinute: e.target.value ? h * 60 + m : undefined });
                             }}
                           />
                         </Field>

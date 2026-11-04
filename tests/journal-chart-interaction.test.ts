@@ -98,6 +98,12 @@ test("two zooms and a pan can each be undone, fit differs from all measurements,
     assert.notEqual(range(), fit);
     await click("Fit session");
     assert.equal(range(), fit);
+    const pageScroll = new dom.window.WheelEvent("wheel", {
+      bubbles: true, cancelable: true, deltaY: -50,
+    });
+    await act(async () => { svg.dispatchEvent(pageScroll); });
+    assert.equal(pageScroll.defaultPrevented, false, "normal scrolling belongs to the page");
+    assert.equal(range(), fit, "ordinary scrolling does not change the chart");
     await act(async () => {
       svg.dispatchEvent(
         new dom.window.WheelEvent("wheel", {
@@ -105,6 +111,7 @@ test("two zooms and a pan can each be undone, fit differs from all measurements,
           cancelable: true,
           clientX: 450,
           deltaY: -50,
+          altKey: true,
         }),
       );
       svg.dispatchEvent(
@@ -113,6 +120,7 @@ test("two zooms and a pan can each be undone, fit differs from all measurements,
           cancelable: true,
           clientX: 450,
           deltaY: -50,
+          altKey: true,
         }),
       );
     });
