@@ -25,6 +25,7 @@ import {
 import PersistentForm, { clearFormDraft } from "../persistent-form";
 import ThesisAttachments from "../thesis-attachments";
 import PrivateImage from "../private-image";
+import { thesisMatchesDay, thesisMatchesInstrument } from "@/lib/process/thesis";
 const thesisLabels = {
   structure: "Market structure",
   events: "Economic events",
@@ -72,12 +73,7 @@ export function relevantTheses(
   records: Context["store"]["records"],
   day: RecordOf<"day">,
 ) {
-  return latest(records, "thesis").filter(
-    (t) =>
-      t.body.dayId === day.rootId ||
-      (t.body.scope === "weekly" &&
-        t.body.periodStart === weekOf(day.body.date)),
-  );
+  return latest(records, "thesis").filter((t) => thesisMatchesDay(t, day));
 }
 export function ThesisPanel({ store, day, props }: Context) {
   const theses = relevantTheses(store.records, day);
@@ -134,8 +130,10 @@ export default function ThesisWorkspace(
       const previous = relevantTheses(store.records, day)
         .filter(
           (t) =>
-            t.body.scope === context.initialScope &&
-            t.body.instrument === day.body.instrument,
+            (context.initialScope === "weekly"
+              ? t.body.scope === "weekly"
+              : t.body.scope !== "weekly") &&
+            thesisMatchesInstrument(t, day.body.instrument),
         )
         .sort((a, b) => b.createdAt - a.createdAt)[0];
       return previous
@@ -178,7 +176,12 @@ export default function ThesisWorkspace(
   const formKey =
     editorKey + ":" + (editor?.previous?.id ?? editor?.body.scope ?? "new");
   const rows = relevantTheses(store.records, day).filter(
-      (t) => !context.initialScope || t.body.scope === context.initialScope,
+      (t) =>
+        !context.initialScope ||
+        (thesisMatchesInstrument(t, day.body.instrument) &&
+          (context.initialScope === "weekly"
+            ? t.body.scope === "weekly"
+            : t.body.scope !== "weekly")),
     ),
     weekly = relevantTheses(store.records, day).filter(
       (r) => r.body.scope === "weekly",
