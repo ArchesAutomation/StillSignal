@@ -8,6 +8,8 @@ import {
   type RecordOf,
 } from "@/lib/process/model";
 import { displayValue } from "@/lib/environment/values";
+import { currentTimeOnDay, observationTimeInput, observationTime } from "@/lib/environment/observation-time";
+import PersistentForm, { clearFormDraft } from "../persistent-form";
 import Temperature from "./temperature";
 import {
   Area,
@@ -36,10 +38,6 @@ const empty: BodyOf<"variable"> = {
   archived: false,
   analytics: true,
 };
-const localDate = (t: number) => {
-  const d = new Date(t);
-  return new Date(t - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-};
 export function ObservationForm({
   context,
   definition,
@@ -53,12 +51,15 @@ export function ObservationForm({
 }) {
   const { store, day, props } = context,
     d = definition.body;
+  const draftKey = `ss-observation-form:${props.pulse?.owner ?? "local"}:${day.rootId}:${definition.id}:${previous?.id ?? "new"}`;
   return (
-    <form
+    <PersistentForm
+      draftKey={draftKey}
       key={definition.id + (previous?.id ?? "")}
       className="cc-form"
       onSubmit={async (e) => {
         e.preventDefault();
+        try {
         const f = new FormData(e.currentTarget),
           missing = string(f, "missing") as BodyOf<"observation">["missing"];
         const value =
@@ -69,7 +70,7 @@ export function ObservationForm({
               : d.type === "boolean"
                 ? string(f, "value") === "true"
                 : d.type === "timestamp"
-                  ? +new Date(string(f, "value"))
+                  ? observationTime(string(f, "value"), day.body.timezone, typeof previous?.body.value === "number" ? previous.body.value : undefined)
                   : ["number", "scale", "duration", "counter"].includes(d.type)
                     ? (number(f, "value") ?? null)
                     : string(f, "value");
@@ -84,7 +85,7 @@ export function ObservationForm({
         const body: BodyOf<"observation"> = {
           definitionId: definition.id,
           dayId: day.rootId,
-          observedAt: +new Date(string(f, "observedAt")),
+          observedAt: observationTime(string(f, "observedAt"), day.body.timezone, previous?.body.observedAt),
           phase: string(f, "phase") as BodyOf<"observation">["phase"],
           value,
           missing,
@@ -93,8 +94,13 @@ export function ObservationForm({
           sessionId: string(f, "sessionId") || undefined,
           tradeId: string(f, "tradeId") || undefined,
         };
-        if (await store.save([createRecord("observation", body, previous)]))
+        if (await store.save([createRecord("observation", body, previous)])) {
+          clearFormDraft(draftKey);
           onSaved();
+        }
+        } catch (error) {
+          store.setError(error instanceof Error ? error.message : "Check the observation date and value. Your inputs remain here.");
+        }
       }}
     >
       <h3>
@@ -106,10 +112,10 @@ export function ObservationForm({
       </h3>
       <div className="cc-grid">
         <Input
-          label="Observation time (your device timezone)"
+          label={`Observation time (${day.body.timezone})`}
           type="datetime-local"
           name="observedAt"
-          value={localDate(previous?.body.observedAt ?? Date.now())}
+          value={previous ? observationTimeInput(previous.body.observedAt, day.body.timezone) : currentTimeOnDay(day.body.date, day.body.timezone)}
           required
         />
         <Field label="Collection phase">
@@ -135,7 +141,7 @@ export function ObservationForm({
           </select>
         </Field>
       </div>
-      <Field label={d.name + (d.unit ? " (" + d.unit + ")" : "")}>
+      <Field label={d.name + (d.unit ? " (" + d.unit + ")" : "") + (d.type === "timestamp" ? ` (${day.body.timezone})` : "")}>
         {d.type === "boolean" ? (
           <select
             name="value"
@@ -187,7 +193,7 @@ export function ObservationForm({
             max={d.max}
             defaultValue={
               d.type === "timestamp" && typeof previous?.body.value === "number"
-                ? localDate(previous.body.value)
+                ? observationTimeInput(previous.body.value, day.body.timezone)
                 : typeof previous?.body.value === "number"
                   ? previous.body.value
                   : ""
@@ -236,7 +242,7 @@ export function ObservationForm({
       <Save store={store}>
         {previous ? "Save correction" : "Record observation"}
       </Save>
-    </form>
+    </PersistentForm>
   );
 }
 export default function Variables(
@@ -562,10 +568,12 @@ export default function Variables(
               <div key={o.id} className="cc-list-row">
                 <div>
                   <strong>
-                    {d.body.name}: {displayValue(o, d)}
+                    {d.body.name}: {d.body.type === "timestamp" && o.body.missing === "recorded" && typeof o.body.value === "number"
+                      ? new Date(o.body.value).toLocaleString([], { timeZone: day.body.timezone }) + ` (${day.body.timezone})`
+                      : displayValue(o, d)}
                   </strong>
                   <small>
-                    {new Date(o.body.observedAt).toLocaleString()} ·{" "}
+                    {new Date(o.body.observedAt).toLocaleString([], { timeZone: day.body.timezone })} ({day.body.timezone}) ·{" "}
                     {o.body.phase} · definition v{d.revision}
                     {o.archived ? " · removed" : ""}
                   </small>

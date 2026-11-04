@@ -25,6 +25,9 @@ test("caffeine corrections preserve the original phase and trade association; ra
     await submit();
     assert.equal(saved.length, 0);
     assert.match(document.querySelector('[role="status"]')!.textContent!, /at most 60 mg/);
+    const other = createRecord("variable", { ...variable.body, name: "Caffeine - another tracker", max: 1 });
+    context.store.records = [other, ...context.store.records];
+    await act(async () => root.render(createElement(QuickCaffeine, context)));
     await act(async () => button("Correct amount / time").click());
     await submit();
     const result = saved[0];
@@ -34,6 +37,8 @@ test("caffeine corrections preserve the original phase and trade association; ra
       assert.equal(result.body.phase, "during");
       assert.equal(result.body.sessionId, original.body.sessionId);
       assert.equal(result.body.tradeId, "position-1");
+      assert.equal(result.body.definitionId, variable.id);
+      assert.equal(result.body.observedAt, original.body.observedAt);
     }
   } finally {
     await act(async () => root.unmount());
