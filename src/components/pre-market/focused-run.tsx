@@ -97,11 +97,13 @@ export default function FocusedRun({
     ...(current ? draft.value.answers[current.id] : {}),
   };
   useEffect(() => {
-    setError("");
     heading.current?.focus();
     heading.current?.scrollIntoView?.({ block: "start" });
   }, [current?.id, item]);
-  useEffect(() => setShowReminder(false), [current?.id]);
+  useEffect(() => {
+    setShowReminder(false);
+    setError("");
+  }, [current?.id]);
   function answer(id: string, value: string) {
     if (current)
       draft.update((v) => ({
@@ -110,6 +112,7 @@ export default function FocusedRun({
       }));
   }
   function go(offset: number) {
+    setError("");
     draft.update((v) => ({ ...v, page: Math.max(0, page + offset) }));
   }
   const missing = (current?.prompts ?? []).filter((p) => !values[p.id]?.trim());
@@ -159,6 +162,16 @@ export default function FocusedRun({
         answerError(current, answers, skippedPromptIds) ||
         activityEvidenceError(store.records, day.rootId, current);
       if (issue) {
+        const invalidPrompt = current.prompts?.find((p) =>
+          answerError({ ...current, checklist: [], prompts: [p] }, answers, skippedPromptIds),
+        );
+        const target = answerError({ ...current, prompts: [] }, answers)
+          ? "reminders"
+          : invalidPrompt?.id ??
+          (answerError(current, answers, skippedPromptIds) ? "reminders" : "activity");
+        const targetPage = pages.indexOf(target);
+        if (targetPage >= 0)
+          draft.update((v) => ({ ...v, page: targetPage }));
         setError(issue);
         return;
       }
@@ -166,6 +179,7 @@ export default function FocusedRun({
         ["thesis", "checkin"].includes(activityOf(current)) &&
         !verificationEvidence(store.records, run, current.id, Date.now())
       ) {
+        draft.update((v) => ({ ...v, page: pages.indexOf("activity") }));
         setError(
           `Save your ${activityOf(current) === "thesis" ? "trading thesis" : "check-in"} above, or skip this section for today.`,
         );

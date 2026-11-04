@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createRecord, latest, type RecordOf } from "@/lib/process/model";
-import { activeObservations } from "@/lib/environment/values";
+import { activeObservations, validateValue } from "@/lib/environment/values";
 import { Field, type Context } from "../command-center/shared";
 const localTime = (t: number) => {
   const d = new Date(t);
@@ -70,8 +70,9 @@ export default function QuickCaffeine({ store, day, props }: Context) {
           const value = Number(dose) * Number(quantity),
             observedAt = new Date(at).getTime();
           if (
+            !dose.trim() || !quantity.trim() ||
             !Number.isFinite(value) ||
-            value < 0 ||
+            Number(dose) < 0 || Number(quantity) <= 0 ||
             !Number.isFinite(observedAt)
           ) {
             setMessage("Enter a valid amount and time.");
@@ -95,17 +96,24 @@ export default function QuickCaffeine({ store, day, props }: Context) {
           const observation = createRecord(
             "observation",
             {
+              ...editing?.body,
               dayId: day.rootId,
               definitionId: d.id,
               value,
               observedAt,
-              phase: day.body.status === "preparing" ? "pre-market" : "during",
+              phase: editing?.body.phase ?? (day.body.status === "preparing" ? "pre-market" : "during"),
               missing: "recorded",
               source: "manual",
               provenance: `${drink}: ${quantity} serving(s), ${dose} mg each; user-entered / editable estimate`,
             },
             editing,
           );
+          try {
+            validateValue(d, observation.body);
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Check the amount and configured range.");
+            return;
+          }
           if (await store.save([...(definition ? [] : [d]), observation])) {
             setEditing(undefined);
             setMessage("Caffeine entry saved.");

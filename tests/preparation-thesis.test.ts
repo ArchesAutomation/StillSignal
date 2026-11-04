@@ -12,6 +12,19 @@ import {
   type RecordOf,
 } from "../src/lib/process/model";
 import type { Context } from "../src/components/command-center/shared";
+import { verificationEvidence } from "../src/lib/process/engine";
+
+test("preparation uses the current plan version and respects archived plans", () => {
+  const day = createRecord("day", { date: "2026-11-02", timezone: "UTC", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
+  const step = { id: crypto.randomUUID(), name: "Weekly plan", description: "", category: "Preparation", requirement: "required" as const, condition: "", verification: "weekly-thesis" as const, window: "", order: 0 };
+  const protocol = createRecord("protocol", { name: "Routine", description: "", instrument: "ES", strategy: "", session: "", steps: [step] });
+  const run = createRecord("run", { dayId: day.rootId, templateId: protocol.id, steps: [step], startedAt: Date.now() });
+  const thesis = createRecord("thesis", { ...emptyThesis(day, "weekly"), primary: "Plan" }, undefined, [], run.createdAt + 1);
+  const archived = { ...createRecord("thesis", thesis.body, thesis, [], thesis.createdAt + 1), archived: true };
+  const records = [day, protocol, run, thesis, archived];
+  assert.equal(verificationEvidence(records, run, step.id, thesis.createdAt)?.id, thesis.id);
+  assert.equal(verificationEvidence(records, run, step.id, archived.createdAt), undefined);
+});
 test("custom thesis fields preserve hidden saved analysis when revising visible fields", async () => {
   const dom = new JSDOM('<div id="root"></div>');
   for (const [key, value] of Object.entries({
