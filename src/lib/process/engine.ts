@@ -3,10 +3,12 @@ import { isActualExecution } from "../trade-context";
 import { validateValue } from "../environment/values";
 import {
   activityEvidenceError,
+  activityOf,
   answerError,
   preparationResponse,
   scheduledOn,
 } from "./preparation-workflow";
+import { thesisMatchesDay, thesisMatchesInstrument } from "./thesis";
 import {
   createRecord,
   dateInZone,
@@ -295,15 +297,13 @@ export function verificationEvidence(
                 r.body.reflection.trim()
               ))
           : r.kind === "thesis" &&
-            (!instrument ||
-              !r.body.instrument ||
-              r.body.instrument.toUpperCase() === instrument.toUpperCase()) &&
+            thesisMatchesInstrument(r, instrument ?? "") &&
             !!(
               r.body.primary.trim() ||
               r.body.notes.trim() ||
               r.body.noTrade.trim() ||
               r.body.structure.trim() ||
-              (step.activity === "thesis" &&
+              (activityOf(step) === "thesis" &&
                 [
                   r.body.events,
                   r.body.levels,
@@ -315,18 +315,11 @@ export function verificationEvidence(
                   ...r.body.screenshots,
                 ].some((value) => value.trim()))
             ) &&
+            !!day &&
+            thesisMatchesDay(r, day) &&
             (step.verification === "daily-thesis"
-              ? r.body.dayId === run.body.dayId && r.body.scope !== "weekly"
-              : r.body.scope === "weekly" &&
-                !!day &&
-                r.body.periodStart <= day.body.date &&
-                day.body.date <=
-                  new Date(
-                    Date.parse(r.body.periodStart + "T12:00:00Z") +
-                      6 * 86400000,
-                  )
-                    .toISOString()
-                    .slice(0, 10))),
+              ? r.body.scope !== "weekly"
+              : r.body.scope === "weekly")),
     )
     .sort((a, b) => b.createdAt - a.createdAt)[0];
 }

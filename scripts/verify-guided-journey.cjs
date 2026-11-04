@@ -33,6 +33,23 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
   const next = () =>
     footer().getByRole("button", { name: "Continue →", exact: true }).click();
   const focus = () => page.locator(".guide-focus:visible");
+  const resumePreparation = async () => {
+    await mainNav("Command Center").click();
+    await page.getByRole("button", {
+      name: /Start today.s preparation|Start \/ resume preparation/,
+    }).first().click();
+    const open = page.getByRole("button", { name: /Open today.s preparation/ });
+    if (await open.count()) await open.click();
+  };
+  const thesisCount = () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open("still-signal-process-v1", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result, rows = db.transaction("records").objectStore("records").getAll();
+      rows.onerror = () => { db.close(); reject(rows.error); };
+      rows.onsuccess = () => { db.close(); resolve(rows.result.filter(r => r.record.kind === "thesis").length); };
+    };
+  }));
   const check = async (name) => {
     assert.equal(
       await page.evaluate(
@@ -198,6 +215,12 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
     ]) {
       await next();
       await focus().locator('textarea[name="primary"]').fill(narrative);
+      const beforeSave = await thesisCount();
+      await page.reload();
+      await resumePreparation();
+      await focus().locator('textarea[name="primary"]').waitFor();
+      assert.equal(await focus().locator('textarea[name="primary"]').inputValue(), narrative,
+        "unsaved thesis text survives refresh and routine reopening");
       if (narrative.includes("weekly"))
         await focus()
           .locator('input[type="file"]')
@@ -209,12 +232,30 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
               "base64",
             ),
           });
-      await focus()
-        .getByRole("button", { name: /^Save thesis/ })
-        .click();
+      if (narrative.includes("weekly")) {
+        await focus().locator('.guide-thesis-images img').waitFor();
+        assert.match(await focus().locator('.guide-thesis-attachments').innerText(), /files stay on this device/);
+      }
+      await focus().locator('form').evaluate(form => {
+        form.requestSubmit();
+        form.requestSubmit();
+      });
       await focus()
         .getByRole("button", { name: /^Revise thesis/ })
         .waitFor();
+      assert.equal(await thesisCount(), beforeSave + 1, "rapid repeated submission creates one plan");
+      await page.reload();
+      await resumePreparation();
+      await focus().getByRole("button", { name: /^Revise thesis/ }).waitFor();
+      assert.equal(await focus().locator('textarea[name="primary"]').count(), 0,
+        "saved applicable plan reopens without a duplicate new-plan editor");
+      assert.match(await focus().innerText(), new RegExp(narrative.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      if (narrative.includes("weekly")) {
+        await focus().locator('.guide-thesis-images img').waitFor();
+        assert.equal(await focus().locator('.guide-thesis-images img').evaluate(img => img.complete && img.naturalWidth > 0), true,
+          "saved device-local screenshot reopens from IndexedDB");
+        await page.screenshot({ path: output + "/batch1-weekly-plan-reopened.png", fullPage: true });
+      }
       await next();
       await footer()
         .getByRole("button", { name: "Save section & continue →", exact: true })
@@ -486,6 +527,9 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
           "first rule and seven-day mission",
           "shared check-in",
           "weekly/daily thesis and chart attachment",
+          "thesis text drafts survive refresh and routine reopening",
+          "rapid repeated thesis submission creates one plan",
+          "saved plans and device-local images reopen before section completion",
           "editable caffeine without duplicate doses",
           "one end reminder",
           "single-answer summary edit",

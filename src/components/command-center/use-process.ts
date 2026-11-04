@@ -27,6 +27,7 @@ export function useProcess(owner: string, sessions: Session[]) {
       const pending = await syncProcess(owner);
       if (currentOwner.current === owner) {
         await reload();
+        if (currentOwner.current !== owner) return;
         setSyncState(
           !cloudConfigured
             ? "Saved on this device"
@@ -40,11 +41,15 @@ export function useProcess(owner: string, sessions: Session[]) {
         );
       }
     } catch (e) {
-      if (currentOwner.current === owner)
+      if (currentOwner.current === owner) {
+        // Sync may have downloaded cloud records even though an upload failed.
+        await reload().catch(() => {});
+        if (currentOwner.current !== owner) return;
         setSyncState(
           "Saved locally · " +
             (e instanceof Error ? e.message : "sync unavailable"),
         );
+      }
     }
   }, [owner, reload]);
   useEffect(() => {
@@ -58,11 +63,13 @@ export function useProcess(owner: string, sessions: Session[]) {
       .catch((e) => setError(String(e)));
     const onOnline = () => void sync();
     window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOnline);
     const timer = setInterval(onOnline, 60000);
     return () => {
       alive = false;
       clearInterval(timer);
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOnline);
     };
   }, [reload, sync]);
   async function save(batch: ProcessRecord[]) {
