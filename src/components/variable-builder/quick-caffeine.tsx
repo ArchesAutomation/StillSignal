@@ -3,20 +3,19 @@ import { useState } from "react";
 import { createRecord, latest, type RecordOf } from "@/lib/process/model";
 import { activeObservations, validateValue } from "@/lib/environment/values";
 import { Field, type Context } from "../command-center/shared";
-const localTime = (t: number) => {
-  const d = new Date(t);
-  return new Date(t - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-};
+import { currentTimeOnDay, observationTimeInput, observationTime, earlierObservationTime } from "@/lib/environment/observation-time";
 export default function QuickCaffeine({ store, day, props }: Context) {
   const [dose, setDose] = useState("95"),
     [quantity, setQuantity] = useState("1"),
     [drink, setDrink] = useState("Coffee"),
     [at, setAt] = useState(
-      () => `${day.body.date}T${localTime(Date.now()).slice(11)}`,
+      () => currentTimeOnDay(day.body.date, day.body.timezone),
     ),
     [editing, setEditing] = useState<RecordOf<"observation">>(),
     [message, setMessage] = useState("");
-  const definition = latest(store.records, "variable").find(
+  const definition = (editing && store.records.find(
+    (r): r is RecordOf<"variable"> => r.kind === "variable" && r.id === editing.body.definitionId,
+  )) || latest(store.records, "variable").find(
     (v) =>
       !v.body.archived &&
       /caffeine/i.test(v.body.name) &&
@@ -67,8 +66,14 @@ export default function QuickCaffeine({ store, day, props }: Context) {
         onSubmit={async (e) => {
           e.preventDefault();
           setMessage("");
-          const value = Number(dose) * Number(quantity),
-            observedAt = new Date(at).getTime();
+          let observedAt: number;
+          try {
+            observedAt = observationTime(at, day.body.timezone, editing?.body.observedAt);
+          } catch (error) {
+            setMessage((error as Error).message);
+            return;
+          }
+          const value = Number(dose) * Number(quantity);
           if (
             !dose.trim() || !quantity.trim() ||
             !Number.isFinite(value) ||
@@ -151,7 +156,7 @@ export default function QuickCaffeine({ store, day, props }: Context) {
               onChange={(e) => setQuantity(e.target.value)}
             />
           </Field>
-          <Field label="When did you have it?">
+          <Field label={`When did you have it? (${day.body.timezone})`}>
             <input
               type="datetime-local"
               required
@@ -163,14 +168,15 @@ export default function QuickCaffeine({ store, day, props }: Context) {
         <div className="cc-actions">
           <button
             type="button"
-            onClick={() =>
-              setAt(localTime(new Date(at).getTime() - 15 * 60000))
-            }
+            onClick={() => {
+              try { setAt(earlierObservationTime(at, 15)); }
+              catch { setMessage("Choose a valid time before adjusting it."); }
+            }}
           >
             15 minutes earlier
           </button>
-          <button type="button" onClick={() => setAt(localTime(Date.now()))}>
-            Now
+          <button type="button" onClick={() => setAt(currentTimeOnDay(day.body.date, day.body.timezone))}>
+            Current time on selected day
           </button>
           <button type="submit" disabled={store.busy}>
             {editing ? "Save correction" : "Add caffeine entry"}
@@ -202,14 +208,14 @@ export default function QuickCaffeine({ store, day, props }: Context) {
       {observations.map((o) => (
         <p key={o.id}>
           {o.body.value as number} mg ·{" "}
-          {new Date(o.body.observedAt).toLocaleTimeString()}{" "}
+          {new Date(o.body.observedAt).toLocaleTimeString([], { timeZone: day.body.timezone })} ({day.body.timezone}){" "}
           <button
             type="button"
             onClick={() => {
               setEditing(o);
               setDose(String(o.body.value));
               setQuantity("1");
-              setAt(localTime(o.body.observedAt));
+              setAt(observationTimeInput(o.body.observedAt, day.body.timezone));
               setDrink(o.body.provenance);
             }}
           >

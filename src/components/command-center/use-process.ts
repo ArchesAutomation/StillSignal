@@ -30,6 +30,10 @@ export function useProcess(owner: string, sessions: Session[]) {
         setSyncState(
           !cloudConfigured
             ? "Saved on this device"
+            : !navigator.onLine
+              ? pending
+                ? `Offline · ${pending} local changes awaiting sync`
+                : "Offline · saved on this device; cloud sync has not been checked"
             : pending
               ? `${pending} local changes awaiting sync`
               : "Process records synced",
