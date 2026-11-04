@@ -55,11 +55,25 @@ export default function PersistentForm({
         "Draft storage is unavailable. Keep this form open until you save.",
       );
     }
-    if (!node.closest("[hidden]")) {
+    const opener = node.ownerDocument.activeElement as HTMLElement | null;
+    const view = node.ownerDocument.defaultView;
+    const position = { left: view?.scrollX ?? 0, top: view?.scrollY ?? 0 };
+    const canFocus = !node.closest("[hidden],[inert],details:not([open])");
+    if (canFocus) {
       node.scrollIntoView?.({ block: "start" });
-      node.querySelector<HTMLElement>("input:not([type=hidden]),textarea,select")
+      node.querySelector<HTMLElement>("input:not([type=hidden]):not(:disabled),textarea:not(:disabled),select:not(:disabled)")
         ?.focus({ preventScroll: true });
     }
+    return () => {
+      if (
+        canFocus && opener?.isConnected && opener !== node.ownerDocument.body &&
+        !node.contains(opener) && !opener.closest("[hidden],[inert],details:not([open])")
+        && (node.contains(node.ownerDocument.activeElement) || node.ownerDocument.activeElement === node.ownerDocument.body)
+      ) {
+        opener.focus({ preventScroll: true });
+        view?.scrollTo(position);
+      }
+    };
   }, [draftKey]);
   function persist() {
     if (!form.current) return;
