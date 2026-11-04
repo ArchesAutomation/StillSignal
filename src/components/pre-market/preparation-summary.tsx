@@ -7,6 +7,15 @@ export default function PreparationSummary({ store, day, props }: Context) {
     (r) => r.body.dayId === day.rootId,
   );
   const responses = latest(store.records, "response");
+  // A routine can be restarted or revised during the day. Keep every run in
+  // history, but show only its current run in the working reference.
+  const currentRuns = new Map<string, RecordOf<"run">>();
+  for (const run of [...runs].sort((a, b) => a.createdAt - b.createdAt)) {
+    const template = store.records.find(
+      (r) => r.kind === "protocol" && r.id === run.body.templateId,
+    );
+    currentRuns.set(template?.rootId ?? run.body.templateId, run);
+  }
   const thesis = latest(store.records, "thesis")
     .filter((t) => t.body.dayId === day.rootId)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
@@ -175,7 +184,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
             </button>
           </p>
         )}
-        {runs.flatMap((run) =>
+        {[...currentRuns.values()].flatMap((run) =>
           run.body.steps.flatMap((step) => {
             const response = responses
               .filter(
@@ -185,7 +194,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
             return (step.prompts ?? []).map((prompt) =>
               response ? (
                 field(
-                  prompt.id,
+                  `${run.id}:${prompt.id}`,
                   prompt.label,
                   response.body.answers?.find((a) => a.id === prompt.id)
                     ?.value ?? "",
