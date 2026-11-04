@@ -277,7 +277,10 @@ export function verificationEvidence(
     template?.kind === "protocol"
       ? template.body.instrument || day?.body.instrument
       : day?.body.instrument;
-  return records
+  return [
+    ...latest(records, "checkin", now),
+    ...latest(records, "thesis", now),
+  ]
     .filter(
       (r) =>
         r.createdAt <= now &&
