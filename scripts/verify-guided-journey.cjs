@@ -418,6 +418,15 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await mainNav("Daily journal").click();
+    const timeline = page.getByRole("img", {
+      name: "Combined session timeline with BPM and currency axes", exact: true,
+    });
+    await timeline.scrollIntoViewIfNeeded();
+    assert.equal(await timeline.evaluate(el => {
+      const event = new WheelEvent("wheel", { deltaY: 180, bubbles: true, cancelable: true });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    }), false, "timeline permits ordinary page scrolling");
     const boardKey =
       "still-signal-modules-v2:88888888-8888-4888-8888-888888888888:Journal";
     const beforePreset = await page.evaluate(
@@ -484,6 +493,7 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
           "dark/light/mobile layouts",
           "wider evidence preset preserves saved layout",
           "keyboard-dismissable software tour",
+          "ordinary scrolling is not intercepted by the timeline",
         ],
       }),
     );

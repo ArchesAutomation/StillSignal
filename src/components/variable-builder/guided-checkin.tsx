@@ -78,8 +78,10 @@ export default function GuidedCheckin({
       return source ? [{ sessionId: source.id, idea }] : [];
     });
   useEffect(() => {
-    heading.current?.focus();
-  }, [page]);
+    if (!draft.loaded) return;
+    heading.current?.scrollIntoView?.({ block: "start" });
+    heading.current?.focus({ preventScroll: true });
+  }, [page, draft.loaded]);
   async function save() {
     if (saving) return;
     const names = answers.map((a) => a.question.trim());

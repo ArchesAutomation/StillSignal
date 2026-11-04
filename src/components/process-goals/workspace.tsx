@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import PersistentForm, { clearFormDraft } from "../persistent-form";
 import {
   createRecord,
   latest,
@@ -20,13 +21,13 @@ import {
   string,
   type Context,
 } from "../command-center/shared";
-export function MissionsPanel({ store, props }: Context) {
+export function MissionsPanel({ store, props, onManage }: Context & { onManage?: () => void }) {
   const goals = latest(store.records, "goal");
   return (
     <Panel
       title="Active missions"
       detail="Measure process improvements independently of P&L"
-      action={<button onClick={() => props.onPage("Missions")}>Manage</button>}
+      action={<button onClick={() => onManage ? onManage() : props.onPage("Missions")}>{onManage ? "Create mission" : "Manage"}</button>}
     >
       {!goals.length && <Empty>No process goals yet.</Empty>}
       {goals.map((goal) => {
@@ -56,16 +57,18 @@ export default function Missions(context: Context) {
   const { store, day } = context,
     [editing, setEditing] = useState<{ previous?: RecordOf<"goal"> }>(),
     goals = latest(store.records, "goal", Infinity, true);
+  const formKey = `ss-mission-form:${context.props.pulse?.owner ?? "local"}:${editing?.previous?.id ?? "new"}`;
   return (
     <div className="cc-stack">
-      <MissionsPanel {...context} />
+      <MissionsPanel {...context} onManage={() => setEditing({})} />
       <Panel
         title="Mission builder"
         detail="Automatic goals count real evidence. Subjective goals use manual confirmations."
         action={<button onClick={() => setEditing({})}>Create mission</button>}
       >
         {editing && (
-          <form
+          <PersistentForm
+            draftKey={formKey}
             className="cc-form"
             key={editing.previous?.id ?? "new"}
             onSubmit={async (e) => {
@@ -88,8 +91,10 @@ export default function Missions(context: Context) {
                 };
               if (
                 await store.save([createRecord("goal", body, editing.previous)])
-              )
+              ) {
+                clearFormDraft(formKey);
                 setEditing(undefined);
+              }
             }}
           >
             <div className="cc-grid">
@@ -183,7 +188,7 @@ export default function Missions(context: Context) {
                 Cancel
               </button>
             </div>
-          </form>
+          </PersistentForm>
         )}
         {goals.map((g) => {
           const progress = goalProgress(g, store.records),
