@@ -231,7 +231,7 @@ export default function DashboardCanvas({
       const to = hit?.dataset.card as CardId | undefined;
       preview = to ? moveCard(g.layout, g.id, to) : g.preview;
       target = dashboardGrid(preview, heights)[g.id]!;
-    } else preview = placeCard(g.layout, g.grid, g.id, target);
+    } else preview = placeCard(g.layout, g.grid, g.id, target, g.mode === "resize" ? "fixed" : undefined);
     return {
       ...g,
       // The held tile follows the pointer; only its landing position is bounded.
@@ -337,9 +337,9 @@ export default function DashboardCanvas({
       if (live.current) cleanup();
     },
   });
-  const resize = (id: CardId, box: GridBox) =>
+  const resize = (id: CardId, box: GridBox, heightMode?: "auto" | "fixed") =>
     onChange(
-      placeCard(layout, dashboardGrid(layout, heights), id, box),
+      placeCard(layout, dashboardGrid(layout, heights), id, box, heightMode),
       cards[id].title + " resized.",
     );
   const move = (id: CardId, to: CardId) => {
@@ -427,6 +427,15 @@ export default function DashboardCanvas({
                   <GripVertical size={16} />
                 </button>
                 <span>{cards[id].title}</span>
+                {card.heightMode === "fixed" && (
+                  <button
+                    aria-label={`Fit ${cards[id].title} to content`}
+                    disabled={disabled}
+                    onClick={() => onChange({ ...layout, panels: layout.panels.map(p => p.id === id ? { ...p, heightMode: "auto" } : p) }, "Card now fits its content.")}
+                  >
+                    Fit content
+                  </button>
+                )}
                 <button
                   title="Move up"
                   aria-label={"Move " + cards[id].title + " up"}
@@ -489,12 +498,17 @@ export default function DashboardCanvas({
               <button
                 className="cc-resize-handle"
                 aria-label={"Resize " + cards[id].title}
-                title="Drag the corner to resize. Arrow keys resize; Shift makes larger changes."
+                title="Drag the corner to resize. Arrow keys resize; Shift makes larger changes; Home fits content."
                 disabled={disabled}
                 {...handlers(id, "resize")}
                 onKeyDown={(e) => {
                   const step = e.shiftKey ? 3 : 1,
                     key = e.key;
+                  if (key === "Home") {
+                    e.preventDefault();
+                    resize(id, box, "auto");
+                    return;
+                  }
                   if (
                     ![
                       "ArrowLeft",
@@ -529,7 +543,7 @@ export default function DashboardCanvas({
                       5,
                       60,
                     ),
-                  });
+                  }, ["ArrowUp", "ArrowDown"].includes(key) ? "fixed" : undefined);
                 }}
               >
                 <MoveDiagonal2 size={16} />

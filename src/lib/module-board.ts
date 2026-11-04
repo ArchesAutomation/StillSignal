@@ -77,6 +77,9 @@ export function moduleBoard(
         height = 0;
       }
       result[module.id] = boundModuleBox({ x: rowX + x, y: rowY + y, w, h });
+      // Saved geometry is bounded, but live forms can legitimately exceed that
+      // height. Reserve their full rendered extent when reflowing neighbors.
+      if (p.heightMode !== "fixed") result[module.id].h = Math.max(120, h);
       x += w + 16;
       height = Math.max(height, h);
     }

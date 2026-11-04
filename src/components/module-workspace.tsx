@@ -340,6 +340,7 @@ export function WorkspaceModule({
                 onChange={(event) => {
                   if (event.target.value)
                     ctx.change(id, {
+                      heightMode: "fixed",
                       box: boundModuleBox({
                         ...(placement.box ?? { x: 0, y: 0, w: 384, h: 300 }),
                         h: +event.target.value,
@@ -627,7 +628,7 @@ export default function ModuleWorkspace({
     pendingCustom.current = undefined;
     module.host.scrollIntoView?.({ block: "center", behavior: "instant" });
     module.host
-      .querySelector<HTMLTextAreaElement>("textarea")
+      .querySelector<HTMLInputElement | HTMLTextAreaElement>("input,textarea")
       ?.focus({ preventScroll: true });
   }, [modules, editing]);
   useLayoutEffect(() => {
@@ -690,11 +691,14 @@ export default function ModuleWorkspace({
     if (key === "Home" && resize) {
       const host = modules.find((m) => m.id === id)?.host;
       const content = host?.querySelector<HTMLElement>(".ss-module-content");
+      const fitted = placeModule(value, id, {
+        ...start,
+        h: (content?.scrollHeight ?? 260) + 64,
+      });
+      fitted.modules[id].heightMode = "auto";
+      fitted.modules[id].height = undefined;
       commit(
-        placeModule(value, id, {
-          ...start,
-          h: (content?.scrollHeight ?? 260) + 64,
-        }),
+        fitted,
         "Module fitted to its content.",
       );
       return;
@@ -917,7 +921,7 @@ export default function ModuleWorkspace({
     pendingCustom.current = id;
     commit(
       value,
-      "Custom module created. Open its settings to name it, and write inside it.",
+      "Name your module and add its content below. Placement settings are optional.",
     );
   }
   return (

@@ -77,6 +77,33 @@
 .ss-module-sized > .ss-module-content { flex:1; min-height:0; overflow:auto; scrollbar-width:thin; }
 .ss-module-sized > .ss-module-controls,.ss-module-sized > .ss-module-options { flex-shrink:0; }
 .ss-module-sized > .ss-module-options { max-height:65%; overflow:auto; }
+/* A deliberately sized timeline uses both dimensions; ordinary modules still fit content. */
+.ss-module-sized[data-module-id="timeline"] > .ss-module-content {
+  display:flex;
+  flex-direction:column;
+}
+.ss-module-sized[data-module-id="timeline"] > .ss-module-content > .ss-reference-rhythm {
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-height:420px;
+}
+.ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-rhythm-svg {
+  flex:1 1 180px;
+  height:auto;
+  min-height:180px;
+}
+.ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-chartwrap {
+  display:flex;
+  flex-direction:column;
+  flex:1 1 180px;
+  min-height:180px;
+}
+.ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm .ss-chartwrap > .ss-chart {
+  flex:1 1 0;
+  height:100%;
+  min-height:180px;
+}
 .ss-module-section[style*="height"] { overflow:auto; min-height:120px; scrollbar-width:thin; }
 .ss-module-resize { position:absolute; right:2px; bottom:2px; z-index:5; display:grid; place-items:center; width:26px; height:26px; padding:0; border:0; border-radius:6px; background:#263b35; color:#b4d8c3; cursor:nwse-resize; touch-action:none; }
 .ss-module-resize:hover,.ss-module-resize:focus-visible { background:#a8c6b2; color:#0b1112; outline:2px solid #dbe5de; }

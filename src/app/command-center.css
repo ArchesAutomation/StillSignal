@@ -1199,7 +1199,7 @@
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #496159 transparent;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
 }
 .cc-canvas-editing .cc-tile-scroll {
   padding-bottom: 22px;

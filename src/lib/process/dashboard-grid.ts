@@ -49,7 +49,9 @@ export function dashboardGrid(
     grid[p.id] = {
       ...p.grid!,
       h:
-        heights[p.id] === undefined ? p.grid!.h : rowsForHeight(heights[p.id]!),
+        p.heightMode === "fixed" || heights[p.id] === undefined
+          ? p.grid!.h
+          : rowsForHeight(heights[p.id]!),
     };
   const settled = settleGrid(grid);
   for (const p of visible.filter((p) => !p.grid)) {
@@ -78,6 +80,7 @@ export function placeCard(
   grid: Grid,
   id: CardId,
   target: GridBox,
+  heightMode?: "auto" | "fixed",
 ): DashboardLayout {
   const settled = settleGrid({ ...grid, [id]: boundedBox(target) }, id);
   const panels = layout.panels.map((p) =>
@@ -87,6 +90,7 @@ export function placeCard(
           width:
             settled[p.id]!.w === 12 ? ("wide" as const) : ("normal" as const),
           grid: settled[p.id],
+          ...(p.id === id && heightMode ? { heightMode } : {}),
         }
       : p,
   );
