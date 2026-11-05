@@ -1,7 +1,5 @@
 export type GlassyUiMode = 'clear' | 'tinted';
-
 export type GlassyUiQuality = 'low' | 'medium' | 'high';
-
 export type GlassyUiTheme = 'light' | 'dark';
 
 export interface GlassyUiPreferences {
@@ -10,20 +8,33 @@ export interface GlassyUiPreferences {
   reduceTransparency?: boolean;
   reduceMotion?: boolean;
   quality?: GlassyUiQuality;
-  /**
-   * How thick the glass is, as a multiple of regular: its rim widens, bends the
-   * backdrop further and splits more colour. Kept between 0.25 and 2.
-   */
+  /** How thick the glass is, as a multiple of regular: its rim widens, bends the backdrop further and splits more colour. Kept between 0.25 and 2. */
   thickness?: number;
+  /** Backdrop blur strength in pixels. 0 disables blur. Defaults to 8. */
+  blur?: number;
+  /** Refraction strength: none, soft, or strong. Defaults to 'soft'. */
+  refraction?: 'none' | 'soft' | 'strong';
+  /** Custom wallpaper image URL. When set, renders behind the glass surfaces. */
+  wallpaper?: string | null;
 }
 
 /** The range of the thickness preference. 1 is regular glass. */
 export const GLASS_THICKNESS = { min: 0.25, max: 2, regular: 1 } as const;
 
+/** The range of the blur preference, in pixels. */
+export const GLASS_BLUR = { min: 0, max: 40, default: 8 } as const;
+
 const THICKNESS_PROPERTY = '--lg-glass-thickness';
+const BLUR_PROPERTY = '--lg-glass-blur';
+const REFRACTION_PROPERTY = '--lg-glass-refraction';
+const WALLPAPER_PROPERTY = '--lg-wallpaper';
 
 function clampThickness(value: number) {
   return Math.min(Math.max(value, GLASS_THICKNESS.min), GLASS_THICKNESS.max);
+}
+
+function clampBlur(value: number) {
+  return Math.min(Math.max(value, GLASS_BLUR.min), GLASS_BLUR.max);
 }
 
 type NavigatorWithMemory = Navigator & { deviceMemory?: number };
@@ -34,55 +45,61 @@ const DATA_KEYS = {
   reduceTransparency: 'data-lg-reduce-transparency',
   reduceMotion: 'data-lg-reduce-motion',
   quality: 'data-lg-quality',
+  blur: 'data-lg-blur',
+  refraction: 'data-lg-refraction',
+  wallpaper: 'data-lg-wallpaper',
 } as const;
 
 const STORAGE_KEY = 'glassy-ui-preferences';
-
 const THEMES = ['light', 'dark'] as const satisfies readonly GlassyUiTheme[];
-
 const MODES = ['clear', 'tinted'] as const satisfies readonly GlassyUiMode[];
-
 const QUALITIES = ['low', 'medium', 'high'] as const satisfies readonly GlassyUiQuality[];
-
+const REFRACTIONS = ['none', 'soft', 'strong'] as const;
 const FLAGS = [true, false] as const;
 
 export function applyPreferences(target: Document, prefs: GlassyUiPreferences) {
   const root = target.documentElement;
-
   if (prefs.theme) {
     root.setAttribute(DATA_KEYS.theme, prefs.theme);
   }
-
   if (prefs.mode) {
     root.setAttribute(DATA_KEYS.mode, prefs.mode);
   }
-
   if (prefs.reduceTransparency !== undefined) {
     root.setAttribute(DATA_KEYS.reduceTransparency, prefs.reduceTransparency ? '1' : '0');
   }
-
   if (prefs.reduceMotion !== undefined) {
     root.setAttribute(DATA_KEYS.reduceMotion, prefs.reduceMotion ? '1' : '0');
   }
-
   if (prefs.quality) {
     root.setAttribute(DATA_KEYS.quality, prefs.quality);
   }
-
   if (prefs.thickness !== undefined) {
     root.style.setProperty(THICKNESS_PROPERTY, String(clampThickness(prefs.thickness)));
+  }
+  if (prefs.blur !== undefined) {
+    root.style.setProperty(BLUR_PROPERTY, String(clampBlur(prefs.blur)));
+    root.setAttribute(DATA_KEYS.blur, String(clampBlur(prefs.blur)));
+  }
+  if (prefs.refraction !== undefined) {
+    root.setAttribute(DATA_KEYS.refraction, prefs.refraction);
+  }
+  if (prefs.wallpaper !== undefined) {
+    root.style.setProperty(WALLPAPER_PROPERTY, prefs.wallpaper ?? '');
+    root.setAttribute(DATA_KEYS.wallpaper, prefs.wallpaper ?? '');
   }
 }
 
 export function readPreferences(source: Document): Required<GlassyUiPreferences> {
   const root = source.documentElement;
-
   const readOption = <T extends string>(name: string, options: readonly T[], fallback: T) => {
     const value = root.getAttribute(name);
-
     return options.find((option) => option === value) ?? fallback;
   };
-
+  const readBlur = () => {
+    const value = Number.parseFloat(root.style.getPropertyValue(BLUR_PROPERTY));
+    return Number.isFinite(value) ? clampBlur(value) : GLASS_BLUR.default;
+  };
   return {
     theme: readOption(DATA_KEYS.theme, THEMES, 'dark'),
     mode: readOption(DATA_KEYS.mode, MODES, 'clear'),
@@ -92,6 +109,9 @@ export function readPreferences(source: Document): Required<GlassyUiPreferences>
     thickness: clampThickness(
       Number.parseFloat(root.style.getPropertyValue(THICKNESS_PROPERTY)) || GLASS_THICKNESS.regular,
     ),
+    blur: readBlur(),
+    refraction: readOption(DATA_KEYS.refraction, REFRACTIONS, 'soft'),
+    wallpaper: root.getAttribute(DATA_KEYS.wallpaper) || null,
   };
 }
 
@@ -108,16 +128,13 @@ export function loadPreferences(
   storage: Pick<Storage, 'getItem'> = window.localStorage,
 ): GlassyUiPreferences {
   const raw = storage.getItem(STORAGE_KEY);
-
   if (!raw) {
     return {};
   }
-
   try {
     return decodePreferences(raw);
   } catch (error) {
     console.warn('Failed to parse Glassy UI preferences', error);
-
     return {};
   }
 }
@@ -126,30 +143,33 @@ export function loadPreferences(
 function decodePreferences(raw: string): GlassyUiPreferences {
   const stored: ReadonlyMap<string, unknown> = new Map(Object.entries(JSON.parse(raw)));
   const prefs: GlassyUiPreferences = {};
-
   const keep = <K extends keyof GlassyUiPreferences>(
     key: K,
     options: readonly NonNullable<GlassyUiPreferences[K]>[],
   ) => {
     const value = options.find((option) => option === stored.get(key));
-
     if (value !== undefined) {
       prefs[key] = value;
     }
   };
-
   keep('theme', THEMES);
   keep('mode', MODES);
   keep('reduceTransparency', FLAGS);
   keep('reduceMotion', FLAGS);
   keep('quality', QUALITIES);
-
+  keep('refraction', REFRACTIONS);
   const thickness = Number(stored.get('thickness'));
-
   if (Number.isFinite(thickness) && stored.has('thickness')) {
     prefs.thickness = clampThickness(thickness);
   }
-
+  const blur = Number(stored.get('blur'));
+  if (Number.isFinite(blur) && stored.has('blur')) {
+    prefs.blur = clampBlur(blur);
+  }
+  const wallpaper = stored.get('wallpaper');
+  if (typeof wallpaper === 'string' && stored.has('wallpaper')) {
+    prefs.wallpaper = wallpaper;
+  }
   return prefs;
 }
 
@@ -161,29 +181,14 @@ export function computeAutomaticSafeguards(): Required<
   if (typeof window === 'undefined') {
     return { quality: 'high', reduceMotion: false, reduceTransparency: false };
   }
-
   const supportsMatchMedia = 'matchMedia' in window;
   const coarsePointer = supportsMatchMedia && window.matchMedia('(pointer: coarse)').matches;
-
-  const prefersReducedMotion =
-    supportsMatchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const prefersReducedTransparency =
-    supportsMatchMedia && window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
-
-  // SAFETY: deviceMemory is a number where the Device Memory API exists and absent elsewhere.
+  const prefersReducedMotion = supportsMatchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const prefersReducedTransparency = supportsMatchMedia && window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
   const deviceMemory = (navigator as NavigatorWithMemory).deviceMemory;
   const lowMemory = deviceMemory !== undefined && deviceMemory <= 4;
-
-  // Device heuristics only lower rendering quality. Opaque surfaces and stopped
-  // motion stay reserved for the user's own accessibility settings.
   const quality: GlassyUiQuality =
-    prefersReducedTransparency || lowMemory
-      ? 'low'
-      : coarsePointer || prefersReducedMotion
-        ? 'medium'
-        : 'high';
-
+    prefersReducedTransparency || lowMemory ? 'low' : coarsePointer || prefersReducedMotion ? 'medium' : 'high';
   return {
     quality,
     reduceMotion: Boolean(prefersReducedMotion),
