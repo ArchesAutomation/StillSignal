@@ -277,12 +277,14 @@ export default function StepSettings({
             </Field>
             <Field label="Answer type">
               <select
-                value={p.type}
+                value={p.type === "choice" && JSON.stringify(p.choices) === JSON.stringify(["Yes", "No", "Custom"]) ? "yes-no-custom" : p.type}
                 onChange={(e) =>
                   onChange({
                     prompts: s.prompts!.map((q) =>
                       q.id === p.id
-                        ? { ...q, type: e.target.value as typeof p.type }
+                        ? e.target.value === "yes-no-custom"
+                          ? { ...q, type: "choice", choices: ["Yes", "No", "Custom"] }
+                          : { ...q, type: e.target.value as typeof p.type }
                         : q,
                     ),
                   })
@@ -291,6 +293,7 @@ export default function StepSettings({
                 <option value="text">Written answer</option>
                 <option value="number">Number</option>
                 <option value="boolean">Yes / no</option>
+                <option value="yes-no-custom">Yes / no / custom</option>
                 <option value="choice">Choose an option</option>
               </select>
             </Field>
@@ -326,6 +329,19 @@ export default function StepSettings({
               />
               Answer required
             </label>
+            <button
+              type="button"
+              disabled={(s.prompts?.length ?? 0) >= 30}
+              onClick={() => onChange({
+                prompts: [
+                  ...s.prompts!.slice(0, index + 1),
+                  { id: crypto.randomUUID(), label: `More about “${p.label.slice(0, 110)}” (optional)`, type: "text", required: false, choices: [] },
+                  ...s.prompts!.slice(index + 1),
+                ],
+              })}
+            >
+              Add optional elaboration
+            </button>
             <button
               type="button"
               onClick={() =>

@@ -522,3 +522,9 @@ html .guide-appearance summary {
 .guide-market-outlook select {
   width: 100%;
 }
+/* Supporting tools use the same theme ink as the active preparation view. */
+html .prep-module-grid button[aria-pressed="true"] {
+  color: var(--signal-text);
+  background: color-mix(in srgb, var(--signal-text) 8%, transparent);
+  border-color: var(--signal-muted);
+}
