@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
-import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import { biasSchema, createRecord, latest, type RecordOf } from "@/lib/process/model";
 import { Field, History, Panel, type Context } from "../command-center/shared";
+import { thesisMatchesDay, thesisMatchesInstrument } from "@/lib/process/thesis";
+import { activityOf, type PreparationStep } from "@/lib/process/preparation-workflow";
 export default function PreparationSummary({ store, day, props }: Context) {
   const runs = latest(store.records, "run").filter(
     (r) => r.body.dayId === day.rootId,
@@ -16,9 +18,15 @@ export default function PreparationSummary({ store, day, props }: Context) {
     );
     currentRuns.set(template?.rootId ?? run.body.templateId, run);
   }
-  const thesis = latest(store.records, "thesis")
-    .filter((t) => t.body.dayId === day.rootId)
-    .sort((a, b) => b.createdAt - a.createdAt)[0];
+  const plans = latest(store.records, "thesis")
+    .filter((t) => thesisMatchesDay(t, day) && thesisMatchesInstrument(t, day.body.instrument))
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const thesis = plans.find((t) => t.body.scope !== "weekly");
+  const currentSteps = [...currentRuns.values()].flatMap((run) => run.body.steps);
+  const profiles = [...currentRuns.values()].flatMap((run) => {
+    const template = store.records.find((r) => r.kind === "protocol" && r.id === run.body.templateId);
+    return template?.kind === "protocol" && template.body.profile ? [template.body.profile] : [];
+  });
   const checkin = latest(store.records, "checkin")
     .filter((c) => c.body.dayId === day.rootId)
     .sort((a, b) => b.body.observedAt - a.body.observedAt)[0];
@@ -44,8 +52,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
         response,
       ),
     ];
-    const step = runs
-      .flatMap((r) => r.body.steps)
+    const step = runs.find((r) => r.id === response.body.runId)?.body.steps
       .find((s) => s.id === response.body.stepId);
     if (step?.activity === "intentions" && step.prompts?.[0]?.id === id) {
       const currentDay =
@@ -67,6 +74,8 @@ export default function PreparationSummary({ store, day, props }: Context) {
     label: string,
     text: string,
     save: () => Promise<void>,
+    prompt?: NonNullable<PreparationStep["prompts"]>[number],
+    detail?: string,
   ) => (
     <article key={id} className="guide-summary-item">
       <div>
@@ -79,6 +88,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
           Edit
         </button>
       </div>
+      {detail && <small>{detail}</small>}
       {editing === id ? (
         <form
           onSubmit={(e) => {
@@ -87,11 +97,18 @@ export default function PreparationSummary({ store, day, props }: Context) {
           }}
         >
           <Field label={label}>
-            <textarea
+            {prompt?.type === "boolean" || prompt?.type === "choice" ? (
+              <select required={id === "bias"} value={value} onChange={(e) => setValue(e.target.value)}>
+                <option value="" disabled={id === "bias"}>Skipped / not recorded</option>
+                {(prompt.type === "boolean" ? ["yes", "no"] : prompt.choices).map((choice) => <option key={choice}>{choice}</option>)}
+              </select>
+            ) : prompt?.type === "number" ? (
+              <input type="number" step="any" value={value} onChange={(e) => setValue(e.target.value)} />
+            ) : <textarea
               maxLength={8000}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-            />
+            />}
           </Field>
           <Field label="Reason for this change (optional)">
             <input
@@ -121,6 +138,14 @@ export default function PreparationSummary({ store, day, props }: Context) {
       detail="Your plan and commitments, easy to return to. Changes retain the original record."
     >
       <div className="guide-summary">
+        {plans.filter((t) => t.body.scope === "weekly").map((plan) => (
+          <article key={plan.id} className="guide-summary-item">
+            <strong>Weekly market outlook · {plan.body.instrument || "All instruments"}</strong>
+            <p>{plan.body.primary || "Plan saved without a written scenario"}</p>
+            <small>{plan.body.periodStart} · {plan.body.bias} · v{plan.revision}</small>
+            <button onClick={() => props.onPage("Trading Thesis")}>Open weekly plan</button>
+          </article>
+        ))}
         {thesis ? (
           <>
             {field(
@@ -144,32 +169,15 @@ export default function PreparationSummary({ store, day, props }: Context) {
                 )
                   setEditing("");
               },
+              undefined,
+              `${thesis.body.scope === "intraday" ? "Intraday update" : "Daily plan"} · ${thesis.body.instrument || "All instruments"} · v${thesis.revision}`,
             )}
+            {field("bias", "Current bias", thesis.body.bias, async () => {
+              if (await store.save([createRecord("thesis", {
+                ...thesis.body, bias: biasSchema.parse(value), reason: reason || "Bias updated from today's reference",
+              }, thesis)])) setEditing("");
+            }, { id: "bias", label: "Current bias", type: "choice", required: true, choices: ["bullish", "bearish", "neutral", "no-trade"] })}
             <article className="guide-summary-item">
-              <strong>Current bias</strong>
-              <Field label="Update market bias">
-                <select
-                  value={thesis.body.bias}
-                  disabled={store.busy}
-                  onChange={(e) =>
-                    void store.save([
-                      createRecord(
-                        "thesis",
-                        {
-                          ...thesis.body,
-                          bias: e.target.value as typeof thesis.body.bias,
-                          reason: "Bias updated from today's reference",
-                        },
-                        thesis,
-                      ),
-                    ])
-                  }
-                >
-                  {["bullish", "bearish", "neutral", "no-trade"].map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </Field>
               <details>
                 <summary>Original plan & changes</summary>
                 <History records={store.records} rootId={thesis.rootId} />
@@ -199,6 +207,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
                   response.body.answers?.find((a) => a.id === prompt.id)
                     ?.value ?? "",
                   () => updateAnswer(response, prompt.id),
+                  prompt,
                 )
               ) : (
                 <article key={prompt.id}>
@@ -209,6 +218,23 @@ export default function PreparationSummary({ store, day, props }: Context) {
             );
           }),
         )}
+        {!currentSteps.some((s) => activityOf(s) === "intentions" && s.prompts?.length) && field(
+          "day-goal", "Today's process intention", day.body.goal,
+          async () => {
+            const currentDay = latest(store.records, "day").find((d) => d.rootId === day.rootId) ?? day;
+            if (await store.save([createRecord("day", { ...currentDay.body, goal: value }, currentDay)])) setEditing("");
+          },
+        )}
+        {[...new Set(profiles.map((p) => p.perspective).filter(Boolean))].map((perspective) => (
+          <article key={perspective} className="guide-summary-item"><strong>Longer-term perspective</strong><p>{perspective}</p></article>
+        ))}
+        {currentSteps.filter((s) => activityOf(s) === "checklist" && s.checklist?.length).map((step) => (
+          <article key={step.id} className="guide-summary-item">
+            <strong>Risk commitments · {step.name}</strong>
+            <p>Reminders from your saved routine; they do not confirm adherence.</p>
+            <ul>{step.checklist!.map((item, index) => <li key={index}>{item}</li>)}</ul>
+          </article>
+        ))}
         <article className="guide-summary-item">
           <strong>How I described feeling</strong>
           <p>

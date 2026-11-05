@@ -282,13 +282,13 @@ export default function ThesisWorkspace(
             </div>
             {context.visibleFields ? (
               <dl className="cc-definition">
-                {context.visibleFields.map((key) => (
+                {context.visibleFields.filter((key) => key === "screenshots" ? t.body.screenshots.length : t.body[key].trim()).map((key) => (
                   <div key={key}>
                     <dt>{thesisLabels[key]}</dt>
                     <dd>
                       {(key === "screenshots"
                         ? t.body.screenshots.join(" · ")
-                        : t.body[key]) || "Not recorded"}
+                        : t.body[key])}
                     </dd>
                   </div>
                 ))}
@@ -297,15 +297,18 @@ export default function ThesisWorkspace(
               <>
                 <p>{t.body.primary}</p>
                 <dl className="cc-definition">
-                  <dt>Alternative</dt>
-                  <dd>{t.body.alternate || "Not recorded"}</dd>
-                  <dt>Invalidation</dt>
-                  <dd>{t.body.invalidation || "Not recorded"}</dd>
-                  <dt>No-trade conditions</dt>
-                  <dd>{t.body.noTrade || "Not recorded"}</dd>
+                  {(["alternate", "invalidation", "noTrade"] as const).filter((key) => t.body[key].trim()).map((key) => (
+                    <div key={key}><dt>{thesisLabels[key]}</dt><dd>{t.body[key]}</dd></div>
+                  ))}
                 </dl>
               </>
             )}
+            {t.body.weeklyId && (() => {
+              const weekly = store.records.find((r) => r.kind === "thesis" && r.id === t.body.weeklyId);
+              return <p className="cc-muted">{weekly?.kind === "thesis"
+                ? `Linked weekly outlook: ${weekly.body.periodStart} · ${weekly.body.instrument || "All instruments"} · v${weekly.revision}`
+                : "Linked weekly outlook is not available on this device."}</p>;
+            })()}
             <div className="cc-actions">
               <button onClick={() => open({ ...t.body, reason: "" }, t)}>
                 Revise thesis

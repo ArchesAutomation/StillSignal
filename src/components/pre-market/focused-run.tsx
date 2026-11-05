@@ -66,6 +66,7 @@ export default function FocusedRun({
       preparationResponse(store.records, run, step)?.body.status ?? "",
     );
   const remaining = run.body.steps.filter((s) => !resolved(s));
+  const scheduled = run.body.steps.filter((s) => scheduledOn(s, day.body.date));
   const current =
     run.body.steps.find((s) => s.id === draft.value.selected) ?? remaining[0];
   const response = current
@@ -118,7 +119,7 @@ export default function FocusedRun({
   const missing = (current?.prompts ?? []).filter((p) => !values[p.id]?.trim());
   const omissions = [
     ...unansweredReflections(store.records, run).filter(
-      (p) => p.stepId !== current?.id,
+      (p) => p.stepId !== current?.id && scheduled.some((s) => s.id === p.stepId),
     ),
     ...missing.map((p) => ({
       stepId: current!.id,
@@ -127,7 +128,7 @@ export default function FocusedRun({
       section: current!.name,
     })),
   ];
-  const isLast = current?.id === run.body.steps.at(-1)?.id;
+  const isLast = current?.id === scheduled.at(-1)?.id;
   async function commit(skip = false, acceptOmissions = false) {
     if (!current || saving) return;
     setError("");
@@ -533,8 +534,9 @@ export default function FocusedRun({
                   }
                 >
                   {s.name} ·{" "}
-                  {preparationResponse(store.records, run, s)?.body.status ??
-                    "Not reviewed"}
+                  {!scheduledOn(s, day.body.date)
+                    ? "Not scheduled today"
+                    : preparationResponse(store.records, run, s)?.body.status ?? "Not reviewed"}
                 </button>
               </li>
             ))}

@@ -350,10 +350,9 @@ const output = process.env.GUIDE_QA_OUTPUT || "../../outputs";
     await page
       .getByRole("combobox", { name: "Daily bias", exact: true })
       .selectOption("bullish");
-    await page.waitForFunction(
-      () =>
-        document.querySelector(".guide-summary select")?.value === "bullish",
-    );
+    await summary.locator(".guide-summary-item")
+      .filter({ has: page.getByText("Current bias", { exact: true }) })
+      .getByText("bullish", { exact: true }).waitFor();
     await check("Command Center");
     await mainNav("Stillness").click();
     if (await page.locator(".ss-stillnesswelcome[open]").count())
