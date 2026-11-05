@@ -124,6 +124,34 @@ html option { color: var(--signal-text); background: var(--ocean-bg); }
 .appearance-panel label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 0; color: var(--signal-text); }
 .appearance-panel select { border: 1px solid var(--signal-line); border-radius: 8px; padding: 7px; }
 .appearance-panel input[type="color"] { width: 42px; height: 30px; padding: 2px; border: 1px solid var(--signal-line); border-radius: 8px; background: transparent; cursor: pointer; }
+/* Reading surfaces float above moving glass content. Keep the glass rim while
+   preventing underlying text and sharks from competing with menu labels. */
+html :is(.appearance-panel.lg-glass-surface, .ss-module-library, .ss-module-options, .cc-card-library, .ss-reference-tools > div, .ss-tool-menu, .ss-capture-menu) {
+  background: var(--lg-opaque-surface);
+  color: var(--signal-text);
+  border: 1px solid var(--signal-line);
+}
+html :is(.ss-module-library, .ss-module-options, .cc-card-library) :is(button, summary, input, select) {
+  color: var(--signal-text);
+}
+html :is(.ss-module-library, .cc-card-library) :is(p, small) { color: var(--signal-muted); }
+html .ss-module-library :is(article, input, select) { border-color: var(--signal-line); }
+html .ss-journal-history button,
+html .ss-reference-app .ss-capture-options-button { color: var(--signal-text); }
+html .ss-journal-history button:disabled { opacity: .55; }
+/* The recording action keeps its existing coral fill in both themes. */
+html .ss-reference-app .ss-capture-record { color: #172022; }
+/* Focus must remain visible even when the user's accent matches the surface.
+   Inset the ring so scrolling menu edges do not cut it off. */
+html :is(.ss-app, .appearance-controls, .guide-tour) :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--signal-text);
+  outline-offset: -2px;
+}
+.appearance-panel.lg-glass-surface {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 150px);
+  overflow-y: auto;
+}
 .legal-page { position: relative; max-width: 780px; margin-inline: auto; padding: 48px 24px; }
 /* Command Center has a separate saved canvas. Its outer cards carry the
    material while all existing editing controls remain direct children. */
