@@ -21,15 +21,23 @@ import {
   string,
   type Context,
 } from "../command-center/shared";
-export function MissionsPanel({ store, props, onManage }: Context & { onManage?: () => void }) {
-  const goals = latest(store.records, "goal");
+const evidenceLabels = {
+  preparation: "Days with all preparation requirements completed",
+  checkin: "Days with a saved personal check-in",
+  audit: "Saved audits fully inside this mission's dates",
+  "rule-adherence": "Rule checks explicitly marked followed",
+  observation: "Recorded personal-variable observations",
+  manual: "Your saved manual confirmations",
+} as const;
+export function MissionsPanel({ store, day, props, onManage }: Context & { onManage?: () => void }) {
+  const goals = latest(store.records, "goal").filter(g => g.body.start <= day.body.date && g.body.end >= day.body.date);
   return (
     <Panel
       title="Active missions"
       detail="Measure process improvements independently of P&L"
       action={<button onClick={() => onManage ? onManage() : props.onPage("Missions")}>{onManage ? "Create mission" : "Manage"}</button>}
     >
-      {!goals.length && <Empty>No process goals yet.</Empty>}
+      {!goals.length && <Empty>No missions apply to this trading day. You can continue without creating one.</Empty>}
       {goals.map((goal) => {
         const progress = goalProgress(goal, store.records);
         return (
@@ -44,7 +52,7 @@ export function MissionsPanel({ store, props, onManage }: Context & { onManage?:
               max={progress.target}
             />
             <small>
-              {progress.value} / {progress.target} · {goal.body.source} ·{" "}
+              {progress.value} / {progress.target} · {evidenceLabels[goal.body.source]} ·{" "}
               {goal.body.start} → {goal.body.end}
             </small>
           </article>
@@ -57,6 +65,7 @@ export default function Missions(context: Context) {
   const { store, day } = context,
     [editing, setEditing] = useState<{ previous?: RecordOf<"goal"> }>(),
     goals = latest(store.records, "goal", Infinity, true);
+  const rules = latest(store.records, "playbook").flatMap(p => p.body.rules.map(r => ({ ...r, book: p.body.name, bookId: p.id })));
   const formKey = `ss-mission-form:${context.props.pulse?.owner ?? "local"}:${editing?.previous?.id ?? "new"}`;
   return (
     <div className="cc-stack">
@@ -117,7 +126,7 @@ export default function Missions(context: Context) {
                     "observation",
                     "manual",
                   ].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{evidenceLabels[v as keyof typeof evidenceLabels]}</option>
                   ))}
                 </select>
               </Field>
@@ -154,14 +163,9 @@ export default function Missions(context: Context) {
                   defaultValue={editing.previous?.body.ruleId ?? ""}
                 >
                   <option value="">Any rule</option>
-                  {latest(store.records, "playbook").flatMap((p) =>
-                    p.body.rules.map((r) => (
-                      <option key={p.id + r.id} value={r.id}>
-                        {p.body.name} · {r.name}
-                      </option>
-                    )),
-                  )}
+                  {rules.map(r => <option key={r.bookId + r.id} value={r.id}>{r.book} · {r.name}</option>)}
                 </select>
+                {!rules.length && <p>No rules yet. <button type="button" onClick={() => context.props.onPage("Trade Quality")}>Create my first rule</button> Your mission draft stays here when you return.</p>}
               </Field>
               <Field label="Specific variable (optional)">
                 <select
@@ -204,7 +208,7 @@ export default function Missions(context: Context) {
                     ? "Archived"
                     : progress.complete
                       ? "Complete"
-                      : "Active"}
+                      : day.body.date < g.body.start ? "Upcoming" : day.body.date > g.body.end ? "Ended" : "Active"}
                 </Badge>
                 <button onClick={() => setEditing({ previous: g })}>
                   Edit
