@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { GlassButton } from "@/components/glassyui/glass-button";
 
 import { GlassPanel } from "./glassyui/glass-panel";
@@ -9,7 +10,26 @@ import { SHARK_PALETTES } from "@/lib/shark-palettes";
 
 export default function Appearance() {
   const { preferences, update } = useAppearance();
-  return <details className="appearance-controls">
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (menu.current?.open && !menu.current.contains(event.target as Node))
+        menu.current.open = false;
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !menu.current?.open) return;
+      const restoreFocus = menu.current.contains(document.activeElement);
+      menu.current.open = false;
+      if (restoreFocus) menu.current.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
+  return <details ref={menu} className="appearance-controls">
     <summary>Appearance</summary>
     <GlassPanel preset="subtle" className="appearance-panel">
       <strong>Make it yours</strong>
