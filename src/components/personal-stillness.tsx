@@ -6,14 +6,19 @@ import { Field } from "./command-center/shared";
 type Element = JournalProfile["stillness"][number];
 export function RoutineAudio({ path, owner }: { path: string; owner: string }) {
   const [url, setUrl] = useState("");
+  const [loadedFor, setLoadedFor] = useState("");
+  const identity = JSON.stringify([owner, path]);
   const [error, setError] = useState("");
   useEffect(() => {
+    setUrl("");
+    setLoadedFor("");
+    setError("");
     let active = true,
       objectUrl = "";
     void privateFile(path, owner)
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);
-        if (active) setUrl(objectUrl);
+        if (active) { setUrl(objectUrl); setLoadedFor(JSON.stringify([owner, path])); }
         else URL.revokeObjectURL(objectUrl);
       })
       .catch((e) => {
@@ -24,7 +29,7 @@ export function RoutineAudio({ path, owner }: { path: string; owner: string }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [path, owner]);
-  return url ? (
+  return url && loadedFor === identity ? (
     <audio controls src={url} aria-label="Your saved message" />
   ) : (
     <p role="status">{error || "Loading your recording…"}</p>
@@ -40,12 +45,14 @@ export function StillnessBuilder({
   owner: string;
 }) {
   const [recording, setRecording] = useState(false),
+    [requesting, setRequesting] = useState(false),
     [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null),
     stream = useRef<MediaStream | null>(null);
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     alive = useRef(true),
     current = useRef(value);
+  const requestingRef = useRef(false);
   current.current = value;
   useEffect(() => {
     alive.current = true;
@@ -57,6 +64,9 @@ export function StillnessBuilder({
     };
   }, []);
   async function record() {
+    if (requestingRef.current || recorder.current?.state === "recording") return;
+    requestingRef.current = true;
+    setRequesting(true);
     setError("");
     try {
       if (
@@ -107,7 +117,11 @@ export function StillnessBuilder({
       setRecording(true);
       timeout.current = setTimeout(() => media.stop(), 120000);
     } catch (e) {
-      setError((e as Error).message);
+      stream.current?.getTracks().forEach((t) => t.stop());
+      if (alive.current) { setRecording(false); setError((e as Error).message); }
+    } finally {
+      requestingRef.current = false;
+      if (alive.current) setRequesting(false);
     }
   }
   return (
@@ -218,10 +232,10 @@ export function StillnessBuilder({
         ))}
         <button
           type="button"
-          disabled={value.length >= 12}
+          disabled={value.length >= 12 || requesting}
           onClick={() => (recording ? recorder.current?.stop() : void record())}
         >
-          {recording ? "Stop & save recording" : "Record a message"}
+          {requesting ? "Waiting for microphone…" : recording ? "Stop & save recording" : "Record a message"}
         </button>
       </div>
       <small>

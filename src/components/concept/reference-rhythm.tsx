@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Sample, Session } from "@/lib/model";
 import { money } from "@/lib/model";
-import { downsample, nearest } from "@/lib/analytics";
+import { downsample } from "@/lib/analytics";
+import { measuredSampleAt } from "@/lib/measured-sample";
 import { noteTime } from "@/lib/journal-routing";
 import { pnlExposure } from "@/lib/session-timeline";
 import {
@@ -205,6 +206,7 @@ export default function ReferenceRhythm({
   const hr = samples.filter(
     (p) => inside(p.t) && !paused(p.t) && p.quality !== "artifact",
   );
+  const measuredAt = (at: number) => measuredSampleAt(hr, at, session.blueprint?.measurementPauses);
   const points = pnl.filter((p) => inside(p.t) && !paused(p.t));
   const low = Math.min(50, ...hr.map((p) => p.bpm)) - 5,
     high = Math.max(110, ...hr.map((p) => p.bpm)) + 5;
@@ -264,7 +266,7 @@ export default function ReferenceRhythm({
   };
   const timestamp = (n: number) => start + ((n - 62) / 850) * span;
   const at = start + (span * cursor) / 100,
-    point = nearest(hr, at, 10000),
+    point = measuredAt(at),
     mark = points.filter((p) => p.t <= at && at - p.t <= 10000).at(-1);
   return (
     <section
@@ -517,7 +519,7 @@ export default function ReferenceRhythm({
                       label: e.kind,
                       text: `${e.quantity} @ ${e.price}`,
                       event: e,
-                      bpm: nearest(hr, e.t)?.bpm ?? null,
+                      bpm: measuredAt(e.t)?.bpm ?? null,
                     })
                   }
                   onKeyDown={(k) => {
@@ -530,7 +532,7 @@ export default function ReferenceRhythm({
                         label: e.kind,
                         text: `${e.quantity} @ ${e.price}`,
                         event: e,
-                        bpm: nearest(hr, e.t)?.bpm ?? null,
+                        bpm: measuredAt(e.t)?.bpm ?? null,
                       });
                     }
                   }}
@@ -650,7 +652,7 @@ export default function ReferenceRhythm({
           : "Alt + scroll to zoom at your cursor · drag to move through time · double-click to fit session · touch: pinch to zoom"}
       </div>
       <small>
-        {clock(at)} · {point ? `${point.bpm} BPM` : "HR unavailable"} · Open P&L{" "}
+        {clock(at)} · {point ? `${point.bpm} BPM measured ${clock(point.t)} · ${point.provider || "source not recorded"}${point.quality === "uncertain" ? " · uncertain quality" : ""}` : "HR unavailable"} · Open P&L{" "}
         {mark?.unrealised === undefined
           ? "unavailable"
           : money(mark.unrealised, currency)}{" "}
