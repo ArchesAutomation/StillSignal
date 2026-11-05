@@ -4,10 +4,13 @@ import { GlassPanel } from "./glassyui/glass-panel";
 import { z } from "zod";
 import { useSavedGuide } from "./use-saved-guide";
 import type { Props } from "./concept/shared";
+import LearningCentre from "./learning-centre";
 export default function WorkspaceAppearance({ props }: { props: Props }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const helpTrigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDetailsElement>(null),
     [tour, setTour] = useState(false),
+    [learning, setLearning] = useState(false),
     [step, setStep] = useState(0);
   const saved = useSavedGuide(
     `ss-appearance:${props.pulse.owner}`,
@@ -79,7 +82,9 @@ export default function WorkspaceAppearance({ props }: { props: Props }) {
     ],
   ] as const;
   return (
-    <>
+    <div className="guide-resources">
+      <button ref={helpTrigger} type="button" className="guide-help-entry" onClick={() => setLearning(true)}>Help & learning</button>
+      {learning && <LearningCentre onClose={() => { setLearning(false); helpTrigger.current?.focus(); }} onNavigate={props.onPage} />}
       <details ref={menu} className="guide-appearance">
         <summary>Journal guide & text</summary>
         <div>
@@ -164,6 +169,6 @@ export default function WorkspaceAppearance({ props }: { props: Props }) {
           </div>
         </GlassPanel>
       </dialog>
-    </>
+    </div>
   );
 }

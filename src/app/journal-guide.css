@@ -528,3 +528,28 @@ html .prep-module-grid button[aria-pressed="true"] {
   background: color-mix(in srgb, var(--signal-text) 8%, transparent);
   border-color: var(--signal-muted);
 }
+.guide-resources { display:flex; justify-content:space-between; align-items:start; gap:12px; margin-bottom:12px; }
+.guide-resources > .guide-appearance { order:-1; }
+.guide-resources .guide-appearance > div { left:0; right:auto; }
+.guide-help-entry { padding:8px 12px; border:1px solid var(--signal-line); border-radius:10px; background:var(--signal-recess); color:var(--signal-text); cursor:pointer; }
+.learning-centre { width:min(960px,calc(100vw - 24px)); max-height:90dvh; padding:0; border:1px solid var(--signal-line); border-radius:20px; color:var(--signal-text); background:var(--lg-opaque-surface); }
+.learning-centre::backdrop { background:#0008; backdrop-filter:blur(5px); }
+.learning-centre > .lg-panel { padding:28px; }
+.learning-centre header { display:flex; align-items:start; justify-content:space-between; gap:16px; }
+.learning-centre h2 { margin:8px 0 20px; font-size:28px; }
+.learning-centre h3 { margin-top:0; font-size:22px; }
+.learning-centre label { display:grid; gap:8px; }
+.learning-centre input { width:100%; padding:12px; }
+.learning-layout { display:grid; grid-template-columns:minmax(200px, .8fr) minmax(0,1.5fr); gap:28px; margin-top:24px; }
+.learning-layout nav { display:grid; gap:8px; max-height:52dvh; overflow:auto; align-content:start; padding:3px; }
+.learning-centre button { padding:10px 12px; border:1px solid var(--signal-line); border-radius:10px; background:var(--signal-recess); color:var(--signal-text); cursor:pointer; }
+.learning-layout nav button { text-align:left; }
+.learning-layout nav span { display:block; font-size:12px; color:var(--signal-muted); margin-top:5px; line-height:1.5; }
+.learning-layout button[aria-pressed="true"] { background:color-mix(in srgb,var(--signal-text) 9%,transparent); border-color:var(--signal-muted); }
+.learning-layout article { line-height:1.8; }
+.learning-layout li { margin-bottom:12px; padding-left:4px; }
+.learning-layout aside { padding:16px; border-left:2px solid var(--signal-muted); background:var(--signal-recess); }
+.learning-layout aside p { margin-bottom:0; }
+.learning-evidence { font-size:12px; color:var(--signal-muted); }
+.learning-centre :is(button,input):focus-visible { outline:2px solid var(--signal-text); outline-offset:-2px; }
+@media(max-width:650px) { .learning-centre > .lg-panel { padding:20px; } .learning-layout { grid-template-columns:1fr; } .learning-layout nav { max-height:180px; } }

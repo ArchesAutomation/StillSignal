@@ -1,0 +1,22 @@
+const {chromium}=require("playwright"),assert=require("node:assert/strict"),fs=require("node:fs");
+const base=process.env.LEARNING_QA_URL||"http://127.0.0.1:3007",output="../../outputs/batch9";
+if(!["localhost","127.0.0.1"].includes(new URL(base).hostname))throw Error("Localhost only");
+fs.mkdirSync(output,{recursive:true});
+(async()=>{const browser=await chromium.launch({headless:true,channel:"msedge"});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on("pageerror",e=>errors.push(e.message));
+try{
+ await page.addInitScript(()=>localStorage.setItem("still-signal-appearance",JSON.stringify({theme:"dark",accent:"#c5d7df",shark:"#87b9ca"})));
+ await page.goto(base+"/review");const entry=page.getByRole("button",{name:"Help & learning",exact:true});await entry.click();
+ const dialog=page.getByRole("dialog",{name:"Help & learning",exact:true});await dialog.waitFor();
+ await dialog.getByRole("searchbox",{name:"Search help"}).fill("first rule");await dialog.getByRole("button",{name:/Create your first rule/}).click();
+ await dialog.getByText(/Unknown and unreviewed checks are not confirmed violations/).waitFor();await page.screenshot({path:output+"/learning-dark.png"});
+ await page.keyboard.press("Escape");await dialog.waitFor({state:"hidden"});assert.ok(await entry.evaluate(n=>n===document.activeElement));
+ await entry.click();await dialog.getByRole("searchbox").fill("unfindablezz123");await dialog.getByRole("status").waitFor();
+ await dialog.getByRole("searchbox").fill("Carry a mission");await dialog.getByRole("button",{name:/Open my missions/}).click();
+ if(await page.getByRole("button",{name:"Set a mission",exact:true}).count())await page.getByRole("button",{name:"Set a mission",exact:true}).click();
+ await page.getByRole("heading",{name:"Mission builder",exact:true}).waitFor();
+ await page.locator(".appearance-controls > summary").click();await page.locator(".appearance-controls select").first().selectOption("light");await page.keyboard.press("Escape");
+ await page.setViewportSize({width:390,height:844});await entry.click();await dialog.getByRole("searchbox").fill("caffeine dose");
+ await dialog.getByRole("heading",{name:"Record personal conditions honestly",exact:true}).waitFor();await page.screenshot({path:output+"/learning-mobile-light.png"});
+ assert.ok(await dialog.evaluate(n=>n.scrollWidth<=n.clientWidth+1));await dialog.getByRole("button",{name:"Close learning centre"}).click();await dialog.waitFor({state:"hidden"});
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:["search and no-results","task navigation opens mission builder","Escape restores trigger focus","dark desktop and light mobile","close keyboard/accessibility"],errors}));
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
