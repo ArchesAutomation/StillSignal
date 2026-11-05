@@ -15,7 +15,20 @@ export interface GlassyUiPreferences {
    * backdrop further and splits more colour. Kept between 0.25 and 2.
    */
   thickness?: number;
+  blur?: number;
+  frost?: number;
+  refraction?: number;
 }
+
+export const GLASS_MATERIAL = {
+  blur: { min: 0, max: 32, default: 12, property: '--lg-user-blur', unit: 'px' },
+  frost: { min: 0, max: 40, default: 8, property: '--lg-user-frost', unit: '' },
+  refraction: { min: 0, max: 100, default: 35, property: '--lg-user-refraction', unit: '' },
+} as const;
+const materialValue = (key: keyof typeof GLASS_MATERIAL, value: number) => {
+  const range = GLASS_MATERIAL[key];
+  return Number.isFinite(value) ? Math.min(range.max, Math.max(range.min, value)) : range.default;
+};
 
 /** The range of the thickness preference. 1 is regular glass. */
 export const GLASS_THICKNESS = { min: 0.25, max: 2, regular: 1 } as const;
@@ -72,6 +85,13 @@ export function applyPreferences(target: Document, prefs: GlassyUiPreferences) {
   if (prefs.thickness !== undefined) {
     root.style.setProperty(THICKNESS_PROPERTY, String(clampThickness(prefs.thickness)));
   }
+  for (const key of Object.keys(GLASS_MATERIAL) as (keyof typeof GLASS_MATERIAL)[]) {
+    if (prefs[key] !== undefined) {
+      const range = GLASS_MATERIAL[key];
+      const value = materialValue(key, prefs[key]);
+      root.style.setProperty(range.property, `${key === 'blur' ? value : value / 100}${range.unit}`);
+    }
+  }
 }
 
 export function readPreferences(source: Document): Required<GlassyUiPreferences> {
@@ -89,6 +109,10 @@ export function readPreferences(source: Document): Required<GlassyUiPreferences>
     reduceTransparency: root.getAttribute(DATA_KEYS.reduceTransparency) === '1',
     reduceMotion: root.getAttribute(DATA_KEYS.reduceMotion) === '1',
     quality: readOption(DATA_KEYS.quality, QUALITIES, 'high'),
+    ...Object.fromEntries(Object.entries(GLASS_MATERIAL).map(([key, range]) => {
+      const value = Number.parseFloat(root.style.getPropertyValue(range.property));
+      return [key, Number.isFinite(value) ? materialValue(key as keyof typeof GLASS_MATERIAL, key === 'blur' ? value : value * 100) : range.default];
+    })) as Pick<Required<GlassyUiPreferences>, 'blur' | 'frost' | 'refraction'>,
     thickness: clampThickness(
       Number.parseFloat(root.style.getPropertyValue(THICKNESS_PROPERTY)) || GLASS_THICKNESS.regular,
     ),
@@ -143,6 +167,10 @@ function decodePreferences(raw: string): GlassyUiPreferences {
   keep('reduceTransparency', FLAGS);
   keep('reduceMotion', FLAGS);
   keep('quality', QUALITIES);
+  for (const key of Object.keys(GLASS_MATERIAL) as (keyof typeof GLASS_MATERIAL)[]) {
+    const value = stored.get(key);
+    if (typeof value === 'number' && Number.isFinite(value)) prefs[key] = materialValue(key, value);
+  }
 
   const thickness = Number(stored.get('thickness'));
 

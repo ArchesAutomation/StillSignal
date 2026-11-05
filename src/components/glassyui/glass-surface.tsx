@@ -95,7 +95,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
     // One refraction technique at a time: a generated background scene covers the frost.
     const lensFilter = useLensFilter(surfaceRef, {
       enabled: lens && !generatedRefractionEnabled && !reduceTransparency,
-      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${thickness ?? preferences?.thickness}:${moreContrast}`,
+      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${thickness ?? preferences?.thickness}:${preferences?.blur}:${preferences?.refraction}:${moreContrast}`,
     });
 
     // Inside a GlassScene the canvas draws this glass; a generated refraction

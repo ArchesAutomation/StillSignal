@@ -7,10 +7,13 @@ export type AppearancePreferences = {
   shark: string;
   accent: string;
   sharks: OceanShark[];
+  wallpaper: string;
+  wallpaperDim: number;
 };
 export const defaultAppearance: AppearancePreferences = {
   theme: "dark", shark: "#87b9ca", accent: "#c5d7df",
   sharks: DEFAULT_OCEAN_SHARKS,
+  wallpaper: "ocean", wallpaperDim: 25,
 };
 const color = (value: unknown, fallback: string) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
 
@@ -23,6 +26,8 @@ export function parseAppearance(value: unknown, light = false): AppearancePrefer
     theme: saved.theme === "light" || saved.theme === "dark" ? saved.theme : light ? "light" : "dark",
     shark, accent,
     sharks: parseOceanSharks(saved.sharks),
+    wallpaper: typeof saved.wallpaper === "string" && /^(ocean|aurora|dusk|custom-[a-z0-9-]+)$/.test(saved.wallpaper) ? saved.wallpaper : "ocean",
+    wallpaperDim: typeof saved.wallpaperDim === "number" && Number.isFinite(saved.wallpaperDim) ? Math.min(80, Math.max(0, saved.wallpaperDim)) : 25,
   };
 }
 

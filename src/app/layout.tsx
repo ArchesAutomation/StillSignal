@@ -2,12 +2,14 @@ import "./legacy.css";
 import "./tailwind.css";
 import "./appearance-colors.css";
 import "./liquid-glass.css";
+import "./wallpaper.css";
 import type { Metadata, Viewport } from "next";
 import "./journal-guide.css";
 import SharkBackground from "@/components/shark-background";
 import { GlassProvider } from "@/components/glassyui/glass-provider";
 import { AppearanceProvider } from "@/components/appearance-context";
 import Appearance from "@/components/appearance";
+import WallpaperBackground from "@/components/wallpaper-background";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:
@@ -32,6 +34,7 @@ export default function RootLayout({
         <GlassProvider>
           <AppearanceProvider>
             <SharkBackground />
+            <WallpaperBackground />
             {children}
             <Appearance />
           </AppearanceProvider>
