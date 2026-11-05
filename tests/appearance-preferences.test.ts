@@ -3,6 +3,20 @@ import assert from "node:assert/strict";
 import { defaultAppearance, parseAppearance, oceanSharkSpecs } from "../src/lib/appearance-preferences";
 import { DEFAULT_OCEAN_SHARKS, MAX_OCEAN_SHARKS, SHARK_PALETTES } from "../src/lib/shark-palettes";
 import { World } from "../src/lib/ascii-sharks/world";
+import { loadPreferences } from "../src/components/glassyui/lib/preferences";
+
+test("wallpaper preferences migrate safely and glass controls reject invalid saved values", () => {
+  assert.equal(parseAppearance({}).wallpaper, "ocean");
+  assert.equal(parseAppearance({ wallpaper: "javascript:alert(1)", wallpaperDim: NaN }).wallpaper, "ocean");
+  assert.equal(parseAppearance({ wallpaperDim: Infinity }).wallpaperDim, 25);
+  assert.equal(parseAppearance({ wallpaper: "custom-abc-123", wallpaperDim: 500 }).wallpaperDim, 80);
+  assert.equal(parseAppearance({ wallpaper: "custom-abc-123" }).wallpaper, "custom-abc-123");
+  const saved = loadPreferences({ getItem: () => JSON.stringify({ blur: 100, frost: -5, refraction: "90", thickness: 1.4 }) });
+  assert.equal(saved.blur, 32);
+  assert.equal(saved.frost, 0);
+  assert.equal(saved.refraction, undefined);
+  assert.equal(saved.thickness, 1.4);
+});
 
 test("appearance migrates old population settings and preserves valid theme colors", () => {
   const migrated = parseAppearance({ theme: "light", shark: "#123456", accent: "#654321", sharks: { large: { count: 6 } } });

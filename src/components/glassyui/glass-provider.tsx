@@ -46,6 +46,9 @@ const DEFAULT_STATE: PreferenceState = {
   reduceMotion: false,
   quality: 'high',
   thickness: GLASS_THICKNESS.regular,
+  blur: 12,
+  frost: 8,
+  refraction: 35,
 };
 
 const SERVER_SOURCES: PreferenceSources = {

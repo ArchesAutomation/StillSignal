@@ -229,7 +229,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const lensFilter = useLensFilter(buttonRef, {
       enabled: lens && !disabled && !reduceTransparency,
-      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${preferences?.thickness}`,
+      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${preferences?.thickness}:${preferences?.blur}:${preferences?.refraction}`,
     });
 
     // Without this, the client renders a lazy child's content outside the label: it sinks under

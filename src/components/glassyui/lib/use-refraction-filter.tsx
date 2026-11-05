@@ -693,7 +693,7 @@ export function useLensFilter(
       const width = el.clientWidth;
       const height = el.clientHeight;
       const style = window.getComputedStyle(el);
-      const depth = readNumberToken(style, '--lg-lens-depth');
+      const depth = readNumberToken(style, '--lg-lens-depth') * clamp(readTokenOr(style, '--lg-user-refraction', .35), 0, 1);
 
       if (depth <= 0 || !width || !height || width * height > MAX_LENS_SURFACE_AREA) {
         setState(null);
@@ -725,7 +725,7 @@ export function useLensFilter(
       });
 
       const next = {
-        blur: Math.max(0, readNumberToken(style, '--lg-lens-blur')),
+        blur: Math.max(0, readTokenOr(style, '--lg-user-blur', 12)),
         bodyBrightness: clamp(readTokenOr(style, '--lg-lens-body-brightness', 1), 0, 1),
         dispersion: clamp(readNumberToken(style, '--lg-lens-dispersion') * multiplier, 0, 1),
         href,

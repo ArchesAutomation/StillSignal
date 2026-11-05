@@ -24,7 +24,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     if (!pendingFrame.current) pendingFrame.current = requestAnimationFrame(() => {
       pendingFrame.current = 0;
       const next = latest.current;
-      setPreferences(previous => previous.theme === next.theme && previous.shark === next.shark && previous.accent === next.accent && previous.sharks === next.sharks ? previous : next);
+      setPreferences(previous => previous.theme === next.theme && previous.shark === next.shark && previous.accent === next.accent && previous.sharks === next.sharks && previous.wallpaper === next.wallpaper && previous.wallpaperDim === next.wallpaperDim ? previous : next);
     });
   }, []);
   useEffect(() => {
