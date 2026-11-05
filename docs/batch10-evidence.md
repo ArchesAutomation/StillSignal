@@ -1,0 +1,11 @@
+# Batch 10 — recorded P&L export
+
+5 November 2026. Completed the optional review-page export with selected-day, selected-week and custom date ranges; individual or multiple trade selection; currency separation; two stock backgrounds and uploaded PNG/JPEG/WebP; and controls for dates, timezone, trade count, symbols and caption. Account/name fields are never added automatically. Privacy filename is always `still-signal-pnl.png`. Switches hide app-drawn labels, not identifying material inside an uploaded image.
+
+The export uses existing reconstructed fully closed positions and their saved realised P&L. Trading calculations were not rewritten. Open/partial positions are excluded. Missing or inconsistent currency cannot be silently labelled USD. A position with any exit missing realised P&L cannot export a misleading partial total. Fee treatment follows source records. Different currencies are selected separately and never summed together.
+
+Rendering uses one canvas for preview and download. A render identity prevents export of stale settings while an uploaded image loads. Invalid ranges, missing selected evidence and corrupt uploads disable export; removing an upload recovers. Labels resize to remain inside the image. The optional export remains collapsed under session review and does not interrupt preparation.
+
+Validation: 291 tests pass. New tests cover owner/date/currency isolation, missing values, partial-exit completeness and privacy drawing. Local browser verifies the known synthetic total (92 - 9 = 83 USD), one selected trade (92 USD), multi-selection, custom/invalid dates, both stock/uploaded backgrounds, corrupt-image recovery, privacy and mobile containment. Downloaded PNG bytes match `canvas.toDataURL` exactly. Stock/private and uploaded-background exported images were visually reviewed. Optimized production build and TypeScript pass. All data used was synthetic.
+
+Evidence: `outputs/batch10/verified-private-snapshot.png`, `uploaded-background-preview.png`, `export-mobile.png` and the local browser result. Reproduce with the local staging review server and `node scripts/verify-batch10-export.cjs`; it rejects non-local hosts. No cloud/schema update is required. Production functional verification remains deferred.
