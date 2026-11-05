@@ -2,6 +2,7 @@
 import { createRecord, type RecordOf } from "@/lib/process/model";
 import { relevantTheses } from "../trading-thesis/workspace";
 import { Field, type Context } from "./shared";
+import { thesisMatchesInstrument } from "@/lib/process/thesis";
 const minutes = (value: string) => {
   const key = value.trim().toLowerCase();
   if (["weekly", "week", "1w"].includes(key)) return 10080;
@@ -19,9 +20,7 @@ export default function MarketOutlook({ store, day, props }: Context) {
   const plans = relevantTheses(store.records, day)
     .filter(
       (t) =>
-        !day.body.instrument ||
-        !t.body.instrument ||
-        t.body.instrument.toUpperCase() === day.body.instrument.toUpperCase(),
+        thesisMatchesInstrument(t, day.body.instrument),
     )
     .sort((a, b) => b.createdAt - a.createdAt);
   const weekly = plans.find((t) => t.body.scope === "weekly"),
@@ -96,6 +95,7 @@ export default function MarketOutlook({ store, day, props }: Context) {
       aria-label="Recorded market bias"
     >
       <strong>Market outlook</strong>
+      <small>{day.body.instrument.trim() || "All instruments"} · {day.body.date}{daily?.body.scope === "intraday" ? " · latest intraday update" : ""}</small>
       {row("Weekly", weekly)}
       {row("Daily", daily)}
       {timeframes.filter((t) => minutes(t) < 1440).map((t) => row(t, daily, t))}
