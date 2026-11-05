@@ -147,6 +147,7 @@ export default function JournalSpace({
       <div className={cx("journal-space")}>
         <section className={cx("space-writing")} aria-label="Journal moments">
           <WorkspaceModule id="moments" title="Journal moments" order={2} parts={[{id:"filters",title:"Search and filters",selector:".ss-space-filters"},{id:"origin",title:"Capture origin and stage",selector:".ss-inline-moment-head small"},{id:"evidence",title:"Evidence thumbnails",selector:".ss-space-thumb"}]}>
+          <div className="ss-space-moments-scroll">
           <div className={cx("space-section-heading")}>
             <div>
               <h2>Your journal, moment by moment</h2>
@@ -253,6 +254,7 @@ export default function JournalSpace({
                 )}
               </div>
             )}
+          </div>
           </div>
           </WorkspaceModule>
           <WorkspaceModule id="writing" title="Write a reflection" order={3} parts={[{id:"prompt",title:"Reflection prompt",selector:".ss-reference-composer-head"},{id:"timing",title:"Linked time controls",selector:".ss-time-link"}]}><div id="guided-reflection">
