@@ -276,7 +276,7 @@ export default function ReflectionEditor({
   return (
     <form
       ref={form}
-      className={compact ? "floating-entry-form" : undefined}
+      className={"reflection-form" + (compact ? " floating-entry-form" : "")}
       onPaste={(event) => {
         const image = Array.from(event.clipboardData.files).find((item) =>
           item.type.startsWith("image/"),

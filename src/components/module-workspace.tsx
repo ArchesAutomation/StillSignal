@@ -157,7 +157,10 @@ export function WorkspaceModule({
   }, [placement?.hidden]);
   useLayoutEffect(() => {
     if (!host || !placement) return;
-    host.className = `ss-workspace-module${ctx?.editing ? " ss-module-editing" : ""}${placement.compact ? " ss-module-compact" : ""}`;
+    // The parent owns sizing classes; do not erase them on a child layout update.
+    host.classList.add("ss-workspace-module");
+    host.classList.toggle("ss-module-editing", !!ctx?.editing);
+    host.classList.toggle("ss-module-compact", !!placement.compact);
     host.dataset.moduleId = id;
   }, [
     host,

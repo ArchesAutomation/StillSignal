@@ -1,7 +1,11 @@
 "use client";
+import { routineSessionId } from "@/lib/process/routine-session";
 import { useEffect, useState } from "react";
+import { z } from "zod";
+import { useSavedGuide } from "../use-saved-guide";
 import {
   createRecord,
+  requirementSchema,
   latest,
   type BodyOf,
   type RecordOf,
@@ -115,18 +119,12 @@ function AdvancedSetup({
   onClose: (savedId?: string) => void;
 }) {
   const { store } = context;
-  const [stage, setStage] = useState(0);
-  const [name, setName] = useState(
-    template?.body.name ?? "My pre-trading routine",
-  );
-  const [profile, setProfile] = useState({
+  const draft = useSavedGuide(`ss-routine-editor:${context.props.pulse.owner}:${template?.id ?? "new"}`,
+    () => ({ stage: 0, name: template?.body.name ?? "My pre-trading routine", profile: {
     instrument: template?.body.instrument ?? "",
     strategy: template?.body.strategy ?? "",
     session: template?.body.session ?? "",
-  });
-  const [steps, setSteps] = useState<Step[]>(
-    () =>
-      template?.body.steps.map((s) => {
+    }, steps: template?.body.steps.map((s) => {
         const preset = suggestions.find(([name]) => name === s.name);
         const defaults = preset
           ? makeStep(...preset)
@@ -144,7 +142,19 @@ function AdvancedSetup({
         ...makeStep(n, d, v, a, c),
         order,
       })),
-  );
+    }),
+    (value) => z.object({ stage: z.number().int().min(0).max(2), name: z.string().max(160),
+      profile: z.object({ instrument: z.string().max(40), strategy: z.string().max(160), session: z.string().max(80) }),
+      steps: z.array(requirementSchema.extend({ name: z.string().max(160),
+        checklist: z.array(z.string().max(160)).max(100).optional(),
+        prompts: z.array(z.object({ id: z.uuid(), label: z.string().max(160), type: z.enum(["text", "number", "boolean", "choice"]), required: z.boolean(), choices: z.array(z.string().max(160)).max(30) })).max(30).optional(),
+      })).max(100),
+    }).parse(value));
+  const { stage, name, profile, steps } = draft.value;
+  const setStage = (stage: number) => draft.update(v => ({ ...v, stage }));
+  const setName = (name: string) => draft.update(v => ({ ...v, name }));
+  const setProfile = (value: typeof draft.value.profile | ((old: typeof draft.value.profile) => typeof draft.value.profile)) => draft.update(v => ({ ...v, profile: typeof value === "function" ? value(v.profile) : value }));
+  const setSteps = (value: Step[] | ((old: Step[]) => Step[])) => draft.update(v => ({ ...v, steps: typeof value === "function" ? value(v.steps) : value }));
   const [expanded, setExpanded] = useState<string | undefined>(steps[0]?.id);
   const valid =
     name.trim().length > 0 &&
@@ -171,6 +181,7 @@ function AdvancedSetup({
       return copy;
     });
   }
+  if (!draft.loaded) return <p role="status">Restoring your routine draft…</p>;
   return (
     <Panel
       title={
@@ -217,7 +228,7 @@ function AdvancedSetup({
             })),
           };
           const record = createRecord("protocol", body, template);
-          if (await store.save([record])) onClose(record.rootId);
+          if (await store.save([record])) { draft.clear(); onClose(record.rootId); }
         }}
       >
         {stage === 0 && (
@@ -458,21 +469,27 @@ export default function GuidedPreparation(
   context: Context & { editRequest?: number },
 ) {
   const { store, day } = context;
+  const [message, setMessage] = useState("");
   const templates = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
   );
   const runs = latest(store.records, "run").filter(
     (r) =>
       r.body.dayId === day.rootId &&
-      (!r.body.sessionId || r.body.sessionId === context.props.session?.id),
+      (!r.body.sessionId || r.body.sessionId === routineSessionId(context.props.session, day)),
   );
-  const [advancedSetup, setAdvancedSetup] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [selected, setSelected] = useState("");
-  const [creating, setCreating] = useState(false);
+  const location = useSavedGuide(`ss-routine-location:${context.props.pulse.owner}:${day.rootId}`,
+    () => ({ advancedSetup: false, editing: false, selected: "", creating: false }),
+    (value) => z.object({ advancedSetup: z.boolean(), editing: z.boolean(), selected: z.string(), creating: z.boolean() }).parse(value));
+  const { advancedSetup, editing, selected, creating } = location.value;
+  const setAdvancedSetup = (advancedSetup: boolean) => location.update(v => ({ ...v, advancedSetup }));
+  const setEditing = (editing: boolean) => location.update(v => ({ ...v, editing }));
+  const setSelected = (selected: string) => location.update(v => ({ ...v, selected }));
+  const setCreating = (creating: boolean) => location.update(v => ({ ...v, creating }));
   useEffect(() => {
     if (context.editRequest) {
       setCreating(false);
+      setAdvancedSetup(true);
       setEditing(true);
     }
   }, [context.editRequest]);
@@ -486,6 +503,7 @@ export default function GuidedPreparation(
     templates.find((t) => t.rootId === selected) ??
     templates.find((t) => t.rootId === previousTemplate?.rootId) ??
     templates[0];
+  if (!location.loaded) return <p role="status">Restoring your routine…</p>;
   if ((editing || !templates.length) && !advancedSetup)
     return (
       <JournalSetup
@@ -493,6 +511,7 @@ export default function GuidedPreparation(
         template={creating ? undefined : template}
         onAdvanced={() => setAdvancedSetup(true)}
         onClose={(id) => {
+          if (id) setMessage("Routine saved. Your preparation is ready below.");
           if (id) setSelected(id);
           setEditing(false);
           setCreating(false);
@@ -507,6 +526,7 @@ export default function GuidedPreparation(
         context={context}
         template={creating ? undefined : template}
         onClose={(savedId) => {
+          if (savedId) setMessage("Routine saved. Your preparation is ready below.");
           if (savedId) setSelected(savedId);
           setEditing(false);
           setAdvancedSetup(false);
@@ -516,6 +536,7 @@ export default function GuidedPreparation(
     );
   return (
     <div className="cc-stack">
+      {message && <p role="status">{message}</p>}
       <Panel
         title="Prepare with intention"
         detail="Your routine. One clear step at a time."
@@ -585,7 +606,7 @@ export default function GuidedPreparation(
                   createRecord("run", {
                     dayId: day.rootId,
                     templateId: template.id,
-                    sessionId: context.props.session?.id,
+                    sessionId: routineSessionId(context.props.session, day),
                     steps: template.body.steps,
                     startedAt: Date.now(),
                   }),

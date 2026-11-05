@@ -225,6 +225,13 @@ export default function Dashboard({
   const [noteDraft, setNoteDraft] = useState<ReflectionDraft | null>(null),
     [momentTime, setMomentTime] = useState(0);
   useEffect(() => {
+    if (initialSession) return;
+    try {
+      const saved = localStorage.getItem(`ss-workflow-page:${p.owner}`);
+      if (["Pre-Market", "Trade Quality", "Audits", "Rule Violations", "Settings & Variables", "Trading Thesis", "Missions"].includes(saved ?? "")) setTab(saved as Tab);
+    } catch {}
+  }, [p.owner, initialSession]);
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("broker_return") || params.has("broker_error")) {
       setTab("Connections");
@@ -576,6 +583,7 @@ export default function Dashboard({
         threshold={threshold}
         onPage={(next) => {
           setTab(next);
+          try { localStorage.setItem(`ss-workflow-page:${p.owner}`, next); } catch {}
           setLegacyOpen(next === "Connections" || next === "Settings");
         }}
         onReflect={openReflection}

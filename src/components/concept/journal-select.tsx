@@ -28,7 +28,8 @@ export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectEleme
     if(disabled || !trigger.current)return;
     const rect=trigger.current.getBoundingClientRect(),width=Math.min(Math.max(rect.width,kind==="Trade"?250:215),window.innerWidth-24);
     const below=window.innerHeight-rect.bottom,above=rect.top,up=below<Math.min(310,options.length*38+40) && above>below;
-    setPosition({position:"fixed",left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),width,...(up?{bottom:window.innerHeight-rect.top+7}:{top:rect.bottom+7}),maxHeight:Math.max(120,Math.min(360,(up?above:below)-18))});
+    const height=Math.min(360,Math.max(48,(up?above:below)-18),window.innerHeight-24);
+    setPosition({position:"fixed",left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),width,...(up?{bottom:Math.max(12,window.innerHeight-rect.top+7)}:{top:Math.max(12,Math.min(rect.bottom+7,window.innerHeight-height-12))}),maxHeight:height});
     setActive(index);setOpen(true);
   }
   function choose(index:number) {
@@ -42,7 +43,7 @@ export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectEleme
     const doc=trigger.current!.ownerDocument;
     const outside=(e:PointerEvent)=>{const target=e.target as Node;if(!trigger.current?.contains(target) && !menu.current?.contains(target))setOpen(false);};
     const scroll=(e:Event)=>{if(!menu.current?.contains(e.target as Node))setOpen(false);};
-    const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){setOpen(false);trigger.current?.focus();}};
+    const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){e.preventDefault();e.stopPropagation();setOpen(false);trigger.current?.focus();}};
     doc.addEventListener("pointerdown",outside);doc.addEventListener("keydown",escape);doc.addEventListener("scroll",scroll,true);window.addEventListener("resize",scroll);
     return()=>{doc.removeEventListener("pointerdown",outside);doc.removeEventListener("keydown",escape);doc.removeEventListener("scroll",scroll,true);window.removeEventListener("resize",scroll);};
   },[open]);
@@ -51,7 +52,7 @@ export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectEleme
     <select {...props} ref={native} hidden aria-hidden="true" tabIndex={-1}/>
     <button ref={trigger} type="button" role="combobox" aria-label={label} aria-expanded={open} aria-controls={`${id}-menu`} aria-haspopup="listbox" aria-activedescendant={open?`${id}-option-${active}`:undefined} disabled={disabled} className="ss-select-trigger" onClick={()=>open?setOpen(false):show()} onKeyDown={e=>{
       if(e.key==="Tab"){setOpen(false);return;}
-      if(e.key==="Escape"){e.preventDefault();setOpen(false);return;}
+      if(e.key==="Escape" && open){e.preventDefault();e.stopPropagation();setOpen(false);return;}
       if(["ArrowDown","ArrowUp","Home","End"].includes(e.key)){
         e.preventDefault();const next=e.key==="Home"?0:e.key==="End"?options.length-1:open?(active+(e.key==="ArrowDown"?1:-1)+options.length)%options.length:Math.max(0,selected);
         if(open)setActive(next);else show(next);return;

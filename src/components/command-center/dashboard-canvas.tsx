@@ -11,6 +11,8 @@ import {
 } from "react";
 import {
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   EyeOff,
   GripVertical,
@@ -31,12 +33,14 @@ import {
   GRID_GAP,
   GRID_ROW,
   placeCard,
+  swapCardSlots,
   type Grid,
   type GridBox,
 } from "@/lib/process/dashboard-grid";
 
 type Card = DashboardLayout["panels"][number];
 type Gesture = {
+  left: boolean;
   id: CardId;
   mode: "move" | "resize";
   startX: number;
@@ -117,7 +121,7 @@ export default function DashboardCanvas({
           .card as CardId;
         if (id)
           next[id] =
-            Math.ceil(node.getBoundingClientRect().height) + (editing ? 64 : 0);
+            Math.ceil(node.getBoundingClientRect().height) + 12;
       }
       setHeights((old) =>
         Object.entries(next).every(([id, h]) => old[id as CardId] === h)
@@ -210,9 +214,11 @@ export default function DashboardCanvas({
     if (g.mode === "resize")
       target = boundedBox({
         ...g.start,
+        x: g.left && !g.mobile ? clamp(g.start.x + Math.round(dx / g.column), 0, g.start.x + g.start.w - 3) : g.start.x,
         w: g.mobile
           ? g.start.w
-          : Math.round((g.width + dx + GRID_GAP) / g.column),
+          : g.left ? g.start.x + g.start.w - clamp(g.start.x + Math.round(dx / g.column), 0, g.start.x + g.start.w - 3)
+          : clamp(Math.round((g.width + dx + GRID_GAP) / g.column), 3, 12 - g.start.x),
         h: Math.round((g.height + dy + GRID_GAP) / (GRID_ROW + GRID_GAP)),
       });
     else
@@ -261,6 +267,7 @@ export default function DashboardCanvas({
     event: ReactPointerEvent<HTMLButtonElement>,
     id: CardId,
     mode: Gesture["mode"],
+    left = false,
   ) => {
     if (disabled || !editing || event.button !== 0 || !root.current || live.current) return;
     event.preventDefault();
@@ -269,6 +276,7 @@ export default function DashboardCanvas({
     const rect = node.getBoundingClientRect();
     const base = dashboardGrid(layout, heights);
     live.current = {
+      left,
       id,
       mode,
       startX: event.clientX,
@@ -297,9 +305,9 @@ export default function DashboardCanvas({
     if (mode === "move") setGesture({ ...live.current });
     onInteracting(true);
   };
-  const handlers = (id: CardId, mode: Gesture["mode"]) => ({
+  const handlers = (id: CardId, mode: Gesture["mode"], left = false) => ({
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) =>
-      start(e, id, mode),
+      start(e, id, mode, left),
     onPointerMove: (e: ReactPointerEvent<HTMLButtonElement>) => {
       const g = live.current;
       if (!g || g.pointerId !== e.pointerId) return;
@@ -340,20 +348,13 @@ export default function DashboardCanvas({
   const resize = (id: CardId, box: GridBox, heightMode?: "auto" | "fixed") =>
     onChange(
       placeCard(layout, dashboardGrid(layout, heights), id, box, heightMode),
-      cards[id].title + " resized.",
+      cards[id].title + (heightMode === "auto" ? " now fits its content and will grow with it." : " resized."),
     );
   const move = (id: CardId, to: CardId) => {
     const base = dashboardGrid(layout, heights);
-    const reordered = moveCard(layout, id, to);
     onChange(
-      layout.panels.some((p) => p.grid)
-        ? placeCard(reordered, base, id, {
-            ...base[id]!,
-            x: base[to]!.x,
-            y: base[to]!.y,
-          })
-        : reordered,
-      cards[id].title + " moved.",
+      swapCardSlots(layout, base, id, to),
+      cards[id].title + " swapped positions with " + cards[to].title + ".",
     );
   };
   const boxStyle = (box: GridBox): CSSProperties => ({
@@ -392,10 +393,11 @@ export default function DashboardCanvas({
             style.width = mobile
               ? "100%"
               : clamp(
-                  gesture.width + gesture.dx,
+                  gesture.width + (gesture.left ? -gesture.dx : gesture.dx),
                   3 * gesture.column - GRID_GAP,
-                  (12 - gesture.start.x) * gesture.column - GRID_GAP,
+                  (gesture.left ? gesture.start.x + gesture.start.w : 12 - gesture.start.x) * gesture.column - GRID_GAP,
                 );
+            if (gesture.left && !mobile) style.transform = `translateX(${(gesture.target.x - gesture.start.x) * gesture.column}px)`;
             style.height = clamp(
               gesture.height + gesture.dy,
               5 * (GRID_ROW + GRID_GAP) - GRID_GAP,
@@ -427,17 +429,18 @@ export default function DashboardCanvas({
                   <GripVertical size={16} />
                 </button>
                 <span>{cards[id].title}</span>
-                {card.heightMode === "fixed" && (
+                {(
                   <button
                     aria-label={`Fit ${cards[id].title} to content`}
                     disabled={disabled}
-                    onClick={() => onChange({ ...layout, panels: layout.panels.map(p => p.id === id ? { ...p, heightMode: "auto" } : p) }, "Card now fits its content.")}
+                    title="Grow or shrink to show this card's contents. It will keep fitting as content changes."
+                    onClick={() => resize(id, { ...box, h: Math.ceil(((heights[id] ?? 300) + GRID_GAP) / (GRID_ROW + GRID_GAP)) }, "auto")}
                   >
                     Fit content
                   </button>
                 )}
                 <button
-                  title="Move up"
+                  title={index ? "Swap positions with " + cards[visible[index - 1].id].title : "First card"}
                   aria-label={"Move " + cards[id].title + " up"}
                   disabled={disabled || index === 0}
                   onClick={() => move(id, visible[index - 1].id)}
@@ -445,13 +448,20 @@ export default function DashboardCanvas({
                   <ArrowUp size={16} />
                 </button>
                 <button
-                  title="Move down"
+                  title={index < visible.length - 1 ? "Swap positions with " + cards[visible[index + 1].id].title : "Last card"}
                   aria-label={"Move " + cards[id].title + " down"}
                   disabled={disabled || index === visible.length - 1}
                   onClick={() => move(id, visible[index + 1].id)}
                 >
                   <ArrowDown size={16} />
                 </button>
+                {([-1, 1] as const).map(direction => <button key={direction}
+                  title={direction < 0 ? "Move one column left" : "Move one column right"}
+                  aria-label={`Move ${cards[id].title} ${direction < 0 ? "left" : "right"}`}
+                  disabled={disabled || mobile || (direction < 0 ? box.x === 0 : box.x + box.w >= 12)}
+                  onClick={() => onChange(placeCard(layout, dashboardGrid(layout, heights), id,
+                    { ...box, x: clamp(box.x + direction * box.w, 0, 12 - box.w) }), cards[id].title + " moved to the next column.")}
+                >{direction < 0 ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}</button>)}
                 <button
                   title={box.w === 12 ? "Single column" : "Full width"}
                   aria-label={
@@ -494,13 +504,14 @@ export default function DashboardCanvas({
             <div className="cc-tile-scroll">
               <div className="cc-tile-content-inner">{renderContent(card)}</div>
             </div>
-            {editing && (
+            {editing && ([false, true].map(left => (
               <button
-                className="cc-resize-handle"
-                aria-label={"Resize " + cards[id].title}
+                key={String(left)}
+                className={"cc-resize-handle" + (left ? " cc-resize-left" : "")}
+                aria-label={"Resize " + cards[id].title + (left ? " from left corner" : "")}
                 title="Drag the corner to resize. Arrow keys resize; Shift makes larger changes; Home fits content."
                 disabled={disabled}
-                {...handlers(id, "resize")}
+                {...handlers(id, "resize", left)}
                 onKeyDown={(e) => {
                   const step = e.shiftKey ? 3 : 1,
                     key = e.key;
@@ -548,7 +559,7 @@ export default function DashboardCanvas({
               >
                 <MoveDiagonal2 size={16} />
               </button>
-            )}
+            )))}
           </GlassPanel>
         );
       })}
