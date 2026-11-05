@@ -1,5 +1,8 @@
 "use client";
 import { GlassPanel } from "../glassyui/glass-panel";
+import WorkflowNavigation from "./workflow-navigation";
+import { useSavedGuide } from "../use-saved-guide";
+import { dateSchema } from "@/lib/process/model";
 import { useEffect, useState } from "react";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
@@ -339,6 +342,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
           Finish session / review today
         </button>
       </GlassPanel>
+      <WorkflowNavigation owner={props.pulse.owner} open={props.onPage} />
       <PreparationSummary {...context} />
       <DashboardBoard
         editor={context.editor}
@@ -364,21 +368,6 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
         }
         market={<MarketOutlook {...context} />}
       />
-      <footer className="cc-dashboard-footer">
-        <span>Review & refine</span>
-        {(
-          [
-            ["Audits", "Daily review"],
-            ["Rule Violations", "Rule history"],
-            ["Settings & Variables", "Personal variables"],
-            ["Prepare", "Session intentions"],
-          ] as const
-        ).map(([page, label]) => (
-          <button key={page} onClick={() => props.onPage(page)}>
-            {label}
-          </button>
-        ))}
-      </footer>
     </>
   );
 }
@@ -499,6 +488,7 @@ function StartDashboard({
           <button onClick={onSettings}>Day settings</button>
         </div>
       </GlassPanel>
+      <WorkflowNavigation owner={props.pulse.owner} open={(page) => void open(page)} />
       <DashboardBoard
         editor={editor}
         store={store}
@@ -563,9 +553,12 @@ function StartDashboard({
 }
 export default function ProcessWorkspace(props: Props) {
   const dashboardEditor = useDashboardEditor();
+  const dateDraft = useSavedGuide(`ss-trading-date:${props.pulse.owner}`,
+    () => dateInZone(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
+    (value) => dateSchema.parse(value));
+  const date = dateDraft.value, setDate = dateDraft.update;
   const store = useProcess(props.pulse.owner, props.history),
     zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    [date, setDate] = useState(() => dateInZone(Date.now(), zone)),
     [editDay, setEditDay] = useState(false),
     days = latest(store.records, "day"),
     selectedDate =
@@ -599,7 +592,7 @@ export default function ProcessWorkspace(props: Props) {
     return () => window.removeEventListener("ss-review-day", open);
   }, [store.records, zone]);
   if (!processPages.has(props.page)) return null;
-  if (!store.loaded)
+  if (!store.loaded || !dateDraft.loaded)
     return (
       <div className="cc-workspace">
         <p role="status">Loading your process records…</p>

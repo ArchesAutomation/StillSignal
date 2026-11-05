@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { useSavedGuide } from "../use-saved-guide";
+import { z } from "zod";
 import { createRecord, latest } from "@/lib/process/model";
 import { activityOf } from "@/lib/process/preparation-workflow";
 import {
@@ -94,11 +96,14 @@ function Intentions({ store, day }: Context) {
 }
 export default function PreparationTools(context: Context) {
   const { store, day } = context;
-  const [active, setActive] = useState<ModuleId>("routine");
-  const [visited, setVisited] = useState<ModuleId[]>(["routine"]);
+  const selection = useSavedGuide(`ss-preparation-tool:${context.props.pulse.owner}`, () => "routine" as ModuleId,
+    (value) => z.enum(["routine", "thesis", "missions", "variables", "intentions", "checks", "checkin"]).parse(value));
+  const active = selection.value;
+  const [visited, setVisited] = useState<ModuleId[]>([]);
   const [editRequest, setEditRequest] = useState(0);
   const open = (id: ModuleId) => {
-    setActive(id);
+    selection.update(id);
+    if (id === "variables") context.props.onPage("Settings & Variables");
     setVisited((ids) => (ids.includes(id) ? ids : [...ids, id]));
   };
   const editRoutine = () => {
@@ -119,10 +124,10 @@ export default function PreparationTools(context: Context) {
       ? "Check-in recorded"
       : "Record today's check-in",
   };
+  if (!selection.loaded) return <p role="status">Restoring your preparation tool…</p>;
   return (
     <div className="cc-stack">
-      <details className="guide-advanced">
-        <summary>Other preparation tools</summary>
+      <section>
         <Panel
           title="Preparation workspace"
           detail="All your preparation tools are available here, including when your saved routine does not contain them."
@@ -142,11 +147,11 @@ export default function PreparationTools(context: Context) {
             ))}
           </nav>
         </Panel>
-      </details>
+      </section>
       {/* Keep visited tools mounted so switching tools preserves unfinished writing. */}
       {modules.map(
         ([id, title]) =>
-          visited.includes(id) && (
+          (visited.includes(id) || active === id) && (
             <section
               key={id}
               id={"prep-tool-" + id}

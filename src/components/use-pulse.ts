@@ -787,7 +787,7 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   }
   async function persistNote(note: JournalEntry) {
     if (current.current?.id === "workspace")
-      await start(undefined, Math.min(Date.now(), note.t));
+      await start(undefined, Math.min(Date.now(), note.t), false);
     const s = current.current;
     if (note.captureSessionId && s?.id !== note.captureSessionId)
       throw new Error(

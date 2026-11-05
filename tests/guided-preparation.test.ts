@@ -44,7 +44,7 @@ test("guided discovery, honest skipping, save failure recovery, resume and immut
       props: {
         pulse: { owner: "guide-test" },
         history: [],
-        session: { id: sessionId },
+        session: { id: sessionId, startedAt: Date.parse(day.body.date + "T12:00:00Z") },
         onPage() {},
       },
       store: {

@@ -11,6 +11,7 @@ import {
   type JournalProfile,
 } from "@/lib/process/journal-guide";
 import { dashboardRecords, freshDashboard } from "@/lib/process/dashboard";
+import { routineSessionId } from "@/lib/process/routine-session";
 import { useSavedGuide } from "../use-saved-guide";
 import PersonalStillness, { StillnessBuilder } from "../personal-stillness";
 import GuidedRuleBuilder from "../trade-quality/guided-rule-builder";
@@ -146,7 +147,7 @@ export default function JournalSetup({
             templateId: record.id,
             steps: body.steps,
             startedAt: Date.now(),
-            sessionId: context.props.session?.id,
+            sessionId: routineSessionId(context.props.session, context.day),
           }),
         );
       if (await context.store.save(batch)) {
@@ -156,8 +157,8 @@ export default function JournalSetup({
         setError(
           "Your routine could not be saved. Your setup draft is still here; retry when ready.",
         );
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      setError("Your routine could not be saved. Your setup draft is still here; please retry.");
     } finally {
       setSaving(false);
     }

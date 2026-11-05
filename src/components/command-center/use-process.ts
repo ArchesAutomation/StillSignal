@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ZodError } from "zod";
 import type { Session } from "@/lib/model";
 import { recordSchema, type ProcessRecord } from "@/lib/process/model";
 import { cloudConfigured } from "@/lib/cloud";
@@ -82,13 +83,18 @@ export function useProcess(owner: string, sessions: Session[]) {
         prepared = batch.map((row) => withRefs(recordSchema.parse(row)));
       validateAppend(existing, prepared, sessions);
       await saveProcess(owner, prepared);
-      await reload();
+      // The transaction is committed. A read failure must not invite a duplicate retry.
+      await reload().catch(() => {
+        if (currentOwner.current === owner) setRecords([...existing, ...prepared]);
+      });
       setSyncState("Saved locally · syncing…");
       void sync();
       return true;
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Could not save process records.",
+        e instanceof ZodError
+          ? "This change could not be saved. Your draft is still available. Check the fields and retry."
+          : e instanceof Error ? e.message : "Could not save process records. Your draft is still available; please retry.",
       );
       return false;
     } finally {
