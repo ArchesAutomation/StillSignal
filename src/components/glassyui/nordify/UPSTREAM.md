@@ -19,10 +19,11 @@ MIT license. Local engine changes:
 
 React mounting and Still Signal material tokens live outside this directory.
 The adapter uses `promote: false` to avoid promoting an ancestor of a lens.
-The Bubbly preset follows the demo's actual setup: `radius: 9999`, `rim: 1.1`,
-default 2.5px blur, default saturation and reflection strength, no tint, and
-edge/shadow sizing proportional to the lens height. The other presets retain
-separate material values. CSS lighting properties are exposed by the adapter.
+The Bubbly preset keeps standard panel corners while retaining the demo's
+`rim: 1.1`, default 2.5px blur, saturation and reflection strength, no tint,
+and edge/shadow sizing proportional to the lens height. Full roundness is an
+optional Custom shape. Saved named Bubbly presets upgrade to standard corners.
+CSS lighting properties are exposed by the adapter.
 Large/nested analytical surfaces use static CSS material; Nordify is the only
 optical engine mounted by GlassSurface or GlassButton. Legacy filter source is
 retained for safe review but no longer imported by either component.

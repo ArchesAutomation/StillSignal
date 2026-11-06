@@ -64,7 +64,7 @@ test("the test panel moves, resizes, cancels and stays inside a smaller wallpape
     assert.equal(document.documentElement.dataset.glassMaterial, "frosted", "resetting geometry never resets the glass");
     assert.equal(panel().dataset.glassSurface, "panel");
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Bubbly')!.click());
-    assert.equal(document.documentElement.dataset.glassPill, 'true');
+    assert.equal(document.documentElement.dataset.glassPill, 'false');
     const bubblyGeometry = geometry();
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Nordify text')!.click());
     assert.ok(document.querySelector('.glass-preview-type')?.textContent?.includes('Liquid Glass'));
