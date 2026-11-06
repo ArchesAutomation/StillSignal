@@ -74,7 +74,10 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
       decoration.append(host);
       surface.prepend(decoration);
       // Promote=false: promoting main would block lenses inside main.
-      glass = createLiquidGlass(host, { blur, rim, radius, reflect, reflectStrength, promote: false });
+      // Nordify's `rim` controls the reflection, not background displacement.
+      // Keep the upstream profile at 1.3 and scale its displacement separately
+      // so Refraction Edge actually changes the background bending as well.
+      glass = createLiquidGlass(host, { blur, rim, radius, refractionStrength: rim / 1.3, reflect, reflectStrength, promote: false });
       lenses.add(surface);
       surface.dataset.nordify = supportsRefraction ? 'optical' : 'frosted';
     };

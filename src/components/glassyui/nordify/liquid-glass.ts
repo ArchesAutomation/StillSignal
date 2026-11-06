@@ -32,6 +32,8 @@ export type LiquidGlassOptions = {
   radius?: number;
   /** Width of the refracting rim, relative. Default 1.3. */
   rim?: number;
+  /** Background displacement multiplier. 1 preserves Nordify's original optics. */
+  refractionStrength?: number;
   /** Frost behind the glass in CSS px. Default 2. */
   blur?: number;
   saturate?: number;
@@ -417,6 +419,7 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
   const {
     radius = 30,
     rim = 1.3,
+    refractionStrength = 1,
     blur = 2.5,
     saturate = 1.1,
     reflect = true,
@@ -637,7 +640,7 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
       const g = tiltGain(refr, w, h);
       setAttr(tiltAdd, "k3", g);
       setAttr(tiltAdd, "k4", -g / 2);
-      setAttr(refrDisp, "scale", refractionScale(refr, w, h));
+      setAttr(refrDisp, "scale", refractionScale(refr, w, h) * Math.max(0, Math.min(2, Number.isFinite(refractionStrength) ? refractionStrength : 1)));
       setAttr(refrFilter, "width", w + REGION * 2);
       setAttr(refrFilter, "height", h + REGION * 2);
     }
