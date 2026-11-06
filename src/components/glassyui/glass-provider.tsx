@@ -1,7 +1,5 @@
 'use client';
 
-import './styles/liquid.css';
-import './styles/nordify-integration.css';
 import { GLASS_PRESETS, parseGlassMaterial } from './lib/glass-material';
 
 import {

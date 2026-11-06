@@ -1,9 +1,10 @@
 /* Glassy UI styles live in the components layer, below Tailwind utilities, so
-   a className such as rounded-xl or p-8 overrides the library default. These
-   statements repeat Tailwind 4's own layer order, so it holds even when this
-   file loads before Tailwind. */
-@layer properties;
-@layer theme, base, components, utilities;
+   a className such as rounded-xl or p-8 overrides the library default. This
+   statement includes the app's legacy layer since client CSS can load
+   before the root layout's stylesheet in a Cloudflare build. CSS fixes layer
+   order at first appearance; declaring legacy later would put it above the
+   glass foreground and Tailwind utilities. */
+@layer properties, legacy, theme, base, components, utilities;
 
 @property --lg-fresnel {
   syntax: '<number>';

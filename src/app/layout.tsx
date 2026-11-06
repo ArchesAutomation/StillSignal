@@ -1,11 +1,16 @@
 import "./legacy.css";
 import "./tailwind.css";
+import "../components/glassyui/styles/liquid.css";
+import "../components/glassyui/nordify/liquid-glass.css";
 import "./appearance-colors.css";
 import "./liquid-glass.css";
 import "./wallpaper.css";
 import "./workflow-fixes.css";
 import type { Metadata, Viewport } from "next";
 import "./journal-guide.css";
+// Keep the Nordify overrides after all app styles in the root CSS entry.
+// Client-component stylesheets can otherwise load before the layout on Workers.
+import "../components/glassyui/styles/nordify-integration.css";
 import SharkBackground from "@/components/shark-background";
 import { GlassProvider } from "@/components/glassyui/glass-provider";
 import { AppearanceProvider } from "@/components/appearance-context";

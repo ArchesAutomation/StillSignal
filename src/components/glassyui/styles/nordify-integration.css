@@ -22,7 +22,9 @@ html [data-glass-surface="panel"] {
   border: 1px solid var(--signal-line);
   box-shadow: 0 8px 24px rgb(0 0 0 / .12), inset 0 1px 0 rgb(235 248 255 / .08);
 }
-/* One quiet material for large panels; no SVG maps or second optical engine. */
+/* One quiet material for large panels; no SVG maps or second optical engine.
+   Keep standard backdrop-filter last: the production CSS minifier otherwise
+   retains only the WebKit declaration, which Chromium does not apply. */
 html [data-glass-surface="panel"]::before {
   content: "";
   position: absolute;
@@ -30,8 +32,8 @@ html [data-glass-surface="panel"]::before {
   border: 0;
   border-radius: inherit;
   background: rgb(var(--ss-glass-rgb) / var(--ss-glass-tint)) !important;
-  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
   -webkit-backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
   pointer-events: none;
   opacity: 1;
   transform: none;
@@ -43,12 +45,12 @@ html [data-glass-surface="panel"]::after { content: none; }
 html .cc-canvas [data-glass-surface="panel"] > .cc-resize-handle { position: absolute; z-index: 3; }
 /* The controls already own their focus, pointer and pressed-state behavior. */
 html [data-glass-surface="button"] .lg-button__distortion {
-  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
   -webkit-backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
 }
 html [data-glass-surface="button"] .lg-button__tint { background: rgb(var(--ss-glass-rgb) / var(--ss-glass-tint)); }
 html [data-glass-surface] .lg-glass-surface::before,
-html [data-glass-surface] .lg-button__distortion { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html [data-glass-surface] .lg-button__distortion { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html [data-glass-surface="panel"] .lg-glass-surface { background: transparent; box-shadow: none; border: 0; }
 html [data-glass-surface] > .ss-nordify-decoration {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -72,7 +74,7 @@ html [data-nordify] > .lg-button__layers { display: none; }
 /* Analytical text stays on its own foreground layer. Drag and resize geometry
    remains owned by DashboardCanvas, including its transform animations. */
 html :is(.cc-canvas-editing, .cc-canvas-interacting, .ss-free-board-editing) [data-glass-surface]::before {
-  backdrop-filter: none; -webkit-backdrop-filter: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
   background: rgb(var(--ss-glass-rgb) / .72) !important;
 }
 .glass-material-settings { min-width: 0; display: grid; gap: 12px; }
@@ -90,11 +92,11 @@ html :is(.cc-canvas-editing, .cc-canvas-interacting, .ss-free-board-editing) [da
 .appearance-panel .glass-material-settings { width: 100%; }
 .appearance-panel .glass-material-settings label { font-size: 12px; }
 .glass-material-settings .material-accessibility { display: flex; justify-content: start; gap: 8px; align-items: center; }
-html[data-lg-reduce-transparency="1"] [data-glass-surface]::before { background: var(--lg-opaque-surface) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-lg-reduce-transparency="1"] [data-glass-surface]::before { background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__tint { background: var(--lg-opaque-surface); }
-html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__distortion { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__distortion { -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (prefers-reduced-transparency: reduce) {
-  html [data-glass-surface]::before { content: "" !important; background: var(--lg-opaque-surface) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  html [data-glass-surface]::before { content: "" !important; background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .ss-nordify-decoration { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { html [data-glass-surface], html [data-glass-surface] * { animation: none !important; transition: none !important; } }

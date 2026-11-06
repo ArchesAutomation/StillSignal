@@ -26,7 +26,6 @@ import {
   type Tiles,
   fieldScales,
 } from "./maps";
-import "./liquid-glass.css";
 
 export type LiquidGlassOptions = {
   /** Corner radius in CSS px. Default 30. */
