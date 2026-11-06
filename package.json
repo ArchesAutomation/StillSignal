@@ -6,7 +6,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "start": "vite preview",
-    "typecheck": "cf workers types && tsc --noEmit",
+    "typecheck": "cf workers types --no-include-runtime && tsc --noEmit",
     "test": "node --import ./tests/browser-environment.mjs --import tsx --test tests/*.test.ts",
     "bench": "node --import tsx scripts/benchmark.ts",
     "check": "npm run typecheck && npm test && npm run build",
