@@ -55,4 +55,5 @@ export function applyGlassMaterial(root: HTMLElement, material: GlassMaterial) {
   root.style.setProperty('--ss-glass-radius', `${material.radius}px`);
   root.style.setProperty('--ss-glass-tint', String(material.tint / 100));
   root.style.setProperty('--ss-glass-reflection', String(material.reflect ? material.reflectStrength / 3 : 0));
+  root.style.setProperty('--ss-glass-rim', String(material.rim));
 }

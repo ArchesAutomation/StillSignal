@@ -5,6 +5,7 @@
   --ss-glass-radius: 18px;
   --ss-glass-tint: .26;
   --ss-glass-reflection: .53;
+  --ss-glass-rim: 1.05;
   --ss-glass-rgb: 12 22 29;
 }
 :root[data-theme="light"] { --ss-glass-rgb: 244 250 253; }
@@ -19,6 +20,9 @@ html [data-glass-surface] {
 }
 html [data-glass-surface="panel"] {
   background: transparent;
+  color: var(--signal-text);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid var(--signal-line);
   box-shadow: 0 8px 24px rgb(0 0 0 / .12), inset 0 1px 0 rgb(235 248 255 / .08);
 }
@@ -39,7 +43,19 @@ html [data-glass-surface="panel"]::before {
   transform: none;
   filter: none;
 }
-html [data-glass-surface="panel"]::after { content: none; }
+/* Large panels share the material controls without allocating a large lens.
+   The rim and reflection controls still affect their lightweight finish. */
+html [data-glass-surface="panel"]::after {
+  content: "";
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  border-radius: inherit; padding: calc(.5px + var(--ss-glass-rim) * .6px);
+  background: linear-gradient(135deg, rgb(255 255 255 / .45), transparent 38%, transparent 65%, rgb(255 255 255 / .2));
+  opacity: var(--ss-glass-reflection);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
 /* The inherited glass content rule otherwise outranks the legacy canvas layer.
    Restore the engine's corner anchoring rather than putting handles in flow. */
 html .cc-canvas [data-glass-surface="panel"] > .cc-resize-handle { position: absolute; z-index: 3; }
@@ -52,6 +68,17 @@ html [data-glass-surface="button"] .lg-button__tint { background: rgb(var(--ss-g
 html [data-glass-surface] .lg-glass-surface::before,
 html [data-glass-surface] .lg-button__distortion { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html [data-glass-surface="panel"] .lg-glass-surface { background: transparent; box-shadow: none; border: 0; }
+html [data-glass-surface] .lg-glass-surface::after { content: none; }
+/* The local wallpaper is a new sample, rather than a second filter over the
+   enclosing Settings module. Keep its fallback active in every browser. */
+html [data-glass-backdrop-root] [data-glass-surface="panel"]::before {
+  -webkit-backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+}
+html [data-glass-backdrop-root] [data-glass-surface="panel"]::after { content: ""; }
+html .cc-status-grid[data-glass-surface] > div { background: transparent; }
+html .cc-status-grid[data-glass-surface] > div + div { border-left: 1px solid var(--signal-line); }
+html .guide-exit-invitation[data-glass-surface] p { color: var(--signal-muted); }
 html [data-glass-surface] > .ss-nordify-decoration {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   display: block; padding: 0; margin: 0; border: 0; border-radius: inherit;
@@ -69,7 +96,9 @@ html [data-glass-surface] > .ss-nordify-decoration {
   --lg-shadow-o: .06;
 }
 :root[data-theme="light"] .ss-nordify-decoration :is(.lg-host, .lg-cover) { --lg-dark: 0; --lg-underlay: .04; --lg-caustic-o: .12; }
-html [data-nordify]::before, html [data-nordify]::after { content: none; }
+html [data-nordify]::before, html [data-nordify]::after,
+html [data-glass-backdrop-root] [data-nordify]::before,
+html [data-glass-backdrop-root] [data-nordify]::after { content: none; }
 html [data-nordify] > .lg-button__layers { display: none; }
 /* Analytical text stays on its own foreground layer. Drag and resize geometry
    remains owned by DashboardCanvas, including its transform animations. */
@@ -92,11 +121,12 @@ html :is(.cc-canvas-editing, .cc-canvas-interacting, .ss-free-board-editing) [da
 .appearance-panel .glass-material-settings { width: 100%; }
 .appearance-panel .glass-material-settings label { font-size: 12px; }
 .glass-material-settings .material-accessibility { display: flex; justify-content: start; gap: 8px; align-items: center; }
-html[data-lg-reduce-transparency="1"] [data-glass-surface]::before { background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-lg-reduce-transparency="1"] [data-glass-surface]::before,
+html[data-lg-reduce-transparency="1"] [data-glass-backdrop-root] [data-glass-surface]::before { background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__tint { background: var(--lg-opaque-surface); }
 html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__distortion { -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (prefers-reduced-transparency: reduce) {
-  html [data-glass-surface]::before { content: "" !important; background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html [data-glass-surface]::before { content: "" !important; background: var(--lg-opaque-surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   .ss-nordify-decoration { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { html [data-glass-surface], html [data-glass-surface] * { animation: none !important; transition: none !important; } }

@@ -16,14 +16,28 @@ html .wallpaper-settings { padding: 24px; }
 .wallpaper-settings header h2 { margin: 8px 0; font-size: 26px; letter-spacing: -.035em; }
 .wallpaper-settings p { color: var(--signal-muted); line-height: 1.6; }
 .material-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .18em; color: var(--signal-muted); }
-.wallpaper-preview { position: relative; display: grid; place-items: center; min-height: 280px; padding: 32px 22px 48px; margin: 24px 0; border-radius: 18px; background-position: center; background-size: cover; overflow: hidden; isolation: isolate; }
-.wallpaper-preview-dim { position: absolute; inset: 0; background: black; z-index: -1; }
-html .wallpaper-preview-card.lg-glass-surface { padding: 24px; width: min(100%, 330px); border-radius: 20px; color: #f5f8fa; text-align: left; }
-.wallpaper-preview-card { --lg-foreground: #f5f8fa; --signal-text: #f5f8fa; --signal-muted: #e0e8ec; }
-.wallpaper-preview-card > span { font-size: 9px; letter-spacing: .16em; }
-.wallpaper-preview-card > strong { display: block; margin-top: 14px; font-size: 26px; font-weight: 500; letter-spacing: -.04em; }
-.wallpaper-preview-card > p { color: #e0e8ec; font-size: 12px; }
-.wallpaper-preview-caption { position: absolute; bottom: 15px; font-size: 8px; letter-spacing: .2em; color: white; text-shadow: 0 1px 4px black; }
+.wallpaper-preview { position: relative; height: 384px; padding: 0; margin: 24px 0 12px; border: 1px solid var(--signal-line); border-radius: 18px; background-position: center; background-size: cover; overflow: visible; isolation: auto; }
+.wallpaper-preview-dim, .wallpaper-preview-grid { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.wallpaper-preview-grid { background-image: linear-gradient(#ffffff12 1px, transparent 1px), linear-gradient(90deg, #ffffff12 1px, transparent 1px); background-size: 40px 40px; }
+html .wallpaper-preview-card.lg-glass-surface { position: absolute; z-index: 1; padding: 16px; max-width: calc(100% - 32px); box-sizing: border-box; text-align: left; transition: none; }
+.wallpaper-preview-card { --signal-text: #f5f8fa; --signal-muted: #e0e8ec; --lg-foreground: #f5f8fa; text-shadow: 0 1px 4px rgb(0 0 0 / .6); }
+.glass-test-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.glass-test-toolbar output { font-size: 10px; color: var(--signal-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html .glass-test-move, html .glass-test-resize, html .glass-test-footer button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--signal-line); border-radius: 8px; background: var(--signal-recess); color: var(--signal-text); padding: 8px; font: inherit; font-size: 11px; }
+html .glass-test-move, html .glass-test-resize { touch-action: none; user-select: none; min-height: 36px; }
+html .glass-test-move { cursor: grab; }
+html .wallpaper-preview-card > .glass-test-resize { position: absolute; right: 10px; bottom: 10px; z-index: 3; cursor: nwse-resize; }
+[data-preview-interaction="move"] .glass-test-move { cursor: grabbing; }
+.glass-test-copy { padding-top: 16px; padding-bottom: 34px; }
+.glass-test-copy h3 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; letter-spacing: -.035em; font-weight: 500; }
+.wallpaper-settings .glass-test-copy p { margin: 0 0 12px; font-size: 12px; line-height: 1.5; }
+.glass-test-copy > span { font-size: 10px; color: var(--signal-muted); }
+.wallpaper-preview-caption { position: absolute; left: 16px; bottom: 12px; font-size: 8px; letter-spacing: .2em; color: white; text-shadow: 0 1px 4px black; pointer-events: none; }
+.glass-test-footer { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
+.wallpaper-settings .glass-test-footer p { margin: 0; flex: 1 1 220px; font-size: 11px; }
+html .glass-test-footer button { cursor: pointer; }
+html .glass-test-preview svg { fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+html .glass-test-preview button:focus-visible { outline: 2px solid var(--signal-text); outline-offset: 3px; }
 .wallpaper-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 14px; }
 .wallpaper-section-heading h3 { font-size: 14px; margin: 0; }
 .wallpaper-section-heading > span { font-size: 11px; color: var(--signal-muted); }
@@ -52,5 +66,5 @@ html .material-slider input[type="range"] { appearance: none; -webkit-appearance
 .wallpaper-settings .material-accessibility { display: flex; gap: 10px; align-items: center; margin-top: 20px; font-size: 12px; }
 .wallpaper-settings button:disabled { cursor: wait; opacity: .5; }
 .wallpaper-settings [role="alert"] { color: var(--signal-text); font-size: 12px; }
-@media (max-width: 600px) { .material-slider-grid { grid-template-columns: 1fr; } html .wallpaper-settings { padding: 16px; } .wallpaper-preview { min-height: 260px; padding-inline: 14px; } }
+@media (max-width: 600px) { .material-slider-grid { grid-template-columns: 1fr; } html .wallpaper-settings { padding: 16px; } .wallpaper-preview { height: 360px; } .glass-test-copy h3 { font-size: 22px; } }
 @media (forced-colors: active) { .wallpaper-background { display: none; } .material-slider input[type="range"] { appearance: auto; } html .glass-presets button[aria-pressed="true"], html .wallpaper-gallery button[aria-pressed="true"] { outline: 2px solid Highlight; } }

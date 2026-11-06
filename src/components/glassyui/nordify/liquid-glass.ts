@@ -617,7 +617,10 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
   const measureAvail = (): ReflectAvail => {
     const r = host.getBoundingClientRect();
     const q = (v: number) => Math.max(0, Math.floor(v / AVAIL_STEP) * AVAIL_STEP);
-    return [q(r.top), q(innerWidth - r.right), q(innerHeight - r.bottom), q(r.left)];
+    // Exclude scrollbars: reflecting into their width creates horizontal
+    // overflow on narrow pages even when the panel itself fits.
+    const viewport = host.ownerDocument.documentElement;
+    return [q(r.top), q((viewport.clientWidth || innerWidth) - r.right), q((viewport.clientHeight || innerHeight) - r.bottom), q(r.left)];
   };
 
   /** Lays every tile into the current box. Never bakes. */

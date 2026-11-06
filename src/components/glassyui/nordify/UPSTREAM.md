@@ -5,7 +5,12 @@ Source: https://github.com/nordify/css-liquid-glass
 Pinned commit: `1eae0ba146dc48b30caf90f993a118b2915519cf`.
 
 `maps.ts`, `liquid-glass.ts`, `liquid-glass.css`, `HOW-IT-WORKS.md`, and
-`LICENSE` are copied unchanged. Copyright (c) 2026 Nordify, MIT license.
+`LICENSE` were originally copied from that revision. Copyright (c) 2026 Nordify,
+MIT license. Local engine changes:
+
+- CSS is imported by the root app layout to preserve production stylesheet order.
+- Reflection availability uses the document's client viewport, excluding scrollbars,
+  so optical overhang cannot create horizontal scrolling on narrow pages.
 
 React mounting and Still Signal material tokens live outside this directory.
 The adapter uses `promote: false` to avoid promoting an ancestor of a lens.

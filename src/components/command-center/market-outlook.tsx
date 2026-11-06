@@ -3,6 +3,7 @@ import { createRecord, type RecordOf } from "@/lib/process/model";
 import { relevantTheses } from "../trading-thesis/workspace";
 import { Field, type Context } from "./shared";
 import { thesisMatchesInstrument } from "@/lib/process/thesis";
+import { GlassPanel } from "../glassyui/glass-panel";
 const minutes = (value: string) => {
   const key = value.trim().toLowerCase();
   if (["weekly", "week", "1w"].includes(key)) return 10080;
@@ -90,7 +91,7 @@ export default function MarketOutlook({ store, day, props }: Context) {
   ]);
   const extraScopes = timeframes.filter((t) => minutes(t) >= 1440);
   return (
-    <div
+    <GlassPanel lens
       className="cc-market-strip guide-market-outlook"
       aria-label="Recorded market bias"
     >
@@ -110,6 +111,6 @@ export default function MarketOutlook({ store, day, props }: Context) {
         </details>
       )}
       {store.error && <p role="alert">{store.error}</p>}
-    </div>
+    </GlassPanel>
   );
 }

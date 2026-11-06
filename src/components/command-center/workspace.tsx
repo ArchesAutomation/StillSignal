@@ -498,7 +498,7 @@ function StartDashboard({
           (v) => !v.body.archived,
         )}
         market={
-          <div className="cc-market-strip">
+          <GlassPanel lens className="cc-market-strip">
             <span>{date}</span>
             <Badge>Preparation not started</Badge>
             <Badge>No thesis recorded</Badge>
@@ -507,7 +507,7 @@ function StartDashboard({
                 ? "Wearable recording"
                 : "No live HR recording"}
             </Badge>
-          </div>
+          </GlassPanel>
         }
         status={{
           session: (

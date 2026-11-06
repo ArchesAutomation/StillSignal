@@ -2,7 +2,17 @@
 
 Implemented in [commit 07ad2be](https://github.com/ArchesAutomation/StillSignal/commit/07ad2be3ed3c65ab567684231da0b175bfd40fa5), based on **476a6648ad7d17df320f7065d43dbe00a3d1969b**. Published to `main` and deployed on 6 November 2026 after the request to push it live. This document records the completed upgrade; the accompanying documentation PR is retrospective.
 
-## Changes
+## Cloudflare customization follow-up
+
+Wallpaper & glass now contains a movable, resizable **Test panel**. Its Move and Resize handles support mouse, touch and arrow keys; Shift takes larger steps, Escape cancels a gesture and Home or Reset panel restores the sample geometry. Preset changes preserve its position and size. The preview paints a local wallpaper backdrop, so it can use Nordify inside the Settings module without filtering that module a second time. Position changes update the existing lens; resizing keeps the existing optical maps' settling behavior. The six-lens budget remains; only this preview may use a bounded 480,000-pixel lens instead of the analytical surface limit of 180,000 pixels.
+
+Review invitations, market/preparation strips, journal date/session controls and Command Center status cells use the shared glass material. Opaque status-cell fills are removed. Lightweight panels respond to refraction-edge and reflection controls as well as blur, tint and radius. Their text remains above the material. Reduced transparency also works within the local preview.
+
+The vendored engine's local scrollbar-boundary fix is recorded in `src/components/glassyui/nordify/UPSTREAM.md`. No dependency, account, database, trading-record or saved-layout format changed.
+
+Verification: 306 tests, TypeScript and the Workers production build pass. An isolated browser fixture uses the actual preview, providers, material controls and compiled app CSS. Chrome checks cover native pointer drag/resize, persistent presets, all five sliders, reduced transparency, a live optical instance and a 390-pixel iframe without horizontal overflow. Signed-in production data flows and physical touch devices remain outside this visual check.
+
+## Original release changes
 
 Still Signal keeps its existing layout, navigation, ocean, sharks, wallpaper library, chart code, forms and dashboard engine. The existing GlassProvider, GlassSurface, GlassPanel and GlassButton APIs remain in place. GlassSurface and GlassButton now use one shared Nordify adapter; the former optical hooks are no longer imported by these components. Inputs and textareas keep their existing implementations.
 
@@ -18,7 +28,7 @@ Baseline commands before UI changes: npm run typecheck PASS; npm test PASS, 295 
 
 ## Actual Nordify integration
 
-Vendored [Nordify](https://github.com/nordify/css-liquid-glass) commit **1eae0ba146dc48b30caf90f993a118b2915519cf**. Its maps.ts, liquid-glass.ts and liquid-glass.css are copied unchanged, with the complete MIT license and HOW-IT-WORKS.md. The maps and engine hashes were compared against the checkout. The adapter follows the [upstream mounting and backdrop-root guidance](https://github.com/nordify/css-liquid-glass/blob/main/HOW-IT-WORKS.md).
+Vendored [Nordify](https://github.com/nordify/css-liquid-glass) commit **1eae0ba146dc48b30caf90f993a118b2915519cf**, with the complete MIT license and HOW-IT-WORKS.md. The original maps and engine hashes were compared against the checkout; subsequent local changes are recorded in UPSTREAM.md. The adapter follows the [upstream mounting and backdrop-root guidance](https://github.com/nordify/css-liquid-glass/blob/main/HOW-IT-WORKS.md).
 
 This preserves SVG backdrop refraction, greyscale nine-slice maps, refractive edge folding, reflections, directional lighting, caustics, bounded caches, resize ratcheting and settled precomputed fields. Chrome and Edge were observed using url(#lg-refract-…-baked), not a substitute blur-only optical engine.
 

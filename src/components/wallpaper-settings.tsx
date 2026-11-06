@@ -2,9 +2,8 @@
 import { useId, useRef, useState, type CSSProperties } from "react";
 import { useAppearance } from "./appearance-context";
 import { useOptionalPreferences } from "./glassyui/glass-provider";
-import { GlassPanel } from "./glassyui/glass-panel";
+import GlassTestPanel from "./glass-test-panel";
 import { GlassMaterialSettings } from "./glass-material-settings";
-import { GLASS_PRESETS } from "./glassyui/lib/glass-material";
 import { GlassButton } from "./glassyui/glass-button";
 import { useWallpaperLibrary } from "./wallpaper-background";
 import { BUILTIN_WALLPAPERS, deleteWallpaper, saveWallpaper } from "@/lib/wallpapers";
@@ -44,11 +43,7 @@ export default function WallpaperSettings() {
   };
   return <section className="settings-card wallpaper-settings" aria-labelledby="wallpaper-heading">
     <header><span className="material-eyebrow">APPEARANCE STUDIO</span><h2 id="wallpaper-heading">Wallpaper & glass</h2><p>A backdrop you love. Glass that feels like you.</p></header>
-    <div className="wallpaper-preview" style={{ backgroundImage: selected?.background ?? BUILTIN_WALLPAPERS[0].background }}>
-      <div className="wallpaper-preview-dim" style={{ opacity: appearance.wallpaperDim / 100 }} />
-      <GlassPanel preset="control" lens className="wallpaper-preview-card"><span>YOUR EVERYDAY, REFINED</span><strong>A little more clarity.</strong><p>Changes appear throughout your workspace.</p><GlassButton type="button" lens={false} onClick={() => setPreferences({ material: GLASS_PRESETS.graphite })}>Graphite glass</GlassButton></GlassPanel>
-      <span className="wallpaper-preview-caption">LIVE MATERIAL PREVIEW</span>
-    </div>
+    <GlassTestPanel background={selected?.background ?? BUILTIN_WALLPAPERS[0].background} dim={appearance.wallpaperDim} />
     <div className="wallpaper-section-heading"><h3>Your wallpaper</h3><span>{images.length} / 8 custom</span></div>
     <div className="wallpaper-gallery" aria-label="Wallpaper library">
       {choices.map(choice => <button key={choice.id} type="button" disabled={busy} aria-pressed={appearance.wallpaper === choice.id} onClick={() => update({ wallpaper: choice.id })}><span style={{ backgroundImage: choice.background }} /><span>{choice.name}</span></button>)}

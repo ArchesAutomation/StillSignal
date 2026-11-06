@@ -6,6 +6,7 @@ import {
   reviewInvitationKey,
 } from "@/lib/process/session-review";
 import type { Props } from "./concept/shared";
+import { GlassPanel } from "./glassyui/glass-panel";
 export default function PostExitInvitation({ props }: { props: Props }) {
   const owner = props.pulse.owner,
     key = `ss-review-invitations:${owner}`;
@@ -50,7 +51,8 @@ export default function PostExitInvitation({ props }: { props: Props }) {
   if (props.page === "Pre-Market") return null;
   if (!pending.length) return error ? <p role="status">{error}</p> : null;
   return (
-    <aside
+    <GlassPanel
+      lens
       className="guide-exit-invitation"
       role="status"
       aria-label="Post-exit review invitation"
@@ -96,6 +98,6 @@ export default function PostExitInvitation({ props }: { props: Props }) {
           Open my stillness
         </button>
       </div>
-    </aside>
+    </GlassPanel>
   );
 }
