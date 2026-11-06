@@ -4,7 +4,8 @@ The October journal-reference integration adds the supplied journal layout, prep
 
 A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 
-- Live app: https://still-signal.vercel.app (the existing trade-pulse-ebon.vercel.app alias remains available).
+- Cloudflare app: https://still-signal.archesautomation.workers.dev
+- Hosting and deployment: Cloudflare Workers with GitHub Builds. See [Cloudflare operations](docs/cloudflare-migration.md).
 - Source: https://github.com/ArchesAutomation/StillSignal
 - Backend: Supabase **Still Signal** (`ipfurgwqqjkybhadzutj`), Canada Central.
 - Each authenticated user is one tenant. Shared credentials share a workspace; give each tester their own account.
@@ -36,7 +37,7 @@ WHOOP Heart Rate Broadcast can be attached to a journal in a supported Web Bluet
 
 ## Architecture
 
-Browser → bounded Vercel API proxy → authenticated Supabase Edge Function → Postgres. TradingView uses a direct Supabase webhook to avoid an extra network hop within its three-second response deadline.
+Browser → bounded Cloudflare Worker API proxy → authenticated Supabase Edge Function → Postgres. TradingView uses a direct Supabase webhook to avoid an extra network hop within its three-second response deadline.
 
 User APIs verify JWTs with `auth.getUser()`, then scope all operations by the verified user ID. Direct reads have tenant RLS; direct client mutations and privileged RPCs are revoked. Composite owner/session foreign keys protect child rows. Account webhook tokens are random, hashed at rest, expire after 30 days, and can be rotated or disconnected. They permit ingestion only.
 
@@ -51,13 +52,13 @@ npm run bench
 npm run prepare:edge
 ```
 
-Production Vercel needs only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the browser may receive these public values. Privileged keys stay in Supabase's Edge environment. Never set a service-role/secret key under `NEXT_PUBLIC_*` or commit it.
+Production Cloudflare Builds needs only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the browser may receive these public values. Privileged keys stay in Supabase's Edge environment. Never set a service-role/secret key under `NEXT_PUBLIC_*` or commit it.
 
 All applied migrations are tracked under `supabase/migrations` and match the remote migration ledger. Do not rerun the initial migration on the provisioned database. Generate new migration files with the Supabase CLI, test them, apply once, and verify the remote ledger. `npm run prepare:edge` generates deployable copies of the runtime handlers and dependencies.
 
 `pulse-data` verifies user JWTs internally. `pulse-tradingview` verifies a narrow hashed webhook token. Both use gateway `verify_jwt=false` for their custom authentication; do not remove the checks in their handlers. `pulse-bootstrap` is retired and contains no administrative setup code.
 
-Production Auth Site URL and the exact redirect allowlist use the live app URL above. For a public launch, configure SMTP and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Preview deployments should use separate Supabase projects. The optional Supabase GitHub App is not required for runtime connectivity and has not been installed. Production releases currently deploy directly from GitHub source; automatic future push deployments have not been verified.
+Production Auth Site URL and the exact redirect allowlist use the live app URL above. For a public launch, configure SMTP and set `NEXT_PUBLIC_OPEN_SIGNUP=true` in the intended environment. Preview deployments should use separate Supabase projects. The optional Supabase GitHub App is not required for runtime connectivity and has not been installed. Cloudflare Builds watches main for production and uses preview builds for other branches. Preview URLs are separate origins; signing in again is expected.
 
 ## Verification and capacity
 
