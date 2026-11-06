@@ -1,12 +1,10 @@
 'use client';
 
 import clsx from 'clsx';
-import { Children, forwardRef, useMemo, useRef, useSyncExternalStore } from 'react';
+import { Children, forwardRef, useMemo, useRef } from 'react';
 import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
 import { mergeRefs } from './lib/merge-refs';
-import { useGlassScenePane } from './lib/scene-context';
-import { useLensFilter, useRefractionFilter } from './lib/use-refraction-filter';
-import { useOptionalPreferences } from './glass-provider';
+import { useNordify } from './lib/use-nordify';
 
 export type SurfaceRefraction = 'none' | 'soft' | 'strong';
 
@@ -33,20 +31,6 @@ export type GlassSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   thickness?: number;
 };
 
-// Increased contrast dims the lens through its tokens, which the lens reads only when it measures.
-const contrastQuery = '(prefers-contrast: more)';
-
-const subscribeToContrast = (onChange: () => void) => {
-  const query = window.matchMedia(contrastQuery);
-  query.addEventListener('change', onChange);
-
-  return () => query.removeEventListener('change', onChange);
-};
-
-const readContrast = () => window.matchMedia(contrastQuery).matches;
-
-const readServerContrast = () => false;
-
 export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
   (
     {
@@ -54,7 +38,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
       children,
       interactive = false,
       preset = 'standard',
-      lens = preset === 'control' || preset === 'showcase',
+      lens = preset === 'control' || preset === 'showcase' || /(?:ss-reference-topbar|cc-dashboard-toolbar|ss-module-toolbar|ss-journal-history)/.test(className ?? ''),
       refraction = preset === 'showcase' ? 'strong' : 'none',
       refractionBackground,
       refractionBackgroundSpace = 'local',
@@ -65,79 +49,25 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
     },
     forwardedRef,
   ) => {
-    const { preferences } = useOptionalPreferences();
-    const reduceMotion = Boolean(preferences?.reduceMotion);
-    const reduceTransparency = Boolean(preferences?.reduceTransparency);
     const surfaceRef = useRef<HTMLDivElement | null>(null);
     const ref = useMemo(() => mergeRefs(surfaceRef, forwardedRef), [forwardedRef]);
-
-    const generatedRefractionEnabled =
-      refraction !== 'none' &&
-      Boolean(refractionBackground) &&
-      !reduceMotion &&
-      !reduceTransparency;
-
-    const { active, filterElement, filterStyle, sceneRef } = useRefractionFilter(surfaceRef, {
-      displacement: refractionDisplacement,
-      enabled: generatedRefractionEnabled,
-      reduceTransparency,
-      strength: refraction === 'none' ? 'soft' : refraction,
-      thickness: thickness ?? preferences?.thickness,
-      viewportAligned: refractionBackgroundSpace === 'viewport',
-    });
-
-    const moreContrast = useSyncExternalStore(
-      subscribeToContrast,
-      readContrast,
-      readServerContrast,
-    );
-
-    // One refraction technique at a time: a generated background scene covers the frost.
-    const lensFilter = useLensFilter(surfaceRef, {
-      enabled: lens && !generatedRefractionEnabled && !reduceTransparency,
-      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${thickness ?? preferences?.thickness}:${preferences?.blur}:${preferences?.refraction}:${moreContrast}`,
-    });
-
-    // Inside a GlassScene the canvas draws this glass; a generated refraction
-    // scene is its own backdrop and keeps its CSS material.
-    useGlassScenePane(surfaceRef, !generatedRefractionEnabled);
+    // Compact shared surfaces opt in; analytical panels keep the static material.
+    useNordify(surfaceRef, lens || refraction !== 'none');
+    // Preserve the public props; live DOM is now the optical backdrop.
+    void refractionBackground; void refractionBackgroundSpace; void refractionDisplacement;
 
     return (
       <div
         ref={ref}
-        data-lg-generated-refraction={active ? 'true' : 'false'}
+        data-glass-surface="panel"
         data-lg-interactive={interactive ? 'true' : 'false'}
-        data-lg-lens={lensFilter.active ? 'active' : undefined}
         data-lg-preset={preset}
         data-lg-refraction={refraction}
         data-lg-refraction-background-space={refractionBackgroundSpace}
         className={clsx('lg-glass-surface', className)}
-        style={
-          // SAFETY: CSSProperties has no custom-property index; these add string-valued properties.
-          lensFilter.filterStyle || thickness !== undefined
-            ? ({
-                ...style,
-                ...(thickness === undefined ? null : { '--lg-glass-thickness': thickness }),
-                ...(lensFilter.filterStyle ? { '--lg-lens-filter': lensFilter.filterStyle } : null),
-              } as CSSProperties)
-            : style
-        }
+        style={thickness !== undefined ? ({ ...style, '--lg-glass-thickness': thickness } as CSSProperties) : style}
         {...rest}
       >
-        {filterElement}
-        {lensFilter.filterElement}
-        {active ? (
-          <div
-            className="lg-refraction-background"
-            aria-hidden="true"
-            style={{ filter: filterStyle }}
-          >
-            <div ref={sceneRef} className="lg-refraction-scene">
-              {refractionBackground}
-            </div>
-          </div>
-        ) : null}
-        <span className="lg-noise" aria-hidden />
         {Children.map(children, (child) =>
           // Children.map yields null, elements, portals or text; wrap only the text.
           child === null || child instanceof Object ? (

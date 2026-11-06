@@ -1,0 +1,104 @@
+/* The original Nordify optics live in ../nordify. These rules mount them in
+   Still Signal without changing content geometry or the dashboard engine. */
+:root {
+  --ss-glass-blur: 6px;
+  --ss-glass-radius: 18px;
+  --ss-glass-tint: .26;
+  --ss-glass-reflection: .53;
+  --ss-glass-rgb: 12 22 29;
+}
+:root[data-theme="light"] { --ss-glass-rgb: 244 250 253; }
+html body { isolation: auto; }
+html .ss-app.ss-reference-app { isolation: auto; overflow: visible; }
+html [data-glass-surface] {
+  isolation: auto;
+  contain: none;
+  /* Clip the content's scrolling containers, never the refractive overhang. */
+  overflow: visible;
+  border-radius: var(--ss-glass-radius) !important;
+}
+html [data-glass-surface="panel"] {
+  background: transparent;
+  border: 1px solid var(--signal-line);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .12), inset 0 1px 0 rgb(235 248 255 / .08);
+}
+/* One quiet material for large panels; no SVG maps or second optical engine. */
+html [data-glass-surface="panel"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: rgb(var(--ss-glass-rgb) / var(--ss-glass-tint)) !important;
+  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  -webkit-backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  pointer-events: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+html [data-glass-surface="panel"]::after { content: none; }
+/* The inherited glass content rule otherwise outranks the legacy canvas layer.
+   Restore the engine's corner anchoring rather than putting handles in flow. */
+html .cc-canvas [data-glass-surface="panel"] > .cc-resize-handle { position: absolute; z-index: 3; }
+/* The controls already own their focus, pointer and pressed-state behavior. */
+html [data-glass-surface="button"] .lg-button__distortion {
+  backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+  -webkit-backdrop-filter: blur(var(--ss-glass-blur)) saturate(1.1);
+}
+html [data-glass-surface="button"] .lg-button__tint { background: rgb(var(--ss-glass-rgb) / var(--ss-glass-tint)); }
+html [data-glass-surface] .lg-glass-surface::before,
+html [data-glass-surface] .lg-button__distortion { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html [data-glass-surface="panel"] .lg-glass-surface { background: transparent; box-shadow: none; border: 0; }
+html [data-glass-surface] > .ss-nordify-decoration {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  display: block; padding: 0; margin: 0; border: 0; border-radius: inherit;
+  background: transparent; overflow: visible;
+}
+.ss-nordify-host { position: absolute; inset: 0; display: block; }
+.ss-nordify-decoration :is(.lg-host, .lg-cover) {
+  --lg-dark: 1;
+  --lg-tint: rgb(var(--ss-glass-rgb) / var(--ss-glass-tint));
+  --lg-underlay: .015;
+  --lg-spec: calc(.1 + var(--ss-glass-reflection) * .12);
+  --lg-glint-sat: 1.2;
+  --lg-rim-sat: 1.1;
+  --lg-caustic-o: .035;
+  --lg-shadow-o: .06;
+}
+:root[data-theme="light"] .ss-nordify-decoration :is(.lg-host, .lg-cover) { --lg-dark: 0; --lg-underlay: .04; --lg-caustic-o: .12; }
+html [data-nordify]::before, html [data-nordify]::after { content: none; }
+html [data-nordify] > .lg-button__layers { display: none; }
+/* Analytical text stays on its own foreground layer. Drag and resize geometry
+   remains owned by DashboardCanvas, including its transform animations. */
+html :is(.cc-canvas-editing, .cc-canvas-interacting, .ss-free-board-editing) [data-glass-surface]::before {
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  background: rgb(var(--ss-glass-rgb) / .72) !important;
+}
+.glass-material-settings { min-width: 0; display: grid; gap: 12px; }
+.glass-material-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.glass-material-heading > span { font-size: 12px; color: var(--signal-muted); }
+.glass-material-settings .glass-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.glass-material-settings button { color: var(--signal-text); background: var(--signal-recess); border: 1px solid var(--signal-line); border-radius: 8px; padding: 10px 8px; cursor: pointer; font: inherit; }
+.glass-material-settings button[aria-pressed="true"] { background: rgb(175 215 235 / .13); border-color: var(--signal-muted); }
+.glass-customize > summary { cursor: pointer; color: var(--signal-text); padding: 10px 0; }
+.glass-customize[open] { display: grid; gap: 14px; }
+.glass-material-settings input[type="range"] { width: 100%; min-height: 32px; margin: 0; padding: 0; accent-color: var(--accent-color); touch-action: pan-y; }
+.glass-material-settings .material-slider > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.glass-material-settings output { color: var(--signal-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.glass-material-compact .material-slider-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.appearance-panel .glass-material-settings { width: 100%; }
+.appearance-panel .glass-material-settings label { font-size: 12px; }
+.glass-material-settings .material-accessibility { display: flex; justify-content: start; gap: 8px; align-items: center; }
+html[data-lg-reduce-transparency="1"] [data-glass-surface]::before { background: var(--lg-opaque-surface) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__tint { background: var(--lg-opaque-surface); }
+html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__distortion { backdrop-filter: none; -webkit-backdrop-filter: none; }
+@media (prefers-reduced-transparency: reduce) {
+  html [data-glass-surface]::before { content: "" !important; background: var(--lg-opaque-surface) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .ss-nordify-decoration { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) { html [data-glass-surface], html [data-glass-surface] * { animation: none !important; transition: none !important; } }
+@media (forced-colors: active) {
+  html [data-glass-surface] { border: 1px solid CanvasText; background: Canvas; }
+  html [data-glass-surface]::before, .ss-nordify-decoration { display: none !important; }
+}

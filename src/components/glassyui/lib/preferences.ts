@@ -1,3 +1,5 @@
+import { applyGlassMaterial, migrateGlassMaterial, parseGlassMaterial, type GlassMaterial } from './glass-material';
+
 export type GlassyUiMode = 'clear' | 'tinted';
 
 export type GlassyUiQuality = 'low' | 'medium' | 'high';
@@ -5,6 +7,7 @@ export type GlassyUiQuality = 'low' | 'medium' | 'high';
 export type GlassyUiTheme = 'light' | 'dark';
 
 export interface GlassyUiPreferences {
+  material?: GlassMaterial;
   theme?: GlassyUiTheme;
   mode?: GlassyUiMode;
   reduceTransparency?: boolean;
@@ -61,6 +64,7 @@ const FLAGS = [true, false] as const;
 
 export function applyPreferences(target: Document, prefs: GlassyUiPreferences) {
   const root = target.documentElement;
+  if (prefs.material) applyGlassMaterial(root, parseGlassMaterial(prefs.material));
 
   if (prefs.theme) {
     root.setAttribute(DATA_KEYS.theme, prefs.theme);
@@ -104,6 +108,7 @@ export function readPreferences(source: Document): Required<GlassyUiPreferences>
   };
 
   return {
+    material: parseGlassMaterial(null),
     theme: readOption(DATA_KEYS.theme, THEMES, 'dark'),
     mode: readOption(DATA_KEYS.mode, MODES, 'clear'),
     reduceTransparency: root.getAttribute(DATA_KEYS.reduceTransparency) === '1',
@@ -177,6 +182,8 @@ function decodePreferences(raw: string): GlassyUiPreferences {
   if (Number.isFinite(thickness) && stored.has('thickness')) {
     prefs.thickness = clampThickness(thickness);
   }
+
+  prefs.material = stored.has('material') ? parseGlassMaterial(stored.get('material')) : migrateGlassMaterial({ blur: prefs.blur, frost: prefs.frost, refraction: prefs.refraction, thickness: prefs.thickness });
 
   return prefs;
 }

@@ -12,10 +12,9 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { mergeRefs } from './lib/merge-refs';
-import { useGlassScenePane } from './lib/scene-context';
-import { useLensFilter } from './lib/use-refraction-filter';
+import { useNordify } from './lib/use-nordify';
 import { useOptionalPreferences } from './glass-provider';
 
 export type ButtonVariant = 'primary' | 'prominent' | 'ghost' | 'soft';
@@ -224,13 +223,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, ButtonProps>(
       if (disabled && buttonRef.current) releasePress(buttonRef.current);
     }, [disabled, releasePress]);
 
-    // Inside a GlassScene the canvas draws this glass. Ghost buttons have none.
-    useGlassScenePane(buttonRef, variant !== 'ghost');
-
-    const lensFilter = useLensFilter(buttonRef, {
-      enabled: lens && !disabled && !reduceTransparency,
-      signature: `${preferences?.theme}:${preferences?.mode}:${preferences?.quality}:${preferences?.thickness}:${preferences?.blur}:${preferences?.refraction}`,
-    });
+    useNordify(buttonRef, lens && !disabled && !reduceTransparency);
 
     // Without this, the client renders a lazy child's content outside the label: it sinks under
     // the material layers, and hydration fails.
@@ -245,14 +238,9 @@ export const GlassButton = forwardRef<HTMLButtonElement, ButtonProps>(
         type={asChild ? type : (type ?? 'button')}
         disabled={asChild ? undefined : disabled}
         className={clsx('lg-button', VARIANT_CLASS[variant], SIZE_CLASS[size], className)}
-        data-lg-lens={lensFilter.active ? 'active' : undefined}
+        data-glass-surface="button"
         data-lg-preset={preset}
-        style={
-          // SAFETY: CSSProperties has no custom-property index; this adds one string-valued property.
-          lensFilter.filterStyle
-            ? ({ ...style, '--lg-lens-filter': lensFilter.filterStyle } as CSSProperties)
-            : style
-        }
+        style={style}
         onPointerLeave={handlePointerLeave}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
@@ -263,7 +251,6 @@ export const GlassButton = forwardRef<HTMLButtonElement, ButtonProps>(
         data-pressed="false"
       >
         <span className="lg-button__layers" aria-hidden="true">
-          {lensFilter.filterElement}
           <span className="lg-button__light" />
           <span className="lg-button__distortion" />
           <span className="lg-button__tint" />

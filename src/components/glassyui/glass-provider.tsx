@@ -1,6 +1,8 @@
 'use client';
 
 import './styles/liquid.css';
+import './styles/nordify-integration.css';
+import { GLASS_PRESETS, parseGlassMaterial } from './lib/glass-material';
 
 import {
   createContext,
@@ -40,6 +42,7 @@ type PreferenceContextValue = {
 };
 
 const DEFAULT_STATE: PreferenceState = {
+  material: GLASS_PRESETS.graphite,
   theme: 'dark',
   mode: 'clear',
   reduceTransparency: false,
@@ -174,6 +177,7 @@ export function GlassProvider({
   }, [hydrated, preferences]);
 
   const update = useCallback((next: Partial<GlassyUiPreferences>) => {
+    if (next.material) next = { ...next, material: parseGlassMaterial(next.material) };
     // The document changes before React renders whatever asked for the change, so a
     // control's own flip runs under the setting it lands in. Turning Reduce Motion off
     // from its own switch then animates instead of snapping under the old setting.
