@@ -19,6 +19,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx vinext check
+      - run: npx cf workers types --no-include-runtime && cat .cloudflare/types/index.d.ts
       - run: npm run typecheck
       - run: npm run build
         env:
