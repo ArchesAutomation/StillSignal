@@ -53,7 +53,7 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
       const box = surface.getBoundingClientRect();
       // Nested controls share the outer material instead of filtering it again.
       const nested = surface.parentElement?.closest('[data-glass-surface]');
-      const allowed = !transparency.matches && inView && box.width >= 8 && box.height >= 8 && box.width * box.height <= MAX_OPTICAL_AREA && !nested && !opticalAncestorBlocked(surface);
+      const allowed = !surface.hasAttribute('data-plasma-surface') && !surface.hasAttribute('data-plasma-container') && !transparency.matches && inView && box.width >= 8 && box.height >= 8 && box.width * box.height <= MAX_OPTICAL_AREA && !nested && !opticalAncestorBlocked(surface);
       if (!allowed) { destroy(); return; }
       if (glass || lenses.size >= MAX_OPTICAL_SURFACES) return;
       decoration = document.createElement('span');
@@ -84,7 +84,7 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
       schedule();
     });
     for (let node: HTMLElement | null = surface; node; node = node.parentElement) {
-      mutations.observe(node, { attributes: true, attributeFilter: ['class', 'style', 'data-glass-suspended'] });
+      mutations.observe(node, { attributes: true, attributeFilter: ['class', 'style', 'data-glass-suspended', 'data-plasma-surface', 'data-plasma-container'] });
     }
     const mediaChange = () => { if (transparency.matches) destroy(); else schedule(); };
     transparency.addEventListener('change', mediaChange);

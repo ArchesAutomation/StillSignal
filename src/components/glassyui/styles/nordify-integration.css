@@ -102,3 +102,33 @@ html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__
   html [data-glass-surface] { border: 1px solid CanvasText; background: Canvas; }
   html [data-glass-surface]::before, .ss-nordify-decoration { display: none !important; }
 }
+
+/* One optional background pass. The interactive foreground stays in the DOM. */
+.ss-plasma-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; width: 100%; height: 100%; }
+.ss-plasma-canvas[hidden] { display: none; }
+html [data-plasma-surface]::before, html [data-plasma-surface]::after,
+html [data-plasma-container]::before, html [data-plasma-container]::after { content: none !important; }
+html [data-plasma-surface] > .ss-nordify-decoration,
+html [data-plasma-container] > .ss-nordify-decoration { display: none !important; }
+html [data-plasma-surface], html [data-plasma-container] { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html [data-plasma-surface] { border-color: transparent; box-shadow: none; }
+.plasma-settings-body { display: grid; gap: 14px; min-width: 0; }
+html .appearance-panel.lg-glass-surface { width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 190px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.glass-settings-note { margin: 0; color: var(--signal-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.plasma-enable { font-weight: 600; }
+.plasma-looks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.plasma-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.glass-material-settings .plasma-field-grid > :is(label,div) { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.glass-material-settings .plasma-field-grid select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--signal-line); border-radius: 8px; background: var(--signal-recess); color: var(--signal-text); }
+.glass-material-settings input[type="color"] { width: 100%; min-height: 36px; padding: 4px; border: 1px solid var(--signal-line); border-radius: 8px; background: transparent; }
+.plasma-control-group { border-top: 1px solid var(--signal-line); padding-top: 10px; }
+.plasma-control-group > summary { cursor: pointer; padding: 6px 0 12px; }
+.plasma-control-group .material-slider-grid, .plasma-switch-grid { display: grid; gap: 12px; }
+.plasma-switch-grid { margin-top: 14px; }
+.glass-material-settings input:disabled { opacity: .4; cursor: not-allowed; }
+.plasma-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plasma-actions button { flex: 1 1 85px; }
+.glass-material-settings input[type="checkbox"] { accent-color: var(--accent-color); flex-shrink: 0; width: 16px; height: 16px; }
+.glass-material-settings :is(button,input,select,summary):focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+@media (max-width: 480px) { .plasma-field-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) { .ss-plasma-canvas { display: none; } }
