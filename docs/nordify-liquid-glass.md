@@ -1,6 +1,6 @@
 # Still Signal — Nordify Liquid Glass review
 
-Implemented on local branch **ui/nordify-liquid-glass**, based on **476a6648ad7d17df320f7065d43dbe00a3d1969b**. Nothing was pushed, merged or deployed. Review date: 6 November 2026.
+Implemented in [commit 07ad2be](https://github.com/ArchesAutomation/StillSignal/commit/07ad2be3ed3c65ab567684231da0b175bfd40fa5), based on **476a6648ad7d17df320f7065d43dbe00a3d1969b**. Published to `main` and deployed on 6 November 2026 after the request to push it live. This document records the completed upgrade; the accompanying documentation PR is retrospective.
 
 ## Changes
 
@@ -118,19 +118,24 @@ verification-results.zip includes the successful browser result JSON, screenshot
 - tests/nordify-lifecycle.test.ts
 - docs/nordify-liquid-glass.md
 
-## Review and rollback
+## Pull request and deployment record
 
-The branch is local in this checkout; it was deliberately not pushed because repository pushes can trigger preview deployments. still-signal-nordify.bundle contains the review branch and requires base commit 476a6648ad7d17df320f7065d43dbe00a3d1969b, already present in the repository history. still-signal-nordify.patch is also supplied.
+The implementation was pushed directly to `main` after deployment was authorized. There was no implementation pull request before that push. This retrospective documentation PR provides a notes and audit record; it does not reapply the application changes or constitute a pre-deployment review.
 
-From an existing StillSignal checkout, fetch the bundle's ui/nordify-liquid-glass ref into a new local branch and switch to it for review. In this prepared checkout that branch is already selected. Returning to main restores the baseline UI. To undo the committed upgrade after applying it, revert the review commit; do not reset or overwrite saved user records. Legacy preference keys remain present, so the previous UI can read its original settings. No database or server rollback is required.
+- Implementation: [07ad2be — Integrate Nordify liquid glass with material presets and accessible controls](https://github.com/ArchesAutomation/StillSignal/commit/07ad2be3ed3c65ab567684231da0b175bfd40fa5), 23 changed files.
+- Preserved implementation branch: [ui/nordify-liquid-glass](https://github.com/ArchesAutomation/StillSignal/tree/ui/nordify-liquid-glass).
+- Production site: [Still Signal](https://still-signal.vercel.app/).
+- Verified production deployment: [dpl_22KRQLqgEX7KBWBJdX3WhbvT1XM2](https://vercel.com/arches-automation/still-signal/22KRQLqgEX7KBWBJdX3WhbvT1XM2), READY, serving commit `07ad2be3ed3c65ab567684231da0b175bfd40fa5`.
+- Live smoke checks passed: public page HTTP 200, new Appearance material controls, custom blur persistence after reload, healthy configured API, production review route HTTP 404, and no unhandled browser errors in that check.
+- The initial deployment-specific error/fatal log scan returned no matching entries.
+- Production smoke testing covered the public page and settings. The signed-in production dashboard was not verified in that smoke check; its functional browser checks used the isolated local review workspace.
 
-### Import the supplied branch
+## Rollback
 
-Run from your usual StillSignal checkout:
+Switching to `main` no longer rolls back the upgrade: the implementation is already on `main`. To propose a source rollback, create a new branch from current `main`, run the command below, and submit the revert through a normal PR before deploying it:
 
 ```powershell
-git fetch "C:/Users/Owner/Documents/Codex/2026-11-06/files-pasted-by-the-user-still/outputs/still-signal-nordify.bundle" ui/nordify-liquid-glass:ui/nordify-liquid-glass
-git switch ui/nordify-liquid-glass
+git revert 07ad2be3ed3c65ab567684231da0b175bfd40fa5
 ```
 
-For a local rollback before merging, run `git switch main`. If the review commit has been applied elsewhere, `git revert ui/nordify-liquid-glass` creates a reversible commit removing this upgrade.
+The preceding production deployment was `dpl_9MN4Bn4XasFjN4BnsiXGANW1nitS`, serving `476a6648ad7d17df320f7065d43dbe00a3d1969b`. Restoring a deployment would be a separate release action. No rollback is performed by this documentation PR, and no database or saved-record changes are proposed.

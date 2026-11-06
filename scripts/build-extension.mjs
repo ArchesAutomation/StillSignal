@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { mkdir, cp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 const origin = new URL(
-  process.env.EXTENSION_APP_ORIGIN || "https://still-signal.vercel.app",
+  process.env.EXTENSION_APP_ORIGIN || "https://still-signal.archesautomation.workers.dev",
 ).origin;
 if (!origin.startsWith("https://") && origin !== "http://localhost:3000")
   throw new Error("Use HTTPS or the local development origin.");

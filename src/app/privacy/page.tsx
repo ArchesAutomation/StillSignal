@@ -62,7 +62,7 @@ export default function Privacy() {
         The optional Chrome voice journal extension uses a revocable
         journal-only credential paired through your signed-in account. Activated
         recordings are sent to the configured remote transcription provider
-        (Groq or OpenAI). Unclear speech requires review. Raw audio stays only
+        (Groq, OpenAI, or Cloudflare Workers AI). Unclear speech requires review. Raw audio stays only
         in extension storage during capture and retry and is removed after
         successful transcription or cancellation. Pending notes stay separated
         by account. Optional “Hey Journal” detection runs locally and requires a

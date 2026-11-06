@@ -16,3 +16,6 @@ extension/test-results/
 
 .next-*/
 out/
+/dist/
+.vinext/
+.cloudflare/
