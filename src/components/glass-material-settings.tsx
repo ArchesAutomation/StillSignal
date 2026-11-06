@@ -3,6 +3,7 @@
 import { useId, type CSSProperties } from 'react';
 import { useOptionalPreferences } from './glassyui/glass-provider';
 import { GLASS_BOUNDS, GLASS_PRESETS, type GlassPreset } from './glassyui/lib/glass-material';
+import { PlasmaMaterialSettings } from './plasma-material-settings';
 
 export function GlassMaterialSettings({ compact = false }: { compact?: boolean }) {
   const { preferences, setPreferences } = useOptionalPreferences();
@@ -28,5 +29,6 @@ export function GlassMaterialSettings({ compact = false }: { compact?: boolean }
       <label className="material-accessibility"><input type="checkbox" checked={material.reflect} onChange={event => setPreferences({ material: { ...material, preset: 'custom', reflect: event.target.checked } })} /> Reflections</label>
       <button type="button" className="glass-reset" onClick={() => select(material.base)}>Reset to {material.base[0].toUpperCase() + material.base.slice(1)}</button>
     </details>
+    <PlasmaMaterialSettings />
   </section>;
 }

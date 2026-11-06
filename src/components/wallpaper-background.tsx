@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAppearance } from "./appearance-context";
 import { BUILTIN_WALLPAPERS, listWallpapers, WALLPAPER_EVENT } from "@/lib/wallpapers";
+import { useOptionalPreferences } from './glassyui/glass-provider';
+import { paintWallpaperBackdrop } from './glassyui/lib/wallpaper-backdrop';
 
 export function useWallpaperLibrary() {
   const [images, setImages] = useState<{ id: string; name: string; url: string }[]>([]);
@@ -31,10 +33,33 @@ export function useWallpaperLibrary() {
 
 export default function WallpaperBackground() {
   const { preferences } = useAppearance();
+  const { preferences: glass } = useOptionalPreferences();
   const { images } = useWallpaperLibrary();
   const custom = images.find(image => image.id === preferences.wallpaper);
   const builtin = BUILTIN_WALLPAPERS.find(image => image.id === preferences.wallpaper);
   const active = preferences.wallpaper !== "ocean" && Boolean(custom || builtin);
+  useEffect(() => {
+    if (!active || !glass.plasma.enabled) return;
+    const canvas = document.createElement('canvas');
+    canvas.hidden = true;
+    canvas.setAttribute('aria-hidden', 'true');
+    const image = custom ? new Image() : undefined;
+    let disposed = false;
+    const paint = () => {
+      if (disposed || image && !image.naturalWidth) return;
+      paintWallpaperBackdrop(canvas, preferences.wallpaper, preferences.wallpaperDim, image);
+      canvas.setAttribute('data-glass-backdrop', '');
+      if (!canvas.isConnected) document.body.append(canvas);
+      window.dispatchEvent(new Event('still-signal-glass-backdrop'));
+    };
+    if (image) { image.onload = paint; image.src = custom!.url; } else paint();
+    window.addEventListener('resize', paint);
+    return () => {
+      disposed = true; window.removeEventListener('resize', paint);
+      if (image) image.onload = null;
+      canvas.remove(); window.dispatchEvent(new Event('still-signal-glass-backdrop'));
+    };
+  }, [active, glass.plasma.enabled, custom, preferences.wallpaper, preferences.wallpaperDim]);
   useEffect(() => {
     document.documentElement.dataset.wallpaper = active ? "image" : "ocean";
     return () => { delete document.documentElement.dataset.wallpaper; };

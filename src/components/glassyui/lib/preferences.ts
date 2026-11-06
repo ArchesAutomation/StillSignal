@@ -1,4 +1,5 @@
 import { applyGlassMaterial, migrateGlassMaterial, parseGlassMaterial, type GlassMaterial } from './glass-material';
+import { DEFAULT_PLASMA, parsePlasmaPreferences, type PlasmaPreferences } from './plasma-settings';
 
 export type GlassyUiMode = 'clear' | 'tinted';
 
@@ -7,6 +8,7 @@ export type GlassyUiQuality = 'low' | 'medium' | 'high';
 export type GlassyUiTheme = 'light' | 'dark';
 
 export interface GlassyUiPreferences {
+  plasma?: PlasmaPreferences;
   material?: GlassMaterial;
   theme?: GlassyUiTheme;
   mode?: GlassyUiMode;
@@ -108,6 +110,7 @@ export function readPreferences(source: Document): Required<GlassyUiPreferences>
   };
 
   return {
+    plasma: { ...DEFAULT_PLASMA },
     material: parseGlassMaterial(null),
     theme: readOption(DATA_KEYS.theme, THEMES, 'dark'),
     mode: readOption(DATA_KEYS.mode, MODES, 'clear'),
@@ -184,6 +187,7 @@ function decodePreferences(raw: string): GlassyUiPreferences {
   }
 
   prefs.material = stored.has('material') ? parseGlassMaterial(stored.get('material')) : migrateGlassMaterial({ blur: prefs.blur, frost: prefs.frost, refraction: prefs.refraction, thickness: prefs.thickness });
+  if (stored.has('plasma')) prefs.plasma = parsePlasmaPreferences(stored.get('plasma'));
 
   return prefs;
 }

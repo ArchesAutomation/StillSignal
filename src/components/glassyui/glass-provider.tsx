@@ -3,6 +3,10 @@
 import './styles/liquid.css';
 import './styles/nordify-integration.css';
 import { GLASS_PRESETS, parseGlassMaterial } from './lib/glass-material';
+import { DEFAULT_PLASMA, parsePlasmaPreferences } from './lib/plasma-settings';
+import dynamic from 'next/dynamic';
+
+const PlasmaEngine = dynamic(() => import('./plasma-engine'), { ssr: false });
 
 import {
   createContext,
@@ -42,6 +46,7 @@ type PreferenceContextValue = {
 };
 
 const DEFAULT_STATE: PreferenceState = {
+  plasma: DEFAULT_PLASMA,
   material: GLASS_PRESETS.graphite,
   theme: 'dark',
   mode: 'clear',
@@ -178,6 +183,7 @@ export function GlassProvider({
 
   const update = useCallback((next: Partial<GlassyUiPreferences>) => {
     if (next.material) next = { ...next, material: parseGlassMaterial(next.material) };
+    if (next.plasma) next = { ...next, plasma: parsePlasmaPreferences(next.plasma) };
     // The document changes before React renders whatever asked for the change, so a
     // control's own flip runs under the setting it lands in. Turning Reduce Motion off
     // from its own switch then animates instead of snapping under the old setting.
@@ -229,7 +235,7 @@ export function GlassProvider({
     [preferences, update],
   );
 
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+  return <PreferencesContext.Provider value={value}>{children}{hydrated && preferences.plasma.enabled ? <PlasmaEngine /> : null}</PreferencesContext.Provider>;
 }
 
 export const PreferencesProvider = GlassProvider;
