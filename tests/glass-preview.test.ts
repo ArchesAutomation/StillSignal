@@ -69,7 +69,7 @@ test("the test panel moves, resizes, cancels and stays inside a smaller wallpape
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Nordify text')!.click());
     assert.ok(document.querySelector('.glass-preview-type')?.textContent?.includes('Liquid Glass'));
     assert.deepEqual(geometry(), bubblyGeometry, 'comparing against reference text preserves lens placement');
-    assert.equal(document.querySelectorAll('.glass-material-settings input[type="range"]').length, 18);
+    assert.equal(document.querySelectorAll('.glass-material-settings input[type="range"]').length, 19);
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Wallpaper')!.click());
     assert.equal(document.querySelector('.glass-preview-type'), null);
   } finally {

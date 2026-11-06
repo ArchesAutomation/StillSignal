@@ -34,14 +34,14 @@ export function opticalAncestorBlocked(host: HTMLElement): boolean {
 /** React owns the content; Nordify owns only a dedicated, empty decoration tree. */
 export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean) {
   const { preferences } = useOptionalPreferences();
-  const { blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate } = preferences.material;
+  const { blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, lensDepth, saturate } = preferences.material;
   // Commit optical map changes after the slider pauses; CSS lighting and tint
   // stay live. Dragging never allocates new SVG maps on every pointer event.
-  const [optics, setOptics] = useState({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate });
+  const [optics, setOptics] = useState({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, lensDepth, saturate });
   useEffect(() => {
-    const timer = window.setTimeout(() => setOptics({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate }), 150);
+    const timer = window.setTimeout(() => setOptics({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, lensDepth, saturate }), 150);
     return () => window.clearTimeout(timer);
-  }, [blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate]);
+  }, [blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, lensDepth, saturate]);
   const reduced = preferences.reduceTransparency;
   const lowQuality = preferences.quality === 'low';
   useEffect(() => {

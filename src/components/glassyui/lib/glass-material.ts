@@ -1,6 +1,7 @@
 export const GLASS_BOUNDS = {
   blur: { min: 0, max: 32, step: .5, label: 'Blur', unit: ' px', group: 'Optics' },
   refractionStrength: { min: 0, max: 2, step: .05, label: 'Refraction Edge', unit: '×', group: 'Optics' },
+  lensDepth: { min: 0, max: 100, step: 1, label: 'Lens Depth', unit: '%', group: 'Optics' },
   radius: { min: 4, max: 160, step: 1, label: 'Corner Roundness', unit: ' px', group: 'Optics' },
   saturate: { min: 0, max: 3, step: .05, label: 'Background Saturation', unit: '×', group: 'Optics' },
   rim: { min: .4, max: 2, step: .05, label: 'Reflection Width', unit: '×', group: 'Reflections' },
@@ -25,7 +26,7 @@ export type GlassMaterial = Record<GlassNumericKey, number> & {
   lighting: 'auto' | 'light' | 'dark'; tintColor: string; shadowColor: string; causticColor: string;
 };
 const optics = {
-  blur: 2.5, refractionStrength: 1, rim: 1.1, radius: 30, saturate: 1.1,
+  blur: 2.5, refractionStrength: 1, lensDepth: 0, rim: 1.1, radius: 30, saturate: 1.1,
   reflectStrength: 2.5, tint: 0, underlay: 14, specular: 13,
   glintBrightness: 1.35, glintSaturation: 3.1, rimBrightness: .84, rimSaturation: 2.2,
   foldBrightness: 1.08, foldSaturation: 1.3, causticOpacity: 70, shadowOpacity: 35,
@@ -34,7 +35,7 @@ const optics = {
 };
 export const GLASS_PRESETS: Record<GlassPreset, GlassMaterial> = {
   frosted: { ...optics, preset: 'frosted', base: 'frosted', blur: 20, refractionStrength: .25, rim: .7, radius: 18, saturate: .95, reflectStrength: .8, tint: 82, underlay: 10, specular: 12, causticOpacity: 3, shadowOpacity: 8 },
-  bubbly: { ...optics, preset: 'bubbly', base: 'bubbly', lighting: 'light' },
+  bubbly: { ...optics, preset: 'bubbly', base: 'bubbly', lensDepth: 100, lighting: 'light' },
   clear: { ...optics, preset: 'clear', base: 'clear', blur: 2, refractionStrength: .65, rim: 1.05, reflectStrength: 1.6, tint: 4, underlay: 3, specular: 18, causticOpacity: 8, shadowOpacity: 10 },
   graphite: { ...optics, preset: 'graphite', base: 'graphite', blur: 6, refractionStrength: 1.05 / 1.3, rim: 1.05, radius: 18, reflectStrength: 1.6, tint: 26, underlay: 1.5, specular: 16.4, glintBrightness: 1.45, glintSaturation: 1.2, rimBrightness: 1.25, rimSaturation: 1.1, causticOpacity: 3.5, shadowOpacity: 6, lighting: 'dark' },
 };

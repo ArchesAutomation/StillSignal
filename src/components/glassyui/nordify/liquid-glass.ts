@@ -34,6 +34,8 @@ export type LiquidGlassOptions = {
   rim?: number;
   /** Background displacement multiplier. 1 preserves Nordify's original optics. */
   refractionStrength?: number;
+  /** 0 follows the corners; 100 uses the demo's full-depth optical profile. */
+  lensDepth?: number;
   /** Frost behind the glass in CSS px. Default 2. */
   blur?: number;
   saturate?: number;
@@ -420,6 +422,7 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
     radius = 30,
     rim = 1.3,
     refractionStrength = 1,
+    lensDepth = 0,
     blur = 2.5,
     saturate = 1.1,
     reflect = true,
@@ -631,6 +634,9 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
     host.style.setProperty("--lg-r", `${Math.max(0.01, Math.min(radius, w / 2, h / 2))}px`);
 
     if (refr) {
+      // The optical field may be deeper than the visible panel's corners.
+      // Only the folding band's mask follows it; host shape stays unchanged.
+      fold.style.setProperty("--lg-r", `${Math.min(refr.slice.r, w / 2, h / 2)}px`);
       layField(refrField, refr.slice, w, h);
       for (const slot of SLOTS) setRect(tiltTiles[slot]!, sliceRect(slot, w, h, refr.tilt.r, refr.tilt.reach));
       const r = Math.max(0.01, Math.min(refr.slice.r, w / 2, h / 2));
@@ -687,7 +693,8 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
     const r = Math.max(0.01, Math.min(radius, w / 2, h / 2));
     const jobs = edgeLayers().map(async (e) => {
       const { rimW, fade } = ringWidths(e);
-      return { e, url: await decoded(ringMask(w, h, r, rimW, fade, devicePixelRatio)) };
+      const maskRadius = e === fold && refr ? Math.min(refr.slice.r, w / 2, h / 2) : r;
+      return { e, url: await decoded(ringMask(w, h, maskRadius, rimW, fade, devicePixelRatio)) };
     });
     const done = await Promise.all(jobs);
     if (`${w}x${h}@${devicePixelRatio}` !== key) return;
@@ -781,7 +788,12 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
   const bake = (short: number) => {
     baked = short;
     refrKey = reflKey = ""; // new tiles: the precomputed fields are stale
-    refr = cachedRefraction(short, radius);
+    const corners = Math.max(0.01, Math.min(radius, short / 2));
+    const depth = Math.max(0, Math.min(100, Number.isFinite(lensDepth) ? lensDepth : 0)) / 100;
+    // Reuse Nordify's original maps, live graph and baked field at the desired
+    // optical radius. Visible corners, reflection outline and hit area keep
+    // their original geometry. At depth=0 this is exactly the upstream field.
+    refr = cachedRefraction(short, corners + (short / 2 - corners) * depth);
     setFieldImages(refrField, refr);
     for (const slot of SLOTS) setAttr(tiltTiles[slot]!, "href", refr.tilt.img[slot]!);
     setAttr(tiltRamp, "href", refr.tiltRamp);

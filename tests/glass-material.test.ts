@@ -21,6 +21,8 @@ test('Nordify presets use one bounded material model and overrides become Custom
   assert.equal(GLASS_PRESETS.bubbly.pill, false, 'Bubbly keeps standard panel geometry');
   assert.equal(GLASS_PRESETS.bubbly.radius, GLASS_PRESETS.clear.radius);
   assert.ok(GLASS_PRESETS.bubbly.refractionStrength > GLASS_PRESETS.clear.refractionStrength);
+  assert.equal(GLASS_PRESETS.bubbly.lensDepth, 100);
+  assert.equal(GLASS_PRESETS.clear.lensDepth, 0);
   assert.equal(parseGlassMaterial({ ...GLASS_PRESETS.bubbly, pill: true }).pill, false, 'saved named Bubbly presets upgrade to normal corners');
   const savedCrystal = parseGlassMaterial({ preset: 'crystal', base: 'crystal', blur: 2, rim: 1.3, radius: 18, reflectStrength: 2.5, tint: 5 });
   assert.equal(savedCrystal.radius, 18, 'previously saved geometry is preserved');

@@ -19,7 +19,7 @@ export function GlassMaterialSettings({ compact = false }: { compact?: boolean }
     <p className="glass-preset-description">{GLASS_PRESET_COPY[material.base]}</p>
     <details className="glass-customize">
       <summary>Customize Glass</summary>
-      <p className="glass-control-help">Shape controls how deep the curved edge reaches. Refraction changes the bending; reflections mirror the surroundings.</p>
+      <p className="glass-control-help">Lens Depth widens the folded edge while keeping your panel shape. Refraction Edge changes the bending strength; reflections mirror the surroundings.</p>
       <label className="material-accessibility"><input type="checkbox" checked={material.pill} onChange={event => update({ pill: event.target.checked })} /> Full roundness (Nordify demo)</label>
       {groups.map(group => <fieldset className="glass-control-group" key={group}><legend>{group}</legend><div className="material-slider-grid">
         {(Object.keys(GLASS_BOUNDS) as GlassNumericKey[]).filter(key => GLASS_BOUNDS[key].group === group).map(key => {
