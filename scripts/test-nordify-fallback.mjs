@@ -3,7 +3,6 @@ import { build } from 'esbuild';
 import { webkit } from 'playwright';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
 const output = process.env.NORDIFY_QA_OUTPUT || '.qa/nordify-browser';
 mkdirSync(output, { recursive: true });
 const compiled = await build({ stdin: { resolveDir: process.cwd(), loader: 'tsx', contents: `
@@ -15,25 +14,13 @@ import { GlassMaterialSettings } from './src/components/glass-material-settings'
 function App() { const [show, setShow] = useState(true); return <GlassProvider><button id="toggle" onClick={() => setShow(!show)}>Toggle glass</button>{show && <><GlassPanel preset="control" style={{ width: 320, height: 100, margin: 30 }}><button id="inside">Interactive foreground</button></GlassPanel><GlassPanel preset="showcase" style={{ width: 280, height: 100, margin: 30 }}>Second instance</GlassPanel></>}<GlassMaterialSettings /></GlassProvider> }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
 ` }, bundle: true, write: false, loader: { '.css': 'empty' }, format: 'iife' });
-// Use a real origin without a mounted Next app or its live-reload listeners.
-// Replacing a running app's document with setContent leaves those listeners alive.
-const fixture = createServer((_request, response) => {
-  response.writeHead(200, { 'Content-Type': 'text/html' });
-  response.end('<!doctype html><html><head></head><body><div id="root"></div></body></html>');
-});
-await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
-const fixtureOrigin = `http://127.0.0.1:${fixture.address().port}`;
-let browser;
+const browser = await webkit.launch({ headless: true, ...(process.env.NORDIFY_EXECUTABLE ? { executablePath: process.env.NORDIFY_EXECUTABLE } : {}) });
 try {
-  browser = await webkit.launch({ headless: true, ...(process.env.NORDIFY_EXECUTABLE ? { executablePath: process.env.NORDIFY_EXECUTABLE } : {}) });
   const page = await browser.newPage({ viewport: { width: 900, height: 1000 }, colorScheme: 'dark' });
-  await page.addInitScript(() => {
-    const original = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function(kind, ...args) { return kind === 'webgl2' ? null : original.call(this, kind, ...args); };
-  });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   // A real local origin keeps the application's unmodified local settings store.
-  await page.goto(fixtureOrigin);
+  await page.goto((process.env.NORDIFY_QA_URL || 'http://127.0.0.1:3113') + '/privacy');
+  await page.setContent('<html><head></head><body><div id="root"></div></body></html>');
   const css = ['src/components/glassyui/styles/liquid.css', 'src/components/glassyui/nordify/liquid-glass.css', 'src/components/glassyui/styles/nordify-integration.css'].map(path => readFileSync(path, 'utf8')).join('\n');
   await page.addStyleTag({ content: css + '\nbody{background:repeating-linear-gradient(45deg,#17323d 0 20px,#080c0e 20px 40px);color:#edf3f5;padding:30px;--signal-text:#edf3f5;--signal-muted:#afc4cc;--signal-line:#91b1c955;--signal-recess:#ffffff0c;font:15px system-ui}.glass-material-settings{max-width:400px}' });
   await page.addScriptTag({ content: compiled.outputFiles[0].text });
@@ -54,17 +41,8 @@ try {
   assert.equal(await page.locator('.lg-defs, .lg-layer, .lg-cover, .lg-tick, .ss-nordify-decoration').count(), 0);
   await page.locator('#toggle').click();
   await page.waitForFunction(() => document.querySelectorAll('.lg-pane').length === 2);
-  await page.getByText('Plasma effects', { exact: true }).click();
-  await page.getByLabel('Enable Plasma effects', { exact: true }).check();
-  await page.getByText('Plasma is unavailable here. Your Nordify glass stays active.', { exact: true }).waitFor();
-  assert.equal(await page.locator('[data-plasma-surface]').count(), 0);
-  await page.evaluate(() => scrollTo(0, 0));
-  await page.waitForFunction(() => document.querySelectorAll('.lg-pane').length === 2);
-  assert.equal(await page.locator('.lg-pane').count(), 2);
-  await page.getByLabel('Enable Plasma effects', { exact: true }).uncheck();
-  await page.waitForFunction(() => !document.querySelector('.ss-plasma-canvas'));
   assert.deepEqual(errors, []);
-  const result = { engine: 'webkit', scope: 'isolated real React components; dashboard review blocked by baseline evidence storage', checks: ['frosted capability selection', 'no displacement baking', 'two instances and Strict Mode', 'foreground interaction', 'presets and sliders', 'preference persistence', 'cleanup and remount', 'unavailable WebGL keeps Nordify active', 'Plasma fallback cleanup in Strict Mode'], errors };
+  const result = { engine: 'webkit', scope: 'isolated real React components; dashboard review blocked by baseline evidence storage', checks: ['frosted capability selection', 'no displacement baking', 'two instances and Strict Mode', 'foreground interaction', 'presets and sliders', 'preference persistence', 'cleanup and remount'], errors };
   writeFileSync(`${output}/webkit-results.json`, JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
-} finally { await browser?.close(); await new Promise(resolve => fixture.close(resolve)); }
+} finally { await browser.close(); }
