@@ -12,12 +12,16 @@ test('Nordify presets use one bounded material model and overrides become Custom
   const invalid = parseGlassMaterial({ preset: 'crystal', blur: Infinity, rim: -20, radius: 100, reflectStrength: NaN, tint: 100, reflect: 'false' });
   assert.equal(invalid.blur, 2);
   assert.equal(invalid.rim, .4);
-  assert.equal(invalid.radius, 28);
+  assert.equal(invalid.radius, 48);
   assert.equal(invalid.reflectStrength, 2.5);
   assert.equal(invalid.tint, 65);
   assert.equal(invalid.reflect, true);
   assert.equal(invalid.preset, 'custom');
   assert.deepEqual(parseGlassMaterial({ preset: '__proto__', base: 'constructor' }), GLASS_PRESETS.graphite);
+  assert.equal(GLASS_PRESETS.crystal.radius, 30, 'Crystal uses the original Nordify demo geometry');
+  const savedCrystal = parseGlassMaterial({ ...GLASS_PRESETS.crystal, radius: 18 });
+  assert.equal(savedCrystal.radius, 18, 'previously saved geometry is preserved');
+  assert.equal(savedCrystal.preset, 'custom');
 });
 
 test('legacy preferences migrate without rewriting stored choices or other appearance fields', () => {

@@ -11,7 +11,7 @@ export type GlassMaterial = {
 };
 
 export const GLASS_PRESETS: Record<GlassPreset, GlassMaterial> = {
-  crystal: { preset: 'crystal', base: 'crystal', blur: 2, rim: 1.3, radius: 18, reflectStrength: 2.5, tint: 5, reflect: true },
+  crystal: { preset: 'crystal', base: 'crystal', blur: 2, rim: 1.3, radius: 30, reflectStrength: 2.5, tint: 5, reflect: true },
   graphite: { preset: 'graphite', base: 'graphite', blur: 6, rim: 1.05, radius: 18, reflectStrength: 1.6, tint: 26, reflect: true },
   frosted: { preset: 'frosted', base: 'frosted', blur: 18, rim: .7, radius: 18, reflectStrength: .8, tint: 42, reflect: true },
 };
@@ -19,7 +19,7 @@ export const GLASS_PRESETS: Record<GlassPreset, GlassMaterial> = {
 export const GLASS_BOUNDS = {
   blur: { min: 0, max: 24, step: .5, label: 'Blur', unit: ' px' },
   rim: { min: .4, max: 1.5, step: .05, label: 'Refraction Edge', unit: '×' },
-  radius: { min: 4, max: 28, step: 1, label: 'Corner Roundness', unit: ' px' },
+  radius: { min: 4, max: 48, step: 1, label: 'Corner Roundness', unit: ' px' },
   reflectStrength: { min: 0, max: 3, step: .1, label: 'Reflection Intensity', unit: '×' },
   tint: { min: 0, max: 65, step: 1, label: 'Tint', unit: '%' },
 } as const;
