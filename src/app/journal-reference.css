@@ -825,6 +825,55 @@ body:has(.ss-reference-app) {
 .ss-reference-app .ss-widgetpanel h3 {
   font-size: 17px;
 }
+/* Portals live outside the workspace; retain the same theme without its page layout. */
+.ss-app.ss-reference-app.ss-popup-root {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  min-height: 0;
+}
+.ss-app.ss-reference-app.ss-popup-root .ss-widgetpanel {
+  position: static;
+  width: 100%;
+  margin: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
+.ss-app.ss-popup-root .sr-only {
+  left: 0;
+  top: 0;
+}
+.ss-reference-app .ss-widgetpanel .ss-destinations {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+.ss-reference-app .ss-widgetpanel .ss-destinations label {
+  min-width: 0;
+  margin: 0;
+}
+.ss-reference-app .ss-widgetpanel label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ss-reference-app .ss-widgetpanel input[type="checkbox"] {
+  margin: 2px 0 0;
+}
+.ss-reference-app .ss-widgetpanel .ss-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.ss-reference-app .ss-widgetpanel small {
+  overflow-wrap: anywhere;
+}
+.floating-journal-host[data-floating="true"] {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+}
 .ss-reference-app .ss-reset {
   background: transparent;
   border: 0;
@@ -849,6 +898,9 @@ body:has(.ss-reference-app) {
 .ss-reference-app .ss-reset-modules,
 .ss-reference-app .ss-reset-controls {
   justify-content: flex-start;
+}
+.ss-reference-app .ss-reset-controls label {
+  margin: 0;
 }
 .ss-reference-app .ss-reset-choices {
   justify-content: flex-start;
