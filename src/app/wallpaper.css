@@ -16,7 +16,7 @@ html .wallpaper-settings { padding: 24px; }
 .wallpaper-settings header h2 { margin: 8px 0; font-size: 26px; letter-spacing: -.035em; }
 .wallpaper-settings p { color: var(--signal-muted); line-height: 1.6; }
 .material-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .18em; color: var(--signal-muted); }
-.wallpaper-preview { position: relative; height: 384px; padding: 0; margin: 24px 0 12px; border: 1px solid var(--signal-line); border-radius: 18px; background-position: center; background-size: cover; overflow: visible; isolation: auto; }
+.wallpaper-preview { position: relative; height: 384px; padding: 0; margin: 24px 0 12px; border: 1px solid var(--signal-line); border-radius: 18px; background-color: var(--ocean-bg); background-position: center; background-size: cover; overflow: visible; isolation: auto; }
 .wallpaper-preview-dim, .wallpaper-preview-grid { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .wallpaper-preview-grid { background-image: linear-gradient(#ffffff12 1px, transparent 1px), linear-gradient(90deg, #ffffff12 1px, transparent 1px); background-size: 40px 40px; }
 html .wallpaper-preview-card.lg-glass-surface { position: absolute; z-index: 1; padding: 16px; max-width: calc(100% - 32px); box-sizing: border-box; text-align: left; transition: none; }
