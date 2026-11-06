@@ -18,7 +18,8 @@
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy",
     "deploy": "vinext-cloudflare deploy",
-    "build:next": "next build"
+    "build:next": "next build",
+    "smoke:cloudflare": "node scripts/check-cloudflare.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",
