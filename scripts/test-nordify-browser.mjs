@@ -52,7 +52,7 @@ try {
 
   await nav('Settings');
   await studio.scrollIntoViewIfNeeded();
-  for (const [name, blur] of [['Crystal', '2'], ['Graphite', '6'], ['Frosted', '18']]) {
+  for (const [name, blur] of [['Bubbly', '2.5'], ['Clear', '2'], ['Graphite', '6'], ['Frosted', '20']]) {
     await material.getByRole('button', { name, exact: true }).click();
     assert.equal(await material.getByRole('button', { name, exact: true }).getAttribute('aria-pressed'), 'true');
     assert.equal(await material.getByLabel('Blur', { exact: true }).inputValue(), blur);
@@ -73,10 +73,10 @@ try {
   assert.equal(await material.getByLabel('Reflections', { exact: true }).isChecked(), false);
   await material.getByText('Customize Glass', { exact: true }).click();
   await material.getByRole('button', { name: 'Reset to Frosted', exact: true }).click();
-  assert.equal(await material.getByLabel('Blur', { exact: true }).inputValue(), '18');
+  assert.equal(await material.getByLabel('Blur', { exact: true }).inputValue(), '20');
   await material.getByRole('button', { name: 'Graphite', exact: true }).click();
   await page.screenshot({ path: `${output}/${engine}-appearance.png` });
-  checks.push('all presets, five sliders, keyboard input, Custom, reflection toggle, reset and reload persistence');
+  checks.push('all presets, optical sliders, keyboard input, Custom, reflection toggle, reset and reload persistence');
 
   await studio.getByLabel('Reduce transparency for easier reading').check();
   await settle();

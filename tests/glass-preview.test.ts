@@ -63,6 +63,15 @@ test("the test panel moves, resizes, cancels and stays inside a smaller wallpape
     assert.equal(panel().style.height, "220px");
     assert.equal(document.documentElement.dataset.glassMaterial, "frosted", "resetting geometry never resets the glass");
     assert.equal(panel().dataset.glassSurface, "panel");
+    await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Bubbly')!.click());
+    assert.equal(document.documentElement.dataset.glassPill, 'true');
+    const bubblyGeometry = geometry();
+    await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Nordify text')!.click());
+    assert.ok(document.querySelector('.glass-preview-type')?.textContent?.includes('Liquid Glass'));
+    assert.deepEqual(geometry(), bubblyGeometry, 'comparing against reference text preserves lens placement');
+    assert.equal(document.querySelectorAll('.glass-material-settings input[type="range"]').length, 18);
+    await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Wallpaper')!.click());
+    assert.equal(document.querySelector('.glass-preview-type'), null);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

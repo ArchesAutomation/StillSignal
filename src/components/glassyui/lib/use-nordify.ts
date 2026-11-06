@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { createLiquidGlass, supportsRefraction } from '../nordify/liquid-glass';
 import { useOptionalPreferences } from '../glass-provider';
 
@@ -34,7 +34,14 @@ export function opticalAncestorBlocked(host: HTMLElement): boolean {
 /** React owns the content; Nordify owns only a dedicated, empty decoration tree. */
 export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean) {
   const { preferences } = useOptionalPreferences();
-  const { blur, rim, radius, reflect, reflectStrength } = preferences.material;
+  const { blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate } = preferences.material;
+  // Commit optical map changes after the slider pauses; CSS lighting and tint
+  // stay live. Dragging never allocates new SVG maps on every pointer event.
+  const [optics, setOptics] = useState({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate });
+  useEffect(() => {
+    const timer = window.setTimeout(() => setOptics({ blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate }), 150);
+    return () => window.clearTimeout(timer);
+  }, [blur, rim, radius, pill, reflect, reflectStrength, refractionStrength, saturate]);
   const reduced = preferences.reduceTransparency;
   const lowQuality = preferences.quality === 'low';
   useEffect(() => {
@@ -64,20 +71,23 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
       const sharesMaterial = nested && (!backdrop || backdrop.contains(nested));
       const allowed = !transparency.matches && inView && box.width >= 8 && box.height >= 8 && box.width * box.height <= (backdrop ? MAX_PREVIEW_AREA : MAX_OPTICAL_AREA) && !sharesMaterial && !opticalAncestorBlocked(surface);
       if (!allowed) { destroy(); return; }
-      if (glass) { glass.update(); glass.refresh(); return; }
+      if (glass) {
+        decoration?.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));
+        glass.update(); glass.refresh(); return;
+      }
       if (lenses.size >= MAX_OPTICAL_SURFACES) return;
       decoration = document.createElement('span');
       decoration.className = 'ss-nordify-decoration';
+      decoration.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));
       decoration.setAttribute('aria-hidden', 'true');
       const host = document.createElement('span');
       host.className = 'ss-nordify-host';
       decoration.append(host);
       surface.prepend(decoration);
       // Promote=false: promoting main would block lenses inside main.
-      // Nordify's `rim` controls the reflection, not background displacement.
-      // Keep the upstream profile at 1.3 and scale its displacement separately
-      // so Refraction Edge actually changes the background bending as well.
-      glass = createLiquidGlass(host, { blur, rim, radius, refractionStrength: rim / 1.3, reflect, reflectStrength, promote: false });
+      // The demo uses radius=9999, clamped by Nordify to half the short side.
+      // Reflection width and background displacement remain independent.
+      glass = createLiquidGlass(host, { ...optics, radius: optics.pill ? 9999 : optics.radius, promote: false });
       lenses.add(surface);
       surface.dataset.nordify = supportsRefraction ? 'optical' : 'frosted';
     };
@@ -105,5 +115,5 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
     const mediaChange = () => { if (transparency.matches) destroy(); else schedule(); };
     transparency.addEventListener('change', mediaChange);
     return () => { disposed = true; clearTimeout(timer); cancelAnimationFrame(frame); transparency.removeEventListener('change', mediaChange); visibility?.disconnect(); resize.disconnect(); mutations.disconnect(); destroy(); };
-  }, [ref, enabled, reduced, lowQuality, blur, rim, radius, reflect, reflectStrength]);
+  }, [ref, enabled, reduced, lowQuality, optics]);
 }
