@@ -41,10 +41,21 @@ test('refraction strength scales background displacement independently of reflec
       assert.equal(scale(element), baseline * strength, 'reflections can be off while the background still refracts');
       assert.ok(element.querySelector<HTMLElement>('.lg-pane')!.style.backdropFilter.includes('url('));
     }
+    const rectangular = host(), demo = host();
+    instances.push(createLiquidGlass(rectangular, { radius: 30, lensDepth: 100, reflect: false, promote: false }));
+    instances.push(createLiquidGlass(demo, { radius: 9999, reflect: false, promote: false }));
+    assert.equal(rectangular.style.borderRadius, '30px', 'deep optics never change the visible panel corners');
+    assert.equal(rectangular.style.getPropertyValue('--lg-r'), '30px');
+    assert.equal(scale(rectangular), scale(demo), 'full depth uses the same displacement scale as Nordify’s demo pill');
+    assert.ok(scale(rectangular) > baseline * 3, 'the fold depth is independent of a small corner radius');
+    const tiles = (element: HTMLElement) => [...element.querySelector('filter')!.querySelectorAll('feImage')].map(image => image.getAttribute('href'));
+    assert.deepEqual(tiles(rectangular), tiles(demo), 'live optical maps match the demo profile, not just its amplitude');
     width = 260; height = 40;
     observers.forEach(callback => callback());
     assert.ok(scale(original) < baseline, 'the optical radius clamps to the resized short side');
     assert.equal(original.style.getPropertyValue('--lg-r'), '20px');
+    assert.equal(rectangular.style.getPropertyValue('--lg-r'), '20px');
+    assert.equal(scale(rectangular), scale(demo), 'deep maps remain aligned with the demo after resizing');
   } finally {
     instances.forEach(instance => instance.destroy());
     assert.equal(win.document.querySelectorAll('.lg-pane, .lg-cover, .lg-tick, .lg-defs').length, 0);

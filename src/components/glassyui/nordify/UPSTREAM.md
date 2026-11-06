@@ -16,10 +16,16 @@ MIT license. Local engine changes:
   Refraction Edge to this multiplier because upstream `rim` only affects reflection.
   Reflection Width now controls `rim` separately; old saved values migrate without
   losing their former refraction strength.
+- Optional `lensDepth` separates the optical map radius from the visible corners.
+  Zero preserves the original corner-based optics. At 100 the live tiles and
+  baked field use the exact full-short-side profile from the demo pill, while
+  the host, reflection outline and hit area keep standard corners. The folding
+  brightness mask follows that optical radius; thin edge highlights retain the
+  panel outline. All values remain bounded by the short side during resizing.
 
 React mounting and Still Signal material tokens live outside this directory.
 The adapter uses `promote: false` to avoid promoting an ancestor of a lens.
-The Bubbly preset keeps standard panel corners while retaining the demo's
+The Bubbly preset uses full lens depth with standard panel corners and the demo's
 `rim: 1.1`, default 2.5px blur, saturation and reflection strength, no tint,
 and edge/shadow sizing proportional to the lens height. Full roundness is an
 optional Custom shape. Saved named Bubbly presets upgrade to standard corners.
