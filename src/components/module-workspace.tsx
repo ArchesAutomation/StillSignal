@@ -694,9 +694,12 @@ export default function ModuleWorkspace({
     if (key === "Home" && resize) {
       const host = modules.find((m) => m.id === id)?.host;
       const content = host?.querySelector<HTMLElement>(".ss-module-content");
+      const scrollContent = content?.querySelector<HTMLElement>(
+        ":scope > .ss-space-moments-scroll",
+      );
       const fitted = placeModule(value, id, {
         ...start,
-        h: (content?.scrollHeight ?? 260) + 64,
+        h: (scrollContent?.scrollHeight ?? content?.scrollHeight ?? 260) + 64,
       });
       fitted.modules[id].heightMode = "auto";
       fitted.modules[id].height = undefined;

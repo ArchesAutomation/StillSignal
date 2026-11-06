@@ -12,6 +12,17 @@ html .cc-canvas .cc-resize-left { left:0; right:auto; cursor:nesw-resize; border
 /* A fixed workspace module must contain expanded forms, even after restoring its layout. */
 html .ss-free-board > .ss-module-sized { display:flex; flex-direction:column; overflow:hidden; }
 html .ss-free-board > .ss-module-sized > .ss-module-content { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
+/* Keep the glass rim and frost outside the journal's scrolling content. */
+html .ss-module-sized > .ss-module-content:has(> .ss-space-moments-scroll) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: visible;
+}
+.ss-module-sized .ss-space-moments-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
 .pnl-export { display:block; min-width:0; }
 .pnl-export .cc-grid > * { min-width:0; }
 .pnl-export canvas { max-width:100%; }
