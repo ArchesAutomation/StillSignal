@@ -13,7 +13,7 @@ The existing Supabase project still provides the database, user accounts, storag
 
 ## Automatic GitHub deployment
 Cloudflare Builds should watch `main` for production:
-- Build command: `npm run typecheck && npm test && npm run build`
+- Build command: `npm run typecheck && env -u NEXT_PUBLIC_SUPABASE_URL -u NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY npm test && npm run build`
 - Deploy command: `npm run deploy -- --skip-build`
 - Preview command: `npx cf previews deploy`
 - Node version: 24
@@ -23,6 +23,8 @@ Build variables:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: the existing public browser key
 - `NODE_VERSION`: `24`
 - `NEXT_TELEMETRY_DISABLED`: `1`
+
+Cloudflare's Linux build runs unit tests without the live public Supabase settings so browser clients cannot start live auth refresh timers during tests. The values remain available for compilation and deployment.
 
 The public Supabase values must be present at build time. Configuration copies them into Worker bindings for server routes too. Never put a Supabase service-role key in browser variables. No private Vercel environment variables existed in the inspected production configuration.
 
