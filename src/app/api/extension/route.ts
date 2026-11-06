@@ -1,41 +1,23 @@
 import { extensionActionSchema } from "@/lib/journal-command";
 import { boundedJson } from "@/lib/validation";
 import { forwardToSupabase } from "@/lib/edge-proxy";
-import { gateway } from "@ai-sdk/gateway";
-import { transcribe } from "ai";
-import { Buffer } from "node:buffer";
+import { workersTranscription } from "@/lib/workers-transcription";
+import { env } from "cloudflare:workers";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
-    const body = extensionActionSchema.parse(await boundedJson(request,4100000));
-    if (body.action === "transcribe") {
-      const upstream = await forwardToSupabase(request,"pulse-extension",body);
-      if (upstream.ok || upstream.status !== 503 || !(process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY)) return upstream;
-      const detail = await upstream.clone().json().catch(() => ({})) as {error?:string};
-      if (!detail.error?.includes("Remote transcription is not configured")) return upstream;
-      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body.audio)) return Response.json({error:"Invalid recording."},{status:400});
-      const bytes = Buffer.from(body.audio,"base64");
-      if (bytes.length > 3000000) return Response.json({error:"Recording exceeds the 3 MB limit."},{status:413});
-      try {
-        const result = await transcribe({
-          model: gateway.transcriptionModel("openai/whisper-1"),
-          audio: bytes,
-          maxRetries: 0,
-          abortSignal: AbortSignal.timeout(45000),
-          telemetry: { recordInputs: false, recordOutputs: false },
-        });
-        const text = result.text.trim();
-        // Gateway exposes timing segments but does not currently return Whisper's
-        // confidence fields. Missing speech segments require an explicit review.
-        const review = !text || text.length > 2000 || !result.segments.length;
-        return Response.json({text,review},{headers:{"Cache-Control":"no-store"}});
-      } catch {
-        return Response.json({error:"Transcription failed. Retry or cancel the local recording."},{status:503});
-      }
-    }
-    return forwardToSupabase(request,"pulse-extension",body);
+    const body = extensionActionSchema.parse(await boundedJson(request, 4100000));
+    const upstream = await forwardToSupabase(request, "pulse-extension", body);
+    if (body.action !== "transcribe" || upstream.status !== 503) return upstream;
+    const detail = await upstream.clone().json().catch(() => ({})) as { error?: string };
+    // The existing service authenticates, rate-limits and validates the recording
+    // before reporting that its optional transcription provider is unavailable.
+    if (!detail.error?.includes("Remote transcription is not configured")) return upstream;
+    return workersTranscription(body.audio, env.AI);
   } catch {
-    return Response.json({error:"Invalid journal request."},{status:400});
+    return Response.json({ error: "Invalid journal request." }, {
+      status: 400, headers: { "Cache-Control": "no-store" },
+    });
   }
 }
