@@ -19,6 +19,14 @@ html .wallpaper-settings { padding: 24px; }
 .wallpaper-preview { position: relative; height: 384px; padding: 0; margin: 24px 0 12px; border: 1px solid var(--signal-line); border-radius: 18px; background-color: var(--ocean-bg); background-position: center; background-size: cover; overflow: visible; isolation: auto; }
 .wallpaper-preview-dim, .wallpaper-preview-grid { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .wallpaper-preview-grid { background-image: linear-gradient(#ffffff12 1px, transparent 1px), linear-gradient(90deg, #ffffff12 1px, transparent 1px); background-size: 40px 40px; }
+.wallpaper-preview[data-preview-backdrop="type"] { background-color: #eaf1f5; }
+.wallpaper-preview[data-preview-backdrop="grid"] { background-color: #263e4c; }
+.wallpaper-preview[data-preview-backdrop="grid"] .wallpaper-preview-grid { background-image: linear-gradient(#ffffffa0 1px, transparent 1px), linear-gradient(90deg, #ffffffa0 1px, transparent 1px); background-size: 24px 24px; }
+.glass-preview-type { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 clamp(48px, 8vw, 140px)/1 sans-serif; letter-spacing: -.07em; color: #23292c; white-space: nowrap; pointer-events: none; }
+.glass-preview-backdrops { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+html .glass-preview-backdrops button { border: 1px solid var(--signal-line); background: var(--signal-recess); color: var(--signal-muted); border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 11px; cursor: pointer; }
+html .glass-preview-backdrops button[aria-pressed="true"] { color: var(--signal-text); border-color: var(--signal-muted); }
+html[data-glass-pill="true"] .wallpaper-preview-card { padding-inline: 56px; }
 html .wallpaper-preview-card.lg-glass-surface { position: absolute; z-index: 1; padding: 16px; max-width: calc(100% - 32px); box-sizing: border-box; text-align: left; transition: none; }
 .wallpaper-preview-card { --signal-text: #f5f8fa; --signal-muted: #e0e8ec; --lg-foreground: #f5f8fa; text-shadow: 0 1px 4px rgb(0 0 0 / .6); }
 .glass-test-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

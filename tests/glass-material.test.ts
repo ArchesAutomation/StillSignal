@@ -9,19 +9,21 @@ test('Nordify presets use one bounded material model and overrides become Custom
     assert.deepEqual(parseGlassMaterial(material), material);
     for (const [key, bounds] of Object.entries(GLASS_BOUNDS)) assert.ok(material[key as keyof typeof GLASS_BOUNDS] >= bounds.min && material[key as keyof typeof GLASS_BOUNDS] <= bounds.max);
   }
-  const invalid = parseGlassMaterial({ preset: 'crystal', blur: Infinity, rim: -20, radius: 100, reflectStrength: NaN, tint: 100, reflect: 'false' });
+  const invalid = parseGlassMaterial({ preset: 'crystal', blur: Infinity, rim: -20, radius: 1000, reflectStrength: NaN, tint: 100, reflect: 'false' });
   assert.equal(invalid.blur, 2);
   assert.equal(invalid.rim, .4);
-  assert.equal(invalid.radius, 48);
-  assert.equal(invalid.reflectStrength, 2.5);
-  assert.equal(invalid.tint, 65);
+  assert.equal(invalid.radius, 160);
+  assert.equal(invalid.reflectStrength, 1.6);
+  assert.equal(invalid.tint, 95);
   assert.equal(invalid.reflect, true);
   assert.equal(invalid.preset, 'custom');
   assert.deepEqual(parseGlassMaterial({ preset: '__proto__', base: 'constructor' }), GLASS_PRESETS.graphite);
-  assert.equal(GLASS_PRESETS.crystal.radius, 30, 'Crystal uses the original Nordify demo geometry');
-  const savedCrystal = parseGlassMaterial({ ...GLASS_PRESETS.crystal, radius: 18 });
+  assert.equal(GLASS_PRESETS.bubbly.pill, true, 'Bubbly uses the actual demo pill geometry');
+  const savedCrystal = parseGlassMaterial({ preset: 'crystal', base: 'crystal', blur: 2, rim: 1.3, radius: 18, reflectStrength: 2.5, tint: 5 });
   assert.equal(savedCrystal.radius, 18, 'previously saved geometry is preserved');
   assert.equal(savedCrystal.preset, 'custom');
+  assert.equal(savedCrystal.base, 'clear');
+  assert.equal(savedCrystal.refractionStrength, 1);
 });
 
 test('legacy preferences migrate without rewriting stored choices or other appearance fields', () => {
@@ -33,9 +35,9 @@ test('legacy preferences migrate without rewriting stored choices or other appea
   assert.equal(migrated.material?.preset, 'custom');
   assert.equal(migrated.material?.blur, 12);
   assert.equal(migrated.material?.tint, 22);
-  persistPreferences({ material: GLASS_PRESETS.crystal }, storage);
+  persistPreferences({ material: GLASS_PRESETS.clear }, storage);
   const reloaded = loadPreferences(storage);
-  assert.deepEqual(reloaded.material, GLASS_PRESETS.crystal);
+  assert.deepEqual(reloaded.material, GLASS_PRESETS.clear);
   assert.equal(reloaded.blur, 12);
   assert.equal(reloaded.theme, 'light');
   assert.equal(reloaded.reduceMotion, true);
@@ -47,9 +49,29 @@ test('material updates apply immediate tint and radius without constructing opti
   applyGlassMaterial(dom.window.document.documentElement, GLASS_PRESETS.frosted);
   const root = dom.window.document.documentElement;
   assert.equal(root.dataset.glassMaterial, 'frosted');
-  assert.equal(root.style.getPropertyValue('--ss-glass-blur'), '18px');
-  assert.equal(root.style.getPropertyValue('--ss-glass-tint'), '0.42');
+  assert.equal(root.style.getPropertyValue('--ss-glass-blur'), '20px');
+  assert.equal(root.style.getPropertyValue('--ss-glass-tint'), '0.82');
   assert.equal(dom.window.document.querySelectorAll('filter').length, 0);
+  dom.window.close();
+});
+
+test('new controls persist independently, reject unsafe colors and restore theme tint', () => {
+  const material = parseGlassMaterial({ ...GLASS_PRESETS.bubbly, refractionStrength: 1.5, rim: .6,
+    tintColor: '#ff8800', shadowColor: 'url(https://example.com)', causticColor: '#aabbcc', lightingScale: Infinity });
+  assert.equal(material.refractionStrength, 1.5);
+  assert.equal(material.rim, .6);
+  assert.equal(material.shadowColor, GLASS_PRESETS.bubbly.shadowColor);
+  assert.equal(material.lightingScale, 1);
+  assert.deepEqual(parseGlassMaterial(JSON.parse(JSON.stringify(material))), material);
+  const dom = new JSDOM('<html><body></body></html>');
+  const root = dom.window.document.documentElement;
+  applyGlassMaterial(root, material);
+  assert.equal(root.style.getPropertyValue('--ss-glass-rgb'), '255 136 0');
+  assert.equal(root.style.getPropertyValue('--ss-glass-radius'), '9999px');
+  assert.equal(root.style.getPropertyValue('--ss-glass-caustic-color'), '#aabbcc');
+  applyGlassMaterial(root, { ...material, tintColor: 'theme', pill: false });
+  assert.equal(root.style.getPropertyValue('--ss-glass-rgb'), '');
+  assert.equal(root.style.getPropertyValue('--ss-glass-radius'), '30px');
   dom.window.close();
 });
 

@@ -27,6 +27,7 @@ export default function GlassTestPanel({ background, dim }: { background: string
   const live = useRef<{ mode: Mode; pointer: number; x: number; y: number; box: Box } | null>(null);
   const [box, setBox] = useState(initialBox);
   const [mode, setMode] = useState<Mode | null>(null);
+  const [backdrop, setBackdrop] = useState<'wallpaper' | 'type' | 'grid'>('wallpaper');
   const help = useId();
   const material = preferences.material.preset;
   const materialName = material[0].toUpperCase() + material.slice(1);
@@ -116,9 +117,12 @@ export default function GlassTestPanel({ background, dim }: { background: string
   });
 
   return <div className="glass-test-preview">
-    <div ref={stage} className="wallpaper-preview" data-glass-backdrop-root="true" data-preview-interaction={mode ?? undefined} style={{ backgroundImage: background }} aria-label="Interactive glass preview">
-      <div className="wallpaper-preview-dim" style={{ backgroundColor: `rgb(0 0 0 / ${dim / 100})` }} aria-hidden="true" />
-      <div className="wallpaper-preview-grid" aria-hidden="true" />
+    <div className="glass-preview-backdrops" role="group" aria-label="Preview background">
+      {(['wallpaper', 'type', 'grid'] as const).map(value => <button type="button" key={value} aria-pressed={backdrop === value} onClick={() => setBackdrop(value)}>{value === 'type' ? 'Nordify text' : value === 'grid' ? 'Grid' : 'Wallpaper'}</button>)}
+    </div>
+    <div ref={stage} className="wallpaper-preview" data-glass-backdrop-root="true" data-preview-backdrop={backdrop} data-preview-interaction={mode ?? undefined} style={{ backgroundImage: backdrop === 'wallpaper' ? background : 'none' }} aria-label="Interactive glass preview">
+      {backdrop === 'wallpaper' && <div className="wallpaper-preview-dim" style={{ backgroundColor: `rgb(0 0 0 / ${dim / 100})` }} aria-hidden="true" />}
+      {backdrop === 'type' ? <div className="glass-preview-type" aria-hidden="true">Liquid Glass</div> : <div className="wallpaper-preview-grid" aria-hidden="true" />}
       <GlassPanel preset="control" lens className="wallpaper-preview-card" aria-label="Test panel" style={{ left: box.x, top: box.y, width: box.width, height: box.height }}>
         <header className="glass-test-toolbar">
           <button type="button" className="glass-test-move" aria-label="Move test panel" {...handlers("move")}><GripVertical size={16} /><span>Move</span></button>
