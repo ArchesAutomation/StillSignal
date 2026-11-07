@@ -4,6 +4,7 @@ import {
   type ModuleLayout,
   type ModulePlacement,
 } from "./module-layout";
+import { MODULE_GAP } from "./module-geometry";
 
 export type BoardModule = {
   id: string;
@@ -33,7 +34,9 @@ export function moduleBoard(
   layout: ModuleLayout,
   modules: BoardModule[],
   heights: Record<string, number> = {},
+  boardWidth = 1200,
 ): Record<string, ModuleBox> {
+  const gapX = MODULE_GAP * 1200 / Math.max(1, boardWidth);
   const result: Record<string, ModuleBox> = {};
   let rowX = 0,
     rowY = 0,
@@ -42,7 +45,7 @@ export function moduleBoard(
     const sectionWidth = section.width * 100;
     if (rowX + sectionWidth > 1200) {
       rowX = 0;
-      rowY += rowHeight + 24;
+      rowY += rowHeight + MODULE_GAP;
       rowHeight = 0;
     }
     let x = 0,
@@ -69,18 +72,18 @@ export function moduleBoard(
         };
         continue;
       }
-      const w = Math.max(180, (sectionWidth * p.width) / 12 - 16),
+      const w = Math.max(180, (sectionWidth * p.width) / 12 - gapX),
         h = p.height ?? heights[module.id] ?? 300;
       if (x + w > sectionWidth && x) {
         x = 0;
-        y += height + 16;
+        y += height + MODULE_GAP;
         height = 0;
       }
       result[module.id] = boundModuleBox({ x: rowX + x, y: rowY + y, w, h });
       // Saved geometry is bounded, but live forms can legitimately exceed that
       // height. Reserve their full rendered extent when reflowing neighbors.
       if (p.heightMode !== "fixed") result[module.id].h = Math.max(120, h);
-      x += w + 16;
+      x += w + gapX;
       height = Math.max(height, h);
     }
     rowHeight = Math.max(rowHeight, y + height);
@@ -98,11 +101,11 @@ export function moduleBoard(
         (other) =>
           box.x < other.x + other.w &&
           box.x + box.w > other.x &&
-          box.y < other.y + other.h + 16 &&
-          box.y + box.h + 16 > other.y,
+          box.y < other.y + other.h + MODULE_GAP &&
+          box.y + box.h + MODULE_GAP > other.y,
       ))
     )
-      box.y = collision.y + collision.h + 16;
+      box.y = collision.y + collision.h + MODULE_GAP;
     placed.push(box);
   }
   return result;
@@ -187,17 +190,19 @@ export function availableModuleBox(
   boxes: Record<string, ModuleBox>,
   top = 0,
   size = { w: 384, h: 288 },
+  boardWidth = 1200,
 ): ModuleBox {
+  const gapX = MODULE_GAP * 1200 / Math.max(1, boardWidth);
   const candidate = boundModuleBox({
     x: 0,
     y: Math.max(0, Math.round(top / 12) * 12),
     ...size,
   });
   const overlaps = (b: ModuleBox) =>
-    candidate.x < b.x + b.w + 12 &&
-    candidate.x + candidate.w + 12 > b.x &&
-    candidate.y < b.y + b.h + 12 &&
-    candidate.y + candidate.h + 12 > b.y;
+    candidate.x < b.x + b.w + gapX &&
+    candidate.x + candidate.w + gapX > b.x &&
+    candidate.y < b.y + b.h + MODULE_GAP &&
+    candidate.y + candidate.h + MODULE_GAP > b.y;
   for (let y = candidate.y; y <= 50000; y += 24) {
     candidate.y = y;
     for (let x = 0; x <= 1200 - candidate.w; x += 24) {

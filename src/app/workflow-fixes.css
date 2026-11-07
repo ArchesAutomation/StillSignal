@@ -10,8 +10,8 @@ html .cc-card-controls button[aria-label^="Fit "] { width:auto; min-width:76px; 
 html .cc-canvas-editing .cc-tile-scroll { padding-top:96px; padding-bottom:36px; }
 html .cc-canvas .cc-resize-left { left:0; right:auto; cursor:nesw-resize; border-radius:0 8px 0 7px; }
 /* A fixed workspace module must contain expanded forms, even after restoring its layout. */
-html .ss-free-board > .ss-module-sized { display:flex; flex-direction:column; overflow:hidden; }
-html .ss-free-board > .ss-module-sized > .ss-module-content { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
+html .ss-free-board > .ss-module-sized { display:flex; flex-direction:column; overflow:visible; }
+html .ss-free-board > .ss-module-sized > .ss-module-content { flex:1; min-height:0; overflow:auto; overscroll-behavior:auto; }
 /* Keep the glass rim and frost outside the journal's scrolling content. */
 html .ss-module-sized > .ss-module-content:has(> .ss-space-moments-scroll) {
   display: grid;
@@ -20,7 +20,7 @@ html .ss-module-sized > .ss-module-content:has(> .ss-space-moments-scroll) {
 }
 .ss-module-sized .ss-space-moments-scroll {
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scrollbar-width: thin;
 }
 .pnl-export { display:block; min-width:0; }
