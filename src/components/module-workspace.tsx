@@ -14,6 +14,11 @@ import {
 import { GlassPanel } from "./glassyui/glass-panel";
 import { createPortal } from "react-dom";
 import {
+  closeRemovedModuleSpace,
+  resizeModuleBox,
+  snapModuleBox,
+} from "@/lib/module-geometry";
+import {
   GripVertical,
   Plus,
   RotateCcw,
@@ -62,8 +67,8 @@ type Registry = {
   change: (id: string, patch: Partial<ModulePlacement>) => void;
   drag: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void;
   dragging: boolean;
-  resize: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void;
-  resizeKey: (id: string, key: string) => void;
+  resize: (event: ReactPointerEvent<HTMLButtonElement>, id: string, left?: boolean) => void;
+  resizeKey: (id: string, key: string, left?: boolean) => void;
   moveKey: (id: string, key: string, large: boolean) => void;
 };
 const Context = createContext<Registry | null>(null);
@@ -391,22 +396,23 @@ export function WorkspaceModule({
           </button>
         </fieldset>
       )}
-      {placement.title && placement.title !== title && (
-        <h2 className="ss-module-custom-title">{placement.title}</h2>
-      )}
       <GlassPanel
         preset="standard"
         lens={false}
         className="ss-module-content ss-module-glass"
       >
+        {placement.title && placement.title !== title && (
+          <h2 className="ss-module-custom-title">{placement.title}</h2>
+        )}
         {children}
       </GlassPanel>
-      {ctx.editing && (
+      {ctx.editing && [false, true].map((left) => (
         <button
-          className="ss-module-resize"
-          aria-label={`Resize ${title}`}
+          key={String(left)}
+          className={`ss-module-resize${left ? " ss-module-resize-left" : ""}`}
+          aria-label={`Resize ${title}${left ? " from left" : ""}`}
           title="Drag to resize. Arrow keys adjust width and height; Home fits the content."
-          onPointerDown={(event) => ctx.resize(event, id)}
+          onPointerDown={(event) => ctx.resize(event, id, left)}
           onKeyDown={(event) => {
             if (
               [
@@ -418,13 +424,13 @@ export function WorkspaceModule({
               ].includes(event.key)
             ) {
               event.preventDefault();
-              ctx.resizeKey(id, event.key);
+              ctx.resizeKey(id, event.key, left);
             }
           }}
         >
           <MoveDiagonal2 size={16} />
         </button>
-      )}
+      ))}
     </>,
     host,
     id,
@@ -468,6 +474,7 @@ export default function ModuleWorkspace({
   const current = editing ? draft : saved,
     key = moduleLayoutKey(owner, page);
   const [readingPreset, setReadingPreset] = useState(false);
+  const [boardWidth, setBoardWidth] = useState(1200);
   useEffect(() => {
     const update = () =>
       setReadingPreset(
@@ -482,11 +489,11 @@ export default function ModuleWorkspace({
     !editing && page === "Journal" && readingPreset
       ? evidenceReadingLayout(current, modules, heights)
       : current;
-  const boxes = moduleBoard(viewLayout, modules, heights);
+  const boxes = moduleBoard(viewLayout, modules, heights, boardWidth);
   const latest = useRef({ current, modules, boxes, editing, key });
   latest.current = { current, modules, boxes, editing, key };
   type Gesture = {
-    mode: "move" | "resize" | "library" | "panel";
+    mode: "move" | "resize" | "resize-left" | "library" | "panel";
     id: string;
     pointer: number;
     handle: HTMLButtonElement;
@@ -509,6 +516,16 @@ export default function ModuleWorkspace({
     (surfaceWindow ??
       canvas.current?.ownerDocument.defaultView ??
       window) as Window & typeof globalThis;
+  useLayoutEffect(() => {
+    const board = canvas.current;
+    const Observer = surface().ResizeObserver;
+    if (!enabled || !board || !Observer) return;
+    const measure = () => setBoardWidth(board.getBoundingClientRect().width || 1200);
+    measure();
+    const observer = new Observer(measure);
+    observer.observe(board);
+    return () => observer.disconnect();
+  }, [enabled, surfaceWindow]);
   useEffect(() => {
     onEditingChange?.(editing);
   }, [editing, onEditingChange]);
@@ -542,6 +559,7 @@ export default function ModuleWorkspace({
       else if (g.mode !== "panel") {
         g.host.style.transform = "";
         g.host.style.width = g.start.w / 12 + "%";
+        g.host.style.left = g.start.x / 12 + "%";
         const placement = latest.current.current.modules[g.id];
         g.host.style.height =
           placement?.height || placement?.box ? g.start.h + "px" : "";
@@ -667,7 +685,7 @@ export default function ModuleWorkspace({
     if (!module) return;
     const p = modulePlacement(value, module),
       box =
-        at ?? availableModuleBox(latest.current.boxes, viewportTop(), p.box);
+        at ?? availableModuleBox(latest.current.boxes, viewportTop(), p.box, boardWidth);
     value.modules[id] = p;
     commit(
       placeModule(value, id, box),
@@ -685,9 +703,16 @@ export default function ModuleWorkspace({
         box: boundModuleBox(patch.box),
         height: patch.box.h,
       };
+    if (patch.hidden && !old.hidden) {
+      const compacted = closeRemovedModuleSpace(latest.current.boxes, id);
+      for (const [peerId, box] of Object.entries(compacted)) {
+        if (value.modules[peerId])
+          value.modules[peerId] = { ...value.modules[peerId], box };
+      }
+    }
     commit(value);
   }
-  function moveKey(id: string, key: string, resize = false, large = false) {
+  function moveKey(id: string, key: string, resize = false, large = false, left = false) {
     const value = resolved(),
       start = latest.current.boxes[id];
     if (!start) return;
@@ -699,7 +724,7 @@ export default function ModuleWorkspace({
       );
       const fitted = placeModule(value, id, {
         ...start,
-        h: (scrollContent?.scrollHeight ?? content?.scrollHeight ?? 260) + 64,
+        h: scrollContent?.scrollHeight ?? content?.scrollHeight ?? 260,
       });
       fitted.modules[id].heightMode = "auto";
       fitted.modules[id].height = undefined;
@@ -712,9 +737,17 @@ export default function ModuleWorkspace({
     const step = large ? 48 : 12;
     const dx = key === "ArrowRight" ? step : key === "ArrowLeft" ? -step : 0,
       dy = key === "ArrowDown" ? step : key === "ArrowUp" ? -step : 0;
-    const next = resize
-      ? { ...start, w: start.w + dx, h: start.h + dy }
+    const candidate = resize
+      ? resizeModuleBox(start, dx, dy, left)
       : { ...start, x: start.x + dx, y: start.y + dy };
+    const next = snapModuleBox(
+      candidate,
+      Object.entries(latest.current.boxes)
+        .filter(([peer]) => peer !== id)
+        .map(([, box]) => box),
+      canvas.current?.getBoundingClientRect().width || 1200,
+      resize ? (left ? "resize-left" : "resize") : "move",
+    );
     const placed = placeModule(value, id, next);
     if (resize) placed.modules[id].heightMode = "fixed";
     commit(placed, resize ? "Module resized." : "Module moved.");
@@ -827,18 +860,29 @@ export default function ModuleWorkspace({
           y: snap(event.clientY - rect.top),
         });
       } else if (g.mode === "move") {
-        g.next = boundModuleBox({
-          ...g.start,
-          x: g.start.x + snap((dx * 1200) / g.width),
-          y: g.start.y + snap(dy),
-        });
-        g.host.style.transform = `translate(${((g.next.x - g.start.x) * g.width) / 1200}px,${g.next.y - g.start.y}px) scale(1.01)`;
+        g.next = snapModuleBox(
+          boundModuleBox({
+            ...g.start,
+            x: g.start.x + snap((dx * 1200) / g.width),
+            y: g.start.y + snap(dy),
+          }),
+          Object.entries(latest.current.boxes)
+            .filter(([id]) => id !== g.id)
+            .map(([, box]) => box),
+          g.width,
+          "move",
+        );
+        g.host.style.transform = `translate(${((g.next.x - g.start.x) * g.width) / 1200}px,${g.next.y - g.start.y}px)`;
       } else {
-        g.next = boundModuleBox({
-          ...g.start,
-          w: g.start.w + snap((dx * 1200) / g.width),
-          h: g.start.h + snap(dy),
-        });
+        g.next = snapModuleBox(
+          resizeModuleBox(g.start, snap((dx * 1200) / g.width), snap(dy), g.mode === "resize-left"),
+          Object.entries(latest.current.boxes)
+            .filter(([id]) => id !== g.id)
+            .map(([, box]) => box),
+          g.width,
+          g.mode === "resize-left" ? "resize-left" : "resize",
+        );
+        g.host.style.left = g.next.x / 12 + "%";
         g.host.style.width = g.next.w / 12 + "%";
         g.host.style.height = g.next.h + "px";
       }
@@ -866,7 +910,7 @@ export default function ModuleWorkspace({
       cancelGesture();
       if (valid && g.mode !== "panel") {
         const placed = placeModule(g.base, g.id, g.next);
-        if (g.mode === "resize") placed.modules[g.id].heightMode = "fixed";
+        if (g.mode === "resize" || g.mode === "resize-left") placed.modules[g.id].heightMode = "fixed";
         commit(placed, "Module placed. Save layout to keep your board.");
       }
     };
@@ -900,8 +944,8 @@ export default function ModuleWorkspace({
     change,
     dragging,
     drag: (event, id) => startGesture(event, id, "move"),
-    resize: (event, id) => startGesture(event, id, "resize"),
-    resizeKey: (id, key) => moveKey(id, key, true),
+    resize: (event, id, left) => startGesture(event, id, left ? "resize-left" : "resize"),
+    resizeKey: (id, key, left) => moveKey(id, key, true, false, left),
     moveKey: (id, key, large) => moveKey(id, key, false, large),
   };
   const boardHeight = Math.max(
@@ -911,7 +955,7 @@ export default function ModuleWorkspace({
   function createCustom() {
     const id = "custom-" + crypto.randomUUID(),
       value = resolved(),
-      box = availableModuleBox(boxes, viewportTop());
+      box = availableModuleBox(boxes, viewportTop(), undefined, boardWidth);
     value.custom = [
       ...(value.custom ?? []),
       { id, title: "My module", text: "" },
