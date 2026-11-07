@@ -22,6 +22,7 @@ test("floating session widgets edit in the popup document and persist without lo
   }))
     Object.defineProperty(globalThis, key, { value, configurable: true });
   pip.window.resizeTo = () => {};
+  Object.defineProperty(pip.window, "innerHeight", { value: 3000, configurable: true });
   for (const dom of [main, pip]) {
     dom.window.HTMLElement.prototype.setPointerCapture = () => {};
     dom.window.HTMLElement.prototype.hasPointerCapture = () => false;
@@ -103,10 +104,14 @@ test("floating session widgets edit in the popup document and persist without lo
     await pointer("pointerdown", 100, 200);
     await pointer("pointermove", 124, 248);
     await pointer("pointerup", 124, 248);
+    assert.equal(doc.querySelector<HTMLElement>('[data-module-id="session-recorder"]')!.style.top, `${initialTop}px`, "occupied moves do not displace neighbors");
+    await pointer("pointerdown", 100, 200);
+    await pointer("pointermove", 124, 2448);
+    await pointer("pointerup", 124, 2448);
     assert.equal(
       doc.querySelector<HTMLElement>('[data-module-id="session-recorder"]')!
         .style.top,
-      `${initialTop + 48}px`,
+      `${initialTop + 2248}px`,
       "pointer events belong to the popup, not the main tab",
     );
     await click("Save layout");

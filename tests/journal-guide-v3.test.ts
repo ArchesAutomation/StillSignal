@@ -396,7 +396,8 @@ test("the process edge validator is generated from the same profile and preparat
     edge,
     local
       .replace('"zod"', '"npm:zod@4.6.7"')
-      .replaceAll('"./journal-guide"', '"./journal-guide.ts"'),
+      .replaceAll('"./journal-guide"', '"./journal-guide.ts"')
+      .replaceAll('"./widget-layout"', '"./widget-layout.ts"'),
   );
   assert.match(
     readFileSync("src/app/layout.tsx", "utf8"),

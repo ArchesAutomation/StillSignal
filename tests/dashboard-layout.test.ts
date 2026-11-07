@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { emptyModuleLayout } from "../src/lib/module-layout";
 import {
   dashboardRecords,
   freshDashboard,
@@ -63,6 +64,21 @@ test("hidden cards do not interfere with visible-card ordering, and schemas reje
     createRecord("layout", { ...moved, variableIds: [] }).body.variableIds,
     [],
   );
+});
+
+test("shared widget geometry roundtrips alongside legacy dashboard fields and rejects invalid frames", () => {
+  const workspace = emptyModuleLayout();
+  workspace.boardWidth = 1480;
+  workspace.modules.thesis = { section: "main", order: 0, width: 4, hidden: false, heightMode: "fixed", height: 2400, box: { x: 416.25, y: 200, w: 300.5, h: 2400 } };
+  const layout = { ...freshDashboard(), workspace };
+  const parsed = recordSchema.parse(JSON.parse(JSON.stringify(createRecord("layout", layout))));
+  assert.equal(parsed.kind, "layout");
+  if (parsed.kind !== "layout") return;
+  assert.deepEqual(parsed.body.workspace, workspace);
+  const invalid = structuredClone(layout);
+  invalid.workspace.modules.thesis.box!.x = 1100;
+  assert.throws(() => recordSchema.parse(createRecord("layout", invalid)));
+  assert.doesNotThrow(() => recordSchema.parse(createRecord("layout", freshDashboard())));
 });
 
 test("named dashboards, selected variables and a single home survive reloads without crossing owners", async () => {

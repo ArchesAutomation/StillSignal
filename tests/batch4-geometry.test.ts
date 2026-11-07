@@ -28,18 +28,23 @@ test("dashboard vertical resizing survives its content measurement", async () =>
     observe() {} unobserve() {} disconnect() {}
   } as unknown as typeof ResizeObserver;
   Object.defineProperty(globalThis, "ResizeObserver", { value: Observer, configurable: true });
+  Object.defineProperty(ui.dom.window, "ResizeObserver", { value: Observer, configurable: true });
   let layout = freshDashboard();
   const render = () => h(DashboardCanvas, { layout, editing: true, disabled: false, onInteracting() {}, onChange(next) { layout = next; }, renderContent() { return "Measured content"; } });
   try {
     await act(async () => ui.root.render(render()));
-    const inner = document.querySelector(".cc-tile-content-inner")!;
+    const inner = document.querySelector<HTMLElement>('[data-module-id="preparation"]')!;
     inner.getBoundingClientRect = () => ({ height: 180 } as DOMRect);
-    await act(async () => measure!([{ target: inner } as ResizeObserverEntry], {} as ResizeObserver));
-    const card = () => document.querySelector<HTMLElement>('[data-card="preparation"]')!;
-    const before = JSON.parse(card().dataset.grid!).h;
+    await act(async () => measure!([{ target: inner } as unknown as ResizeObserverEntry], {} as ResizeObserver));
+    const card = () => document.querySelector<HTMLElement>('[data-module-id="preparation"]')!;
+    const before = 180;
     await act(async () => card().querySelector('[aria-label="Resize Pre-market non-negotiables"]')!.dispatchEvent(new ui.dom.window.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
     await act(async () => ui.root.render(render()));
-    assert.equal(JSON.parse(card().dataset.grid!).h, before + 1);
+    assert.equal(card().style.height, `${before + 12}px`);
+    await act(async () => measure!([{ target: inner } as unknown as ResizeObserverEntry], {} as ResizeObserver));
+    assert.equal(card().style.height, `${before + 12}px`, "content measurement must not undo a manual resize");
+    assert.equal(layout.workspace!.modules.preparation.heightMode, "fixed");
+    recordSchema.parse(createRecord("layout", layout));
   } finally {
     await ui.close();
     Object.defineProperty(globalThis, "ResizeObserver", { value: undefined, configurable: true });

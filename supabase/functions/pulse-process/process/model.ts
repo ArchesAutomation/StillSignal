@@ -1,5 +1,6 @@
 import { z } from "npm:zod@4.6.7";
 import { journalProfileSchema } from "./journal-guide.ts";
+import { widgetLayoutSchema } from "./widget-layout.ts";
 const id = z.uuid(),
   text = z.string().trim().max(8000),
   name = z.string().trim().min(1).max(160);
@@ -570,6 +571,7 @@ export const recordSchema = z
             )
             .max(6),
           showMarket: z.boolean(),
+          workspace: widgetLayoutSchema.optional(),
         })
         .strict()
         .refine(
