@@ -52,7 +52,8 @@ export default function PostExitInvitation({ props }: { props: Props }) {
   if (!pending.length) return error ? <p role="status">{error}</p> : null;
   return (
     <GlassPanel
-      lens
+      lens={false}
+      preset="standard"
       className="guide-exit-invitation"
       role="status"
       aria-label="Post-exit review invitation"

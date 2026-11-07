@@ -3,7 +3,7 @@ import { GlassPanel } from "../glassyui/glass-panel";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Plus, RotateCcw, Undo2 } from "lucide-react";
 import DashboardCanvas from "./dashboard-canvas";
-import { ModuleScope } from "../module-workspace";
+import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import { latest, type RecordOf } from "@/lib/process/model";
 import {
   cards,
@@ -38,8 +38,10 @@ export default function DashboardBoard({
   variables = [],
   renderVariables,
   editor,
+  before,
 }: {
   editor: DashboardEditor;
+  before?: ReactNode;
   store: ProcessStore;
   owner: string;
   panels: Record<CardId, ReactNode>;
@@ -57,7 +59,7 @@ export default function DashboardBoard({
   const useStarter = !home && selectedId === "starter";
   const selected = useStarter
     ? undefined
-    : layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0];
+    : (layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0]);
   const saved = selected ? normalizeLayout(selected.body) : initial;
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
@@ -72,7 +74,10 @@ export default function DashboardBoard({
   // Preparation is a single entry button in Command Center, not a dashboard card.
   // Keep stored layouts compatible without mounting the old checklist module.
   const sourceLayout = draft ?? saved;
-  const layout = { ...sourceLayout, panels: sourceLayout.panels.filter(p => p.id !== "preparation") };
+  const layout = {
+    ...sourceLayout,
+    panels: sourceLayout.panels.filter((p) => p.id !== "preparation"),
+  };
   const visible = layout.panels.filter((p) => p.visible);
   const stale =
     editing &&
@@ -127,339 +132,395 @@ export default function DashboardBoard({
     setUndo([]);
   };
   return (
-    <ModuleScope active={false}><div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
-      <GlassPanel preset="standard" className="cc-dashboard-toolbar">
-        {draft ? (
-          <>
-            <div className="cc-dashboard-editor-title">
-              <Pencil size={16} />
-              <strong>Make this dashboard yours</strong>
-              <span>Drag cards to move them. Pull a corner to resize.</span>
-            </div>
-            <div className="cc-actions">
-              <button
-                disabled={store.busy || interacting}
-                title="Restore the original dashboard arrangement. You can undo this before saving."
-                onClick={() =>
-                  change(
-                    {
-                      ...freshDashboard(),
-                      name: draft.name,
-                      isDefault: draft.isDefault,
-                    },
-                    "Original arrangement restored. Undo to go back.",
-                  )
-                }
-              >
-                <RotateCcw size={15} /> Reset layout
-              </button>
-              <button
-                disabled={!undo.length || store.busy || interacting}
-                onClick={() => {
-                  setDraft(undo.at(-1));
-                  setUndo((rows) => rows.slice(0, -1));
-                  setMessage("Change undone.");
-                }}
-              >
-                <Undo2 size={15} /> Undo
-              </button>
-              <button
-                disabled={store.busy}
-                onClick={() => {
-                  finish();
-                  setMessage("Changes canceled.");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="cc-primary"
-                disabled={
-                  store.busy || interacting || stale || !draft.name.trim()
-                }
-                onClick={async () => {
-                  const { record, batch } = dashboardRecords(
-                    draft,
-                    base,
-                    layouts,
-                  );
-                  if (await store.save(batch)) {
-                    choose(record.rootId);
-                    finish();
-                    setMessage("Dashboard saved.");
+    <ModuleScope active={false}>
+      <div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
+        <GlassPanel preset="standard" className="cc-dashboard-toolbar">
+          {draft ? (
+            <>
+              <div className="cc-dashboard-editor-title">
+                <Pencil size={16} />
+                <strong>Make this dashboard yours</strong>
+                <span>Drag cards to move them. Pull a corner to resize.</span>
+              </div>
+              <div className="cc-actions">
+                <button
+                  disabled={store.busy || interacting}
+                  title="Restore the original dashboard arrangement. You can undo this before saving."
+                  onClick={() =>
+                    change(
+                      {
+                        ...freshDashboard(),
+                        name: draft.name,
+                        isDefault: draft.isDefault,
+                      },
+                      "Original arrangement restored. Undo to go back.",
+                    )
                   }
-                }}
-              >
-                {store.busy ? "Saving…" : "Save dashboard"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="cc-dashboard-current">
-              {layouts.length > 1 || (layouts.length === 1 && !home) ? (
-                <Field label="Dashboard">
-                  <select
-                    value={selected?.rootId ?? "starter"}
-                    onChange={(e) => {
-                      choose(e.target.value);
-                      setMessage("");
-                    }}
-                  >
-                    {!home && <option value="starter">{initial.name} (starter)</option>}
-                    {layouts.map((r) => (
-                      <option key={r.rootId} value={r.rootId}>
-                        {r.body.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              ) : (
-                <strong>{saved.name}</strong>
-              )}
-            </div>
-            <div className="cc-actions">
-              <button onClick={() => start(true)}>
-                <Plus size={15} /> New dashboard
-              </button>
-              <button aria-expanded={snapshots} onClick={() => {
-                setSnapshots(!snapshots);
-                setSnapshotCode("");
-              }}>
-                Dashboard snapshots
-              </button>
-              <button ref={editButton} onClick={() => start()}>
-                <Pencil size={15} /> Edit dashboard
-              </button>
-            </div>
-          </>
-        )}
-      </GlassPanel>
-      {snapshots && !editing && (
-        <GlassPanel className="cc-snapshot-tools">
-          <p>Share your dashboard arrangement or paste a snapshot another trader shared.</p>
-          <button onClick={() => setSnapshotCode(dashboardSnapshot(saved))}>Generate share code</button>
-          <Field label="Dashboard snapshot code">
-            <textarea value={snapshotCode} maxLength={10_000} rows={3}
-              onChange={(event) => setSnapshotCode(event.target.value)} />
-          </Field>
-          <button disabled={!snapshotCode.trim() || store.busy} onClick={() => {
-            const imported = readDashboardSnapshot(snapshotCode);
-            if (!imported) {
-              setMessage("This dashboard snapshot code is invalid or unsupported.");
-              return;
-            }
-            setBase(undefined);
-            setUndo([]);
-            setAdding(false);
-            setDraft(imported);
-            setSnapshots(false);
-            setSnapshotCode("");
-            setMessage("Preview the imported dashboard, then save it to switch to it.");
-          }}>
-            Preview snapshot
-          </button>
+                >
+                  <RotateCcw size={15} /> Reset layout
+                </button>
+                <button
+                  disabled={!undo.length || store.busy || interacting}
+                  onClick={() => {
+                    setDraft(undo.at(-1));
+                    setUndo((rows) => rows.slice(0, -1));
+                    setMessage("Change undone.");
+                  }}
+                >
+                  <Undo2 size={15} /> Undo
+                </button>
+                <button
+                  disabled={store.busy}
+                  onClick={() => {
+                    finish();
+                    setMessage("Changes canceled.");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="cc-primary"
+                  disabled={
+                    store.busy || interacting || stale || !draft.name.trim()
+                  }
+                  onClick={async () => {
+                    const { record, batch } = dashboardRecords(
+                      draft,
+                      base,
+                      layouts,
+                    );
+                    if (await store.save(batch)) {
+                      choose(record.rootId);
+                      finish();
+                      setMessage("Dashboard saved.");
+                    }
+                  }}
+                >
+                  {store.busy ? "Saving…" : "Save dashboard"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="cc-dashboard-current">
+                {layouts.length > 1 || (layouts.length === 1 && !home) ? (
+                  <Field label="Dashboard">
+                    <select
+                      value={selected?.rootId ?? "starter"}
+                      onChange={(e) => {
+                        choose(e.target.value);
+                        setMessage("");
+                      }}
+                    >
+                      {!home && (
+                        <option value="starter">
+                          {initial.name} (starter)
+                        </option>
+                      )}
+                      {layouts.map((r) => (
+                        <option key={r.rootId} value={r.rootId}>
+                          {r.body.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : (
+                  <strong>{saved.name}</strong>
+                )}
+              </div>
+              <div className="cc-actions">
+                <button onClick={() => start(true)}>
+                  <Plus size={15} /> New dashboard
+                </button>
+                <button
+                  aria-expanded={snapshots}
+                  onClick={() => {
+                    setSnapshots(!snapshots);
+                    setSnapshotCode("");
+                  }}
+                >
+                  Dashboard snapshots
+                </button>
+                <button ref={editButton} onClick={() => start()}>
+                  <Pencil size={15} /> Edit dashboard
+                </button>
+              </div>
+            </>
+          )}
         </GlassPanel>
-      )}
-      <p className="cc-dashboard-announcement" role="status" aria-live="polite">
-        {message}
-      </p>
-      {draft && (
-        <fieldset className="cc-dashboard-options" disabled={store.busy}>
-          <Field label="Dashboard name">
-            <input
-              ref={nameInput}
-              maxLength={160}
-              value={draft.name}
-              onChange={(e) => change({ ...draft, name: e.target.value })}
-            />
-          </Field>
-          <label>
-            <input
-              type="checkbox"
-              checked={draft.isDefault}
-              onChange={(e) =>
-                change({ ...draft, isDefault: e.target.checked })
-              }
-            />{" "}
-            Open by default
-          </label>
-          <p>Hiding a card keeps all its data and recordings.</p>
-        </fieldset>
-      )}
-      {stale && (
-        <p role="alert" className="cc-error">
-          This dashboard changed in another tab. Cancel to load the saved
-          version, then edit again.
+        {snapshots && !editing && (
+          <GlassPanel className="cc-snapshot-tools">
+            <p>
+              Share your dashboard arrangement or paste a snapshot another
+              trader shared.
+            </p>
+            <button onClick={() => setSnapshotCode(dashboardSnapshot(saved))}>
+              Generate share code
+            </button>
+            <Field label="Dashboard snapshot code">
+              <textarea
+                value={snapshotCode}
+                maxLength={200_000}
+                rows={3}
+                onChange={(event) => setSnapshotCode(event.target.value)}
+              />
+            </Field>
+            <button
+              disabled={!snapshotCode.trim() || store.busy}
+              onClick={() => {
+                const imported = readDashboardSnapshot(snapshotCode);
+                if (!imported) {
+                  setMessage(
+                    "This dashboard snapshot code is invalid or unsupported.",
+                  );
+                  return;
+                }
+                setBase(undefined);
+                setUndo([]);
+                setAdding(false);
+                setDraft(imported);
+                setSnapshots(false);
+                setSnapshotCode("");
+                setMessage(
+                  "Preview the imported dashboard, then save it to switch to it.",
+                );
+              }}
+            >
+              Preview snapshot
+            </button>
+          </GlassPanel>
+        )}
+        <p
+          className="cc-dashboard-announcement"
+          role="status"
+          aria-live="polite"
+        >
+          {message}
         </p>
-      )}
-      {draft && (
-        <fieldset className="cc-dashboard-toggles" disabled={store.busy}>
-          <legend>At a glance</legend>
-          {market && (
+        {draft && (
+          <fieldset className="cc-dashboard-options" disabled={store.busy}>
+            <Field label="Dashboard name">
+              <input
+                ref={nameInput}
+                maxLength={160}
+                value={draft.name}
+                onChange={(e) => change({ ...draft, name: e.target.value })}
+              />
+            </Field>
             <label>
               <input
                 type="checkbox"
-                checked={layout.showMarket}
+                checked={draft.isDefault}
                 onChange={(e) =>
-                  change({ ...layout, showMarket: e.target.checked })
+                  change({ ...draft, isDefault: e.target.checked })
                 }
               />{" "}
-              Market outlook
+              Open by default
             </label>
-          )}
-          {Object.entries(statusLabels).map(([key, label]) => {
-            const id = key as DashboardLayout["statusWidgets"][number];
-            return (
-              <label key={id}>
+            <p>Hiding a card keeps all its data and recordings.</p>
+          </fieldset>
+        )}
+        {stale && (
+          <p role="alert" className="cc-error">
+            This dashboard changed in another tab. Cancel to load the saved
+            version, then edit again.
+          </p>
+        )}
+        {draft && (
+          <fieldset className="cc-dashboard-toggles" disabled={store.busy}>
+            <legend>At a glance</legend>
+            {market && (
+              <label>
                 <input
                   type="checkbox"
-                  checked={layout.statusWidgets.includes(id)}
+                  checked={layout.showMarket}
                   onChange={(e) =>
-                    change({
-                      ...layout,
-                      statusWidgets: e.target.checked
-                        ? [...layout.statusWidgets, id]
-                        : layout.statusWidgets.filter((v) => v !== id),
-                    })
+                    change({ ...layout, showMarket: e.target.checked })
                   }
-                />
-                {label}
+                />{" "}
+                Market outlook
               </label>
-            );
-          })}
-        </fieldset>
-      )}
-      <DashboardCanvas
-        layout={layout}
-        editing={editing}
-        disabled={store.busy}
-        onChange={change}
-        onInteracting={setInteracting}
-        renderContent={(p) => (
-          <>
-            <div
-              className={draft ? "cc-card-preview" : "cc-card-content"}
-              inert={!!draft}
-            >
-              {p.id === "variables" && renderVariables
-                ? renderVariables(layout.variableIds)
-                : panels[p.id]}
-            </div>
-            {draft && p.id === "variables" && (
-              <fieldset className="cc-variable-picker" disabled={store.busy}>
-                <legend>Variables on this dashboard</legend>
-                <label>
+            )}
+            {Object.entries(statusLabels).map(([key, label]) => {
+              const id = key as DashboardLayout["statusWidgets"][number];
+              return (
+                <label key={id}>
                   <input
                     type="checkbox"
-                    checked={!draft.variableIds}
+                    checked={layout.statusWidgets.includes(id)}
                     onChange={(e) =>
                       change({
-                        ...draft,
-                        variableIds: e.target.checked ? undefined : [],
+                        ...layout,
+                        statusWidgets: e.target.checked
+                          ? [...layout.statusWidgets, id]
+                          : layout.statusWidgets.filter((v) => v !== id),
                       })
                     }
-                  />{" "}
-                  All my variables
+                  />
+                  {label}
                 </label>
-                {draft.variableIds &&
-                  variables.map((v) => (
-                    <label key={v.rootId}>
-                      <input
-                        type="checkbox"
-                        checked={draft.variableIds!.includes(v.rootId)}
-                        onChange={(e) =>
+              );
+            })}
+          </fieldset>
+        )}
+        {draft &&
+          layout.panels.some((p) => p.id === "variables" && p.visible) && (
+            <fieldset className="cc-variable-picker" disabled={store.busy}>
+              <legend>Variables on this dashboard</legend>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={!draft.variableIds}
+                  onChange={(e) =>
+                    change({
+                      ...draft,
+                      variableIds: e.target.checked ? undefined : [],
+                    })
+                  }
+                />{" "}
+                All my variables
+              </label>
+              {draft.variableIds &&
+                variables.map((v) => (
+                  <label key={v.rootId}>
+                    <input
+                      type="checkbox"
+                      checked={draft.variableIds!.includes(v.rootId)}
+                      onChange={(e) =>
+                        change({
+                          ...draft,
+                          variableIds: e.target.checked
+                            ? [...draft.variableIds!, v.rootId]
+                            : draft.variableIds!.filter(
+                                (id) => id !== v.rootId,
+                              ),
+                        })
+                      }
+                    />
+                    {v.body.name}
+                  </label>
+                ))}
+              {!variables.length && (
+                <small>
+                  Create personal variables from the Personal variables card
+                  after saving.
+                </small>
+              )}
+            </fieldset>
+          )}
+        <DashboardCanvas
+          key={selected?.rootId ?? "starter"}
+          owner={owner}
+          before={before}
+          after={
+            <>
+              {layout.showMarket && market && (
+                <WorkspaceModule
+                  id="market-outlook"
+                  title="Market outlook"
+                  section="bottom"
+                  order={0}
+                >
+                  {market}
+                </WorkspaceModule>
+              )}
+              {!!layout.statusWidgets.length && (
+                <WorkspaceModule
+                  id="dashboard-status"
+                  title="At a glance"
+                  section="bottom"
+                  order={1}
+                >
+                  <GlassPanel
+                    preset="standard"
+                    className="cc-status-grid cc-dashboard-status"
+                  >
+                    {layout.statusWidgets.map((id) => (
+                      <div key={id}>{status[id]}</div>
+                    ))}
+                  </GlassPanel>
+                </WorkspaceModule>
+              )}
+            </>
+          }
+          layout={layout}
+          editing={editing}
+          disabled={store.busy}
+          onChange={change}
+          onInteracting={setInteracting}
+          renderContent={(p) => (
+            <>
+              <div
+                className={draft ? "cc-card-preview" : "cc-card-content"}
+                inert={!!draft}
+              >
+                {p.id === "variables" && renderVariables
+                  ? renderVariables(layout.variableIds)
+                  : panels[p.id]}
+              </div>
+            </>
+          )}
+        />
+        {!visible.length && (
+          <div className="cc-dashboard-empty">
+            <strong>A little breathing room.</strong>
+            <p>Add just the cards that support the way you trade.</p>
+            <button
+              onClick={() => {
+                if (!draft) start();
+                setAdding(true);
+              }}
+            >
+              <Plus size={16} /> Add cards
+            </button>
+          </div>
+        )}
+        {draft && (
+          <>
+            <button
+              className="cc-add-cards"
+              aria-expanded={adding}
+              onClick={() => setAdding((v) => !v)}
+            >
+              <Plus size={16} /> Add cards{" "}
+              {layout.panels.some((p) => !p.visible)
+                ? `(${layout.panels.filter((p) => !p.visible).length} available)`
+                : ""}
+            </button>
+            {adding && (
+              <section className="cc-card-library" aria-label="Available cards">
+                <h2>What belongs on your dashboard?</h2>
+                <p>Choose a card. You can always hide it again.</p>
+                <div className="cc-card-library-grid">
+                  {layout.panels.map((p) => (
+                    <article key={p.id}>
+                      <h3>{cards[p.id].title}</h3>
+                      <p>{cards[p.id].detail}</p>
+                      <button
+                        disabled={p.visible || store.busy}
+                        onClick={() => {
                           change({
-                            ...draft,
-                            variableIds: e.target.checked
-                              ? [...draft.variableIds!, v.rootId]
-                              : draft.variableIds!.filter(
-                                  (id) => id !== v.rootId,
-                                ),
-                          })
-                        }
-                      />
-                      {v.body.name}
-                    </label>
+                            ...layout,
+                            panels: [
+                              ...layout.panels.filter((v) => v.id !== p.id),
+                              { ...p, visible: true },
+                            ],
+                          });
+                          setMessage(cards[p.id].title + " added.");
+                        }}
+                      >
+                        {p.visible
+                          ? "Already on dashboard"
+                          : "Add " + cards[p.id].title}
+                      </button>
+                    </article>
                   ))}
-                {!variables.length && (
-                  <small>
-                    Create personal variables from the Personal variables card
-                    after saving.
-                  </small>
-                )}
-              </fieldset>
+                </div>
+              </section>
             )}
           </>
         )}
-      />
-      {layout.showMarket && market}
-      {!!layout.statusWidgets.length && (
-        <GlassPanel preset="standard" className="cc-status-grid cc-dashboard-status">
-          {layout.statusWidgets.map((id) => (
-            <div key={id}>{status[id]}</div>
-          ))}
-        </GlassPanel>
-      )}
-      {!visible.length && (
-        <div className="cc-dashboard-empty">
-          <strong>A little breathing room.</strong>
-          <p>Add just the cards that support the way you trade.</p>
-          <button
-            onClick={() => {
-              if (!draft) start();
-              setAdding(true);
-            }}
-          >
-            <Plus size={16} /> Add cards
-          </button>
-        </div>
-      )}
-      {draft && (
-        <>
-          <button
-            className="cc-add-cards"
-            aria-expanded={adding}
-            onClick={() => setAdding((v) => !v)}
-          >
-            <Plus size={16} /> Add cards{" "}
-            {layout.panels.some((p) => !p.visible)
-              ? `(${layout.panels.filter((p) => !p.visible).length} available)`
-              : ""}
-          </button>
-          {adding && (
-            <section className="cc-card-library" aria-label="Available cards">
-              <h2>What belongs on your dashboard?</h2>
-              <p>Choose a card. You can always hide it again.</p>
-              <div className="cc-card-library-grid">
-                {layout.panels.map((p) => (
-                  <article key={p.id}>
-                    <h3>{cards[p.id].title}</h3>
-                    <p>{cards[p.id].detail}</p>
-                    <button
-                      disabled={p.visible || store.busy}
-                      onClick={() => {
-                        change({
-                          ...layout,
-                          panels: [
-                            ...layout.panels.filter((v) => v.id !== p.id),
-                            { ...p, visible: true },
-                          ],
-                        });
-                        setMessage(cards[p.id].title + " added.");
-                      }}
-                    >
-                      {p.visible
-                        ? "Already on dashboard"
-                        : "Add " + cards[p.id].title}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-        </>
-      )}
-    </div></ModuleScope>
+      </div>
+    </ModuleScope>
   );
 }

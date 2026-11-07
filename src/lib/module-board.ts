@@ -36,7 +36,7 @@ export function moduleBoard(
   heights: Record<string, number> = {},
   boardWidth = 1200,
 ): Record<string, ModuleBox> {
-  const gapX = MODULE_GAP * 1200 / Math.max(1, boardWidth);
+  const gapX = (MODULE_GAP * 1200) / Math.max(1, boardWidth);
   const result: Record<string, ModuleBox> = {};
   let rowX = 0,
     rowY = 0,
@@ -63,15 +63,33 @@ export function moduleBoard(
     for (const module of members) {
       const p = modulePlacement(layout, module);
       if (p.box) {
+        const reference = layout.boardWidth ?? 1200;
+        // Scale the tracks, not the gutter: x' = x * factor,
+        // w' = (w + gutter) * factor - gutter. Adjacent frames stay 16px apart.
+        const factor = (boardWidth + MODULE_GAP) / (reference + MODULE_GAP);
         result[module.id] = {
-          ...boundModuleBox(p.box),
+          ...boundModuleBox(p.box, 1),
+          x: ((p.box.x * reference) / boardWidth) * factor,
+          y: p.box.y + (p.sectionRelative ? rowY : 0),
+          w:
+            ((((p.box.w * reference) / 1200 + MODULE_GAP) * factor -
+              MODULE_GAP) *
+              1200) /
+            boardWidth,
           h:
-            p.heightMode === "fixed"
-              ? (p.height ?? p.box.h)
-              : (heights[module.id] ?? p.box.h),
+            heights[module.id] === 0
+              ? 0
+              : p.heightMode === "fixed"
+                ? (p.height ?? p.box.h)
+                : (heights[module.id] ?? p.box.h),
         };
+        height = Math.max(
+          height,
+          result[module.id].y - rowY + result[module.id].h,
+        );
         continue;
       }
+      if (heights[module.id] === 0) continue;
       const w = Math.max(180, (sectionWidth * p.width) / 12 - gapX),
         h = p.height ?? heights[module.id] ?? 300;
       if (x + w > sectionWidth && x) {
@@ -82,14 +100,39 @@ export function moduleBoard(
       result[module.id] = boundModuleBox({ x: rowX + x, y: rowY + y, w, h });
       // Saved geometry is bounded, but live forms can legitimately exceed that
       // height. Reserve their full rendered extent when reflowing neighbors.
-      if (p.heightMode !== "fixed") result[module.id].h = Math.max(120, h);
+      if (p.heightMode !== "fixed") result[module.id].h = Math.max(1, h);
       x += w + gapX;
       height = Math.max(height, h);
     }
     rowHeight = Math.max(rowHeight, y + height);
     rowX += sectionWidth;
   }
-  // Reflow the rendered content; never rewrite a user's saved coordinates on a dated view.
+  // Preserve explicit vertical adjacency when auto content grows OR shrinks.
+  for (const id of Object.keys(result).sort(
+    (a, b) => result[a].y - result[b].y,
+  )) {
+    const saved = layout.modules[id]?.box;
+    if (!saved) continue;
+    const above = Object.entries(result).filter(([peer, box]) => {
+      const original = layout.modules[peer]?.box;
+      return (
+        original &&
+        Math.abs(saved.y - original.y - original.h - MODULE_GAP) < 1 &&
+        box.x < result[id].x + result[id].w &&
+        box.x + box.w > result[id].x
+      );
+    });
+    if (above.length)
+      result[id].y = Math.max(
+        ...above.map(
+          ([, box]) => box.y + box.h + (result[id].h === 0 ? 0 : MODULE_GAP),
+        ),
+      );
+  }
+  for (const id of Object.keys(result))
+    if (result[id].h === 0) delete result[id];
+  // Legacy/content-growth safety only. Editing rejects occupied placements
+  // before committing, so a gesture never uses this pass to push neighbors.
   const placed: ModuleBox[] = [];
   for (const id of Object.keys(result).sort(
     (a, b) => result[a].y - result[b].y || result[a].x - result[b].x,
@@ -115,9 +158,11 @@ export function materializeBoard(
   layout: ModuleLayout,
   modules: BoardModule[],
   boxes: Record<string, ModuleBox>,
+  boardWidth = layout.boardWidth ?? 1200,
 ): ModuleLayout {
   return {
     ...layout,
+    boardWidth,
     modules: {
       ...layout.modules,
       ...Object.fromEntries(
@@ -125,6 +170,7 @@ export function materializeBoard(
           m.id,
           {
             ...modulePlacement(layout, m),
+            sectionRelative: false,
             ...(boxes[m.id] ? { box: boxes[m.id] } : {}),
           },
         ]),
@@ -170,7 +216,8 @@ export function placeModule(
 ): ModuleLayout {
   const old = layout.modules[id];
   if (!old) return layout;
-  const next = boundModuleBox(box);
+  const next = boundModuleBox(box, Math.min(180, box.w));
+  if (old.heightMode !== "fixed") next.h = Math.max(1, box.h);
   return {
     ...layout,
     modules: {
@@ -192,11 +239,12 @@ export function availableModuleBox(
   size = { w: 384, h: 288 },
   boardWidth = 1200,
 ): ModuleBox {
-  const gapX = MODULE_GAP * 1200 / Math.max(1, boardWidth);
+  const gapX = (MODULE_GAP * 1200) / Math.max(1, boardWidth);
   const candidate = boundModuleBox({
     x: 0,
     y: Math.max(0, Math.round(top / 12) * 12),
-    ...size,
+    w: size.w,
+    h: size.h,
   });
   const overlaps = (b: ModuleBox) =>
     candidate.x < b.x + b.w + gapX &&

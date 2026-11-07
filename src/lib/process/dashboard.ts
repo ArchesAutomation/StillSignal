@@ -103,7 +103,7 @@ export function dashboardSnapshot(layout: DashboardLayout) {
 }
 
 export function readDashboardSnapshot(code: string): DashboardLayout | undefined {
-  if (code.length > 10_000) return;
+  if (code.length > 200_000) return;
   try {
     const snapshot = JSON.parse(code);
     if (snapshot?.version !== 1) return;

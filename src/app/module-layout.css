@@ -168,27 +168,41 @@ html .ss-free-board > .ss-module-editing {
   background: transparent;
   outline: 1px dashed var(--signal-line);
 }
-html .ss-free-board-editing { margin-top: 44px; }
-html .ss-free-board > .ss-module-editing > .ss-module-controls {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  z-index: 25;
-  margin: 0 0 3px;
-  flex-wrap: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  background: var(--lg-opaque-surface);
-  border-radius: 8px;
-}
-html .ss-free-board > .ss-module-editing:is(:hover, :focus-within) > .ss-module-controls {
-  opacity: 1;
-  pointer-events: auto;
-}
-@media (hover: none) {
-  html .ss-free-board > .ss-module-editing > .ss-module-controls { opacity: 1; pointer-events: auto; }
-}
+html .ss-free-board-editing { margin-top: 16px; }
+.ss-module-move-surface { position:absolute; inset:0; z-index:4; border:0; border-radius:inherit; background:transparent; cursor:grab; touch-action:none; }
+.ss-module-move-surface:focus-visible { outline:2px solid var(--signal-text); outline-offset:-3px; }
+.ss-module-held .ss-module-move-surface { cursor:grabbing; }
+.ss-module-controls-anchor { position:absolute; inset:20px; z-index:8; pointer-events:none; }
+.ss-module-controls-anchor > .ss-module-controls { position:sticky; top:80px; width:fit-content; max-width:100%; margin:0 0 0 auto; flex-wrap:nowrap; pointer-events:auto; opacity:0; border-radius:8px; background:var(--lg-opaque-surface); }
+.ss-module-editing:is(:hover,:focus-within) .ss-module-controls { opacity:1; }
+.ss-module-controls .ss-module-grip { flex:0 0 auto; }
+.ss-module-controls .ss-module-grip span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+@media (hover:none) { .ss-module-controls-anchor > .ss-module-controls { opacity:1; } }
+html .ss-module-resize { z-index:9; width:16px; height:16px; border:0; background:transparent; color:var(--signal-text); border-radius:4px; }
+html .ss-module-resize span { display:block; width:8px; height:8px; border:solid currentColor; border-width:0 2px 2px 0; opacity:.65; }
+html .ss-module-resize:hover,html .ss-module-resize:focus-visible { background:var(--signal-recess); outline:1px solid var(--signal-line); }
+.ss-module-resize-se { right:0; bottom:0; cursor:nwse-resize; }
+.ss-module-resize-sw { left:0; right:auto; bottom:0; cursor:nesw-resize; }
+.ss-module-resize-sw span { transform:rotate(90deg); }
+.ss-module-resize-ne { right:0; top:0; bottom:auto; cursor:nesw-resize; }
+.ss-module-resize-ne span { transform:rotate(-90deg); }
+.ss-module-resize-nw { left:0; right:auto; top:0; bottom:auto; cursor:nwse-resize; }
+.ss-module-resize-nw span { transform:rotate(180deg); }
+html .ss-module-resize:is(.ss-module-resize-n,.ss-module-resize-s) { left:25%; right:auto; width:50%; height:8px; cursor:ns-resize; }
+.ss-module-resize-n { top:0; bottom:auto; }
+.ss-module-resize-s { bottom:0; }
+html .ss-module-resize:is(.ss-module-resize-e,.ss-module-resize-w) { top:25%; bottom:auto; height:50%; width:8px; cursor:ew-resize; }
+.ss-module-resize-e { right:0; }
+.ss-module-resize-w { left:0; right:auto; }
+html .ss-module-resize:is(.ss-module-resize-n,.ss-module-resize-s) span { height:2px; width:100%; border:0; background:currentColor; }
+html .ss-module-resize:is(.ss-module-resize-e,.ss-module-resize-w) span { width:2px; height:100%; border:0; background:currentColor; }
+html .ss-module-invalid { outline:2px dashed var(--signal-error,#d98b78)!important; }
+.ss-module-alignment-guides { position:absolute; inset:0; pointer-events:none; z-index:3; }
+html .ss-free-board > .ss-module-sized { min-height:0; }
+.ss-module-alignment-guides i { position:absolute; left:0; right:0; border-top:1px dashed var(--signal-muted); }
+.ss-module-alignment-guides b { position:absolute; top:0; bottom:0; border-left:1px dashed var(--signal-muted); }
+.ss-module-editing .ss-custom-module > label,.ss-module-editing .ss-custom-module > textarea { display:none; }
+.ss-module-invalid::after { content:"Space occupied"; position:absolute; z-index:10; left:12px; bottom:20px; padding:4px 8px; border-radius:6px; background:var(--lg-opaque-surface); color:var(--signal-text); font-size:12px; pointer-events:none; }
 html .ss-free-board > .ss-module-editing > .ss-module-options {
   position: absolute;
   top: 0;

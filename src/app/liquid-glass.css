@@ -55,6 +55,10 @@ html :is(.ss-app.ss-reference-app, .ss-app, .app-shell) {
 html :is(.auth-page, .stillness-canvas, .ss-app main, .ss-app .ss-reset) { background: transparent; }
 /* Only one material layer per module. Retain each feature's internal spacing. */
 html .ss-module-glass { padding: 20px; border: 0; margin: 0; min-width: 0; overflow: visible; contain: none; --lg-surface-blur: 16px; --lg-surface-alpha: .1; }
+html .ss-module-glass > :is(.guide-exit-invitation,.cc-greeting,.cc-daybar,.cc-status-grid).lg-glass-surface { background:transparent; box-shadow:none; margin:0; padding:0; }
+html .ss-module-glass > .guide-exit-invitation.lg-glass-surface { padding:8px 12px; }
+html .ss-module-glass > :is(.guide-exit-invitation,.cc-greeting,.cc-daybar,.cc-status-grid).lg-glass-surface::before,
+html .ss-module-glass > :is(.guide-exit-invitation,.cc-greeting,.cc-daybar,.cc-status-grid).lg-glass-surface::after { content:none; }
 html .ss-module-glass > :not(.lg-noise, svg),
 html .ss-module-content > :is(section, article, div) {
   background: transparent; border-color: transparent; box-shadow: none;
