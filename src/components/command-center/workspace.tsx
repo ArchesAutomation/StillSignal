@@ -4,7 +4,8 @@ import DashboardPnl from "./dashboard-pnl";
 import WorkflowNavigation from "./workflow-navigation";
 import { useSavedGuide } from "../use-saved-guide";
 import { dateSchema } from "@/lib/process/model";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import PostExitInvitation from "../post-exit-invitation";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
 import { useProcess } from "./use-process";
@@ -259,7 +260,9 @@ function PhysiologyPanel({ props, day }: Context) {
     </Panel>
   );
 }
-function DailyDashboard(context: Context & { editor: DashboardEditor }) {
+function DailyDashboard(
+  context: Context & { editor: DashboardEditor; before?: ReactNode },
+) {
   const { day, store, props } = context;
   const prep = preparation(store.records, day.rootId),
     thesis = relevantTheses(store.records, day),
@@ -308,7 +311,13 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
   };
   const panels = {
     preparation: null,
-    pnl: <DashboardPnl props={props} date={day.body.date} zone={day.body.timezone} />,
+    pnl: (
+      <DashboardPnl
+        props={props}
+        date={day.body.date}
+        zone={day.body.timezone}
+      />
+    ),
     thesis: <ThesisPanel {...context} />,
     temperature: <Temperature {...context} />,
     missions: <MissionsPanel {...context} />,
@@ -317,62 +326,95 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
     variables: <VariablesPanel {...context} />,
   };
   return (
-    <>
-      <GlassPanel preset="standard" className="cc-greeting">
-        <div>
-          <span className="cc-eyebrow">Your trading process, in context</span>
-          <h1>
-            {props.pulse.email
-              ? `Welcome, ${props.pulse.email.split("@")[0]}`
-              : "Your Command Center"}
-          </h1>
-          <p>
-            {day.body.date} · {day.body.timezone} ·{" "}
-            {props.pulse.recording
-              ? "Wearable recording"
-              : "No live HR recording"}
-          </p>
-        </div>
-        <button
-          className="cc-primary"
-          onClick={() => props.onPage("Pre-Market")}
-        >
-          Start / resume preparation
-        </button>
-        <button onClick={() => props.onPage("Trade Quality")}>
-          Finish session / review today
-        </button>
-      </GlassPanel>
-      <WorkflowNavigation owner={props.pulse.owner} open={props.onPage} />
-      <PreparationSummary {...context} />
-      <DashboardBoard
-        editor={context.editor}
-        store={store}
-        owner={props.pulse.owner}
-        panels={panels}
-        variables={latest(store.records, "variable").filter(
-          (v) => !v.body.archived,
-        )}
-        renderVariables={(ids) => (
-          <VariablesPanel {...context} variableIds={ids} />
-        )}
-        status={
-          Object.fromEntries(
-            Object.entries(status).map(([id, value]) => [
-              id,
-              <>
-                <small>{value[0]}</small>
-                <strong>{value[1]}</strong>
-              </>,
-            ]),
-          ) as Parameters<typeof DashboardBoard>[0]["status"]
-        }
-        market={<MarketOutlook {...context} />}
-      />
-    </>
+    <DashboardBoard
+      before={
+        <>
+          {" "}
+          {context.before}
+          <WorkspaceModule
+            id="dashboard-greeting"
+            title="Command Center introduction"
+            section="top"
+            order={1}
+          >
+            <ModuleScope active={false}>
+              <GlassPanel preset="standard" className="cc-greeting">
+                <div>
+                  <span className="cc-eyebrow">
+                    Your trading process, in context
+                  </span>
+                  <h1>
+                    {props.pulse.email
+                      ? `Welcome, ${props.pulse.email.split("@")[0]}`
+                      : "Your Command Center"}
+                  </h1>
+                  <p>
+                    {day.body.date} · {day.body.timezone} ·{" "}
+                    {props.pulse.recording
+                      ? "Wearable recording"
+                      : "No live HR recording"}
+                  </p>
+                </div>
+                <button
+                  className="cc-primary"
+                  onClick={() => props.onPage("Pre-Market")}
+                >
+                  Start / resume preparation
+                </button>
+                <button onClick={() => props.onPage("Trade Quality")}>
+                  Finish session / review today
+                </button>
+              </GlassPanel>
+            </ModuleScope>
+          </WorkspaceModule>
+          <WorkspaceModule
+            id="workflow-navigation"
+            title="Workflow navigation"
+            section="top"
+            order={2}
+          >
+            {" "}
+            <WorkflowNavigation owner={props.pulse.owner} open={props.onPage} />
+          </WorkspaceModule>
+          <WorkspaceModule
+            id="preparation-summary"
+            title="Preparation summary"
+            section="top"
+            order={3}
+          >
+            <ModuleScope active={false}>
+              <PreparationSummary {...context} />
+            </ModuleScope>
+          </WorkspaceModule>
+        </>
+      }
+      editor={context.editor}
+      store={store}
+      owner={props.pulse.owner}
+      panels={panels}
+      variables={latest(store.records, "variable").filter(
+        (v) => !v.body.archived,
+      )}
+      renderVariables={(ids) => (
+        <VariablesPanel {...context} variableIds={ids} />
+      )}
+      status={
+        Object.fromEntries(
+          Object.entries(status).map(([id, value]) => [
+            id,
+            <>
+              <small>{value[0]}</small>
+              <strong>{value[1]}</strong>
+            </>,
+          ]),
+        ) as Parameters<typeof DashboardBoard>[0]["status"]
+      }
+      market={<MarketOutlook {...context} />}
+    />
   );
 }
 function StartDashboard({
+  before,
   editor,
   store,
   props,
@@ -380,6 +422,7 @@ function StartDashboard({
   zone,
   onSettings,
 }: {
+  before?: ReactNode;
   editor: DashboardEditor;
   store: Context["store"];
   props: Props;
@@ -469,89 +512,123 @@ function StartDashboard({
         </button>
       </Panel>,
     ]),
-  ) as Omit<Parameters<typeof DashboardBoard>[0]["panels"], "pnl" | "preparation">;
+  ) as Omit<
+    Parameters<typeof DashboardBoard>[0]["panels"],
+    "pnl" | "preparation"
+  >;
   const panels = {
     ...starterPanels,
     preparation: null,
     pnl: <DashboardPnl props={props} date={date} zone={zone} />,
   };
   return (
-    <>
-      <GlassPanel preset="standard" className="cc-greeting">
-        <div>
-          <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
-          <h1>Your Command Center</h1>
-          <p>A clear plan before your first trade.</p>
-        </div>
-        <div className="cc-actions">
-          <button
-            className="cc-primary"
-            disabled={store.busy}
-            onClick={() => void open("Pre-Market")}
+    <DashboardBoard
+      before={
+        <>
+          {" "}
+          {before}
+          <WorkspaceModule
+            id="dashboard-greeting"
+            title="Command Center introduction"
+            section="top"
+            order={1}
           >
-            Start today's preparation
-          </button>
-          <button onClick={onSettings}>Day settings</button>
-        </div>
-      </GlassPanel>
-      <WorkflowNavigation owner={props.pulse.owner} open={(page) => void open(page)} />
-      <DashboardBoard
-        editor={editor}
-        store={store}
-        owner={props.pulse.owner}
-        panels={panels}
-        variables={latest(store.records, "variable").filter(
-          (v) => !v.body.archived,
-        )}
-        market={null}
-        status={{
-          session: (
-            <>
-              <small>Session & instrument</small>
-              <strong>No trading day opened</strong>
-            </>
-          ),
-          preparation: (
-            <>
-              <small>Preparation</small>
-              <strong>Not started</strong>
-            </>
-          ),
-          readiness: (
-            <>
-              <small>Readiness</small>
-              <strong>No check-in recorded</strong>
-            </>
-          ),
-          thesis: (
-            <>
-              <small>Trading thesis</small>
-              <strong>No daily thesis</strong>
-            </>
-          ),
-          review: (
-            <>
-              <small>Journal & review</small>
-              <strong>No review recorded</strong>
-            </>
-          ),
-          goal: (
-            <>
-              <small>Daily goal</small>
-              <strong>No goal selected</strong>
-            </>
-          ),
-        }}
-      />
-    </>
+            <ModuleScope active={false}>
+              <GlassPanel preset="standard" className="cc-greeting">
+                <div>
+                  <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
+                  <h1>Your Command Center</h1>
+                  <p>A clear plan before your first trade.</p>
+                </div>
+                <div className="cc-actions">
+                  <button
+                    className="cc-primary"
+                    disabled={store.busy}
+                    onClick={() => void open("Pre-Market")}
+                  >
+                    Start today's preparation
+                  </button>
+                  <button onClick={onSettings}>Day settings</button>
+                </div>
+              </GlassPanel>
+            </ModuleScope>
+          </WorkspaceModule>
+          <WorkspaceModule
+            id="workflow-navigation"
+            title="Workflow navigation"
+            section="top"
+            order={2}
+          >
+            {" "}
+            <WorkflowNavigation
+              owner={props.pulse.owner}
+              open={(page) => void open(page)}
+            />
+          </WorkspaceModule>
+        </>
+      }
+      editor={editor}
+      store={store}
+      owner={props.pulse.owner}
+      panels={panels}
+      variables={latest(store.records, "variable").filter(
+        (v) => !v.body.archived,
+      )}
+      market={null}
+      status={{
+        session: (
+          <>
+            <small>Session & instrument</small>
+            <strong>No trading day opened</strong>
+          </>
+        ),
+        preparation: (
+          <>
+            <small>Preparation</small>
+            <strong>Not started</strong>
+          </>
+        ),
+        readiness: (
+          <>
+            <small>Readiness</small>
+            <strong>No check-in recorded</strong>
+          </>
+        ),
+        thesis: (
+          <>
+            <small>Trading thesis</small>
+            <strong>No daily thesis</strong>
+          </>
+        ),
+        review: (
+          <>
+            <small>Journal & review</small>
+            <strong>No review recorded</strong>
+          </>
+        ),
+        goal: (
+          <>
+            <small>Daily goal</small>
+            <strong>No goal selected</strong>
+          </>
+        ),
+      }}
+    />
   );
 }
 export default function ProcessWorkspace(props: Props) {
   const dashboardEditor = useDashboardEditor();
-  const dateDraft = useSavedGuide(`ss-trading-date:${props.pulse.owner}`,
-    () => dateInZone(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
-    (value) => dateSchema.parse(value));
-  const date = dateDraft.value, setDate = dateDraft.update;
+  const dateDraft = useSavedGuide(
+    `ss-trading-date:${props.pulse.owner}`,
+    () =>
+      dateInZone(
+        Date.now(),
+        Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      ),
+    (value) => dateSchema.parse(value),
+  );
+  const date = dateDraft.value,
+    setDate = dateDraft.update;
   const store = useProcess(props.pulse.owner, props.history),
     zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     [editDay, setEditDay] = useState(false),
@@ -670,41 +747,64 @@ export default function ProcessWorkspace(props: Props) {
       </>
     );
 
+  const daybar = (
+    <GlassPanel preset="standard" className="cc-daybar">
+      {props.page !== "Command Center" && (
+        <button onClick={() => props.onPage("Command Center")}>
+          ← Command Center
+        </button>
+      )}
+      <Field label="Trading date">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setEditDay(false);
+          }}
+        />
+      </Field>
+      <button onClick={() => setDate(dateInZone(Date.now(), zone))}>
+        Today
+      </button>
+      <span role="status">{store.syncState}</span>
+      {store.syncState.includes("awaiting") ||
+      store.syncState.includes("Saved locally ·") ? (
+        <button onClick={() => void store.refresh()}>Retry sync</button>
+      ) : null}
+      {store.error && (
+        <button onClick={() => void store.refresh()}>Retry sync</button>
+      )}
+      {day && (
+        <button onClick={() => setEditDay((v) => !v)}>
+          Edit trading-day context
+        </button>
+      )}
+    </GlassPanel>
+  );
+  const dashboardBefore = (
+    <>
+      <WorkspaceModule
+        id="trading-date"
+        title="Trading date"
+        section="top"
+        order={0}
+      >
+        {daybar}
+      </WorkspaceModule>
+      <WorkspaceModule
+        id="post-exit-review"
+        title="A moment to review"
+        section="top"
+        order={4}
+      >
+        <PostExitInvitation props={props} />
+      </WorkspaceModule>
+    </>
+  );
   return (
     <div className="cc-workspace">
-      <GlassPanel preset="standard" className="cc-daybar">
-        {props.page !== "Command Center" && (
-          <button onClick={() => props.onPage("Command Center")}>
-            ← Command Center
-          </button>
-        )}
-        <Field label="Trading date">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setEditDay(false);
-            }}
-          />
-        </Field>
-        <button onClick={() => setDate(dateInZone(Date.now(), zone))}>
-          Today
-        </button>
-        <span role="status">{store.syncState}</span>
-        {store.syncState.includes("awaiting") ||
-        store.syncState.includes("Saved locally ·") ? (
-          <button onClick={() => void store.refresh()}>Retry sync</button>
-        ) : null}
-        {store.error && (
-          <button onClick={() => void store.refresh()}>Retry sync</button>
-        )}
-        {day && (
-          <button onClick={() => setEditDay((v) => !v)}>
-            Edit trading-day context
-          </button>
-        )}
-      </GlassPanel>
+      {(props.page !== "Command Center" || editDay) && daybar}
       {store.error && (
         <div className="cc-error" role="alert">
           <p>{store.error}</p>
@@ -741,6 +841,7 @@ export default function ProcessWorkspace(props: Props) {
       )}
       {!day && !editDay && props.page !== "Pre-Market" && (
         <StartDashboard
+          before={dashboardBefore}
           editor={dashboardEditor}
           store={store}
           props={props}
@@ -859,6 +960,7 @@ export default function ProcessWorkspace(props: Props) {
           )}
           {props.page === "Command Center" && (
             <DailyDashboard
+              before={dashboardBefore}
               key={day!.rootId}
               {...context}
               editor={dashboardEditor}

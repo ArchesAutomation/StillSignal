@@ -543,9 +543,9 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             </div>
           )}
-          <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
+          {page !== "Command Center" && <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
             <PostExitInvitation props={viewProps} />
-          </WorkspaceModule>
+          </WorkspaceModule>}
           {<ProcessWorkspace key={p.owner} {...viewProps} />}
           {(page === "Overview" || page === "Journal") && (
             <WorkspaceModule id="weekly-reflection" title="Weekly reflection" order={41} width={6} initiallyHidden={page === "Journal"}>

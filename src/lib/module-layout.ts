@@ -22,8 +22,11 @@ export type ModulePlacement = {
   compact?: boolean;
   hiddenParts?: string[];
   box?: ModuleBox;
+  sectionRelative?: boolean;
 };
 export type ModuleLayout = {
+  /** Physical board width at which box coordinates were saved. */
+  boardWidth?: number;
   sections: ModuleSection[];
   modules: Record<string, ModulePlacement>;
   custom?: CustomModule[];
@@ -101,10 +104,11 @@ export function readModuleLayout(value: string | null): ModuleLayout {
         hidden: p.hidden === true,
         title: typeof p.title === "string" ? p.title.slice(0, 80) : undefined,
         height: Number.isFinite(p.height)
-          ? Math.max(120, Math.min(1600, p.height!))
+          ? Math.max(1, Math.min(50000, p.height!))
           : undefined,
         heightMode: p.heightMode === "fixed" ? "fixed" : "auto",
         compact: p.compact === true,
+        ...(p.sectionRelative ? { sectionRelative: true } : {}),
         hiddenParts: Array.isArray(p.hiddenParts)
           ? p.hiddenParts
               .filter(
@@ -113,7 +117,12 @@ export function readModuleLayout(value: string | null): ModuleLayout {
               .slice(0, 30)
           : [],
         ...(p.box && [p.box.x, p.box.y, p.box.w, p.box.h].every(Number.isFinite)
-          ? { box: boundModuleBox(p.box) }
+          ? {
+              box: {
+                ...boundModuleBox(p.box, 1),
+                h: Math.max(1, Math.min(50000, p.box.h)),
+              },
+            }
           : {}),
       };
     }
@@ -137,20 +146,27 @@ export function readModuleLayout(value: string | null): ModuleLayout {
               : {}),
           }))
       : [];
-    return { sections, modules, ...(custom.length ? { custom } : {}) };
+    return {
+      sections,
+      modules,
+      ...(Number.isFinite(raw.boardWidth)
+        ? { boardWidth: Math.max(1, Math.min(10000, raw.boardWidth)) }
+        : {}),
+      ...(custom.length ? { custom } : {}),
+    };
   } catch {
     return emptyModuleLayout();
   }
 }
 
 export const MODULE_BOARD_WIDTH = 1200;
-export function boundModuleBox(box: ModuleBox): ModuleBox {
-  const w = Math.max(180, Math.min(MODULE_BOARD_WIDTH, Math.round(box.w)));
+export function boundModuleBox(box: ModuleBox, minWidth = 180): ModuleBox {
+  const w = Math.max(minWidth, Math.min(MODULE_BOARD_WIDTH, box.w));
   return {
-    x: Math.max(0, Math.min(MODULE_BOARD_WIDTH - w, Math.round(box.x))),
-    y: Math.max(0, Math.min(50000, Math.round(box.y))),
+    x: Math.max(0, Math.min(MODULE_BOARD_WIDTH - w, box.x)),
+    y: Math.max(0, Math.min(50000, box.y)),
     w,
-    h: Math.max(120, Math.min(2400, Math.round(box.h))),
+    h: Math.max(120, Math.min(2400, box.h)),
   };
 }
 

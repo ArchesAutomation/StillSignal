@@ -14,9 +14,12 @@ import {
 import { GlassPanel } from "./glassyui/glass-panel";
 import { createPortal } from "react-dom";
 import {
-  closeRemovedModuleSpace,
   resizeModuleBox,
   snapModuleBox,
+  canPlaceModule,
+  alignModuleSpacing,
+  limitModuleResize,
+  type ResizeEdge,
 } from "@/lib/module-geometry";
 import {
   GripVertical,
@@ -24,7 +27,6 @@ import {
   RotateCcw,
   Undo2,
   Redo2,
-  MoveDiagonal2,
   Settings2,
   X,
   EyeOff,
@@ -37,6 +39,7 @@ import {
   type ModuleLayout,
   type ModulePlacement,
   type ModuleBox,
+  type CustomModule,
 } from "@/lib/module-layout";
 
 import {
@@ -67,9 +70,15 @@ type Registry = {
   change: (id: string, patch: Partial<ModulePlacement>) => void;
   drag: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void;
   dragging: boolean;
-  resize: (event: ReactPointerEvent<HTMLButtonElement>, id: string, left?: boolean) => void;
-  resizeKey: (id: string, key: string, left?: boolean) => void;
+  resize: (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    id: string,
+    edge?: ResizeEdge,
+  ) => void;
+  resizeKey: (id: string, key: string, edge?: ResizeEdge) => void;
   moveKey: (id: string, key: string, large: boolean) => void;
+  custom?: CustomModule[];
+  editCustom: (id: string, patch: Partial<CustomModule>) => void;
 };
 const Context = createContext<Registry | null>(null);
 const noParts: ModulePart[] = [];
@@ -157,6 +166,7 @@ export function WorkspaceModule({
     host,
   };
   const placement = ctx && definition ? ctx.placement(definition) : undefined;
+  const custom = ctx?.custom?.find((c) => c.id === id);
   useEffect(() => {
     if (placement && !placement.hidden) setActivated(true);
   }, [placement?.hidden]);
@@ -215,50 +225,100 @@ export function WorkspaceModule({
   return createPortal(
     <>
       {ctx.editing && (
-        <div
-          className="ss-module-controls"
-          role="group"
-          aria-label={`${title} module controls`}
-        >
-          <button
-            className="ss-module-grip"
-            aria-label={`Drag ${title} module`}
-            onPointerDown={(event) => ctx.drag(event, id)}
-            onKeyDown={(event) => {
-              if (
-                ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
-                  event.key,
-                )
-              ) {
-                event.preventDefault();
-                ctx.moveKey(id, event.key, event.shiftKey);
-              }
-            }}
-            title="Drag anywhere. Arrow keys move; Shift moves further."
+        <button
+          className="ss-module-move-surface"
+          aria-label={`Move ${title}`}
+          title="Drag to move. Arrow keys move; Shift moves further."
+          onPointerDown={(event) => ctx.drag(event, id)}
+          onKeyDown={(event) => {
+            if (event.key.startsWith("Arrow")) {
+              event.preventDefault();
+              ctx.moveKey(id, event.key, event.shiftKey);
+            }
+          }}
+        />
+      )}
+      {ctx.editing && (
+        <div className="ss-module-controls-anchor">
+          <div
+            className="ss-module-controls"
+            role="group"
+            aria-label={`${title} module controls`}
           >
-            <GripVertical size={16} />
-            <span>{placement.title || title}</span>
-          </button>
-          <button
-            aria-label={`Edit inside ${title}`}
-            disabled={ctx.dragging}
-            onClick={() => setOptions((v) => !v)}
-            aria-expanded={options}
-          >
-            <Settings2 size={15} />
-          </button>
-          <button
-            aria-label={`Hide ${title} module`}
-            disabled={ctx.dragging}
-            onClick={() => ctx.change(id, { hidden: true })}
-          >
-            <EyeOff size={15} />
-          </button>
+            <button
+              className="ss-module-grip"
+              aria-label={`Drag ${title} module`}
+              onPointerDown={(event) => ctx.drag(event, id)}
+              onKeyDown={(event) => {
+                if (
+                  ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                    event.key,
+                  )
+                ) {
+                  event.preventDefault();
+                  ctx.moveKey(id, event.key, event.shiftKey);
+                }
+              }}
+              title="Drag anywhere. Arrow keys move; Shift moves further."
+            >
+              <GripVertical size={16} />
+              <span>{placement.title || title}</span>
+            </button>
+            <button
+              aria-label={`Edit inside ${title}`}
+              disabled={ctx.dragging}
+              onClick={() => setOptions((v) => !v)}
+              aria-expanded={options}
+            >
+              <Settings2 size={15} />
+            </button>
+            <button
+              aria-label={`Hide ${title} module`}
+              disabled={ctx.dragging}
+              onClick={() => ctx.change(id, { hidden: true })}
+            >
+              <EyeOff size={15} />
+            </button>
+          </div>
         </div>
       )}
       {ctx.editing && options && (
-        <fieldset className="ss-module-options" disabled={ctx.dragging}>
+        <fieldset
+          className="ss-module-options"
+          disabled={ctx.dragging}
+          style={{ top: Math.max(0, 80 - host.getBoundingClientRect().top) }}
+        >
           <legend>Customize {title}</legend>
+          {custom && (
+            <>
+              <label>
+                Notes
+                <textarea
+                  aria-label={`Content for ${title}`}
+                  maxLength={10000}
+                  value={custom.text}
+                  onChange={(event) =>
+                    ctx.editCustom(id, { text: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Text size
+                <select
+                  value={custom.fontSize ?? 18}
+                  onChange={(event) =>
+                    ctx.editCustom(id, { fontSize: +event.target.value })
+                  }
+                >
+                  {[14, 18, 22, 28, 36].map((size) => (
+                    <option key={size} value={size}>
+                      {size} px
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
           <label>
             Module title
             <input
@@ -400,37 +460,41 @@ export function WorkspaceModule({
         preset="standard"
         lens={false}
         className="ss-module-content ss-module-glass"
+        inert={ctx.editing}
       >
         {placement.title && placement.title !== title && (
           <h2 className="ss-module-custom-title">{placement.title}</h2>
         )}
         {children}
       </GlassPanel>
-      {ctx.editing && [false, true].map((left) => (
-        <button
-          key={String(left)}
-          className={`ss-module-resize${left ? " ss-module-resize-left" : ""}`}
-          aria-label={`Resize ${title}${left ? " from left" : ""}`}
-          title="Drag to resize. Arrow keys adjust width and height; Home fits the content."
-          onPointerDown={(event) => ctx.resize(event, id, left)}
-          onKeyDown={(event) => {
-            if (
-              [
-                "ArrowLeft",
-                "ArrowRight",
-                "ArrowUp",
-                "ArrowDown",
-                "Home",
-              ].includes(event.key)
-            ) {
-              event.preventDefault();
-              ctx.resizeKey(id, event.key, left);
-            }
-          }}
-        >
-          <MoveDiagonal2 size={16} />
-        </button>
-      ))}
+      {ctx.editing &&
+        (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeEdge[]).map(
+          (edge) => (
+            <button
+              key={edge}
+              className={`ss-module-resize ss-module-resize-${edge}`}
+              aria-label={`Resize ${title}${edge === "se" ? "" : edge === "sw" ? " from left" : ` from ${edge}`}`}
+              title="Drag to resize. Arrow keys adjust width and height; Home fits the content."
+              onPointerDown={(event) => ctx.resize(event, id, edge)}
+              onKeyDown={(event) => {
+                if (
+                  [
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "ArrowUp",
+                    "ArrowDown",
+                    "Home",
+                  ].includes(event.key)
+                ) {
+                  event.preventDefault();
+                  ctx.resizeKey(id, event.key, edge);
+                }
+              }}
+            >
+              <span aria-hidden />
+            </button>
+          ),
+        )}
     </>,
     host,
     id,
@@ -446,6 +510,8 @@ export default function ModuleWorkspace({
   workspaceTitle = "Your workspace",
   surfaceWindow,
   onEditingChange,
+  controlled,
+  onInteracting,
 }: {
   owner: string;
   page: string;
@@ -455,11 +521,18 @@ export default function ModuleWorkspace({
   workspaceTitle?: string;
   surfaceWindow?: Window;
   onEditingChange?: (editing: boolean) => void;
+  controlled?: {
+    layout: ModuleLayout;
+    editing: boolean;
+    change: (layout: ModuleLayout, message?: string) => void;
+    disabled?: boolean;
+  };
+  onInteracting?: (active: boolean) => void;
 }) {
   const [modules, setModules] = useState<Definition[]>([]);
   const [saved, setSaved] = useState<ModuleLayout>(emptyModuleLayout),
     [draft, setDraft] = useState<ModuleLayout>(emptyModuleLayout);
-  const [editing, setEditing] = useState(false),
+  const [localEditing, setEditing] = useState(false),
     [library, setLibrary] = useState(false),
     [search, setSearch] = useState("");
   const [undo, setUndo] = useState<ModuleLayout[]>([]),
@@ -471,10 +544,12 @@ export default function ModuleWorkspace({
     parking = useRef<HTMLDivElement>(null),
     libraryPanel = useRef<HTMLElement>(null);
   const pendingCustom = useRef<string | undefined>(undefined);
-  const current = editing ? draft : saved,
+  const editing = controlled?.editing ?? localEditing;
+  const current = controlled?.layout ?? (editing ? draft : saved),
     key = moduleLayoutKey(owner, page);
   const [readingPreset, setReadingPreset] = useState(false);
   const [boardWidth, setBoardWidth] = useState(1200);
+  const [guides, setGuides] = useState<ModuleBox>();
   useEffect(() => {
     const update = () =>
       setReadingPreset(
@@ -490,10 +565,28 @@ export default function ModuleWorkspace({
       ? evidenceReadingLayout(current, modules, heights)
       : current;
   const boxes = moduleBoard(viewLayout, modules, heights, boardWidth);
-  const latest = useRef({ current, modules, boxes, editing, key });
-  latest.current = { current, modules, boxes, editing, key };
+  const latest = useRef({
+    current,
+    modules,
+    boxes,
+    editing,
+    key,
+    boardWidth,
+    controlled,
+    onInteracting,
+  });
+  latest.current = {
+    current,
+    modules,
+    boxes,
+    editing,
+    key,
+    boardWidth,
+    controlled,
+    onInteracting,
+  };
   type Gesture = {
-    mode: "move" | "resize" | "resize-left" | "library" | "panel";
+    mode: "move" | ResizeEdge | "library" | "panel";
     id: string;
     pointer: number;
     handle: HTMLButtonElement;
@@ -520,7 +613,8 @@ export default function ModuleWorkspace({
     const board = canvas.current;
     const Observer = surface().ResizeObserver;
     if (!enabled || !board || !Observer) return;
-    const measure = () => setBoardWidth(board.getBoundingClientRect().width || 1200);
+    const measure = () =>
+      setBoardWidth(board.getBoundingClientRect().width || 1200);
     measure();
     const observer = new Observer(measure);
     observer.observe(board);
@@ -541,6 +635,7 @@ export default function ModuleWorkspace({
       latest.current.current,
       latest.current.modules,
       latest.current.boxes,
+      latest.current.boardWidth,
     );
   const commit = (next: ModuleLayout, announcement = "") => {
     const previous = latest.current.current;
@@ -550,6 +645,7 @@ export default function ModuleWorkspace({
     latest.current.current = next;
     setDraft(next);
     setMessage(announcement);
+    latest.current.controlled?.change(next, announcement);
   };
   const cancelGesture = () => {
     const g = gesture.current;
@@ -560,16 +656,27 @@ export default function ModuleWorkspace({
         g.host.style.transform = "";
         g.host.style.width = g.start.w / 12 + "%";
         g.host.style.left = g.start.x / 12 + "%";
+        g.host.style.top = g.start.y + "px";
         const placement = latest.current.current.modules[g.id];
         g.host.style.height =
-          placement?.height || placement?.box ? g.start.h + "px" : "";
+          placement?.heightMode === "fixed" ? g.start.h + "px" : "";
         g.host.classList.remove("ss-module-held");
+        g.host.classList.remove("ss-module-invalid");
+        g.host.classList.toggle(
+          "ss-module-sized",
+          placement?.heightMode === "fixed",
+        );
       }
       if (g.handle.hasPointerCapture(g.pointer))
         g.handle.releasePointerCapture(g.pointer);
     }
     setDragging(false);
+    setGuides(undefined);
+    latest.current.onInteracting?.(false);
   };
+  useEffect(() => {
+    if (!editing || controlled?.disabled) cancelGesture();
+  }, [editing, controlled?.disabled]);
   useEffect(() => {
     cancelGesture();
     let value = emptyModuleLayout();
@@ -663,10 +770,15 @@ export default function ModuleWorkspace({
         for (const entry of entries) {
           const host = entry.target as HTMLElement,
             id = host.dataset.moduleId;
-          if (!id || latest.current.current.modules[id]?.heightMode === "fixed")
+          if (!id) continue;
+          const height = host.getBoundingClientRect().height;
+          if (
+            latest.current.current.modules[id]?.heightMode === "fixed" &&
+            height > 0 &&
+            old[id] !== 0
+          )
             continue;
-          const height = Math.ceil(host.getBoundingClientRect().height);
-          if (height > 0 && next[id] !== height) {
+          if (height >= 0 && next[id] !== height) {
             next[id] = height;
             changed = true;
           }
@@ -685,7 +797,13 @@ export default function ModuleWorkspace({
     if (!module) return;
     const p = modulePlacement(value, module),
       box =
-        at ?? availableModuleBox(latest.current.boxes, viewportTop(), p.box, boardWidth);
+        at ??
+        availableModuleBox(
+          latest.current.boxes,
+          viewportTop(),
+          p.box,
+          boardWidth,
+        );
     value.modules[id] = p;
     commit(
       placeModule(value, id, box),
@@ -696,6 +814,19 @@ export default function ModuleWorkspace({
     const value = resolved(),
       old = value.modules[id];
     if (!old) return;
+    if (
+      patch.box &&
+      !canPlaceModule(
+        patch.box,
+        Object.entries(latest.current.boxes)
+          .filter(([peer]) => peer !== id)
+          .map(([, box]) => box),
+        boardWidth,
+      )
+    ) {
+      setMessage("That space is occupied. Other widgets stay in place.");
+      return;
+    }
     value.modules[id] = { ...old, ...patch };
     if (patch.box)
       value.modules[id] = {
@@ -703,16 +834,15 @@ export default function ModuleWorkspace({
         box: boundModuleBox(patch.box),
         height: patch.box.h,
       };
-    if (patch.hidden && !old.hidden) {
-      const compacted = closeRemovedModuleSpace(latest.current.boxes, id);
-      for (const [peerId, box] of Object.entries(compacted)) {
-        if (value.modules[peerId])
-          value.modules[peerId] = { ...value.modules[peerId], box };
-      }
-    }
     commit(value);
   }
-  function moveKey(id: string, key: string, resize = false, large = false, left = false) {
+  function moveKey(
+    id: string,
+    key: string,
+    resize = false,
+    large = false,
+    edge: ResizeEdge = "se",
+  ) {
     const value = resolved(),
       start = latest.current.boxes[id];
     if (!start) return;
@@ -728,26 +858,35 @@ export default function ModuleWorkspace({
       });
       fitted.modules[id].heightMode = "auto";
       fitted.modules[id].height = undefined;
-      commit(
-        fitted,
-        "Module fitted to its content.",
-      );
+      commit(fitted, "Module fitted to its content.");
       return;
     }
     const step = large ? 48 : 12;
     const dx = key === "ArrowRight" ? step : key === "ArrowLeft" ? -step : 0,
       dy = key === "ArrowDown" ? step : key === "ArrowUp" ? -step : 0;
     const candidate = resize
-      ? resizeModuleBox(start, dx, dy, left)
-      : { ...start, x: start.x + dx, y: start.y + dy };
+      ? resizeModuleBox(start, (dx * 1200) / boardWidth, dy, edge)
+      : { ...start, x: start.x + (dx * 1200) / boardWidth, y: start.y + dy };
     const next = snapModuleBox(
       candidate,
       Object.entries(latest.current.boxes)
         .filter(([peer]) => peer !== id)
         .map(([, box]) => box),
       canvas.current?.getBoundingClientRect().width || 1200,
-      resize ? (left ? "resize-left" : "resize") : "move",
+      resize ? edge : "move",
     );
+    if (
+      !canPlaceModule(
+        next,
+        Object.entries(latest.current.boxes)
+          .filter(([peer]) => peer !== id)
+          .map(([, box]) => box),
+        boardWidth,
+      )
+    ) {
+      setMessage("That space is occupied. Other widgets stay in place.");
+      return;
+    }
     const placed = placeModule(value, id, next);
     if (resize) placed.modules[id].heightMode = "fixed";
     commit(placed, resize ? "Module resized." : "Module moved.");
@@ -757,7 +896,7 @@ export default function ModuleWorkspace({
     id: string,
     mode: Gesture["mode"],
   ) {
-    if (event.button !== 0 || gesture.current) return;
+    if (event.button !== 0 || gesture.current || controlled?.disabled) return;
     const board = canvas.current;
     if (!board) return;
     const view = surface(),
@@ -818,6 +957,7 @@ export default function ModuleWorkspace({
     if (mode !== "panel") {
       host.classList.add("ss-module-held");
       setDragging(true);
+      onInteracting?.(true);
     }
   }
   useEffect(() => {
@@ -850,7 +990,7 @@ export default function ModuleWorkspace({
         });
         return;
       }
-      const snap = (n: number) => Math.round(n / 12) * 12;
+      const snap = (n: number) => n;
       if (g.mode === "library") {
         g.host.style.transform = `translate(${dx}px,${event.clientY - g.y}px)`;
         const rect = canvas.current!.getBoundingClientRect();
@@ -861,11 +1001,14 @@ export default function ModuleWorkspace({
         });
       } else if (g.mode === "move") {
         g.next = snapModuleBox(
-          boundModuleBox({
-            ...g.start,
-            x: g.start.x + snap((dx * 1200) / g.width),
-            y: g.start.y + snap(dy),
-          }),
+          {
+            ...boundModuleBox({
+              ...g.start,
+              x: g.start.x + snap((dx * 1200) / g.width),
+              y: g.start.y + snap(dy),
+            }),
+            h: g.start.h,
+          },
           Object.entries(latest.current.boxes)
             .filter(([id]) => id !== g.id)
             .map(([, box]) => box),
@@ -874,18 +1017,36 @@ export default function ModuleWorkspace({
         );
         g.host.style.transform = `translate(${((g.next.x - g.start.x) * g.width) / 1200}px,${g.next.y - g.start.y}px)`;
       } else {
+        g.host.classList.add("ss-module-sized");
         g.next = snapModuleBox(
-          resizeModuleBox(g.start, snap((dx * 1200) / g.width), snap(dy), g.mode === "resize-left"),
+          resizeModuleBox(g.start, (dx * 1200) / g.width, dy, g.mode),
           Object.entries(latest.current.boxes)
             .filter(([id]) => id !== g.id)
             .map(([, box]) => box),
           g.width,
-          g.mode === "resize-left" ? "resize-left" : "resize",
+          g.mode,
+        );
+        g.next = limitModuleResize(
+          g.start,
+          g.next,
+          Object.entries(latest.current.boxes)
+            .filter(([id]) => id !== g.id)
+            .map(([, box]) => box),
+          g.width,
         );
         g.host.style.left = g.next.x / 12 + "%";
+        g.host.style.top = g.next.y + "px";
         g.host.style.width = g.next.w / 12 + "%";
         g.host.style.height = g.next.h + "px";
       }
+      const peers = Object.entries(latest.current.boxes)
+        .filter(([id]) => id !== g.id)
+        .map(([, box]) => box);
+      g.host.classList.toggle(
+        "ss-module-invalid",
+        !canPlaceModule(g.next, peers, g.width),
+      );
+      setGuides(g.next);
       if (event.clientY > view.innerHeight - 45) {
         if (g.scroller) g.scroller.scrollTop += 16;
         else view.scrollBy(0, 16);
@@ -897,7 +1058,8 @@ export default function ModuleWorkspace({
     const up = (event: PointerEvent) => {
       const g = gesture.current;
       if (!g || event.pointerId !== g.pointer) return;
-      let valid = g.moved && g.key === latest.current.key;
+      let valid =
+        g.moved && g.key === latest.current.key && latest.current.editing;
       if (g.mode === "library") {
         const rect = canvas.current!.getBoundingClientRect();
         valid =
@@ -907,10 +1069,24 @@ export default function ModuleWorkspace({
           event.clientY >= rect.top &&
           event.clientY <= rect.bottom;
       }
+      const available = canPlaceModule(
+        g.next,
+        Object.entries(latest.current.boxes)
+          .filter(([id]) => id !== g.id)
+          .map(([, box]) => box),
+        g.width,
+      );
+      if (g.mode !== "panel" && !available) {
+        valid = false;
+        setMessage("That space is occupied. Other widgets stay in place.");
+      }
       cancelGesture();
       if (valid && g.mode !== "panel") {
         const placed = placeModule(g.base, g.id, g.next);
-        if (g.mode === "resize" || g.mode === "resize-left") placed.modules[g.id].heightMode = "fixed";
+        if (g.mode !== "move" && g.mode !== "library") {
+          placed.modules[g.id].heightMode = "fixed";
+          placed.modules[g.id].height = g.next.h;
+        }
         commit(placed, "Module placed. Save layout to keep your board.");
       }
     };
@@ -942,10 +1118,18 @@ export default function ModuleWorkspace({
     editing,
     placement,
     change,
-    dragging,
+    dragging: dragging || !!controlled?.disabled,
+    custom: current.custom,
+    editCustom: (id, patch) =>
+      commit({
+        ...resolved(),
+        custom: current.custom?.map((c) =>
+          c.id === id ? { ...c, ...patch, id } : c,
+        ),
+      }),
     drag: (event, id) => startGesture(event, id, "move"),
-    resize: (event, id, left) => startGesture(event, id, left ? "resize-left" : "resize"),
-    resizeKey: (id, key, left) => moveKey(id, key, true, false, left),
+    resize: (event, id, edge = "se") => startGesture(event, id, edge),
+    resizeKey: (id, key, edge) => moveKey(id, key, true, false, edge),
     moveKey: (id, key, large) => moveKey(id, key, false, large),
   };
   const boardHeight = Math.max(
@@ -974,26 +1158,61 @@ export default function ModuleWorkspace({
       "Name your module and add its content below. Placement settings are optional.",
     );
   }
+  function alignSpacing() {
+    const value = resolved();
+    const aligned = alignModuleSpacing(latest.current.boxes, boardWidth);
+    for (const [id, box] of Object.entries(aligned))
+      value.modules[id] = { ...value.modules[id], box };
+    commit(value, "Nearby widget gaps aligned. Undo to restore.");
+  }
   return (
     <Context.Provider value={enabled ? context : null}>
       <div
-        className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}`}
+        className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}${controlled ? " ss-module-controlled" : ""}`}
       >
-        {enabled && (
-          <GlassPanel preset="standard" className={`ss-module-toolbar${editing ? "" : " ss-module-toolbar-idle"}`}>
+        {enabled && controlled?.editing && (
+          <GlassPanel preset="standard" className="ss-module-toolbar">
+            <small>
+              Drag anywhere to move. Resize from any edge or corner. Content is
+              paused.
+            </small>
+            <div>
+              <button
+                disabled={dragging || controlled.disabled}
+                onClick={alignSpacing}
+              >
+                Align spacing
+              </button>
+              <button
+                disabled={dragging || controlled.disabled}
+                onClick={() => setLibrary((v) => !v)}
+              >
+                Add modules
+              </button>
+            </div>
+          </GlassPanel>
+        )}
+        {enabled && !controlled && (
+          <GlassPanel
+            preset="standard"
+            className={`ss-module-toolbar${editing ? "" : " ss-module-toolbar-idle"}`}
+          >
             <div>
               <strong>
                 {editing ? "Make this board yours" : workspaceTitle}
               </strong>
               <small hidden={!editing}>
                 {editing
-                  ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules."
+                  ? "Drag a widget to move it. Resize from any edge or corner. Content is paused while editing."
                   : "Your board is saved for this page on this browser."}
               </small>
             </div>
             <div>
               {editing ? (
                 <>
+                  <button disabled={dragging} onClick={alignSpacing}>
+                    Align spacing
+                  </button>
                   <button
                     disabled={dragging || !undo.length}
                     onClick={() => {
@@ -1080,7 +1299,8 @@ export default function ModuleWorkspace({
               ) : (
                 <button
                   onClick={() => {
-                    setDraft(saved);
+                    const value = resolved();
+                    setDraft(value);
                     setEditing(true);
                     setUndo([]);
                     setRedo([]);
@@ -1255,7 +1475,16 @@ export default function ModuleWorkspace({
           className={`ss-free-board${editing ? " ss-free-board-editing" : ""}`}
           style={{ minHeight: boardHeight }}
           aria-label="Workspace board"
-        />
+        >
+          {editing && guides && (
+            <div className="ss-module-alignment-guides" aria-hidden>
+              <i style={{ top: guides.y }} />
+              <i style={{ top: guides.y + guides.h }} />
+              <b style={{ left: guides.x / 12 + "%" }} />
+              <b style={{ left: (guides.x + guides.w) / 12 + "%" }} />
+            </div>
+          )}
+        </div>
         <div ref={parking} hidden inert />
       </div>
     </Context.Provider>
