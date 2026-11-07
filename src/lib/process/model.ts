@@ -533,6 +533,7 @@ export const recordSchema = z
                     "physiology",
                     "process",
                     "variables",
+                    "pnl",
                   ]),
                   visible: z.boolean(),
                   width: z.enum(["normal", "wide"]),
@@ -554,7 +555,7 @@ export const recordSchema = z
                 .strict(),
             )
             .min(6)
-            .max(7),
+            .max(8),
           variableIds: z.array(id).max(200).optional(),
           statusWidgets: z
             .array(

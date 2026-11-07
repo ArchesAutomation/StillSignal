@@ -46,6 +46,7 @@ export type Props = {
   onDelete: () => void;
   onSelectTrade: (event: TradeEvent) => void;
   onToday: () => void;
+  onOpenJournalDay?: (date: string) => Promise<void>;
 };
 export const time = (t: number, seconds = true, timeZone?: string) =>
   new Date(t).toLocaleTimeString("en-US", {

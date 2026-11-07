@@ -936,12 +936,12 @@ export default function ModuleWorkspace({
         className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}`}
       >
         {enabled && (
-          <GlassPanel preset="standard" className="ss-module-toolbar">
+          <GlassPanel preset="standard" className={`ss-module-toolbar${editing ? "" : " ss-module-toolbar-idle"}`}>
             <div>
               <strong>
                 {editing ? "Make this board yours" : workspaceTitle}
               </strong>
-              <small>
+              <small hidden={!editing}>
                 {editing
                   ? "Drag anywhere on the dots. Pull a corner to resize. Add your own modules."
                   : "Your board is saved for this page on this browser."}

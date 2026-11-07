@@ -1,5 +1,5 @@
 import { defaultLayout } from "./engine";
-import { createRecord, type BodyOf, type RecordOf } from "./model";
+import { createRecord, recordSchema, type BodyOf, type RecordOf } from "./model";
 
 export type DashboardLayout = BodyOf<"layout">;
 export type CardId = DashboardLayout["panels"][number]["id"];
@@ -27,6 +27,10 @@ export const cards: Record<CardId, { title: string; detail: string }> = {
   physiology: {
     title: "Live physiological context",
     detail: "Recorded heart rate and wearable context.",
+  },
+  pnl: {
+    title: "Realised P&L",
+    detail: "Recorded closed-trade results for the selected week or month.",
   },
   variables: {
     title: "Personal variables",
@@ -91,4 +95,24 @@ export function dashboardRecords(
         )
     : [];
   return { record, batch: [...demoted, record] };
+}
+
+export function dashboardSnapshot(layout: DashboardLayout) {
+  const { variableIds, ...portable } = layout;
+  return JSON.stringify({ version: 1, layout: { ...portable, isDefault: false } });
+}
+
+export function readDashboardSnapshot(code: string): DashboardLayout | undefined {
+  if (code.length > 10_000) return;
+  try {
+    const snapshot = JSON.parse(code);
+    if (snapshot?.version !== 1) return;
+    const parsed = recordSchema.safeParse(createRecord("layout", snapshot.layout));
+    if (!parsed.success || parsed.data.kind !== "layout") return;
+    const { variableIds, ...layout } = parsed.data.body;
+    if (!layout.name.trim()) return;
+    return normalizeLayout({ ...layout, isDefault: false });
+  } catch {
+    return;
+  }
 }
