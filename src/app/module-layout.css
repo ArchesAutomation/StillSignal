@@ -130,9 +130,9 @@
 .ss-module-workspace-active { max-width:none; width:100%; }
 .ss-free-board { display:block; position:relative; width:100%; min-width:0; isolation:isolate; }
 .ss-free-board[hidden] { display:none; }
-.ss-free-board-editing { background-image:radial-gradient(circle,#53645c 1px,transparent 1.2px); background-size:1% 12px; background-position:0 0; border-radius:12px; outline:1px solid #263b35; }
+.ss-free-board-editing { background-image:radial-gradient(circle,var(--signal-line) 1px,transparent 1.2px); background-size:1% 12px; background-position:0 0; border-radius:12px; outline:1px solid var(--signal-line); }
 .ss-free-board > .ss-workspace-module { position:absolute; box-sizing:border-box; grid-column:auto; transition:box-shadow .15s; }
-.ss-free-board > .ss-module-editing { background:#10191df5; border:1px solid #4a655a; border-radius:12px; }
+.ss-free-board > .ss-module-editing { background:#10191df5; border:1px solid var(--signal-line); border-radius:12px; }
 .ss-free-board > .ss-workspace-module:focus-within { z-index:20; }
 .ss-free-board > .ss-module-held { z-index:1000; transition:none; }
 .ss-custom-module { height:100%; min-height:100px; padding:18px; border:1px solid #354645; border-radius:10px; background:#111c1d; }

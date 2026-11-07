@@ -655,8 +655,7 @@ export default function ConceptWorkspace(props: Props) {
                   },
                 ]}
               >
-                <GlassPanel
-                  lens={false}
+                <div
                   className={cx("journal-date-overview")}
                   data-layout-id="journal-date-overview"
                   data-layout-title="Date overview"
@@ -713,7 +712,7 @@ export default function ConceptWorkspace(props: Props) {
                     onOpen={(target) => void act(() => p.openSession(target))}
                     onEmptyDay={(date) => void openDay(date)}
                   />
-                </GlassPanel>
+                </div>
               </WorkspaceModule>
               <div
                 className={cx("reference-day")}
@@ -746,9 +745,7 @@ export default function ConceptWorkspace(props: Props) {
                       section="top"
                       order={1}
                     >
-                      <GlassPanel
-                        lens={false}
-                        role="region"
+                      <section
                         className={cx(
                           "session-controls",
                           "v4-sessionbar",
@@ -822,7 +819,7 @@ export default function ConceptWorkspace(props: Props) {
                             ? "Executions matched"
                             : "No trades recorded · journal ready"}
                         </span>
-                      </GlassPanel>
+                      </section>
                     </WorkspaceModule>
                     <Journal
                       {...viewProps}

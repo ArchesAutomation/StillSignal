@@ -62,10 +62,15 @@ test("calendar uses real session dates, handles a leap month and keeps currency 
       onOpen: (s: Session) => opened.push(s),
     };
     await act(async () => ui.root.render(createElement(SignalCalendar, props)));
-    const day = document.querySelector(
-      '[aria-label*="February 29, 2024"]',
-    ) as HTMLButtonElement;
+    const day = document.querySelector<HTMLButtonElement>(".calendar-day.selected");
     assert.ok(day);
+    const leapDate = new Date(2024, 1, 29).toLocaleDateString([], {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    assert.equal(day.getAttribute("aria-label"), leapDate + ", 2 sessions");
     assert.match(day.textContent!, /2 currencies/);
     assert.match(day.textContent!, /2 sessions/);
     await act(async () => day.click());
@@ -75,14 +80,7 @@ test("calendar uses real session dates, handles a leap month and keeps currency 
         createElement(SignalCalendar, { ...props, recording: true }),
       ),
     );
-    assert.equal(
-      (
-        document.querySelector(
-          '[aria-label*="February 29, 2024"]',
-        ) as HTMLButtonElement
-      ).disabled,
-      true,
-    );
+    assert.equal(day.disabled, true);
     await act(async () =>
       (
         document.querySelector('[aria-label="Next month"]') as HTMLButtonElement

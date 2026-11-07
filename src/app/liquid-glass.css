@@ -96,12 +96,20 @@ html .ss-app button:is(.ss-primary, .primary, .ss-module-save, .ss-module-resize
   background: rgb(175 215 235 / .1);
 }
 html .ss-app button[aria-current="page"] { background: rgb(175 215 235 / .12); }
-/* Original objective stage colors remain independent of the UI accent. */
-html .ss-reference-app .ss-phase-link .ss-phase {
-  border-top-color: var(--phase-color);
-  border-left-color: var(--phase-color);
+/* Stage labels keep their chart colors over the journal's glass. */
+html .ss-reference-app .ss-phase-link .ss-phase[data-phase] {
+  border: 1px solid var(--signal-line);
+  border-radius: min(var(--ss-glass-radius), 14px);
+  background: var(--signal-recess);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--ss-glass-reflection) * .2));
 }
-html .ss-reference-app .ss-phase > span { color: var(--phase-color); }
+html .ss-reference-app .ss-phase-link .ss-phase[data-phase]:is(:hover, :focus-visible) {
+  background: rgb(175 215 235 / .1);
+}
+html .ss-reference-app .ss-phase-link .ss-phase[aria-pressed="true"] {
+  border-color: var(--signal-muted);
+  background: rgb(175 215 235 / .14);
+}
 html .ss-reference-app .ss-phase-link .ss-see-log {
   color: var(--before);
   border-color: var(--before);

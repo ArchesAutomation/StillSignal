@@ -498,7 +498,7 @@ function StartDashboard({
           (v) => !v.body.archived,
         )}
         market={
-          <GlassPanel lens className="cc-market-strip">
+          <GlassPanel className="cc-market-strip">
             <span>{date}</span>
             <Badge>Preparation not started</Badge>
             <Badge>No thesis recorded</Badge>

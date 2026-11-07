@@ -32,8 +32,45 @@ try {
   await nav('Command Center');
   await settle();
   const optical = await page.evaluate(() => 'userAgentData' in navigator);
-  await page.waitForFunction(() => !!document.querySelector('.ss-reference-topbar[data-nordify]'));
-  const layers = await page.locator('.ss-reference-topbar').evaluate(el => ({
+  const dashboardBars = '.ss-reference-topbar, .cc-dashboard-toolbar, .cc-market-strip, .cc-status-grid';
+  const assertSharedGlass = async selector => {
+    const panels = await page.locator(selector).evaluateAll(nodes => nodes.map(node => {
+      const glass = getComputedStyle(node, '::before');
+      return [node.hasAttribute('data-nordify'), glass.backgroundColor, glass.backdropFilter];
+    }));
+    assert.ok(panels.length >= 3);
+    assert.ok(panels.every(panel => !panel[0] && panel[1] === panels[0][1] && panel[2] === panels[0][2]));
+    assert.notEqual(panels[0][2], 'none');
+  };
+  await assertSharedGlass(dashboardBars);
+  await page.locator('.cc-status-grid').scrollIntoViewIfNeeded();
+  await assertSharedGlass(dashboardBars);
+  await nav('Daily journal');
+  await assertSharedGlass('.ss-reference-topbar, .ss-journal-history, .ss-module-toolbar');
+  for (const selector of ['.ss-journal-date-overview', '.ss-session-controls']) {
+    assert.equal(await page.locator(selector).evaluate(node => {
+      return Number(node.matches('[data-glass-surface]')) + Number(!!node.closest('.ss-module-glass'));
+    }), 1, 'journal content has one glass surface');
+  }
+  const stages = page.locator('.ss-phase-link .ss-phase[data-phase]');
+  await stages.first().waitFor();
+  const rims = await stages.evaluateAll(nodes => nodes.map(node => {
+    const css = getComputedStyle(node);
+    return [css.borderTopWidth, css.borderLeftWidth, css.borderTopColor === css.borderLeftColor];
+  }));
+  assert.equal(rims.length, 5);
+  for (const rim of rims) assert.deepEqual(rim, ['1px', '1px', true]);
+  await nav('Command Center');
+  const ids = await page.locator('filter[id]').evaluateAll(nodes => nodes.map(n => n.id));
+  assert.equal(ids.length, new Set(ids).size, 'independent instances have unique filters');
+  checks.push('matched glass bars before and after scrolling, one journal panel per module and unique filter IDs');
+  await page.screenshot({ path: `${output}/${engine}-dashboard.png`, fullPage: true });
+
+  await nav('Settings');
+  await studio.scrollIntoViewIfNeeded();
+  await page.locator('.wallpaper-preview-card').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => !!document.querySelector('.wallpaper-preview-card[data-nordify]'));
+  const layers = await page.locator('.wallpaper-preview-card').evaluate(el => ({
     mode: el.dataset.nordify,
     filter: el.querySelector('.lg-pane').style.backdropFilter,
     defs: el.querySelectorAll('.lg-defs').length,
@@ -44,14 +81,6 @@ try {
   assert.equal(layers.filter.includes('url('), optical);
   assert.equal(layers.position, 'absolute');
   assert.equal(layers.defs, 1); assert.equal(layers.cover, 1);
-  assert.equal(await page.locator('.cc-dashboard-card[data-nordify]').count(), 0, 'large analytical cards stay lightweight');
-  const ids = await page.locator('filter[id]').evaluateAll(nodes => nodes.map(n => n.id));
-  assert.equal(ids.length, new Set(ids).size, 'independent instances have unique filters');
-  checks.push('real Nordify initialization, browser capability selection, unique IDs and bounded analytical material');
-  await page.screenshot({ path: `${output}/${engine}-dashboard.png`, fullPage: true });
-
-  await nav('Settings');
-  await studio.scrollIntoViewIfNeeded();
   for (const [name, blur] of [['Bubbly', '2.5'], ['Clear', '2'], ['Graphite', '6'], ['Frosted', '20']]) {
     await material.getByRole('button', { name, exact: true }).click();
     assert.equal(await material.getByRole('button', { name, exact: true }).getAttribute('aria-pressed'), 'true');

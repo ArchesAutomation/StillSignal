@@ -292,7 +292,7 @@ export default function DashboardBoard({
       )}
       {layout.showMarket && market}
       {!!layout.statusWidgets.length && (
-        <GlassPanel preset="standard" lens className="cc-status-grid">
+        <GlassPanel preset="standard" className="cc-status-grid">
           {layout.statusWidgets.map((id) => (
             <div key={id}>{status[id]}</div>
           ))}
