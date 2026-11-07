@@ -54,6 +54,8 @@ export default function DashboardCanvas({
   before,
   after,
   owner = "dashboard",
+  page = "Command Center",
+  children,
 }: {
   layout: DashboardLayout;
   editing: boolean;
@@ -64,11 +66,13 @@ export default function DashboardCanvas({
   before?: ReactNode;
   after?: ReactNode;
   owner?: string;
+  page?: DashboardLayout["page"];
+  children?: ReactNode;
 }) {
   const workspace = dashboardWorkspace(layout);
   // Visibility remains compatible with the existing card library and snapshots.
   const value = { ...workspace, modules: { ...workspace.modules } };
-  for (const card of layout.panels)
+  for (const card of page === "Command Center" ? layout.panels : [])
     if (value.modules[card.id])
       value.modules[card.id] = {
         ...value.modules[card.id],
@@ -77,7 +81,7 @@ export default function DashboardCanvas({
   return (
     <ModuleWorkspace
       owner={owner}
-      page="Command Center"
+      page={page ?? "Command Center"}
       onInteracting={onInteracting}
       controlled={{
         layout: value,
@@ -101,7 +105,8 @@ export default function DashboardCanvas({
       }}
     >
       {before}
-      {layout.panels.map((card, order) => (
+      {children}
+      {page === "Command Center" && layout.panels.map((card, order) => (
         <WorkspaceModule
           key={card.id}
           id={card.id}

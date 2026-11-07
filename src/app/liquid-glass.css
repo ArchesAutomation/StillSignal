@@ -259,3 +259,31 @@ html .ocean-palette-grid button[aria-pressed="true"] { border-color: var(--shark
   .appearance-controls { right: 12px; bottom: 16px; }
 }
 @media (forced-colors: active) { html .shark-background { display: none; } }
+
+/* Keep navigation prominent and utilities together, without a separate guide row. */
+html .ss-reference-topbar.lg-glass-surface { flex-wrap:wrap; row-gap:8px; margin-bottom:12px; }
+html .ss-reference-top-actions { flex-wrap:wrap; gap:6px; min-width:0; }
+html .ss-reference-nav button:not(:last-child) { font-weight:650; color:var(--signal-text); }
+html .ss-reference-nav button:last-child { font-size:11px; }
+html .guide-header-resources { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0; }
+html .ss-account-menu summary { cursor:pointer; list-style:none; display:grid; place-items:center; }
+html .ss-account-menu > div { min-width:220px; max-width:calc(100vw - 32px); overflow-wrap:anywhere; }
+html .ss-account-menu > div > span, html .ss-account-menu > div > small { padding:8px; font-size:12px; }
+html .cc-dashboard-configuration { margin:6px 0; padding:6px 10px; border:1px solid var(--signal-line); border-radius:8px; }
+html .cc-dashboard-configuration > summary { cursor:pointer; font-size:12px; }
+html .cc-dashboard-options, html .cc-dashboard-toggles { margin:6px 0; padding:6px 0; border:0; }
+html .cc-dashboard-options p { flex-basis:auto; }
+html .cc-dashboard-options .cc-field { display:flex; align-items:center; gap:8px; }
+html .cc-dashboard-announcement { margin:4px 0; }
+html .cc-dashboard-announcement:empty { display:none; }
+html .ss-module-message { margin:4px 0; }
+html .cc-dashboard-announcement:not(:empty), html .ss-module-controlled > .ss-module-message:not(:empty) { position:fixed; left:24px; bottom:24px; z-index:1200; max-width:calc(100vw - 48px); padding:8px 12px; border:1px solid var(--signal-line); border-radius:8px; background:var(--lg-opaque-surface); }
+html .guide-text-settings label { display:grid; gap:8px; }
+html .guide-text-settings small { color:var(--signal-muted); }
+/* Current writing cards are portalled out of the old writing wrapper. */
+html .ss-app .ss-module-content :is(.ss-inline-moment > textarea, .ss-reference-composer textarea, .ss-space-moments p, .ss-space-evidence p, .ss-space-card textarea, .ss-space-card .ss-journal-text, .ss-space-writing textarea) { font-size:calc(14px * var(--journal-text-scale,1)); }
+@media(max-width:760px) {
+  html .ss-reference-top-actions { width:100%; margin-left:0; }
+  html .guide-header-resources { flex:1 1 180px; }
+  html .ss-reference-nav { max-width:100%; }
+}

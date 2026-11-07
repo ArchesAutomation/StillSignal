@@ -19,6 +19,9 @@ import {
   canPlaceModule,
   alignModuleSpacing,
   limitModuleResize,
+  closeRemovedModuleSpace,
+  moveModuleGroup,
+  canPlaceModuleGroup,
   type ResizeEdge,
 } from "@/lib/module-geometry";
 import {
@@ -70,6 +73,8 @@ type Registry = {
   change: (id: string, patch: Partial<ModulePlacement>) => void;
   drag: (event: ReactPointerEvent<HTMLButtonElement>, id: string) => void;
   dragging: boolean;
+  selected: string[];
+  select: (id: string) => void;
   resize: (
     event: ReactPointerEvent<HTMLButtonElement>,
     id: string,
@@ -264,6 +269,7 @@ export function WorkspaceModule({
               <GripVertical size={16} />
               <span>{placement.title || title}</span>
             </button>
+            <button aria-label={`Select ${title} module`} aria-pressed={ctx.selected.includes(id)} onClick={() => ctx.select(id)}>Select</button>
             <button
               aria-label={`Edit inside ${title}`}
               disabled={ctx.dragging}
@@ -547,24 +553,13 @@ export default function ModuleWorkspace({
   const editing = controlled?.editing ?? localEditing;
   const current = controlled?.layout ?? (editing ? draft : saved),
     key = moduleLayoutKey(owner, page);
-  const [readingPreset, setReadingPreset] = useState(false);
   const [boardWidth, setBoardWidth] = useState(1200);
   const [guides, setGuides] = useState<ModuleBox>();
-  useEffect(() => {
-    const update = () =>
-      setReadingPreset(
-        document.querySelector<HTMLElement>(".ss-app")?.dataset
-          .journalBalance === "evidence",
-      );
-    update();
-    window.addEventListener("ss-journal-balance", update);
-    return () => window.removeEventListener("ss-journal-balance", update);
-  }, []);
-  const viewLayout =
-    !editing && page === "Journal" && readingPreset
-      ? evidenceReadingLayout(current, modules, heights)
-      : current;
-  const boxes = moduleBoard(viewLayout, modules, heights, boardWidth);
+  const [lastHidden, setLastHidden] = useState<{ id: string; box: ModuleBox }>();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [selectionRect, setSelectionRect] = useState<ModuleBox>();
+  const marquee = useRef<{ pointer: number; x: number; y: number; base: string[]; next: string[] } | null>(null);
+  const boxes = moduleBoard(current, modules, heights, boardWidth);
   const latest = useRef({
     current,
     modules,
@@ -574,6 +569,7 @@ export default function ModuleWorkspace({
     boardWidth,
     controlled,
     onInteracting,
+    selected,
   });
   latest.current = {
     current,
@@ -584,6 +580,7 @@ export default function ModuleWorkspace({
     boardWidth,
     controlled,
     onInteracting,
+    selected,
   };
   type Gesture = {
     mode: "move" | ResizeEdge | "library" | "panel";
@@ -603,6 +600,9 @@ export default function ModuleWorkspace({
     moved: boolean;
     left?: number;
     top?: number;
+    boxes: Record<string, ModuleBox>;
+    targets?: Record<string, ModuleBox>;
+    members?: string[];
   };
   const gesture = useRef<Gesture | null>(null);
   const surface = () =>
@@ -644,12 +644,17 @@ export default function ModuleWorkspace({
     setRedo([]);
     latest.current.current = next;
     setDraft(next);
-    setMessage(announcement);
+    setMessage(latest.current.controlled ? "" : announcement);
     latest.current.controlled?.change(next, announcement);
   };
   const cancelGesture = () => {
     const g = gesture.current;
     gesture.current = null;
+    if (g?.members) for (const id of g.members) {
+      const host = latest.current.modules.find(m => m.id === id)?.host;
+      host?.classList.remove("ss-module-held", "ss-module-invalid");
+      if (host) host.style.transform = "";
+    }
     if (g) {
       if (g.mode === "library") g.host.remove();
       else if (g.mode !== "panel") {
@@ -675,7 +680,7 @@ export default function ModuleWorkspace({
     latest.current.onInteracting?.(false);
   };
   useEffect(() => {
-    if (!editing || controlled?.disabled) cancelGesture();
+    if (!editing || controlled?.disabled) { cancelGesture(); marquee.current = null; setSelectionRect(undefined); setSelected([]); }
   }, [editing, controlled?.disabled]);
   useEffect(() => {
     cancelGesture();
@@ -692,6 +697,8 @@ export default function ModuleWorkspace({
     setUndo([]);
     setRedo([]);
     setMessage("");
+    setLastHidden(undefined);
+    setSelected([]);
     setHeights({});
   }, [key]);
   const placement = (module: Definition): ModulePlacement => ({
@@ -729,6 +736,7 @@ export default function ModuleWorkspace({
         width: box.w / 12 + "%",
         height: raw.heightMode === "fixed" ? box.h + "px" : "",
       });
+      module.host.classList.toggle("ss-module-selected", editing && selected.includes(module.id));
       module.host.classList.toggle(
         "ss-module-sized",
         raw.heightMode === "fixed",
@@ -749,7 +757,7 @@ export default function ModuleWorkspace({
       if (field && selection?.[0] != null && selection[1] != null)
         field.setSelectionRange(selection[0], selection[1]);
     }
-  }, [current, modules, enabled, editing, JSON.stringify(boxes)]);
+  }, [current, modules, enabled, editing, JSON.stringify(boxes), selected]);
   useEffect(() => {
     const module = modules.find((m) => m.id === pendingCustom.current);
     if (!module || !editing) return;
@@ -827,6 +835,7 @@ export default function ModuleWorkspace({
       setMessage("That space is occupied. Other widgets stay in place.");
       return;
     }
+    if (patch.hidden && latest.current.boxes[id]) setLastHidden({ id, box: latest.current.boxes[id] });
     value.modules[id] = { ...old, ...patch };
     if (patch.box)
       value.modules[id] = {
@@ -867,6 +876,14 @@ export default function ModuleWorkspace({
     const candidate = resize
       ? resizeModuleBox(start, (dx * 1200) / boardWidth, dy, edge)
       : { ...start, x: start.x + (dx * 1200) / boardWidth, y: start.y + dy };
+    if (!resize && latest.current.selected.includes(id) && latest.current.selected.length > 1) {
+      const targets = moveModuleGroup(latest.current.boxes, latest.current.selected, dx*1200/boardWidth, dy, boardWidth);
+      if (!canPlaceModuleGroup(targets, latest.current.boxes, boardWidth)) { setMessage("That space is occupied. Other widgets stay in place."); return; }
+      let next = value;
+      for (const [member, box] of Object.entries(targets)) next = placeModule(next, member, box);
+      commit(next, "Selected widgets moved.");
+      return;
+    }
     const next = snapModuleBox(
       candidate,
       Object.entries(latest.current.boxes)
@@ -904,10 +921,19 @@ export default function ModuleWorkspace({
     const module = modules.find((m) => m.id === id);
     if (mode !== "panel" && !module) return;
     event.preventDefault();
+    if (mode === "move" && (event.shiftKey || event.ctrlKey || event.metaKey)) { setSelected(ids => ids.includes(id) ? ids.filter(v => v !== id) : [...ids, id]); return; }
     event.currentTarget.focus();
     let host: HTMLElement =
       mode === "panel" ? libraryPanel.current! : module!.host;
-    const start = latest.current.boxes[id] ??
+    // Freeze the actual visible frames, including fractional browser rounding.
+    const boardRect = board.getBoundingClientRect();
+    const measured = { ...latest.current.boxes };
+    for (const m of modules) {
+      if (!measured[m.id]) continue;
+      const r = m.host.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) measured[m.id] = { x: (r.left-boardRect.left)*1200/boardRect.width, y: r.top-boardRect.top, w: r.width*1200/boardRect.width, h: r.height };
+    }
+    const start = measured[id] ??
       latest.current.current.modules[id]?.box ?? { x: 0, y: 0, w: 384, h: 288 };
     if (mode === "library") {
       host = doc.createElement("div");
@@ -947,7 +973,9 @@ export default function ModuleWorkspace({
       width: board.getBoundingClientRect().width || 1200,
       start,
       next: start,
-      base: resolved(),
+      base: materializeBoard(resolved(), modules, measured, boardRect.width),
+      boxes: measured,
+      members: mode === "move" ? (selected.includes(id) ? selected.filter(id => measured[id]) : [id]) : undefined,
       key,
       moved: false,
       left: rect.left,
@@ -956,6 +984,11 @@ export default function ModuleWorkspace({
     event.currentTarget.setPointerCapture(event.pointerId);
     if (mode !== "panel") {
       host.classList.add("ss-module-held");
+      if (mode === "move") {
+        const ids = gesture.current.members!;
+        setSelected(ids);
+        for (const member of ids) modules.find(m => m.id === member)?.host.classList.add("ss-module-held");
+      }
       setDragging(true);
       onInteracting?.(true);
     }
@@ -963,6 +996,16 @@ export default function ModuleWorkspace({
   useEffect(() => {
     const view = surface();
     const move = (event: PointerEvent) => {
+      const m = marquee.current;
+      if (m && event.pointerId === m.pointer) {
+        const board = canvas.current!;
+        const r = board.getBoundingClientRect();
+        const x = (event.clientX-r.left)*1200/r.width, y = event.clientY-r.top;
+        const area = { x: Math.min(m.x,x), y: Math.min(m.y,y), w: Math.abs(x-m.x), h: Math.abs(y-m.y) };
+        m.next = [...new Set([...m.base, ...Object.entries(latest.current.boxes).filter(([,b]) => b.x >= area.x && b.y >= area.y && b.x+b.w <= area.x+area.w && b.y+b.h <= area.y+area.h).map(([id]) => id)])];
+        setSelectionRect(area); setSelected(m.next);
+        return;
+      }
       const g = gesture.current;
       if (!g || event.pointerId !== g.pointer) return;
       const dx = event.clientX - g.x,
@@ -1000,27 +1043,17 @@ export default function ModuleWorkspace({
           y: snap(event.clientY - rect.top),
         });
       } else if (g.mode === "move") {
-        g.next = snapModuleBox(
-          {
-            ...boundModuleBox({
-              ...g.start,
-              x: g.start.x + snap((dx * 1200) / g.width),
-              y: g.start.y + snap(dy),
-            }),
-            h: g.start.h,
-          },
-          Object.entries(latest.current.boxes)
-            .filter(([id]) => id !== g.id)
-            .map(([, box]) => box),
-          g.width,
-          "move",
-        );
-        g.host.style.transform = `translate(${((g.next.x - g.start.x) * g.width) / 1200}px,${g.next.y - g.start.y}px)`;
+        g.targets = moveModuleGroup(g.boxes, g.members ?? [g.id], dx * 1200 / g.width, dy, g.width);
+        g.next = g.targets[g.id];
+        for (const [id, box] of Object.entries(g.targets)) {
+          const host = latest.current.modules.find(m => m.id === id)?.host;
+          if (host) host.style.transform = `translate(${(box.x-g.boxes[id].x)*g.width/1200}px,${box.y-g.boxes[id].y}px)`;
+        }
       } else {
         g.host.classList.add("ss-module-sized");
         g.next = snapModuleBox(
           resizeModuleBox(g.start, (dx * 1200) / g.width, dy, g.mode),
-          Object.entries(latest.current.boxes)
+          Object.entries(g.boxes)
             .filter(([id]) => id !== g.id)
             .map(([, box]) => box),
           g.width,
@@ -1029,7 +1062,7 @@ export default function ModuleWorkspace({
         g.next = limitModuleResize(
           g.start,
           g.next,
-          Object.entries(latest.current.boxes)
+          Object.entries(g.boxes)
             .filter(([id]) => id !== g.id)
             .map(([, box]) => box),
           g.width,
@@ -1044,7 +1077,7 @@ export default function ModuleWorkspace({
         .map(([, box]) => box);
       g.host.classList.toggle(
         "ss-module-invalid",
-        !canPlaceModule(g.next, peers, g.width),
+        g.targets ? !canPlaceModuleGroup(g.targets, g.boxes, g.width) : !canPlaceModule(g.next, peers, g.width),
       );
       setGuides(g.next);
       if (event.clientY > view.innerHeight - 45) {
@@ -1056,6 +1089,7 @@ export default function ModuleWorkspace({
       }
     };
     const up = (event: PointerEvent) => {
+      if (marquee.current?.pointer === event.pointerId) { marquee.current = null; setSelectionRect(undefined); return; }
       const g = gesture.current;
       if (!g || event.pointerId !== g.pointer) return;
       let valid =
@@ -1069,7 +1103,7 @@ export default function ModuleWorkspace({
           event.clientY >= rect.top &&
           event.clientY <= rect.bottom;
       }
-      const available = canPlaceModule(
+      const available = g.targets ? canPlaceModuleGroup(g.targets, g.boxes, g.width) : canPlaceModule(
         g.next,
         Object.entries(latest.current.boxes)
           .filter(([id]) => id !== g.id)
@@ -1082,16 +1116,19 @@ export default function ModuleWorkspace({
       }
       cancelGesture();
       if (valid && g.mode !== "panel") {
-        const placed = placeModule(g.base, g.id, g.next);
+        let placed = g.base;
+        for (const [id, box] of Object.entries(g.targets ?? { [g.id]: g.next })) placed = placeModule(placed, id, box);
         if (g.mode !== "move" && g.mode !== "library") {
           placed.modules[g.id].heightMode = "fixed";
           placed.modules[g.id].height = g.next.h;
         }
-        commit(placed, "Module placed. Save layout to keep your board.");
+        commit(placed, "Layout changed.");
       }
     };
-    const cancel = () => cancelGesture();
+    const cancel = () => { if (marquee.current) setSelected(marquee.current.base); marquee.current = null; setSelectionRect(undefined); cancelGesture(); };
     const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && marquee.current) { event.preventDefault(); cancel(); return; }
+      if (event.key === "Escape" && !gesture.current) setSelected([]);
       if (event.key === "Escape" && gesture.current) {
         event.preventDefault();
         cancelGesture();
@@ -1119,6 +1156,8 @@ export default function ModuleWorkspace({
     placement,
     change,
     dragging: dragging || !!controlled?.disabled,
+    selected,
+    select: id => setSelected(ids => ids.includes(id) ? ids.filter(v => v !== id) : [...ids, id]),
     custom: current.custom,
     editCustom: (id, patch) =>
       commit({
@@ -1158,6 +1197,21 @@ export default function ModuleWorkspace({
       "Name your module and add its content below. Placement settings are optional.",
     );
   }
+  function closeGap() {
+    if (!lastHidden || !latest.current.current.modules[lastHidden.id]?.hidden) return;
+    const source = { ...latest.current.boxes, [lastHidden.id]: lastHidden.box };
+    const next = closeRemovedModuleSpace(source, lastHidden.id);
+    if (!Object.entries(next).every(([id, b]) => canPlaceModule(b, Object.entries(next).filter(([other]) => other !== id).map(([,b]) => b), boardWidth))) { setMessage("This gap cannot close without overlapping another widget."); return; }
+    const value = resolved();
+    for (const [id, box] of Object.entries(next)) value.modules[id] = { ...value.modules[id], box };
+    commit(value, "Gap closed. Undo to restore."); setLastHidden(undefined);
+  }
+  const selectionTools = <>
+    <span className="ss-selection-status" role="status">{selected.length ? selected.length + " selected" : "Drag empty space to select widgets. Shift-click adds to selection."}</span>
+    <button disabled={dragging || !selected.length} onClick={() => setSelected([])}>Clear selection</button>
+    <button disabled={dragging || !lastHidden || !current.modules[lastHidden.id]?.hidden} onClick={closeGap}>Close gap</button>
+    {page === "Journal" && <button disabled={dragging} onClick={() => commit(evidenceReadingLayout(resolved(), modules, heights), "Evidence arrangement applied. Undo to restore.")}>Evidence layout</button>}
+  </>;
   function alignSpacing() {
     const value = resolved();
     const aligned = alignModuleSpacing(latest.current.boxes, boardWidth);
@@ -1177,6 +1231,7 @@ export default function ModuleWorkspace({
               paused.
             </small>
             <div>
+              {selectionTools}
               <button
                 disabled={dragging || controlled.disabled}
                 onClick={alignSpacing}
@@ -1210,6 +1265,7 @@ export default function ModuleWorkspace({
             <div>
               {editing ? (
                 <>
+                  {selectionTools}
                   <button disabled={dragging} onClick={alignSpacing}>
                     Align spacing
                   </button>
@@ -1475,7 +1531,15 @@ export default function ModuleWorkspace({
           className={`ss-free-board${editing ? " ss-free-board-editing" : ""}`}
           style={{ minHeight: boardHeight }}
           aria-label="Workspace board"
+          onPointerDown={event => {
+            if (!editing || controlled?.disabled || event.button !== 0 || event.target !== event.currentTarget || gesture.current || surface().innerWidth <= 660) return;
+            event.preventDefault(); const r = event.currentTarget.getBoundingClientRect();
+            const base = event.shiftKey || event.ctrlKey || event.metaKey ? selected : [];
+            marquee.current = { pointer: event.pointerId, x: (event.clientX-r.left)*1200/r.width, y: event.clientY-r.top, base, next: base };
+            setSelected(base); event.currentTarget.setPointerCapture(event.pointerId);
+          }}
         >
+          {editing && selectionRect && <div className="ss-module-selection-box" style={{ left: selectionRect.x/12+"%", top: selectionRect.y, width: selectionRect.w/12+"%", height: selectionRect.h }} />}
           {editing && guides && (
             <div className="ss-module-alignment-guides" aria-hidden>
               <i style={{ top: guides.y }} />

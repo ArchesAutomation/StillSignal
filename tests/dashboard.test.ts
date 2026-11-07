@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import { createElement, act } from "react";
 import { createRoot } from "react-dom/client";
 import Dashboard from "../src/components/dashboard";
+import AccountMenu from "../src/components/account-menu";
 import AuthGate from "../src/components/auth-gate";
 function domSetup() {
   const dom = new JSDOM('<div id="root"></div>', {
@@ -104,4 +105,25 @@ test("new authenticated workspace is empty and journaling does not require a wea
     await act(async () => root.unmount());
     dom.window.close();
   }
+});
+
+test("account access opens, navigates, closes with Escape and reports sign-out failure", async () => {
+  const dom = domSetup(); const root = createRoot(document.getElementById("root")!);
+  let settings = 0, error = "";
+  const props = { email: "tester@example.test", blocked: false, onSettings: () => { settings++; }, onError: (message: string) => { error = message; } };
+  try {
+    await act(async () => root.render(createElement(AccountMenu, props)));
+    const menu = document.querySelector("details")!, trigger = document.querySelector("summary")!;
+    await act(async () => trigger.click()); assert.equal(menu.open, true);
+    const buttons = [...document.querySelectorAll("button")];
+    await act(async () => buttons.find(b => b.textContent === "Account settings")!.click());
+    assert.equal(settings, 1); assert.equal(menu.open, false);
+    await act(async () => trigger.click());
+    await act(async () => document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape" })));
+    assert.equal(menu.open, false); assert.equal(document.activeElement, trigger);
+    await act(async () => buttons.find(b => b.textContent === "Sign out")!.click());
+    assert.match(error, /Sign-out is unavailable in this isolated review/);
+    await act(async () => root.render(createElement(AccountMenu, { ...props, blocked: true })));
+    assert.equal([...document.querySelectorAll("button")].find(b => b.textContent === "Sign out")!.disabled, true);
+  } finally { await act(async () => root.unmount()); dom.window.close(); }
 });

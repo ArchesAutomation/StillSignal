@@ -522,6 +522,7 @@ export const recordSchema = z
         .object({
           name,
           isDefault: z.boolean(),
+          page: z.enum(["Command Center", "Journal", "Patterns", "Stillness"]).optional(),
           panels: z
             .array(
               z

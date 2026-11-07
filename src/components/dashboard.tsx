@@ -45,6 +45,7 @@ import ConceptWorkspace from "./concept/workspace";
 import { PhaseLabelsContext } from "./phase-label-context";
 import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
 import BlueprintPreferences from "./blueprint-preferences";
+import WorkspaceAppearance from "./workspace-appearance";
 import SharkSettings from "./shark-settings";
 import WallpaperSettings from "./wallpaper-settings";
 import PhaseLabelPreferences from "./phase-label-preferences";
@@ -1852,6 +1853,7 @@ export default function Dashboard({
               )}
               {tab === "Settings" && (
                 <div className="settings-grid">
+                  <WorkspaceModule id="journal-text" title="Journal text size" section="main" order={0}><WorkspaceAppearance settings props={{ pulse: { owner: p.owner }, onPage: next => setTab(next) }} /></WorkspaceModule>
                   <WorkspaceModule id="wallpaper-glass" title="Wallpaper & glass" section="main" order={-1}><WallpaperSettings /></WorkspaceModule>
                   <WorkspaceModule id="sharks-appearance" title="Sharks & appearance" section="main" order={0}><SharkSettings /></WorkspaceModule>
                   <WorkspaceModule id="stage-label-preferences" title="Your stage labels" section="main"><PhaseLabelPreferences
