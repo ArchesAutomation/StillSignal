@@ -17,13 +17,16 @@ export default function WorkflowNavigation({ owner, open }: {
   };
   return <div className="cc-workflow-navigation">
     <GlassPanel preset="standard" className="cc-workflow-group">
-      <h2>Preparation</h2>
+      <details>
+      <summary>Preparation tools</summary>
       <nav aria-label="Preparation">{preparationTools.map(([id, label]) =>
         <button key={id} onClick={() => id === "variables" ? open("Settings & Variables") : prepare(id)}>{label}</button>
       )}</nav>
+      </details>
     </GlassPanel>
     <GlassPanel preset="standard" className="cc-workflow-group">
-      <h2>Review &amp; Refine</h2>
+      <details>
+      <summary>Review &amp; Refine</summary>
       <button className="cc-primary" onClick={() => open("Trade Quality")}>Session review</button>
       <nav aria-label="Review & Refine">{([
         ["Audits", "Daily review"], ["Rule Violations", "Rule history"],
@@ -31,6 +34,7 @@ export default function WorkflowNavigation({ owner, open }: {
       ] as const).map(([page, label]) => <button key={page} onClick={() => open(page)}>{label}</button>)}
         <button onClick={() => prepare("intentions")}>Session intentions</button>
       </nav>
+      </details>
     </GlassPanel>
   </div>;
 }

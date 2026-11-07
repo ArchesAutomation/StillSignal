@@ -44,3 +44,49 @@ html .ss-module-sized > .ss-module-content:has(> .ss-space-moments-scroll) {
 .ss-journal-select-menu .ss-select-menu-heading, .ss-journal-select-menu .ss-select-menu-heading span { color:var(--signal-muted); }
 .ss-journal-select-menu .ss-select-option-active { background:color-mix(in srgb,var(--signal-text) 12%,var(--lg-opaque-surface)); }
 @media(max-width:700px) { .cc-workflow-navigation { grid-template-columns:1fr; } }
+
+/* Keep ordinary wheel scrolling available over a resized timeline. */
+html .ss-free-board > [data-module-id="timeline"].ss-module-sized > .ss-module-content {
+  overscroll-behavior-y: auto;
+}
+
+html .ss-module-toolbar-idle.lg-glass-surface {
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  margin-block: 0 10px;
+  position: relative;
+}
+.ss-journal-history { margin: 0; }
+.ss-workspace-module:is([data-module-id="post-exit-review"],[data-module-id="weekly-reflection"]) .ss-module-content {
+  padding: 0;
+}
+.ss-workspace-module:is([data-module-id="post-exit-review"],[data-module-id="weekly-reflection"]):not(.ss-module-editing):has(> .ss-module-content:empty) {
+  display: none;
+}
+html .guide-exit-invitation.lg-glass-surface,
+html .ss-workspace-module .ss-weekly-invitation {
+  margin: 0;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+html .guide-exit-invitation strong { font-size: 13px; }
+html .ss-reference-app .ss-space-title {
+  padding: 0;
+  gap: 8px;
+}
+html .ss-reference-app .ss-space-title h2 { font-size: 17px; }
+html .ss-reference-app .ss-space-title .ss-eyebrow { display: none; }
+
+html :is(.cc-daybar, .cc-greeting, .cc-dashboard-toolbar, .cc-dashboard-status).lg-glass-surface {
+  padding: 8px 12px;
+  margin-block: 0 8px;
+  min-height: 0;
+}
+html .cc-greeting h1 { font-size: 20px; margin-block: 0; }
+html .cc-greeting .cc-eyebrow,
+html .cc-greeting p { margin-block: 2px; }
+html .cc-workflow-navigation { gap: 8px; margin-block: 8px; }
+html .cc-workflow-group.lg-glass-surface { padding: 8px 12px; }
+.cc-workflow-group summary { cursor: pointer; }
+.cc-snapshot-tools { padding: 12px; }

@@ -202,7 +202,7 @@ export default function ConceptWorkspace(props: Props) {
         ? Math.round(latest.bpm - stats.baseline)
         : null;
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
-  const viewProps = { ...props, onPage: go };
+  const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
   return (
     <div className={cx("app", "reference-app")}>
       <GlassPanel
@@ -488,40 +488,31 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             )}
           </div>
+          {page === "Journal" && (
+            <div className="ss-journal-history" role="group" aria-label="Journal history">
+              <button
+                disabled={!p.canUndoJournal || p.journalHistoryBusy}
+                onClick={() =>
+                  void p
+                    .undoJournal()
+                    .catch((e) => p.setError((e as Error).message))
+                }
+              >
+                ↶ Undo
+              </button>
+              <button
+                disabled={!p.canRedoJournal || p.journalHistoryBusy}
+                onClick={() =>
+                  void p
+                    .redoJournal()
+                    .catch((e) => p.setError((e as Error).message))
+                }
+              >
+                ↷ Redo
+              </button>
+            </div>
+          )}
         </header>
-        {page === "Journal" && (
-          <GlassPanel
-            preset="standard"
-            className="ss-journal-history"
-            role="group"
-            aria-label="Journal history"
-          >
-            <span>Daily journal</span>
-            <button
-              disabled={!p.canUndoJournal || p.journalHistoryBusy}
-              onClick={() =>
-                void p
-                  .undoJournal()
-                  .catch((e) => p.setError((e as Error).message))
-              }
-            >
-              ↶ Undo
-            </button>
-            <button
-              disabled={!p.canRedoJournal || p.journalHistoryBusy}
-              onClick={() =>
-                void p
-                  .redoJournal()
-                  .catch((e) => p.setError((e as Error).message))
-              }
-            >
-              ↷ Redo
-            </button>
-            <small>
-              Saved writing, moment edits and journal details · this visit
-            </small>
-          </GlassPanel>
-        )}
         <ModuleWorkspace
           owner={p.owner}
           page={page}
@@ -552,23 +543,27 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             </div>
           )}
-          <PostExitInvitation props={viewProps} />
+          <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
+            <PostExitInvitation props={viewProps} />
+          </WorkspaceModule>
           {<ProcessWorkspace key={p.owner} {...viewProps} />}
           {(page === "Overview" || page === "Journal") && (
-            <WeeklyReminder
-              sessions={[s, ...history]}
-              owner={s.owner}
-              active={p.active || capturePending}
-              enabled={p.settings.weeklyReminders !== false}
-              onOpen={(key) => {
-                setReviewWeek(key);
-                setWeekly(true);
-                props.onPage("Journal");
-              }}
-              onPreference={(enabled) =>
-                p.configure({ ...p.settings, weeklyReminders: enabled })
-              }
-            />
+            <WorkspaceModule id="weekly-reflection" title="Weekly reflection" order={41} width={6} initiallyHidden={page === "Journal"}>
+              <WeeklyReminder
+                sessions={[s, ...history]}
+                owner={s.owner}
+                active={p.active || capturePending}
+                enabled={p.settings.weeklyReminders !== false}
+                onOpen={(key) => {
+                  setReviewWeek(key);
+                  setWeekly(true);
+                  props.onPage("Journal");
+                }}
+                onPreference={(enabled) =>
+                  p.configure({ ...p.settings, weeklyReminders: enabled })
+                }
+              />
+            </WorkspaceModule>
           )}
           {page === "Overview" && (
             <WorkspaceModule
@@ -640,7 +635,8 @@ export default function ConceptWorkspace(props: Props) {
                 id="dates"
                 title="Date overview"
                 section="top"
-                order={0}
+                order={30}
+                initiallyHidden
                 parts={[
                   { id: "week", title: "Week strip", selector: ".ss-week" },
                   {
@@ -742,8 +738,7 @@ export default function ConceptWorkspace(props: Props) {
                     <WorkspaceModule
                       id="session-controls"
                       title="Session controls"
-                      section="top"
-                      order={1}
+                      order={4}
                     >
                       <section
                         className={cx(

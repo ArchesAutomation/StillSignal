@@ -8,6 +8,8 @@ import { latest, type RecordOf } from "@/lib/process/model";
 import {
   cards,
   dashboardRecords,
+  dashboardSnapshot,
+  readDashboardSnapshot,
   freshDashboard,
   normalizeLayout,
   statusLabels,
@@ -52,12 +54,16 @@ export default function DashboardBoard({
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   const [selectedId, setSelectedId] = useState<string>();
-  const selected =
-    layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0];
+  const useStarter = !home && selectedId === "starter";
+  const selected = useStarter
+    ? undefined
+    : layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0];
   const saved = selected ? normalizeLayout(selected.body) : initial;
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
   const [message, setMessage] = useState("");
+  const [snapshots, setSnapshots] = useState(false);
+  const [snapshotCode, setSnapshotCode] = useState("");
   const [interacting, setInteracting] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -191,15 +197,16 @@ export default function DashboardBoard({
         ) : (
           <>
             <div className="cc-dashboard-current">
-              {layouts.length > 1 ? (
+              {layouts.length > 1 || (layouts.length === 1 && !home) ? (
                 <Field label="Dashboard">
                   <select
-                    value={selected?.rootId ?? ""}
+                    value={selected?.rootId ?? "starter"}
                     onChange={(e) => {
                       choose(e.target.value);
                       setMessage("");
                     }}
                   >
+                    {!home && <option value="starter">{initial.name} (starter)</option>}
                     {layouts.map((r) => (
                       <option key={r.rootId} value={r.rootId}>
                         {r.body.name}
@@ -210,11 +217,16 @@ export default function DashboardBoard({
               ) : (
                 <strong>{saved.name}</strong>
               )}
-              <small>Your space. Your process.</small>
             </div>
             <div className="cc-actions">
               <button onClick={() => start(true)}>
                 <Plus size={15} /> New dashboard
+              </button>
+              <button aria-expanded={snapshots} onClick={() => {
+                setSnapshots(!snapshots);
+                setSnapshotCode("");
+              }}>
+                Dashboard snapshots
               </button>
               <button ref={editButton} onClick={() => start()}>
                 <Pencil size={15} /> Edit dashboard
@@ -223,6 +235,32 @@ export default function DashboardBoard({
           </>
         )}
       </GlassPanel>
+      {snapshots && !editing && (
+        <GlassPanel className="cc-snapshot-tools">
+          <p>Share your dashboard arrangement or paste a snapshot another trader shared.</p>
+          <button onClick={() => setSnapshotCode(dashboardSnapshot(saved))}>Generate share code</button>
+          <Field label="Dashboard snapshot code">
+            <textarea value={snapshotCode} maxLength={10_000} rows={3}
+              onChange={(event) => setSnapshotCode(event.target.value)} />
+          </Field>
+          <button disabled={!snapshotCode.trim() || store.busy} onClick={() => {
+            const imported = readDashboardSnapshot(snapshotCode);
+            if (!imported) {
+              setMessage("This dashboard snapshot code is invalid or unsupported.");
+              return;
+            }
+            setBase(undefined);
+            setUndo([]);
+            setAdding(false);
+            setDraft(imported);
+            setSnapshots(false);
+            setSnapshotCode("");
+            setMessage("Preview the imported dashboard, then save it to switch to it.");
+          }}>
+            Preview snapshot
+          </button>
+        </GlassPanel>
+      )}
       <p className="cc-dashboard-announcement" role="status" aria-live="polite">
         {message}
       </p>
@@ -258,16 +296,18 @@ export default function DashboardBoard({
       {draft && (
         <fieldset className="cc-dashboard-toggles" disabled={store.busy}>
           <legend>At a glance</legend>
-          <label>
-            <input
-              type="checkbox"
-              checked={layout.showMarket}
-              onChange={(e) =>
-                change({ ...layout, showMarket: e.target.checked })
-              }
-            />{" "}
-            Market outlook
-          </label>
+          {market && (
+            <label>
+              <input
+                type="checkbox"
+                checked={layout.showMarket}
+                onChange={(e) =>
+                  change({ ...layout, showMarket: e.target.checked })
+                }
+              />{" "}
+              Market outlook
+            </label>
+          )}
           {Object.entries(statusLabels).map(([key, label]) => {
             const id = key as DashboardLayout["statusWidgets"][number];
             return (
@@ -289,14 +329,6 @@ export default function DashboardBoard({
             );
           })}
         </fieldset>
-      )}
-      {layout.showMarket && market}
-      {!!layout.statusWidgets.length && (
-        <GlassPanel preset="standard" className="cc-status-grid">
-          {layout.statusWidgets.map((id) => (
-            <div key={id}>{status[id]}</div>
-          ))}
-        </GlassPanel>
       )}
       <DashboardCanvas
         layout={layout}
@@ -361,6 +393,14 @@ export default function DashboardBoard({
           </>
         )}
       />
+      {layout.showMarket && market}
+      {!!layout.statusWidgets.length && (
+        <GlassPanel preset="standard" className="cc-status-grid cc-dashboard-status">
+          {layout.statusWidgets.map((id) => (
+            <div key={id}>{status[id]}</div>
+          ))}
+        </GlassPanel>
+      )}
       {!visible.length && (
         <div className="cc-dashboard-empty">
           <strong>A little breathing room.</strong>

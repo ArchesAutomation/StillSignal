@@ -64,11 +64,6 @@ export default function PostExitInvitation({ props }: { props: Props }) {
             ? "A trade has closed"
             : `${pending.length} completed trades are ready to review`}
         </strong>
-        <p>
-          Start with a session overview. Pause if useful, review your own rules,
-          then add words or voice. Partial exits with an open remainder stay
-          open.
-        </p>
       </div>
       <div className="cc-actions">
         <button

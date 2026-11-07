@@ -1,5 +1,6 @@
 "use client";
 import { GlassPanel } from "../glassyui/glass-panel";
+import DashboardPnl from "./dashboard-pnl";
 import WorkflowNavigation from "./workflow-navigation";
 import { useSavedGuide } from "../use-saved-guide";
 import { dateSchema } from "@/lib/process/model";
@@ -45,7 +46,6 @@ import Missions, { MissionsPanel } from "../process-goals/workspace";
 import Audits from "../audits/workspace";
 import PatternExplorer from "./pattern-explorer";
 import {
-  Badge,
   Empty,
   Field,
   History,
@@ -308,6 +308,7 @@ function DailyDashboard(context: Context & { editor: DashboardEditor }) {
   };
   const panels = {
     preparation: null,
+    pnl: <DashboardPnl props={props} date={day.body.date} zone={day.body.timezone} />,
     thesis: <ThesisPanel {...context} />,
     temperature: <Temperature {...context} />,
     missions: <MissionsPanel {...context} />,
@@ -457,7 +458,7 @@ function StartDashboard({
       "Record variables",
     ],
   ] as const;
-  const panels = Object.fromEntries(
+  const starterPanels = Object.fromEntries(
     entries.map(([id, page, title, headline, description, label]) => [
       id,
       <Panel key={id} title={title}>
@@ -468,7 +469,12 @@ function StartDashboard({
         </button>
       </Panel>,
     ]),
-  ) as Parameters<typeof DashboardBoard>[0]["panels"];
+  ) as Omit<Parameters<typeof DashboardBoard>[0]["panels"], "pnl" | "preparation">;
+  const panels = {
+    ...starterPanels,
+    preparation: null,
+    pnl: <DashboardPnl props={props} date={date} zone={zone} />,
+  };
   return (
     <>
       <GlassPanel preset="standard" className="cc-greeting">
@@ -497,18 +503,7 @@ function StartDashboard({
         variables={latest(store.records, "variable").filter(
           (v) => !v.body.archived,
         )}
-        market={
-          <GlassPanel className="cc-market-strip">
-            <span>{date}</span>
-            <Badge>Preparation not started</Badge>
-            <Badge>No thesis recorded</Badge>
-            <Badge>
-              {props.pulse.recording
-                ? "Wearable recording"
-                : "No live HR recording"}
-            </Badge>
-          </GlassPanel>
-        }
+        market={null}
         status={{
           session: (
             <>
@@ -606,7 +601,7 @@ export default function ProcessWorkspace(props: Props) {
         <WorkspaceModule
           id="process-context"
           title="Trading day context"
-          section="top"
+          section="side"
           order={3}
         >
           <div className="cc-workspace cc-context-strip">

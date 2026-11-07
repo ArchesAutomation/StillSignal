@@ -290,7 +290,7 @@ export default function Journal(
         <button onClick={() => setView("story")}>← Continue to journal</button>
       )}
       <ModuleScope active={view === "story"}><section hidden={view !== "story"} className={cx("journal-story")}>
-        <WorkspaceModule id="journal-heading" title="Journal heading" order={0} parts={[{id:"context",title:"Date and environment detail",selector:".ss-space-title p"},{id:"zone",title:"Timezone selector",selector:".ss-space-title > label"}]}><div className={cx("space-title")}>
+        <WorkspaceModule id="journal-heading" title="Journal heading" order={3} parts={[{id:"context",title:"Date and environment detail",selector:".ss-space-title p"},{id:"zone",title:"Timezone selector",selector:".ss-space-title > label"}]}><div className={cx("space-title")}>
           <div>
             <div className={cx("eyebrow")}>A record you can return to</div>
             <h2>Your day, in your words.</h2>
