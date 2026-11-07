@@ -3,6 +3,8 @@ import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { useEffect, useRef, useState } from "react";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
+import PageDashboard from "../page-dashboard";
+import AccountMenu from "../account-menu";
 import WorkspaceAppearance from "../workspace-appearance";
 import PostExitInvitation from "../post-exit-invitation";
 import SavedStillness from "../saved-stillness";
@@ -26,6 +28,11 @@ import ReferenceContext from "./reference-context";
 import ReferenceHistory from "./reference-history";
 import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
+function PageBoard({ owner, page, sessions, children }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode }) {
+  if (page === "Journal" || page === "Patterns" || page === "Stillness")
+    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions}>{children}</PageDashboard>;
+  return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
+}
 const navigation: [Page, string, string][] = [
   ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
@@ -276,9 +283,8 @@ export default function ConceptWorkspace(props: Props) {
               <button onClick={props.onExport}>Export session</button>
             </div>
           </details>
-          <span className={cx("reference-avatar")} title={p.email}>
-            {(p.email || "You").slice(0, 2).toUpperCase()}
-          </span>
+          <WorkspaceAppearance props={viewProps} />
+          <AccountMenu email={p.email} blocked={p.active || capturePending} onSettings={() => go("Settings")} onError={p.setError} />
         </div>
       </GlassPanel>
       <aside className={cx("sidebar")}>
@@ -359,7 +365,6 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
-        <WorkspaceAppearance props={viewProps} />
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             Workspace{" "}
@@ -513,11 +518,7 @@ export default function ConceptWorkspace(props: Props) {
             </div>
           )}
         </header>
-        <ModuleWorkspace
-          owner={p.owner}
-          page={page}
-          enabled={page !== "Command Center" && page !== "Pre-Market"}
-        >
+        <PageBoard owner={p.owner} page={page} sessions={[s, ...history]}>
           {s.demo && (
             <p className={cx("demo-notice")}>
               DEMO DATA · Simulated heart rate, trades and reflections. No
@@ -1011,7 +1012,7 @@ export default function ConceptWorkspace(props: Props) {
               </WorkspaceModule>
             </div>
           </ModuleScope>
-        </ModuleWorkspace>
+        </PageBoard>
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (

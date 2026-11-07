@@ -32,26 +32,36 @@ export type DashboardEditor = ReturnType<typeof useDashboardEditor>;
 export default function DashboardBoard({
   store,
   owner,
-  panels,
+  panels = {},
   market,
-  status,
+  status = {},
   variables = [],
   renderVariables,
   editor,
   before,
+  page = "Command Center",
+  children,
+  seed,
 }: {
   editor: DashboardEditor;
+  page?: DashboardLayout["page"];
+  children?: ReactNode;
+  seed?: DashboardLayout["workspace"];
   before?: ReactNode;
   store: ProcessStore;
   owner: string;
-  panels: Record<CardId, ReactNode>;
-  market: ReactNode;
-  status: Record<DashboardLayout["statusWidgets"][number], ReactNode>;
+  panels?: Partial<Record<CardId, ReactNode>>;
+  market?: ReactNode;
+  status?: Partial<Record<DashboardLayout["statusWidgets"][number], ReactNode>>;
   variables?: RecordOf<"variable">[];
   renderVariables?: (ids?: string[]) => ReactNode;
 }) {
-  const [initial] = useState(freshDashboard);
-  const layouts = latest(store.records, "layout");
+  const makeInitial = (): DashboardLayout => page === "Command Center"
+    ? freshDashboard()
+    : { ...freshDashboard(), page, workspace: seed, statusWidgets: [], showMarket: false };
+  const initial = makeInitial();
+  const layouts = latest(store.records, "layout").filter(r => (r.body.page ?? "Command Center") === page);
+  const selectionKey = "still-signal-dashboard-v1:" + owner + (page === "Command Center" ? "" : ":" + page);
   const home = layouts
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
@@ -85,7 +95,7 @@ export default function DashboardBoard({
     layouts.some((r) => r.rootId === base.rootId && r.id !== base.id);
   useEffect(() => {
     try {
-      const id = localStorage.getItem("still-signal-dashboard-v1:" + owner);
+      const id = localStorage.getItem(selectionKey);
       if (id) setSelectedId(id);
     } catch {
       /* Device storage is optional. */
@@ -105,7 +115,7 @@ export default function DashboardBoard({
   const choose = (id: string) => {
     setSelectedId(id);
     try {
-      localStorage.setItem("still-signal-dashboard-v1:" + owner, id);
+      localStorage.setItem(selectionKey, id);
     } catch {
       /* Selection still works without storage. */
     }
@@ -140,7 +150,7 @@ export default function DashboardBoard({
               <div className="cc-dashboard-editor-title">
                 <Pencil size={16} />
                 <strong>Make this dashboard yours</strong>
-                <span>Drag cards to move them. Pull a corner to resize.</span>
+                <span>Drag to move. Resize from any edge or corner.</span>
               </div>
               <div className="cc-actions">
                 <button
@@ -149,7 +159,7 @@ export default function DashboardBoard({
                   onClick={() =>
                     change(
                       {
-                        ...freshDashboard(),
+                        ...makeInitial(),
                         name: draft.name,
                         isDefault: draft.isDefault,
                       },
@@ -206,6 +216,7 @@ export default function DashboardBoard({
                 {layouts.length > 1 || (layouts.length === 1 && !home) ? (
                   <Field label="Dashboard">
                     <select
+                      disabled={store.busy}
                       value={selected?.rootId ?? "starter"}
                       onChange={(e) => {
                         choose(e.target.value);
@@ -229,10 +240,11 @@ export default function DashboardBoard({
                 )}
               </div>
               <div className="cc-actions">
-                <button onClick={() => start(true)}>
+                <button disabled={store.busy} onClick={() => start(true)}>
                   <Plus size={15} /> New dashboard
                 </button>
                 <button
+                  disabled={store.busy}
                   aria-expanded={snapshots}
                   onClick={() => {
                     setSnapshots(!snapshots);
@@ -241,7 +253,7 @@ export default function DashboardBoard({
                 >
                   Dashboard snapshots
                 </button>
-                <button ref={editButton} onClick={() => start()}>
+                <button disabled={store.busy} ref={editButton} onClick={() => start()}>
                   <Pencil size={15} /> Edit dashboard
                 </button>
               </div>
@@ -269,9 +281,9 @@ export default function DashboardBoard({
               disabled={!snapshotCode.trim() || store.busy}
               onClick={() => {
                 const imported = readDashboardSnapshot(snapshotCode);
-                if (!imported) {
+                if (!imported || (imported.page ?? "Command Center") !== page) {
                   setMessage(
-                    "This dashboard snapshot code is invalid or unsupported.",
+                    "This snapshot is invalid or belongs to another page.",
                   );
                   return;
                 }
@@ -297,7 +309,8 @@ export default function DashboardBoard({
         >
           {message}
         </p>
-        {draft && (
+        {draft && <details className="cc-dashboard-configuration" open>
+          <summary>Dashboard settings</summary>
           <fieldset className="cc-dashboard-options" disabled={store.busy}>
             <Field label="Dashboard name">
               <input
@@ -319,14 +332,15 @@ export default function DashboardBoard({
             </label>
             <p>Hiding a card keeps all its data and recordings.</p>
           </fieldset>
-        )}
+        </details>}
         {stale && (
           <p role="alert" className="cc-error">
             This dashboard changed in another tab. Cancel to load the saved
             version, then edit again.
           </p>
         )}
-        {draft && (
+        {draft && page === "Command Center" && <details className="cc-dashboard-configuration">
+          <summary>At a glance visibility</summary>
           <fieldset className="cc-dashboard-toggles" disabled={store.busy}>
             <legend>At a glance</legend>
             {market && (
@@ -362,9 +376,9 @@ export default function DashboardBoard({
               );
             })}
           </fieldset>
-        )}
+        </details>}
         {draft &&
-          layout.panels.some((p) => p.id === "variables" && p.visible) && (
+          page === "Command Center" && layout.panels.some((p) => p.id === "variables" && p.visible) && (
             <fieldset className="cc-variable-picker" disabled={store.busy}>
               <legend>Variables on this dashboard</legend>
               <label>
@@ -409,7 +423,8 @@ export default function DashboardBoard({
             </fieldset>
           )}
         <DashboardCanvas
-          key={selected?.rootId ?? "starter"}
+          page={page}
+          key={page === "Command Center" ? selected?.rootId ?? "starter" : page}
           owner={owner}
           before={before}
           after={
@@ -460,8 +475,8 @@ export default function DashboardBoard({
               </div>
             </>
           )}
-        />
-        {!visible.length && (
+        >{children}</DashboardCanvas>
+        {page === "Command Center" && !visible.length && (
           <div className="cc-dashboard-empty">
             <strong>A little breathing room.</strong>
             <p>Add just the cards that support the way you trade.</p>
@@ -475,7 +490,7 @@ export default function DashboardBoard({
             </button>
           </div>
         )}
-        {draft && (
+        {draft && page === "Command Center" && (
           <>
             <button
               className="cc-add-cards"

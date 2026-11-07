@@ -5,6 +5,8 @@ import {
   resizeModuleBox,
   snapModuleBox,
   canPlaceModule,
+  moveModuleGroup,
+  canPlaceModuleGroup,
   alignModuleSpacing,
   limitModuleResize,
   type ResizeEdge,
@@ -258,4 +260,27 @@ test("hiding closes the removed space while retaining column, order, and other c
     "removed",
   );
   assert.equal(blocked.below.y, 166, "a remaining card prevents overlap");
+});
+
+test("group movement preserves offsets and validates only unselected frames", () => {
+  const boxes = { a: { x: 40, y: 60, w: 260, h: 160 }, b: { x: 316, y: 60, w: 260, h: 160 }, peer: { x: 900, y: 400, w: 260, h: 160 } };
+  const before = JSON.stringify(boxes);
+  const moved = moveModuleGroup(boxes, ["a", "b"], 0, 300, 1200);
+  assert.equal(moved.b.x-moved.a.x, 276);
+  assert.equal(moved.a.y, 360);
+  assert.equal(canPlaceModuleGroup(moved, boxes, 1200), true);
+  assert.equal(canPlaceModuleGroup({ a: { ...moved.a, x: 900, y: 400 } }, boxes, 1200), false);
+  const bounded = moveModuleGroup(boxes, ["a", "b"], -500, -500, 1200);
+  assert.equal(bounded.a.x, 0); assert.equal(bounded.a.y, 0);
+  assert.equal(bounded.b.x-bounded.a.x, 276);
+  assert.equal(JSON.stringify(boxes), before);
+});
+test("measured subpixel gutters accept a vertical group move without accepting actual overlap", () => {
+  for (const width of [900, 1200, 1812]) {
+    const scale = 1200/width;
+    const peer = { x: 0, y: 0, w: 300, h: 900 };
+    const boxes = { peer, a: { x: 300+15.8*scale, y: 20, w: 220, h: 160 } };
+    assert.equal(canPlaceModuleGroup({ a: { ...boxes.a, y: 200 } }, boxes, width), true);
+    assert.equal(canPlaceModuleGroup({ a: { ...boxes.a, x: 299, y: 200 } }, boxes, width), false);
+  }
 });

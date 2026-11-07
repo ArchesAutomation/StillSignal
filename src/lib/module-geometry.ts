@@ -14,14 +14,19 @@ export function canPlaceModule(
   box: ModuleBox,
   peers: ModuleBox[],
   boardWidth: number,
+  tolerancePx = 0.01,
 ) {
   const gap = (MODULE_GAP * 1200) / Math.max(1, boardWidth);
+  // CSS frames are quantized to subpixels. A half-pixel tolerance prevents
+  // a visibly snapped gutter being rejected after a DOM measurement.
+  const epsilonX = tolerancePx * 1200 / Math.max(1, boardWidth);
+  const epsilonY = tolerancePx;
   return !peers.some(
     (p) =>
-      box.x < p.x + p.w + gap - 0.01 &&
-      box.x + box.w + gap - 0.01 > p.x &&
-      box.y < p.y + p.h + MODULE_GAP - 0.01 &&
-      box.y + box.h + MODULE_GAP - 0.01 > p.y,
+      box.x < p.x + p.w + gap - epsilonX &&
+      box.x + box.w + gap - epsilonX > p.x &&
+      box.y < p.y + p.h + MODULE_GAP - epsilonY &&
+      box.y + box.h + MODULE_GAP - epsilonY > p.y,
   );
 }
 
@@ -228,4 +233,20 @@ export function closeRemovedModuleSpace(
     box.y = Math.max(floor, box.y - removed.h - MODULE_GAP);
   }
   return result;
+}
+
+/** Translate a selected group once, preserving its internal arrangement. */
+export function moveModuleGroup(boxes: Record<string, ModuleBox>, ids: string[], dx: number, dy: number, boardWidth: number) {
+  const selected = ids.filter(id => boxes[id]);
+  if (!selected.length) return {};
+  const items = selected.map(id => boxes[id]);
+  const x = Math.min(...items.map(b => b.x)), y = Math.min(...items.map(b => b.y));
+  const bounds = { x, y, w: Math.max(...items.map(b => b.x+b.w))-x, h: Math.max(...items.map(b => b.y+b.h))-y };
+  const peers = Object.entries(boxes).filter(([id]) => !selected.includes(id)).map(([,b]) => b);
+  const next = snapModuleBox({ ...bounds, x: Math.max(0, Math.min(1200-bounds.w, x+dx)), y: Math.max(0, Math.min(50000-bounds.h, y+dy)) }, peers, boardWidth, "move");
+  return Object.fromEntries(selected.map(id => [id, { ...boxes[id], x: boxes[id].x+next.x-x, y: boxes[id].y+next.y-y }]));
+}
+export function canPlaceModuleGroup(next: Record<string, ModuleBox>, boxes: Record<string, ModuleBox>, boardWidth: number) {
+  const peers = Object.entries(boxes).filter(([id]) => !next[id]).map(([,b]) => b);
+  return Object.values(next).every(b => canPlaceModule(b, peers, boardWidth, 0.5));
 }

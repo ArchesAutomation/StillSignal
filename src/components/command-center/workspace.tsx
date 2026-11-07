@@ -839,7 +839,7 @@ export default function ProcessWorkspace(props: Props) {
           </button>
         </Panel>
       )}
-      {!day && !editDay && props.page !== "Pre-Market" && (
+      {!day && !editDay && props.page === "Command Center" && (
         <StartDashboard
           before={dashboardBefore}
           editor={dashboardEditor}

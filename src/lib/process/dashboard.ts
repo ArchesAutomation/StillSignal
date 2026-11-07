@@ -89,7 +89,8 @@ export function dashboardRecords(
   );
   const demoted = body.isDefault
     ? layouts
-        .filter((row) => row.rootId !== record.rootId && row.body.isDefault)
+        .filter((row) => row.rootId !== record.rootId && row.body.isDefault &&
+          (row.body.page ?? "Command Center") === (body.page ?? "Command Center"))
         .map((row) =>
           createRecord("layout", { ...row.body, isDefault: false }, row),
         )

@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { emptyModuleLayout } from "../src/lib/module-layout";
 import {
   dashboardRecords,
+  dashboardSnapshot,
+  readDashboardSnapshot,
   freshDashboard,
   moveCard,
   normalizeLayout,
@@ -137,4 +139,20 @@ test("named dashboards, selected variables and a single home survive reloads wit
     )!.id,
     head.id,
   );
+});
+
+test("page defaults are isolated, legacy dashboards remain Command Center and snapshots retain their page", () => {
+  const command = createRecord("layout", freshDashboard());
+  const journal = createRecord("layout", { ...freshDashboard(), page: "Journal" });
+  const portable = readDashboardSnapshot(dashboardSnapshot(journal.body));
+  assert.equal(portable?.page, "Journal");
+  assert.equal(portable?.isDefault, false);
+  const patterns = createRecord("layout", { ...freshDashboard(), page: "Patterns" });
+  const { batch } = dashboardRecords({ ...journal.body, name: "Second Journal" }, undefined, [command, journal, patterns]);
+  assert.equal(batch.length, 2);
+  assert.equal(batch[0].rootId, journal.rootId);
+  assert.equal(batch[0].body.isDefault, false);
+  const parsed = recordSchema.parse(createRecord("layout", { ...freshDashboard(), page: "Stillness" }));
+  assert.equal(parsed.kind, "layout");
+  if (parsed.kind === "layout") assert.equal(parsed.body.page, "Stillness");
 });
