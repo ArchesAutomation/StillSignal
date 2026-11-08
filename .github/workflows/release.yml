@@ -38,7 +38,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   verify-production:
-    if: github.event_name == 'check_run' && github.event.check_run.name == 'Workers Builds: still-signal'
+    if: >-
+      github.event_name == 'check_run' && github.event.check_run.name == 'Workers Builds: still-signal'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
