@@ -55,10 +55,9 @@ export default function WorkspaceAppearance({ props, settings = false }: { props
       {saved.storageError && <p role="status">{saved.storageError}</p>}
     </label> : <>
       <button ref={helpTrigger} type="button" onClick={() => setLearning(true)}>Help & learning</button>
-      <button type="button" onClick={() => { setStep(0); setTour(true); }}>Show me how Still Signal works</button>
     </>}
-    {learning && <LearningCentre onClose={() => { setLearning(false); helpTrigger.current?.focus(); }} onNavigate={props.onPage} />}
-    <dialog ref={dialog} aria-label="Still Signal guided tour" className="guide-tour" onClose={() => setTour(false)}>
+    {learning && <LearningCentre onStartTour={() => { setLearning(false); setStep(0); setTour(true); }} onClose={() => { setLearning(false); helpTrigger.current?.focus(); }} onNavigate={props.onPage} />}
+    <dialog ref={dialog} aria-label="Still Signal guided tour" className="guide-tour" onClose={() => { setTour(false); helpTrigger.current?.focus(); }}>
       <GlassPanel><small>Learn Still Signal · {step+1} of {tourSteps.length}</small><h2>{tourSteps[step][0]}</h2><p>{tourSteps[step][1]}</p>
         <div className="cc-actions">
           <button disabled={!step} onClick={() => setStep(s => s-1)}>Back</button>

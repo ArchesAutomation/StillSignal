@@ -250,38 +250,21 @@ export default function ConceptWorkspace(props: Props) {
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
-          <button
-            className={cx("connection-shortcut")}
-            onClick={() => go("Connections")}
-          >
-            Connections
-          </button>
-          <button className={cx("floating-shortcut")} onClick={props.onFloat}>
-            Floating window ↗
-          </button>
-          <button
-            disabled={capturePending}
-            onClick={() =>
-              capturePending
-                ? p.setError(
-                    "Confirm or discard your capture draft before importing.",
-                  )
-                : props.onCsv()
-            }
-          >
-            Import session ↗
-          </button>
+          <button className="ss-header-connection" onClick={() => go("Connections")}>Connections</button>
+          <button className="ss-header-floating" onClick={props.onFloat}>Floating window ↗</button>
+          <button className="ss-header-import" disabled={capturePending} onClick={props.onCsv}>Import session ↗</button>
           <details className={cx("reference-tools")}>
             <summary aria-label="Session tools">⋯</summary>
-            <div>
+            <GlassPanel preset="subtle" lens={false} className="ss-utilities-panel">
+              <button className="ss-overflow-connection" onClick={() => go("Connections")}>Connections</button>
+              <button className="ss-overflow-floating" onClick={props.onFloat}>Floating window ↗</button>
+              <button className="ss-overflow-import" disabled={capturePending} onClick={props.onCsv}>Import session ↗</button>
               <button onClick={() => go("Sessions")}>Saved sessions</button>
               <button onClick={() => go("Overview")}>Overview</button>
-              <button onClick={() => go("Connections")}>Connections</button>
               <button onClick={props.onTrade}>Add trade</button>
               <button onClick={() => props.onAdvanced()}>Chart & replay</button>
-              <button onClick={props.onFloat}>Floating journal window</button>
               <button onClick={props.onExport}>Export session</button>
-            </div>
+            </GlassPanel>
           </details>
           <WorkspaceAppearance props={viewProps} />
           <AccountMenu email={p.email} blocked={p.active || capturePending} onSettings={() => go("Settings")} onError={p.setError} />

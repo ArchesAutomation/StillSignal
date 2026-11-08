@@ -34,7 +34,7 @@ export type LiquidGlassOptions = {
   rim?: number;
   /** Background displacement multiplier. 1 preserves Nordify's original optics. */
   refractionStrength?: number;
-  /** 0 follows the corners; 100 uses the demo's full-depth optical profile. */
+  /** Additional lens depth (0–100); always follows the physical outline. */
   lensDepth?: number;
   /** Frost behind the glass in CSS px. Default 2. */
   blur?: number;
@@ -646,7 +646,7 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
       const g = tiltGain(refr, w, h);
       setAttr(tiltAdd, "k3", g);
       setAttr(tiltAdd, "k4", -g / 2);
-      setAttr(refrDisp, "scale", refractionScale(refr, w, h) * Math.max(0, Math.min(2, Number.isFinite(refractionStrength) ? refractionStrength : 1)));
+      setAttr(refrDisp, "scale", refractionScale(refr, w, h) * (1 + Math.max(0, Math.min(100, Number.isFinite(lensDepth) ? lensDepth : 0)) / 400) * Math.max(0, Math.min(2, Number.isFinite(refractionStrength) ? refractionStrength : 1)));
       setAttr(refrFilter, "width", w + REGION * 2);
       setAttr(refrFilter, "height", h + REGION * 2);
     }
@@ -789,11 +789,9 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
     baked = short;
     refrKey = reflKey = ""; // new tiles: the precomputed fields are stale
     const corners = Math.max(0.01, Math.min(radius, short / 2));
-    const depth = Math.max(0, Math.min(100, Number.isFinite(lensDepth) ? lensDepth : 0)) / 100;
-    // Reuse Nordify's original maps, live graph and baked field at the desired
-    // optical radius. Visible corners, reflection outline and hit area keep
-    // their original geometry. At depth=0 this is exactly the upstream field.
-    refr = cachedRefraction(short, corners + (short / 2 - corners) * depth);
+    // The displacement field must follow the physical outline. Depth changes
+    // its strength, never an invisible oval inside a rectangular panel.
+    refr = cachedRefraction(short, corners);
     setFieldImages(refrField, refr);
     for (const slot of SLOTS) setAttr(tiltTiles[slot]!, "href", refr.tilt.img[slot]!);
     setAttr(tiltRamp, "href", refr.tiltRamp);
