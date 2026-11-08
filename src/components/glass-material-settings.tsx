@@ -1,7 +1,7 @@
 'use client';
 import { useId, useRef, type CSSProperties } from 'react';
 import { useOptionalPreferences } from './glassyui/glass-provider';
-import { GLASS_BOUNDS, GLASS_PRESETS, GLASS_PRESET_COPY, type GlassPreset, type GlassNumericKey, type GlassMaterial } from './glassyui/lib/glass-material';
+import { GLASS_BOUNDS, GLASS_PRESETS, GLASS_PRESET_LABELS, GLASS_PRESET_COPY, type GlassPreset, type GlassNumericKey, type GlassMaterial } from './glassyui/lib/glass-material';
 const controls: GlassNumericKey[] = ['refractionStrength', 'blur', 'tint', 'radius', 'reflectStrength', 'saturate'];
 export function GlassMaterialSettings({ compact = false }: { compact?: boolean }) {
   const { preferences, setPreferences } = useOptionalPreferences();
@@ -11,9 +11,9 @@ export function GlassMaterialSettings({ compact = false }: { compact?: boolean }
   const update = (patch: Partial<GlassMaterial>) => setPreferences({ material: { ...material, ...patch, preset: 'custom' } });
   const custom = material.preset === 'custom' || material.preset === 'frosted';
   return <section className={`glass-material-settings ${compact ? 'glass-material-compact' : ''}`} aria-label="Glass material">
-    <div className="glass-material-heading"><strong>Your glass</strong><span>{custom ? 'Custom' : material.preset[0].toUpperCase() + material.preset.slice(1)}</span></div>
+    <div className="glass-material-heading"><strong>Your glass</strong><span>{custom ? 'Custom' : GLASS_PRESET_LABELS[material.preset]}</span></div>
     <div className="glass-presets" role="group" aria-label="Glass presets">
-      {(['bubbly', 'clear', 'graphite'] as const).map(preset => <button key={preset} type="button" aria-pressed={material.preset === preset} onClick={() => select(preset)}>{preset[0].toUpperCase() + preset.slice(1)}</button>)}
+      {(['clear', 'bubbly', 'graphite'] as const).map(preset => <button key={preset} type="button" aria-pressed={material.preset === preset} onClick={() => select(preset)}>{GLASS_PRESET_LABELS[preset]}</button>)}
       <button type="button" aria-pressed={custom} onClick={() => { update({}); if (customize.current) customize.current.open = true; }}>Custom</button>
     </div>
     <p className="glass-preset-description">{custom ? 'Your own balance of refraction, clarity and shape.' : GLASS_PRESET_COPY[material.base]}</p>

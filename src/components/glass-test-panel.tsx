@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type PointerEvent, type KeyboardEve
 import { GripVertical, MoveDiagonal2, RotateCcw } from "lucide-react";
 import { GlassPanel } from "./glassyui/glass-panel";
 import { useOptionalPreferences } from "./glassyui/glass-provider";
+import { GLASS_PRESET_LABELS } from "./glassyui/lib/glass-material";
 
 type Box = { x: number; y: number; width: number; height: number };
 type Bounds = { width: number; height: number };
@@ -30,7 +31,7 @@ export default function GlassTestPanel({ background, dim }: { background: string
   const [backdrop, setBackdrop] = useState<'wallpaper' | 'type' | 'grid'>('wallpaper');
   const help = useId();
   const material = preferences.material.preset;
-  const materialName = material === 'frosted' ? 'Custom' : material[0].toUpperCase() + material.slice(1);
+  const materialName = material === 'frosted' ? 'Custom' : GLASS_PRESET_LABELS[material];
 
   useEffect(() => {
     const element = stage.current;

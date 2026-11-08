@@ -11,6 +11,8 @@
 :root[data-theme="light"] { --ss-glass-rgb: 244 250 253; }
 html body { isolation: auto; }
 html .ss-app.ss-reference-app { isolation: auto; overflow: visible; }
+/* The board's stacking isolation hid the wallpaper from every module lens. */
+html .ss-free-board { isolation: auto; }
 html [data-glass-surface] {
   isolation: auto;
   contain: none;
@@ -18,18 +20,17 @@ html [data-glass-surface] {
   overflow: visible;
   border-radius: var(--ss-glass-radius) !important;
 }
-/* Data-heavy panels retain readable corners. Optical controls and the test
-   lens use the selected geometry, including Nordify's fully rounded pill. */
+/* The border, backdrop and optical map all follow the selected geometry. */
 html [data-nordify], html [data-glass-backdrop-root] [data-glass-surface] { border-radius: var(--ss-glass-radius) !important; }
 html [data-glass-surface="panel"] {
   background: transparent;
   color: var(--signal-text);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  border: 1px solid var(--signal-line);
+  border: 1px solid color-mix(in srgb, var(--signal-text) 28%, transparent);
   box-shadow: 0 8px 24px rgb(0 0 0 / .12), inset 0 1px 0 rgb(235 248 255 / .08);
 }
-/* One quiet material for large panels; no SVG maps or second optical engine.
+/* Shared fallback for unsupported browsers and reduced-quality surfaces.
    Keep standard backdrop-filter last: the production CSS minifier otherwise
    retains only the WebKit declaration, which Chromium does not apply. */
 html [data-glass-surface="panel"]::before {
@@ -46,8 +47,7 @@ html [data-glass-surface="panel"]::before {
   transform: none;
   filter: none;
 }
-/* Large panels share the material controls without allocating a large lens.
-   The rim and reflection controls still affect their lightweight finish. */
+/* Keep the same rim and reflection finish when live optics are unavailable. */
 html [data-glass-surface="panel"]::after {
   content: "";
   position: absolute; inset: 0; z-index: 1; pointer-events: none;

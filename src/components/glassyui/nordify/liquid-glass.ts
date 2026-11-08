@@ -901,13 +901,15 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
     if (!tickReq) tickReq = requestAnimationFrame(applyTick);
   };
   const onScroll = () => {
-    if (refl) refresh();
+    // Refraction also needs invalidation when reflections are switched off.
+    refresh();
     onView();
   };
 
   const ro = new ResizeObserver(onResize);
   ro.observe(host);
-  addEventListener("scroll", onScroll, { passive: true });
+  // Scroll does not bubble. Capture includes module and modal scrollports.
+  addEventListener("scroll", onScroll, { passive: true, capture: true });
   addEventListener("resize", onView, { passive: true });
   onResize();
   // The first measurement may run before layout or fonts have settled.
@@ -951,7 +953,7 @@ export function createLiquidGlass(host: HTMLElement, options: LiquidGlassOptions
       clearTimeout(viewTimer);
       clearTimeout(fieldTimer);
       cancelAnimationFrame(tickReq);
-      removeEventListener("scroll", onScroll);
+      removeEventListener("scroll", onScroll, true);
       removeEventListener("resize", onView);
       host.querySelectorAll(":scope > .lg-layer, :scope > .lg-defs").forEach((n) => n.remove());
       tick.remove();

@@ -52,7 +52,7 @@ test("the test panel moves, resizes, cancels and stays inside a smaller wallpape
     assert.deepEqual(geometry(), resized, "changing the material preserves preview placement");
     assert.equal(panel(), identity, "the same panel stays mounted");
     assert.ok(panel().textContent?.includes("Clear glass"));
-    assert.equal(document.documentElement.style.getPropertyValue("--ss-glass-rim"), "1.05");
+    assert.equal(document.documentElement.style.getPropertyValue("--ss-glass-rim"), "1.1");
     stageWidth = 320;
     await act(async () => window.dispatchEvent(new dom.window.Event("resize")));
     assert.equal(panel().style.width, "288px");
@@ -61,10 +61,12 @@ test("the test panel moves, resizes, cancels and stays inside a smaller wallpape
     assert.equal(panel().style.height, "228px");
     await act(async () => button("Move test panel").dispatchEvent(new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Home" })));
     assert.equal(panel().style.height, "220px");
-    assert.equal(document.documentElement.dataset.glassMaterial, "clear", "resetting geometry never resets the glass");
+    assert.equal(document.documentElement.dataset.glassMaterial, "bubbly", "resetting geometry never resets the glass");
     assert.equal(panel().dataset.glassSurface, "panel");
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Bubbly')!.click());
     assert.equal(document.documentElement.dataset.glassPill, 'false');
+    assert.equal(document.documentElement.style.getPropertyValue('--ss-glass-radius'), '30px');
+    assert.ok(panel().textContent?.includes('Bubbly glass'));
     const bubblyGeometry = geometry();
     await act(async () => Array.from(document.querySelectorAll('button')).find(el => el.textContent === 'Still Signal')!.click());
     assert.ok(document.querySelector('.glass-preview-type')?.textContent?.includes('Still Signal'));

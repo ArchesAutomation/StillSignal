@@ -464,7 +464,7 @@ export function WorkspaceModule({
       )}
       <GlassPanel
         preset="standard"
-        lens={false}
+        lens
         className="ss-module-content ss-module-glass"
         inert={ctx.editing}
       >
