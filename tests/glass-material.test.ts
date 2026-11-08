@@ -19,7 +19,7 @@ test('Nordify presets use one bounded material model and overrides become Custom
   assert.equal(invalid.preset, 'custom');
   assert.deepEqual(parseGlassMaterial({ preset: '__proto__', base: 'constructor' }), GLASS_PRESETS.graphite);
   assert.equal(GLASS_PRESETS.bubbly.pill, false, 'Bubbly keeps standard panel geometry');
-  assert.equal(GLASS_PRESETS.bubbly.radius, GLASS_PRESETS.clear.radius);
+  assert.ok(GLASS_PRESETS.bubbly.radius > GLASS_PRESETS.clear.radius, 'Bubbly has rounder physical corners');
   assert.ok(GLASS_PRESETS.bubbly.refractionStrength > GLASS_PRESETS.clear.refractionStrength);
   assert.equal(GLASS_PRESETS.bubbly.lensDepth, 100);
   assert.equal(GLASS_PRESETS.clear.lensDepth, 0);
@@ -76,7 +76,7 @@ test('new controls persist independently, reject unsafe colors and restore theme
   assert.equal(root.style.getPropertyValue('--ss-glass-caustic-color'), '#aabbcc');
   applyGlassMaterial(root, { ...material, tintColor: 'theme', pill: false });
   assert.equal(root.style.getPropertyValue('--ss-glass-rgb'), '');
-  assert.equal(root.style.getPropertyValue('--ss-glass-radius'), '30px');
+  assert.equal(root.style.getPropertyValue('--ss-glass-radius'), '48px');
   dom.window.close();
 });
 

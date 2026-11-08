@@ -46,7 +46,7 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
   const lowQuality = preferences.quality === 'low';
   useEffect(() => {
     const surface = ref.current;
-    if (!surface || surface.ownerDocument !== document || !enabled || reduced || lowQuality || typeof ResizeObserver === 'undefined') return;
+    if (!surface || surface.ownerDocument !== document || !enabled || reduced || lowQuality || typeof ResizeObserver === 'undefined' || typeof MutationObserver === 'undefined') return;
     const transparency = window.matchMedia('(prefers-reduced-transparency: reduce)');
     let glass: ReturnType<typeof createLiquidGlass> | undefined;
     let decoration: HTMLElement | undefined;
@@ -75,7 +75,7 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
         decoration?.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));
         glass.update(); glass.refresh(); return;
       }
-      if (lenses.size >= MAX_OPTICAL_SURFACES) return;
+      if (lenses.size >= MAX_OPTICAL_SURFACES && !backdrop) return;
       decoration = document.createElement('span');
       decoration.className = 'ss-nordify-decoration';
       decoration.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));

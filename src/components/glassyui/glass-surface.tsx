@@ -38,7 +38,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
       children,
       interactive = false,
       preset = 'standard',
-      lens = preset === 'control' || preset === 'showcase',
+      lens = true,
       refraction = preset === 'showcase' ? 'strong' : 'none',
       refractionBackground,
       refractionBackgroundSpace = 'local',

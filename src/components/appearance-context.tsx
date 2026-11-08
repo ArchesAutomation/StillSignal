@@ -28,7 +28,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   useEffect(() => {
-    const saved = readAppearance();
+    const saved = { ...readAppearance(), theme: "dark" as const };
     latest.current = saved;
     setPreferences(saved);
     setReady(true);

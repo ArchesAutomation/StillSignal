@@ -43,7 +43,10 @@ export default function WallpaperSettings() {
   };
   return <section className="settings-card wallpaper-settings" aria-labelledby="wallpaper-heading">
     <header><span className="material-eyebrow">APPEARANCE STUDIO</span><h2 id="wallpaper-heading">Wallpaper & glass</h2><p>A backdrop you love. Glass that feels like you.</p></header>
-    <GlassTestPanel background={selected?.background ?? BUILTIN_WALLPAPERS[0].background} dim={appearance.wallpaperDim} />
+    <div className="glass-studio-layout">
+      <GlassTestPanel background={selected?.background ?? BUILTIN_WALLPAPERS[0].background} dim={appearance.wallpaperDim} />
+      <GlassMaterialSettings />
+    </div>
     <div className="wallpaper-section-heading"><h3>Your wallpaper</h3><span>{images.length} / 8 custom</span></div>
     <div className="wallpaper-gallery" aria-label="Wallpaper library">
       {choices.map(choice => <button key={choice.id} type="button" disabled={busy} aria-pressed={appearance.wallpaper === choice.id} onClick={() => update({ wallpaper: choice.id })}><span style={{ backgroundImage: choice.background }} /><span>{choice.name}</span></button>)}
@@ -53,7 +56,6 @@ export default function WallpaperSettings() {
     <p className="wallpaper-local-note">JPG, PNG, WebP or AVIF · Up to 12 MB · Saved on this browser only</p>
     {(error || storageError) && <p role="alert">{error || storageError}</p>}
     {appearance.wallpaper !== "ocean" && <MaterialSlider label="Wallpaper dimming" hint="Soften bright images behind your workspace." value={appearance.wallpaperDim} max={80} onChange={wallpaperDim => update({ wallpaperDim })} />}
-    <GlassMaterialSettings />
     <p className="wallpaper-local-note">Live edge refraction is available in Chromium browsers. Other browsers retain the frosted glass finish.</p>
     <label className="material-accessibility"><input type="checkbox" checked={preferences.reduceTransparency} onChange={event => setPreferences({ reduceTransparency: event.target.checked })} /> Reduce transparency for easier reading</label>
   </section>;

@@ -16,7 +16,7 @@ html [data-glass-surface] {
   contain: none;
   /* Clip the content's scrolling containers, never the refractive overhang. */
   overflow: visible;
-  border-radius: min(var(--ss-glass-radius), 28px) !important;
+  border-radius: var(--ss-glass-radius) !important;
 }
 /* Data-heavy panels retain readable corners. Optical controls and the test
    lens use the selected geometry, including Nordify's fully rounded pill. */
@@ -161,3 +161,50 @@ html[data-lg-reduce-transparency="1"] [data-glass-surface="button"] .lg-button__
   html [data-glass-surface] { border: 1px solid CanvasText; background: Canvas; }
   html [data-glass-surface]::before, .ss-nordify-decoration { display: none !important; }
 }
+/* Header actions progressively move into Tools before navigation can collide. */
+html .ss-reference-app .ss-reference-topbar {
+  position: relative; z-index: 100; height: auto; min-height: 81px;
+  display: flex; flex-wrap: wrap; gap: 12px 16px;
+}
+html .ss-reference-app .ss-reference-nav { min-width: 0; flex: 1 1 auto; flex-wrap: wrap; order: 0; }
+html .ss-reference-app .ss-reference-top-actions { flex: 0 0 auto; width: auto; gap: 8px; min-width: 0; margin-left: auto; }
+html .ss-reference-top-actions > * { flex-shrink: 0; }
+html .ss-reference-app .ss-reference-tools > div {
+  z-index: 110; max-width: calc(100vw - 48px);
+}
+html .ss-reference-app .ss-reference-tools > :is(.ss-account-panel, .ss-utilities-panel).lg-glass-surface {
+  position: absolute; right: 0; top: calc(100% + 10px); width: 240px;
+  padding: 14px; border: 1px solid var(--signal-line); background: transparent;
+  box-shadow: 0 16px 40px rgb(0 0 0 / .3);
+}
+html .ss-account-panel > span { overflow-wrap: anywhere; padding: 4px 2px 10px; }
+html :is(.ss-account-panel, .ss-utilities-panel, .appearance-panel)[data-glass-surface]::before {
+  background: rgb(var(--ss-glass-rgb) / .97) !important;
+}
+html .appearance-panel.lg-glass-surface { background: transparent; }
+html .appearance-controls > summary { padding: 0; border: 0; background: transparent; }
+html .appearance-controls .appearance-trigger { padding: 11px 16px; font: inherit; color: var(--signal-text); }
+html .appearance-controls > summary::-webkit-details-marker { display: none; }
+html .ss-reference-app .ss-utilities-panel { max-height: min(640px, 75dvh); overflow-y: auto; overscroll-behavior: contain; }
+html .ss-reference-tools button:is(.ss-overflow-connection, .ss-overflow-floating, .ss-overflow-import) { display: none; }
+@media (max-width: 1440px) {
+  html .ss-reference-top-actions > .ss-header-floating { display: none; }
+  html .ss-reference-tools button.ss-overflow-floating { display: block; }
+}
+@media (max-width: 1280px) {
+  html .ss-reference-top-actions > .ss-header-import { display: none; }
+  html .ss-reference-tools button.ss-overflow-import { display: block; }
+}
+@media (max-width: 1100px) {
+  html .ss-reference-top-actions > .ss-header-connection { display: none; }
+  html .ss-reference-tools button.ss-overflow-connection { display: block; }
+}
+@media (max-width: 980px) {
+  html .ss-reference-app .ss-reference-nav { order: 3; flex-basis: 100%; width: 100%; }
+}
+@media (max-width: 480px) {
+  html .ss-reference-app .ss-reference-top-actions { flex-basis: 100%; justify-content: flex-end; }
+}
+/* Bubbly's visible corners follow the same geometry as its optical map. */
+html[data-glass-material="bubbly"] [data-glass-surface] { border-radius: var(--ss-glass-radius) !important; }
+.glass-studio-layout .glass-material-settings .glass-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }

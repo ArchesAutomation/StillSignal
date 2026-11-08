@@ -76,3 +76,16 @@ html .material-slider input[type="range"] { appearance: none; -webkit-appearance
 .wallpaper-settings [role="alert"] { color: var(--signal-text); font-size: 12px; }
 @media (max-width: 600px) { .material-slider-grid { grid-template-columns: 1fr; } html .wallpaper-settings { padding: 16px; } .wallpaper-preview { height: 360px; } .glass-test-copy h3 { font-size: 22px; } }
 @media (forced-colors: active) { .wallpaper-background { display: none; } .material-slider input[type="range"] { appearance: auto; } html .glass-presets button[aria-pressed="true"], html .wallpaper-gallery button[aria-pressed="true"] { outline: 2px solid Highlight; } }
+/* Keep the controls and their live result visible together. */
+.glass-studio-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: start; gap: 24px; }
+.glass-studio-layout > .glass-material-settings { padding-top: 20px; }
+.glass-studio-layout .glass-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.glass-studio-layout .material-slider-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.glass-studio-layout .glass-customize[open] { gap: 12px; }
+.glass-studio-layout .glass-test-preview { position: sticky; top: 20px; min-width: 0; }
+@media (max-width: 900px) {
+  .glass-studio-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .glass-studio-layout .glass-test-preview { position: static; }
+  .glass-studio-layout .material-slider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) { .glass-studio-layout .material-slider-grid { grid-template-columns: 1fr; } }

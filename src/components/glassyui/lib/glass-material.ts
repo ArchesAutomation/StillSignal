@@ -35,7 +35,7 @@ const optics = {
 };
 export const GLASS_PRESETS: Record<GlassPreset, GlassMaterial> = {
   frosted: { ...optics, preset: 'frosted', base: 'frosted', blur: 20, refractionStrength: .25, rim: .7, radius: 18, saturate: .95, reflectStrength: .8, tint: 82, underlay: 10, specular: 12, causticOpacity: 3, shadowOpacity: 8 },
-  bubbly: { ...optics, preset: 'bubbly', base: 'bubbly', lensDepth: 100, lighting: 'light' },
+  bubbly: { ...optics, preset: 'bubbly', base: 'bubbly', lensDepth: 100, radius: 48, pill: false, refractionStrength: 1.4, blur: 1, underlay: 3, shadowOpacity: 10, causticOpacity: 15, lighting: 'auto' },
   clear: { ...optics, preset: 'clear', base: 'clear', blur: 2, refractionStrength: .65, rim: 1.05, reflectStrength: 1.6, tint: 4, underlay: 3, specular: 18, causticOpacity: 8, shadowOpacity: 10 },
   graphite: { ...optics, preset: 'graphite', base: 'graphite', blur: 6, refractionStrength: 1.05 / 1.3, rim: 1.05, radius: 18, reflectStrength: 1.6, tint: 26, underlay: 1.5, specular: 16.4, glintBrightness: 1.45, glintSaturation: 1.2, rimBrightness: 1.25, rimSaturation: 1.1, causticOpacity: 3.5, shadowOpacity: 6, lighting: 'dark' },
 };
@@ -56,8 +56,8 @@ export function parseGlassMaterial(value: unknown): GlassMaterial {
   // Preserve the previous coupling when loading a saved pre-upgrade material.
   if (saved.refractionStrength === undefined && typeof saved.rim === 'number' && Number.isFinite(saved.rim)) result.refractionStrength = result.rim / 1.3;
   for (const key of ['reflect', 'pill'] as const) if (typeof saved[key] === 'boolean') result[key] = saved[key];
-  // Upgrade the former pill-shaped preset; explicit Custom shapes stay intact.
-  if (saved.preset === 'bubbly') result.pill = false;
+  // Named Bubbly uses rounder physical corners; explicit Custom shapes stay intact.
+  if (saved.preset === 'bubbly') { result.pill = false; result.radius = GLASS_PRESETS.bubbly.radius; }
   if (saved.lighting === 'auto' || saved.lighting === 'light' || saved.lighting === 'dark') result.lighting = saved.lighting;
   result.tintColor = color(saved.tintColor, result.tintColor, true);
   result.shadowColor = color(saved.shadowColor, result.shadowColor);

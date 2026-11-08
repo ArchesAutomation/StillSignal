@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/cloud";
+import { GlassPanel } from "./glassyui/glass-panel";
 export default function AccountMenu({ email, blocked, onSettings, onError }: {
   email?: string; blocked: boolean; onSettings: () => void; onError: (message: string) => void;
 }) {
@@ -19,7 +20,7 @@ export default function AccountMenu({ email, blocked, onSettings, onError }: {
   }, []);
   return <details ref={menu} className="ss-reference-tools ss-account-menu">
     <summary className="ss-reference-avatar" aria-label="My account" title={email}>{(email || "You").slice(0,2).toUpperCase()}</summary>
-    <div>
+    <GlassPanel preset="subtle" lens={false} className="ss-account-panel">
       <span>{email || "Your account"}</span>
       <button onClick={() => { menu.current?.removeAttribute("open"); onSettings(); }}>Account settings</button>
       <button disabled={busy || blocked} onClick={async () => {
@@ -33,6 +34,6 @@ export default function AccountMenu({ email, blocked, onSettings, onError }: {
         finally { setBusy(false); }
       }}>{busy ? "Signing out…" : "Sign out"}</button>
       {blocked && <small>End the active session and confirm any capture draft before signing out.</small>}
-    </div>
+    </GlassPanel>
   </details>;
 }
