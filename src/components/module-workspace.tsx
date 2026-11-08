@@ -465,13 +465,15 @@ export function WorkspaceModule({
       <GlassPanel
         preset="standard"
         lens
-        className="ss-module-content ss-module-glass"
+        className="ss-module-surface"
         inert={ctx.editing}
       >
-        {placement.title && placement.title !== title && (
-          <h2 className="ss-module-custom-title">{placement.title}</h2>
-        )}
-        {children}
+        <div className="ss-module-content ss-module-glass" inert={ctx.editing}>
+          {placement.title && placement.title !== title && (
+            <h2 className="ss-module-custom-title">{placement.title}</h2>
+          )}
+          {children}
+        </div>
       </GlassPanel>
       {ctx.editing &&
         (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeEdge[]).map(
@@ -863,7 +865,7 @@ export default function ModuleWorkspace({
       );
       const fitted = placeModule(value, id, {
         ...start,
-        h: scrollContent?.scrollHeight ?? content?.scrollHeight ?? 260,
+        h: content ? Math.max(scrollContent?.scrollHeight ?? 0, content.scrollHeight) + 24 : 260,
       });
       fitted.modules[id].heightMode = "auto";
       fitted.modules[id].height = undefined;
