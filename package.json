@@ -7,7 +7,7 @@
     "build": "vite build",
     "start": "vite preview",
     "typecheck": "cf workers types --no-include-runtime && tsc --noEmit",
-    "test": "node --import ./tests/browser-environment.mjs --import tsx --test tests/*.test.ts",
+    "test": "node --import ./tests/browser-environment.mjs --import tsx --test tests/*.test.ts tests/*.test.mjs",
     "bench": "node --import tsx scripts/benchmark.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "prepare:edge": "node scripts/prepare-edge.mjs",
@@ -19,7 +19,8 @@
     "deploy:vinext": "vinext-cloudflare deploy",
     "deploy": "vinext-cloudflare deploy",
     "build:next": "next build",
-    "smoke:cloudflare": "node scripts/check-cloudflare.mjs"
+    "smoke:cloudflare": "node scripts/check-cloudflare.mjs",
+    "release:status": "node scripts/release-status.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

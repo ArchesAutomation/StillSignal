@@ -8,8 +8,15 @@
 
 - Make each update on a separate branch. Run the applicable local checks and exercise the changed behavior before pushing. If a required local check fails or cannot run, keep the update local and report the blocker.
 - Whenever Codex pushes an update, open or update a GitHub pull request against main as part of the same task. Explain the change, account for every changed file or related group, and include exact verification commands, results, gaps, and any setup or migration steps.
-- Share the pull request with Caleb and ask for explicit approval to merge that revision. A request to push or open a pull request does not grant merge approval. Wait for required checks and review to pass, and ask again if the revision changes after approval. Never push directly to main.
-- After approval and a successful merge, let Cloudflare Builds deploy the merged main revision to the production Worker. Follow the build through completion, verify the live site and health endpoint, and report the deployed revision or any blocker. See [Cloudflare operations](docs/cloudflare-migration.md).
+- Routine UI fixes meeting `scripts/release-policy.mjs` are authorized to merge automatically after the GitHub and Cloudflare preview checks pass. Use the trusted release workflow; never bypass its file scope, size limits, reviews or exact commit check. A `manual-merge` label opts out.
+- All other changes, including authentication, database, billing, dependencies, infrastructure and release-policy changes, require Caleb's explicit approval of that PR revision. A request to push or open a PR does not grant merge approval. Never push directly to main.
+- Cloudflare Builds deploys merged main automatically. The release workflow verifies production and publishes a `Production smoke` check. See `docs/release-automation.md`; do not manually redeploy or supervise each build unless asked or a check fails.
+
+## Efficient execution
+
+- During iteration, run checks focused on the changed behavior. Run `npm run check` once for the final source revision; repeat only after a relevant change or failure. Preserve browser verification for visible behavior.
+- Use `npm run release:status -- PR_NUMBER` for one compact release summary. Add `--wait` only when asked to follow a release through completion; its bounded wait prints only changes. Do not delegate monitoring to another model or repeatedly rediscover release tools.
+- Keep successful command output and progress concise. Read failure-log tails first; expand only to diagnose a specific failure. Do not repeatedly dump full PR diffs, tool catalogs, source files or unchanged logs.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -1,0 +1,57 @@
+name: Release automation
+on:
+  workflow_run:
+    workflows: [Validate]
+    types: [completed]
+  check_run:
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.check_run.head_sha || github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge-ui:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'check_run' && github.event.check_run.name == 'Workers Builds: still-signal' && github.event.check_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+    steps:
+      # Always trusted main, never the PR head or its artifacts.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - run: node scripts/release-automation.mjs merge
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  verify-production:
+    if: github.event_name == 'check_run' && github.event.check_run.name == 'Workers Builds: still-signal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - run: node scripts/release-automation.mjs verify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
