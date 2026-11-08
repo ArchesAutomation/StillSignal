@@ -4,12 +4,8 @@ import { useEffect, useState, type RefObject } from 'react';
 import { createLiquidGlass, supportsRefraction } from '../nordify/liquid-glass';
 import { useOptionalPreferences } from '../glass-provider';
 
-// Limit simultaneously visible lenses, independently of the number of cards.
-const lenses = new Set<HTMLElement>();
-export const MAX_OPTICAL_SURFACES = 6;
-export const MAX_OPTICAL_AREA = 180_000;
-// Only the single wallpaper test panel may use a larger, bounded lens.
-const MAX_PREVIEW_AREA = 480_000;
+// IntersectionObserver limits work to visible, outermost surfaces. A card's
+// size or mount order must not silently give it a different glass material.
 
 export function opticalAncestorBlocked(host: HTMLElement): boolean {
   if (host.closest('.cc-canvas-editing, .ss-free-board-editing, [data-glass-suspended="true"]')) return true;
@@ -52,53 +48,76 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
     let decoration: HTMLElement | undefined;
     let timer = 0;
     let frame = 0;
-    let inView = false;
     let disposed = false;
+    const placeDecoration = () => {
+      if (!decoration) return;
+      // The lens belongs to the card's viewport, not its scrolling contents.
+      Object.assign(decoration.style, {
+        left: `${surface.scrollLeft}px`, top: `${surface.scrollTop}px`,
+        width: `${surface.clientWidth}px`, height: `${surface.clientHeight}px`,
+        right: 'auto', bottom: 'auto',
+      });
+    };
     const destroy = () => {
       glass?.destroy();
       glass = undefined;
       decoration?.remove();
       decoration = undefined;
-      lenses.delete(surface);
       delete surface.dataset.nordify;
     };
     const reconcile = () => {
       if (disposed) return;
       const box = surface.getBoundingClientRect();
+      // Re-read visibility after responsive reparenting: the observer can
+      // retain its old intersection state when the same portal host moves.
+      const viewport = surface.ownerDocument.documentElement;
+      const inView = box.bottom > 0 && box.right > 0 && box.top < (viewport.clientHeight || innerHeight) && box.left < (viewport.clientWidth || innerWidth);
+      // Lighting follows the corner radius, not a large card's full height.
+      // Otherwise its edge grows into a broad neon band unlike the preview.
+      const lightingScale = Math.min(box.width, box.height, optics.pill ? 96 : optics.radius * 2) / 60;
       // Nested controls share the outer material instead of filtering it again.
       const nested = surface.parentElement?.closest('[data-glass-surface]');
       const backdrop = surface.closest('[data-glass-backdrop-root]');
       const sharesMaterial = nested && (!backdrop || backdrop.contains(nested));
-      const allowed = !transparency.matches && inView && box.width >= 8 && box.height >= 8 && box.width * box.height <= (backdrop ? MAX_PREVIEW_AREA : MAX_OPTICAL_AREA) && !sharesMaterial && !opticalAncestorBlocked(surface);
+      const allowed = !transparency.matches && inView && box.width >= 8 && box.height >= 8 && !sharesMaterial && !opticalAncestorBlocked(surface);
       if (!allowed) { destroy(); return; }
       if (glass) {
-        decoration?.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));
+        decoration?.style.setProperty('--ss-lens-scale', String(lightingScale));
+        placeDecoration();
         glass.update(); glass.refresh(); return;
       }
-      if (lenses.size >= MAX_OPTICAL_SURFACES && !backdrop) return;
       decoration = document.createElement('span');
       decoration.className = 'ss-nordify-decoration';
-      decoration.style.setProperty('--ss-lens-scale', String(Math.min(box.width, box.height) / 60));
+      decoration.style.setProperty('--ss-lens-scale', String(lightingScale));
       decoration.setAttribute('aria-hidden', 'true');
       const host = document.createElement('span');
       host.className = 'ss-nordify-host';
       decoration.append(host);
       surface.prepend(decoration);
+      placeDecoration();
       // Promote=false: promoting main would block lenses inside main.
       // The demo uses radius=9999, clamped by Nordify to half the short side.
       // Reflection width and background displacement remain independent.
       glass = createLiquidGlass(host, { ...optics, radius: optics.pill ? 9999 : optics.radius, promote: false });
-      lenses.add(surface);
       surface.dataset.nordify = supportsRefraction ? 'optical' : 'frosted';
     };
     const schedule = () => { clearTimeout(timer); timer = window.setTimeout(reconcile, 180); };
+    const onScroll = () => {
+      if (!glass || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        placeDecoration();
+        glass?.update();
+        glass?.refresh();
+      });
+    };
+    surface.addEventListener('scroll', onScroll, { passive: true });
     const visibility = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver(entries => {
-      inView = entries[0].isIntersecting;
-      if (!inView) destroy();
-      schedule();
+      if (!entries[entries.length - 1].isIntersecting) destroy();
+      else schedule();
     });
     visibility?.observe(surface);
-    if (!visibility) { inView = true; schedule(); }
+    schedule();
     const resize = new ResizeObserver(schedule);
     resize.observe(surface);
     // Watch only the ancestry, never the optical layers being written by Nordify.
@@ -114,6 +133,6 @@ export function useNordify(ref: RefObject<HTMLElement | null>, enabled: boolean)
     }
     const mediaChange = () => { if (transparency.matches) destroy(); else schedule(); };
     transparency.addEventListener('change', mediaChange);
-    return () => { disposed = true; clearTimeout(timer); cancelAnimationFrame(frame); transparency.removeEventListener('change', mediaChange); visibility?.disconnect(); resize.disconnect(); mutations.disconnect(); destroy(); };
+    return () => { disposed = true; clearTimeout(timer); cancelAnimationFrame(frame); surface.removeEventListener('scroll', onScroll); transparency.removeEventListener('change', mediaChange); visibility?.disconnect(); resize.disconnect(); mutations.disconnect(); destroy(); };
   }, [ref, enabled, reduced, lowQuality, optics]);
 }

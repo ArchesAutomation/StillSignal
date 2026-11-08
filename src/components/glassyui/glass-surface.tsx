@@ -51,7 +51,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(
   ) => {
     const surfaceRef = useRef<HTMLDivElement | null>(null);
     const ref = useMemo(() => mergeRefs(surfaceRef, forwardedRef), [forwardedRef]);
-    // Compact shared surfaces opt in; analytical panels keep the static material.
+    // Every outer panel shares the same live optics; nested controls reuse it.
     useNordify(surfaceRef, lens || refraction !== 'none');
     // Preserve the public props; live DOM is now the optical backdrop.
     void refractionBackground; void refractionBackgroundSpace; void refractionDisplacement;

@@ -21,6 +21,10 @@ export const GLASS_BOUNDS = {
 } as const;
 export type GlassNumericKey = keyof typeof GLASS_BOUNDS;
 export type GlassPreset = 'frosted' | 'bubbly' | 'clear' | 'graphite';
+// Keep persisted material IDs stable while swapping the two display names.
+export const GLASS_PRESET_LABELS: Record<GlassPreset | 'custom', string> = {
+  frosted: 'Frosted', bubbly: 'Clear', clear: 'Bubbly', graphite: 'Graphite', custom: 'Custom',
+};
 export type GlassMaterial = Record<GlassNumericKey, number> & {
   preset: GlassPreset | 'custom'; base: GlassPreset; reflect: boolean; pill: boolean;
   lighting: 'auto' | 'light' | 'dark'; tintColor: string; shadowColor: string; causticColor: string;

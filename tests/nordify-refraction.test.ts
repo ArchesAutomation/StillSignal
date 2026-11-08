@@ -57,6 +57,14 @@ test('refraction strength scales background displacement independently of reflec
     assert.equal(original.style.getPropertyValue('--lg-r'), '20px');
     assert.equal(rectangular.style.getPropertyValue('--lg-r'), '20px');
     assert.equal(scale(rectangular), scale(demo) * 1.25, 'depth retains its bounded gain after the corners clamp on resize');
+    // Non-bubbling scroll events from inside a module must refresh refraction
+    // even when the user has disabled reflections.
+    await new Promise(resolve => win.requestAnimationFrame(resolve));
+    const tick = rectangular.previousElementSibling!;
+    const beforeScroll = tick.hasAttribute('data-tick');
+    rectangular.dispatchEvent(new win.Event('scroll', { bubbles: false }));
+    await new Promise(resolve => win.setTimeout(resolve, 80));
+    assert.notEqual(tick.hasAttribute('data-tick'), beforeScroll, 'nested scrolling invalidates the live backdrop');
   } finally {
     instances.forEach(instance => instance.destroy());
     assert.equal(win.document.querySelectorAll('.lg-pane, .lg-cover, .lg-tick, .lg-defs').length, 0);

@@ -64,12 +64,17 @@ test('production CSS preserves glass foreground order and browser blur controls'
       assert.ok(accessibilityBlurDisabled, 'reduced transparency disables the standard browser blur');
       if (files === rootStyles) {
         const bodyIsolation: string[] = [];
+        const boardIsolation: string[] = [];
         compiled.nodes.forEach(node => {
           if (node.type === 'rule' && node.selector === 'html body') {
             node.walkDecls('isolation', declaration => { bodyIsolation.push(declaration.value); });
           }
+          if (node.type === 'rule' && node.selector === 'html .ss-free-board') {
+            node.walkDecls('isolation', declaration => { boardIsolation.push(declaration.value); });
+          }
         });
         assert.equal(bodyIsolation.at(-1), 'auto', 'the root stylesheet leaves the live ocean available to Nordify');
+        assert.equal(boardIsolation.at(-1), 'auto', 'workspace modules can sample the wallpaper through the board');
       }
     }
   } finally {
