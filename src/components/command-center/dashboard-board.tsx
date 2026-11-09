@@ -84,9 +84,11 @@ export default function DashboardBoard({
   // Preparation is a single entry button in Command Center, not a dashboard card.
   // Keep stored layouts compatible without mounting the old checklist module.
   const sourceLayout = draft ?? saved;
-  const layout = {
+  const layout: DashboardLayout = {
     ...sourceLayout,
-    panels: sourceLayout.panels.filter((p) => p.id !== "preparation"),
+    panels: sourceLayout.panels.map(p => ["thesis", "missions"].includes(p.id) ? { ...p, visible: false } : p).filter((p) => p.id !== "preparation"),
+    statusWidgets: sourceLayout.statusWidgets.filter(id => id !== "thesis"),
+    showMarket: false,
   };
   const visible = layout.panels.filter((p) => p.visible);
   const stale =
@@ -355,7 +357,7 @@ export default function DashboardBoard({
                 Market outlook
               </label>
             )}
-            {Object.entries(statusLabels).map(([key, label]) => {
+            {Object.entries(statusLabels).filter(([key]) => key !== "thesis").map(([key, label]) => {
               const id = key as DashboardLayout["statusWidgets"][number];
               return (
                 <label key={id}>
@@ -507,7 +509,7 @@ export default function DashboardBoard({
                 <h2>What belongs on your dashboard?</h2>
                 <p>Choose a card. You can always hide it again.</p>
                 <div className="cc-card-library-grid">
-                  {layout.panels.map((p) => (
+                  {layout.panels.filter(p => p.id !== "thesis" && p.id !== "missions").map((p) => (
                     <article key={p.id}>
                       <h3>{cards[p.id].title}</h3>
                       <p>{cards[p.id].detail}</p>

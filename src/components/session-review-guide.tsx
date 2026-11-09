@@ -308,7 +308,7 @@ export default function SessionReviewGuide(context: Context) {
         </div>
         <PnlSnapshot {...context} />
         <p className="cc-muted">
-          Confirmations feed existing mission and process summaries. Unknown
+          Confirmations stay available in your process review. Unknown
           rules remain unreviewed; one trade's checks never replace another's.
         </p>
       </div>

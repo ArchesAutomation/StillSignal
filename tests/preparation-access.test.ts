@@ -11,7 +11,7 @@ import { validateAppend, withRefs } from "../src/lib/process/engine";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
 import type { Context } from "../src/components/command-center/shared";
 
-test("preparation exposes every tool with a legacy routine and preserves drafts when switching tools", async () => {
+test("preparation retires thesis and missions while keeping active tools and saved records", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://still-signal.test",
   });
@@ -135,8 +135,6 @@ test("preparation exposes every tool with a legacy routine and preserves drafts 
     await render();
     const nav = document.querySelector('[aria-label="Preparation modules"]')!;
     for (const label of [
-      "Trading thesis",
-      "Active missions",
       "Personal variables",
       "Intentions",
       "Pre-market non-negotiables",
@@ -161,25 +159,8 @@ test("preparation exposes every tool with a legacy routine and preserves drafts 
       await act(async () => button.click());
       await render();
     };
-    await open("Trading thesis");
-    await click("New weekly thesis");
-    const draft = document.querySelector(
-      '[name="primary"]',
-    ) as HTMLTextAreaElement;
-    assert.ok(draft);
-    draft.value = "Keep my unfinished thesis";
-    await open("Active missions");
-    assert.match(
-      document.querySelector("#prep-tool-missions")!.textContent!,
-      /My existing mission/,
-    );
-    assert.equal(
-      document.querySelector("#prep-tool-missions")!.hasAttribute("hidden"),
-      false,
-    );
-    await open("Trading thesis");
-    assert.equal(document.querySelector('[name="primary"]'), draft);
-    assert.equal(draft.value, "Keep my unfinished thesis");
+    assert.doesNotMatch(nav.textContent!, /Trading thesis|Active missions/);
+    assert.ok(records.some(r => r.kind === "goal"), "saved mission remains intact");
     await open("Personal variables");
     assert.match(
       document.querySelector("#prep-tool-variables")!.textContent!,

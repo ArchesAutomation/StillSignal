@@ -5,6 +5,7 @@ import Temperature from "../variable-builder/temperature";
 import { MissionsPanel } from "../process-goals/workspace";
 import QuickCaffeine from "../variable-builder/quick-caffeine";
 import Missions from "../process-goals/workspace";
+import { isArchivedPreparationStep } from "@/lib/process/active-preparation";
 import {
   activityOf,
   type PreparationStep,
@@ -19,6 +20,7 @@ export default function StepActivity({
   context: Context;
 }) {
   const activity = activityOf(step);
+  if (isArchivedPreparationStep(step)) return null;
   return (
     <ModuleScope active={false}>
       <div className="prep-activity">

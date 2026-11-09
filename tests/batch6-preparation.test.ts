@@ -48,14 +48,14 @@ test("the last scheduled section gives one reminder even when the final configur
   } finally {await ui.close();}
 });
 
-test("today's reference includes the applicable weekly outlook, saved risk reminders and longer perspective",()=>{
+test("today's reference retains risk reminders and perspective without retired market plans",()=>{
   const f=fixture();
   const weekly=createRecord("thesis",{...emptyThesis(f.day,"weekly"),primary:"Weekly ES context"});
   const other=createRecord("thesis",{...emptyThesis(f.day,"weekly"),instrument:"NQ",primary:"Unrelated NQ plan"});
   f.run.body.steps[0]={...f.run.body.steps[0],activity:"checklist"};
   f.records.push(weekly,other);
   const html=renderToStaticMarkup(h(PreparationSummary,f.context));
-  assert.match(html,/Weekly ES context/);
+  assert.doesNotMatch(html,/Weekly ES context/);
   assert.doesNotMatch(html,/Unrelated NQ plan/);
   assert.match(html,/Keep my risk limit/);
   assert.match(html,/Follow my long-term process/);

@@ -106,7 +106,7 @@ export default function DashboardCanvas({
     >
       {before}
       {children}
-      {page === "Command Center" && layout.panels.map((card, order) => (
+      {page === "Command Center" && layout.panels.filter(card => card.id !== "thesis" && card.id !== "missions").map((card, order) => (
         <WorkspaceModule
           key={card.id}
           id={card.id}

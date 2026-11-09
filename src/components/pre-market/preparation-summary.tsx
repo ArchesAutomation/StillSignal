@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import { biasSchema, createRecord, latest, type RecordOf } from "@/lib/process/model";
+import { createRecord, latest, type RecordOf } from "@/lib/process/model";
 import { Field, History, Panel, type Context } from "../command-center/shared";
-import { thesisMatchesDay, thesisMatchesInstrument } from "@/lib/process/thesis";
+import { activePreparationRun } from "@/lib/process/active-preparation";
 import { activityOf, type PreparationStep } from "@/lib/process/preparation-workflow";
 export default function PreparationSummary({ store, day, props }: Context) {
-  const runs = latest(store.records, "run").filter(
+  const runs = latest(store.records, "run").map(activePreparationRun).filter(
     (r) => r.body.dayId === day.rootId,
   );
   const responses = latest(store.records, "response");
@@ -18,10 +18,6 @@ export default function PreparationSummary({ store, day, props }: Context) {
     );
     currentRuns.set(template?.rootId ?? run.body.templateId, run);
   }
-  const plans = latest(store.records, "thesis")
-    .filter((t) => thesisMatchesDay(t, day) && thesisMatchesInstrument(t, day.body.instrument))
-    .sort((a, b) => b.createdAt - a.createdAt);
-  const thesis = plans.find((t) => t.body.scope !== "weekly");
   const currentSteps = [...currentRuns.values()].flatMap((run) => run.body.steps);
   const profiles = [...currentRuns.values()].flatMap((run) => {
     const template = store.records.find((r) => r.kind === "protocol" && r.id === run.body.templateId);
@@ -135,63 +131,9 @@ export default function PreparationSummary({ store, day, props }: Context) {
   return (
     <Panel
       title="Today's reference"
-      detail="Your plan and commitments, easy to return to. Changes retain the original record."
+      detail="Your check-in, boundaries and reflections, easy to return to. Changes retain the original record."
     >
       <div className="guide-summary">
-        {plans.filter((t) => t.body.scope === "weekly").map((plan) => (
-          <article key={plan.id} className="guide-summary-item">
-            <strong>Weekly market outlook · {plan.body.instrument || "All instruments"}</strong>
-            <p>{plan.body.primary || "Plan saved without a written scenario"}</p>
-            <small>{plan.body.periodStart} · {plan.body.bias} · v{plan.revision}</small>
-            <button onClick={() => props.onPage("Trading Thesis")}>Open weekly plan</button>
-          </article>
-        ))}
-        {thesis ? (
-          <>
-            {field(
-              "narrative",
-              "Market narrative",
-              thesis.body.primary,
-              async () => {
-                if (
-                  await store.save([
-                    createRecord(
-                      "thesis",
-                      {
-                        ...thesis.body,
-                        primary: value,
-                        reason:
-                          reason || "Updated narrative from today's reference",
-                      },
-                      thesis,
-                    ),
-                  ])
-                )
-                  setEditing("");
-              },
-              undefined,
-              `${thesis.body.scope === "intraday" ? "Intraday update" : "Daily plan"} · ${thesis.body.instrument || "All instruments"} · v${thesis.revision}`,
-            )}
-            {field("bias", "Current bias", thesis.body.bias, async () => {
-              if (await store.save([createRecord("thesis", {
-                ...thesis.body, bias: biasSchema.parse(value), reason: reason || "Bias updated from today's reference",
-              }, thesis)])) setEditing("");
-            }, { id: "bias", label: "Current bias", type: "choice", required: true, choices: ["bullish", "bearish", "neutral", "no-trade"] })}
-            <article className="guide-summary-item">
-              <details>
-                <summary>Original plan & changes</summary>
-                <History records={store.records} rootId={thesis.rootId} />
-              </details>
-            </article>
-          </>
-        ) : (
-          <p>
-            Market narrative has not been recorded.{" "}
-            <button onClick={() => props.onPage("Trading Thesis")}>
-              Add a plan
-            </button>
-          </p>
-        )}
         {[...currentRuns.values()].flatMap((run) =>
           run.body.steps.flatMap((step) => {
             const response = responses

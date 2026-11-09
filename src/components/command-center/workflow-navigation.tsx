@@ -2,8 +2,7 @@
 import { GlassPanel } from "../glassyui/glass-panel";
 import type { Props } from "../concept/shared";
 export const preparationTools = [
-  ["routine", "Guided routine"], ["thesis", "Trading thesis"],
-  ["missions", "Active missions"], ["variables", "Personal variables"],
+  ["routine", "Guided routine"], ["variables", "Personal variables"],
   ["intentions", "Intentions"], ["checks", "Pre-market non-negotiables"],
   ["checkin", "Personal check-in"],
 ] as const;
@@ -33,6 +32,7 @@ export default function WorkflowNavigation({ owner, open }: {
         ["Settings & Variables", "Personal variables"],
       ] as const).map(([page, label]) => <button key={page} onClick={() => open(page)}>{label}</button>)}
         <button onClick={() => prepare("intentions")}>Session intentions</button>
+        <button onClick={() => open("Trading Thesis")}>Archived tools</button>
       </nav>
       </details>
     </GlassPanel>

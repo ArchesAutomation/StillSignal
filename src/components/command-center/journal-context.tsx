@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { latest } from "@/lib/process/model";
-import { preparation, thesisAt } from "@/lib/process/engine";
+import { preparation } from "@/lib/process/engine";
 import { displayValue, observationsAt } from "@/lib/environment/values";
 import { isActualExecution } from "@/lib/trade-context";
 import { Empty, Field, type Context } from "./shared";
@@ -20,16 +20,6 @@ export default function JournalContext({ store, day, props }: Context) {
         ? 0
         : at,
     ),
-    thesis =
-      event?.timePrecision === "day" ||
-      event?.timestampSource === "order-update"
-        ? undefined
-        : thesisAt(
-            store.records,
-            day.rootId,
-            event?.symbol ?? day.body.instrument,
-            at,
-          ),
     observations =
       event?.timePrecision === "day" ||
       event?.timestampSource === "order-update"
@@ -62,7 +52,7 @@ export default function JournalContext({ store, day, props }: Context) {
       {event?.timePrecision === "day" ||
       event?.timestampSource === "order-update" ? (
         <Empty>
-          Exact execution time is unavailable: timed thesis, preparation, and
+          Exact execution time is unavailable: timed preparation and
           physiological associations are not shown.
         </Empty>
       ) : (
@@ -72,12 +62,6 @@ export default function JournalContext({ store, day, props }: Context) {
             {prep.total
               ? `${prep.complete}/${prep.total} required · ${prep.unknown} unverified`
               : "No applicable preparation record"}
-          </p>
-          <p>
-            Thesis:{" "}
-            {thesis
-              ? `${thesis.body.bias} · v${thesis.revision} saved ${new Date(thesis.createdAt).toLocaleTimeString()} · ${thesis.body.primary}`
-              : "No applicable recorded thesis"}
           </p>
           <p>
             Self-reported check-in:{" "}

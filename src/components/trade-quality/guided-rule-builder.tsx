@@ -125,22 +125,6 @@ export default function GuidedRuleBuilder({
                 unchecked rule stays unknown. Weights and automated verification
                 are in advanced settings.
               </p>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={draft.value.mission}
-                  onChange={(e) =>
-                    draft.update((v) => ({ ...v, mission: e.target.checked }))
-                  }
-                />{" "}
-                Also practise this rule on five confirmed reviews over the next
-                seven days
-              </label>
-              <p>
-                If selected, this creates a reusable mission. Only a Followed
-                review of this rule counts; correcting a check updates the
-                progress.
-              </p>
             </>
           )}
           {(error || draft.storageError) && (
@@ -196,20 +180,6 @@ export default function GuidedRuleBuilder({
                   .toISOString()
                   .slice(0, 10);
                 const batch = [book] as Context["store"]["records"];
-                if (d.mission)
-                  batch.push(
-                    createRecord("goal", {
-                      name: `Practise ${rule.name}`.slice(0, 160),
-                      description:
-                        "Five reviews confirmed Followed for my selected rule over seven days. Unknown, not applicable and not followed do not count.",
-                      source: "rule-adherence",
-                      target: 5,
-                      start: day.body.date,
-                      end,
-                      ruleId: rule.id,
-                      milestones: [],
-                    }),
-                  );
                 if (await store.save(batch)) {
                   draft.clear();
                   onClose?.();
@@ -219,7 +189,7 @@ export default function GuidedRuleBuilder({
                   );
               }}
             >
-              Save my rule{draft.value.mission ? " & mission" : ""}
+              Save my rule
             </button>
           )}
         </div>

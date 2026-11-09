@@ -9,6 +9,7 @@ import {
   scheduledOn,
 } from "./preparation-workflow";
 import { thesisMatchesDay, thesisMatchesInstrument } from "./thesis";
+import { activePreparationSteps } from "./active-preparation";
 import {
   createRecord,
   dateInZone,
@@ -60,6 +61,7 @@ export function preparation(
   records: ProcessRecord[],
   dayId: string,
   at = Infinity,
+  includeArchived = false,
 ) {
   const runs = latest(records, "run", at).filter((r) => r.body.dayId === dayId);
   let total = 0,
@@ -73,7 +75,7 @@ export function preparation(
   const completions: number[] = [];
   const day = latest(records, "day", at).find((d) => d.rootId === dayId);
   for (const run of runs)
-    for (const step of run.body.steps) {
+    for (const step of includeArchived ? run.body.steps : activePreparationSteps(run.body.steps)) {
       const response = preparationResponse(records, run, step, at);
       if (!day || scheduledOn(step, day.body.date)) {
         sections++;
@@ -234,7 +236,7 @@ export function evaluateRule(
     );
   }
   if (rule.verification === "preparation") {
-    const p = preparation(records, day.rootId, event.t);
+    const p = preparation(records, day.rootId, event.t, true);
     if (!p.runs.length || p.unknown)
       return result(
         "unknown",

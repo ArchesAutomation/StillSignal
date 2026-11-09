@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { activePreparationSteps, activePreparationRun } from "@/lib/process/active-preparation";
 import PreparationTools from "./preparation-tools";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import TemplateTools from "../command-center/template-tools";
@@ -39,14 +40,14 @@ export function PreparationPanel({
   props,
   compact = false,
 }: Context & { compact?: boolean }) {
-  const templates = latest(store.records, "protocol"),
+  const templates = latest(store.records, "protocol").filter(t => activePreparationSteps(t.body.steps).length),
     runs = latest(store.records, "run").filter(
       (r) => r.body.dayId === day.rootId,
     ),
     p = preparation(store.records, day.rootId);
   async function verify() {
     const batch = runs.flatMap((run) =>
-      run.body.steps.flatMap((s) => {
+      activePreparationSteps(run.body.steps).flatMap((s) => {
         const evidence = verificationEvidence(
           store.records,
           run,
@@ -148,7 +149,7 @@ export function PreparationPanel({
               : "Protocol"}{" "}
             · {new Date(run.body.startedAt).toLocaleTimeString()}
           </h3>
-          {run.body.steps.map((s) => {
+          {activePreparationSteps(run.body.steps).map((s) => {
             const response = latest(store.records, "response")
               .filter((r) => r.body.runId === run.id && r.body.stepId === s.id)
               .sort((a, b) => b.createdAt - a.createdAt)[0];
@@ -268,7 +269,7 @@ export function PreparationPanel({
       ))}
       {!!runs.length && (
         <button onClick={() => void verify()} disabled={store.busy}>
-          Verify saved thesis & check-ins
+          Verify saved check-ins
         </button>
       )}
       {p.startedAt && (
@@ -321,7 +322,7 @@ export function ProtocolManager(context: Context) {
             <button
               onClick={() => {
                 setEditing(t);
-                setSteps(t.body.steps);
+                setSteps(activePreparationSteps(t.body.steps));
                 setShow(true);
               }}
             >
@@ -447,8 +448,6 @@ export function ProtocolManager(context: Context) {
                       >
                         {[
                           "manual",
-                          "daily-thesis",
-                          "weekly-thesis",
                           "checkin",
                         ].map((v) => (
                           <option key={v}>{v}</option>

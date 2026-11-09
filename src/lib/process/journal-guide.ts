@@ -3,6 +3,7 @@ import type { BodyOf } from "./model";
 
 export const journalProfileSchema = z
   .object({
+    focus: z.enum(["impulsiveness", "impatience", "fear", "greed", "general"]).optional(),
     holding: z.enum(["scalp", "intraday", "position"]),
     instruments: z.string().max(40),
     timeframes: z.string().max(160),
@@ -42,6 +43,7 @@ export const journalProfileSchema = z
   .strict();
 export type JournalProfile = z.infer<typeof journalProfileSchema>;
 export const starterProfile = (): JournalProfile => ({
+  focus: "general",
   holding: "intraday",
   instruments: "",
   timeframes: "15M, 1H, Daily",
@@ -51,7 +53,7 @@ export const starterProfile = (): JournalProfile => ({
   perspective: "",
   risk: "",
   pace: "full",
-  modules: ["thesis", "temperature", "physiology", "process"],
+  modules: ["temperature", "physiology", "process"],
   reviewOrder: "stillness-first",
   stillness: [],
 });
@@ -64,16 +66,18 @@ export function habitPrompt(habit: JournalProfile["habit"]) {
     custom: "What would I like to ask myself before today's session?",
   }[habit];
 }
+export const supportFocus = {
+  impulsiveness: { title: "Impulsiveness", question: "What could help me notice an urge before acting on it?" },
+  impatience: { title: "Impatience", question: "What would help me allow time for a setup, including not trading?" },
+  fear: { title: "Fear", question: "What uncertainty am I carrying, and what support would help me meet it?" },
+  greed: { title: "Greed", question: "What would help me respect my chosen limits when I want more?" },
+  general: { title: "General mindful review", question: "What would I like to notice about my decisions today?" },
+} as const;
+export function supportQuestion(profile: JournalProfile) {
+  return profile.focus ? supportFocus[profile.focus].question : habitPrompt(profile.habit);
+}
 export function moduleRecommendation(profile: JournalProfile) {
   return [
-    {
-      id: "thesis" as const,
-      title: "Pinned market plan",
-      why:
-        profile.habit === "forget-plan"
-          ? "You said your narrative can get lost during trading. Keep it within reach."
-          : "Keep your market narrative and later changes beside your journal.",
-    },
     {
       id: "temperature" as const,
       title: "Personal check-in",
@@ -88,11 +92,6 @@ export function moduleRecommendation(profile: JournalProfile) {
       id: "process" as const,
       title: "Rule review",
       why: "Review behaviour separately from profit or loss, one rule at a time.",
-    },
-    {
-      id: "missions" as const,
-      title: "Process mission",
-      why: "Carry a practice goal across sessions instead of making a new goal every day.",
     },
     {
       id: "variables" as const,
@@ -120,34 +119,11 @@ export function suggestedSteps(
       "session",
     ],
     [
-      "Review the bigger picture",
-      profile.holding === "position"
-        ? "Review the market context for positions carried across days. Keep an existing weekly thesis or revise it."
-        : "Keep or revise this week's market context. This is separate from your longer-term personal perspective.",
-      "thesis",
-      "weekly-thesis",
-      "weekly",
-    ],
-    [
-      "Build today's trading plan",
-      "What are you looking for today? Save a short narrative, key levels and invalidation. News notes or links can be added here.",
-      "thesis",
-      "daily-thesis",
-      "daily",
-    ],
-    [
       "Set your risk boundaries",
       "Keep your own commitments in view. These reminders do not establish adherence or decide whether you should trade.",
       "checklist",
       "manual",
       "session",
-    ],
-    [
-      "Review your process goal",
-      "Carry an active mission forward. Creating one is optional; a goal can span several days.",
-      "missions",
-      "manual",
-      "daily",
     ],
     [
       "Record my personal variables",
@@ -179,10 +155,6 @@ export function suggestedSteps(
       window: "Before my session",
       checklistMode: "reminder",
       allowReflectionSkip: true,
-      thesisFields:
-        activity === "thesis"
-          ? ["primary", "levels", "invalidation", "events", "screenshots"]
-          : undefined,
       checklist:
         activity === "checklist"
           ? profile.risk
@@ -192,12 +164,7 @@ export function suggestedSteps(
           : [],
       prompts:
         activity === "intentions"
-          ? [
-              prompt("What is today's process goal?"),
-              prompt(
-                "What monthly or career perspective do I want to remember?",
-              ),
-            ]
+          ? [prompt(supportQuestion(profile))]
           : activity === "checklist"
             ? [prompt("What risk commitments am I choosing for today?")]
             : [],

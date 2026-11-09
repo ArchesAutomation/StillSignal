@@ -135,13 +135,9 @@ test("guided discovery, honest skipping, save failure recovery, resume and immut
       records.find((r) => r.kind === "response")?.body.status,
       "skipped",
     );
-    assert.match(document.body.textContent!, /Review the bigger picture/);
-    await click("Continue →");
-    (document.querySelector('[name="primary"]') as HTMLTextAreaElement).value =
-      "My weekly scenario";
-    await submit("Save thesis");
-    await click("Continue →");
-    await click("Save section & continue");
+    assert.match(document.body.textContent!, /Set your risk boundaries/);
+    assert.doesNotMatch(document.body.textContent!, /Review the bigger picture|Build today's trading plan/);
+    await click("Skip this section for today");
     await act(async () => root.unmount());
     const resumed = createRoot(document.getElementById("root")!);
     await act(async () =>
@@ -149,7 +145,7 @@ test("guided discovery, honest skipping, save failure recovery, resume and immut
     );
     assert.match(
       document.querySelector(".prep-focus h3")!.textContent!,
-      /Build today's trading plan/,
+      /Record my personal variables/,
     );
     await act(async () => resumed.unmount());
     if (template.kind !== "protocol") throw Error("missing template");
@@ -164,7 +160,7 @@ test("guided discovery, honest skipping, save failure recovery, resume and immut
     records.push(edited);
     const run = records.find((r) => r.kind === "run")!;
     if (run.kind !== "run") throw Error("missing run");
-    assert.equal(run.body.steps.length, 7);
+    assert.equal(run.body.steps.length, 4);
     sessionId = crypto.randomUUID(); // A new recording on the same day gets a fresh checklist.
     const fresh = createRoot(document.getElementById("root")!);
     await act(async () =>

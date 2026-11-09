@@ -11,8 +11,6 @@ import {
   Save,
   type Context,
 } from "../command-center/shared";
-import ThesisWorkspace, { relevantTheses } from "../trading-thesis/workspace";
-import Missions from "../process-goals/workspace";
 import Variables from "../variable-builder/workspace";
 import Temperature from "../variable-builder/temperature";
 import GuidedPreparation from "./guided-preparation";
@@ -22,16 +20,6 @@ const modules = [
     "routine",
     "Guided routine",
     "Follow your saved workflow, or customize its sections and schedules.",
-  ],
-  [
-    "thesis",
-    "Trading thesis",
-    "Create or revise your weekly outlook and daily trading plan.",
-  ],
-  [
-    "missions",
-    "Active missions",
-    "Create, review and track your personal process goals.",
   ],
   [
     "variables",
@@ -98,7 +86,7 @@ export default function PreparationTools(context: Context) {
   const { store, day } = context;
   const selection = useSavedGuide(`ss-preparation-tool:${context.props.pulse.owner}`, () => "routine" as ModuleId,
     (value) => z.enum(["routine", "thesis", "missions", "variables", "intentions", "checks", "checkin"]).parse(value));
-  const active = selection.value;
+  const active = selection.value === "thesis" || selection.value === "missions" ? "routine" : selection.value;
   const [visited, setVisited] = useState<ModuleId[]>([]);
   const [editRequest, setEditRequest] = useState(0);
   const open = (id: ModuleId) => {
@@ -113,8 +101,6 @@ export default function PreparationTools(context: Context) {
   const templates = latest(store.records, "protocol");
   const status: Record<ModuleId, string> = {
     routine: `${templates.length} saved routine${templates.length === 1 ? "" : "s"}`,
-    thesis: `${relevantTheses(store.records, day).length} plans for this day / week`,
-    missions: `${latest(store.records, "goal").filter((g) => g.body.start <= day.body.date && g.body.end >= day.body.date).length} current missions`,
     variables: `${latest(store.records, "variable").filter((v) => !v.body.archived).length} active variables`,
     intentions: day.body.goal ? "Intention recorded" : "Set today's intention",
     checks: "Your own rules and checklists",
@@ -162,8 +148,6 @@ export default function PreparationTools(context: Context) {
               {id === "routine" && (
                 <GuidedPreparation {...context} editRequest={editRequest} />
               )}
-              {id === "thesis" && <ThesisWorkspace {...context} />}
-              {id === "missions" && <Missions {...context} />}
               {id === "variables" && <Variables {...context} preparation />}
               {id === "intentions" && <Intentions {...context} />}
               {id === "checkin" && <Temperature {...context} initiallyOpen />}

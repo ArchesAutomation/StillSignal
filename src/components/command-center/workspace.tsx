@@ -32,18 +32,13 @@ import {
   validBaseline,
 } from "@/lib/pattern-engine/physiology";
 import { isActualExecution } from "@/lib/trade-context";
-import MarketOutlook from "./market-outlook";
 import SessionReviewGuide from "../session-review-guide";
 import PreparationSummary from "../pre-market/preparation-summary";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
-import TradingThesis, {
-  relevantTheses,
-  ThesisPanel,
-} from "../trading-thesis/workspace";
+import ArchivedTools from "./archived-tools";
 import Variables from "../variable-builder/workspace";
 import Temperature from "../variable-builder/temperature";
 import TradeQuality, { Violations } from "../trade-quality/workspace";
-import Missions, { MissionsPanel } from "../process-goals/workspace";
 import Audits from "../audits/workspace";
 import PatternExplorer from "./pattern-explorer";
 import {
@@ -265,7 +260,6 @@ function DailyDashboard(
 ) {
   const { day, store, props } = context;
   const prep = preparation(store.records, day.rootId),
-    thesis = relevantTheses(store.records, day),
     checkin = latest(store.records, "checkin")
       .filter((c) => c.body.dayId === day.rootId)
       .sort((a, b) => b.createdAt - a.createdAt)[0],
@@ -298,11 +292,6 @@ function DailyDashboard(
             .join(" · ")
         : "No check-in recorded",
     ],
-    thesis: [
-      "Active trading thesis",
-      thesis.filter((t) => t.body.scope !== "weekly").at(-1)?.body.bias ??
-        "No daily thesis",
-    ],
     review: [
       "Journal & review",
       `${sessions.length} sessions · ${audits.length ? "Review recorded" : "Review pending"}`,
@@ -318,9 +307,9 @@ function DailyDashboard(
         zone={day.body.timezone}
       />
     ),
-    thesis: <ThesisPanel {...context} />,
+    thesis: null,
     temperature: <Temperature {...context} />,
-    missions: <MissionsPanel {...context} />,
+    missions: null,
     physiology: <PhysiologyPanel {...context} />,
     process: <ProcessPanel {...context} />,
     variables: <VariablesPanel {...context} />,
@@ -341,7 +330,7 @@ function DailyDashboard(
               <GlassPanel preset="standard" className="cc-greeting">
                 <div>
                   <span className="cc-eyebrow">
-                    Your trading process, in context
+                    A little space for your trading day
                   </span>
                   <h1>
                     {props.pulse.email
@@ -409,7 +398,7 @@ function DailyDashboard(
           ]),
         ) as Parameters<typeof DashboardBoard>[0]["status"]
       }
-      market={<MarketOutlook {...context} />}
+      market={null}
     />
   );
 }
@@ -431,6 +420,10 @@ function StartDashboard({
   onSettings: () => void;
 }) {
   const open = async (page: Parameters<Props["onPage"]>[0]) => {
+    if (page === "Trading Thesis" || page === "Missions") {
+      props.onPage(page);
+      return;
+    }
     const record = createRecord("day", {
       date,
       timezone: zone,
@@ -453,14 +446,6 @@ function StartDashboard({
       "Prepare",
     ],
     [
-      "thesis",
-      "Trading Thesis",
-      "Trading thesis",
-      "Know what you’re looking for",
-      "Keep your weekly outlook and today’s scenarios together.",
-      "Write a thesis",
-    ],
-    [
       "process",
       "Trade Quality",
       "Trade quality",
@@ -475,14 +460,6 @@ function StartDashboard({
       "How are you arriving today?",
       "Record focus, energy and stress in your own words.",
       "Start today",
-    ],
-    [
-      "missions",
-      "Missions",
-      "Active missions",
-      "One process goal at a time",
-      "Choose a measurable habit to work on.",
-      "Set a mission",
     ],
     [
       "physiology",
@@ -538,7 +515,7 @@ function StartDashboard({
                 <div>
                   <span className="cc-eyebrow">Prepare. Execute. Reflect.</span>
                   <h1>Your Command Center</h1>
-                  <p>A clear plan before your first trade.</p>
+                  <p>Check in, record what matters, and return to your own perspective.</p>
                 </div>
                 <div className="cc-actions">
                   <button
@@ -592,12 +569,6 @@ function StartDashboard({
           <>
             <small>Readiness</small>
             <strong>No check-in recorded</strong>
-          </>
-        ),
-        thesis: (
-          <>
-            <small>Trading thesis</small>
-            <strong>No daily thesis</strong>
           </>
         ),
         review: (
@@ -672,6 +643,7 @@ export default function ProcessWorkspace(props: Props) {
       </div>
     );
   const context = day ? { store, day, props } : undefined;
+  if (props.page === "Trading Thesis" || props.page === "Missions") return <ArchivedTools store={store} onBack={() => props.onPage("Command Center")} />;
   if (props.page === "Journal" || props.page === "Live Session")
     return (
       <>
@@ -690,7 +662,7 @@ export default function ProcessWorkspace(props: Props) {
                   Trading process context · no linked trading day
                 </summary>
                 <p>
-                  Preparation, thesis and personal variables can be linked
+                  Preparation and personal variables can be linked
                   without changing this journal.
                 </p>
                 <button
@@ -708,9 +680,7 @@ export default function ProcessWorkspace(props: Props) {
         {(
           [
             ["preparation", "Pre-market non-negotiables", PreparationPanel],
-            ["thesis", "Trading thesis", ThesisPanel],
             ["variables", "Personal variables", VariablesPanel],
-            ["missions", "Missions", MissionsPanel],
             ["quality", "Trade quality", ProcessPanel],
           ] as const
         ).map(([id, title, Component]) => (
@@ -969,9 +939,6 @@ export default function ProcessWorkspace(props: Props) {
           {props.page === "Pre-Market" && (
             <PreMarket key={day!.rootId} {...context} />
           )}
-          {props.page === "Trading Thesis" && (
-            <TradingThesis key={day!.rootId} {...context} />
-          )}
           {props.page === "Trade Quality" && (
             <>
               <SessionReviewGuide key={"review-" + day!.rootId} {...context} />
@@ -982,7 +949,6 @@ export default function ProcessWorkspace(props: Props) {
           {props.page === "Settings & Variables" && (
             <Variables key={day!.rootId} {...context} />
           )}
-          {props.page === "Missions" && <Missions {...context} />}
           {props.page === "Audits" && <Audits key={day!.rootId} {...context} />}
           {props.page === "Patterns" && <PatternExplorer {...context} />}
         </>

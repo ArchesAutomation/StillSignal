@@ -66,7 +66,7 @@ export default function StepSettings({
               });
             }}
           >
-            {Object.entries(activities).map(([id, [title]]) => (
+            {Object.entries(activities).filter(([id]) => id !== "thesis" && id !== "missions").map(([id, [title]]) => (
               <option key={id} value={id}>
                 {title}
               </option>
