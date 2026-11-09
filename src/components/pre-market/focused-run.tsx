@@ -11,6 +11,7 @@ import {
   scheduledOn,
   type PreparationStep,
 } from "@/lib/process/preparation-workflow";
+import { activePreparationSteps } from "@/lib/process/active-preparation";
 import { verificationEvidence } from "@/lib/process/engine";
 import { useSavedGuide } from "../use-saved-guide";
 import { Panel, Field, type Context } from "../command-center/shared";
@@ -65,10 +66,11 @@ export default function FocusedRun({
     ["complete", "skipped", "not-applicable"].includes(
       preparationResponse(store.records, run, step)?.body.status ?? "",
     );
-  const remaining = run.body.steps.filter((s) => !resolved(s));
-  const scheduled = run.body.steps.filter((s) => scheduledOn(s, day.body.date));
+  const steps = activePreparationSteps(run.body.steps);
+  const remaining = steps.filter((s) => !resolved(s));
+  const scheduled = steps.filter((s) => scheduledOn(s, day.body.date));
   const current =
-    run.body.steps.find((s) => s.id === draft.value.selected) ?? remaining[0];
+    steps.find((s) => s.id === draft.value.selected) ?? remaining[0];
   const response = current
     ? preparationResponse(store.records, run, current)
     : undefined;
@@ -255,7 +257,7 @@ export default function FocusedRun({
           </div>
           <details>
             <summary>Revisit a section</summary>
-            {run.body.steps.map((s) => (
+            {steps.map((s) => (
               <button
                 key={s.id}
                 onClick={() =>
@@ -275,13 +277,13 @@ export default function FocusedRun({
   return (
     <Panel
       title="Your pre-trading walkthrough"
-      detail={`${run.body.steps.length - remaining.length} of ${run.body.steps.length} sections resolved · ${profile?.pace === "short" ? "Take the shorter route whenever useful" : "Make room to reflect; roughly 10–15 minutes for the full routine"}`}
+      detail={`${steps.length - remaining.length} of ${steps.length} sections resolved · ${profile?.pace === "short" ? "Take the shorter route whenever useful" : "Make room to reflect; roughly 10–15 minutes for the full routine"}`}
     >
       <div className="journal-guide">
         <div className="guide-progress">
           <span>
-            Section {run.body.steps.indexOf(current) + 1} of{" "}
-            {run.body.steps.length} · {current.name}
+            Section {steps.indexOf(current) + 1} of{" "}
+            {steps.length} · {current.name}
           </span>
           <progress
             value={page + 1}
@@ -472,7 +474,7 @@ export default function FocusedRun({
         <div className="guide-footer">
           <button
             disabled={
-              saving || (page === 0 && run.body.steps.indexOf(current) === 0)
+              saving || (page === 0 && steps.indexOf(current) === 0)
             }
             onClick={() =>
               page > 0
@@ -480,7 +482,7 @@ export default function FocusedRun({
                 : draft.update((v) => ({
                     ...v,
                     selected:
-                      run.body.steps[run.body.steps.indexOf(current) - 1].id,
+                      steps[steps.indexOf(current) - 1].id,
                     page: 0,
                   }))
             }
@@ -526,7 +528,7 @@ export default function FocusedRun({
         <details className="guide-advanced">
           <summary>All sections & progress</summary>
           <ol>
-            {run.body.steps.map((s) => (
+            {steps.map((s) => (
               <li key={s.id}>
                 <button
                   onClick={() =>

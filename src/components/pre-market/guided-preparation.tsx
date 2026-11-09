@@ -10,6 +10,7 @@ import {
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
+import { activePreparationSteps, activePreparationRun } from "@/lib/process/active-preparation";
 import { activityOf, cadences } from "@/lib/process/preparation-workflow";
 import StepSettings from "./step-settings";
 import JournalSetup from "./journal-setup";
@@ -26,32 +27,11 @@ const suggestions = [
     "session",
   ],
   [
-    "Review the bigger picture",
-    "Create your weekly market outlook and the conditions that matter.",
-    "weekly-thesis",
-    "thesis",
-    "weekly",
-  ],
-  [
-    "Build today's trading plan",
-    "Define scenarios, key levels, entries and invalidation.",
-    "daily-thesis",
-    "thesis",
-    "daily",
-  ],
-  [
     "Set your risk boundaries",
     "Define and check your personal non-negotiables before trading.",
     "manual",
     "checklist",
     "session",
-  ],
-  [
-    "Review your process goal",
-    "Create and review the missions you want to work on.",
-    "manual",
-    "missions",
-    "daily",
   ],
   [
     "Record my personal variables",
@@ -124,7 +104,7 @@ function AdvancedSetup({
     instrument: template?.body.instrument ?? "",
     strategy: template?.body.strategy ?? "",
     session: template?.body.session ?? "",
-    }, steps: template?.body.steps.map((s) => {
+    }, steps: template ? activePreparationSteps(template.body.steps).map((s) => {
         const preset = suggestions.find(([name]) => name === s.name);
         const defaults = preset
           ? makeStep(...preset)
@@ -137,7 +117,7 @@ function AdvancedSetup({
           checklist: s.checklist ?? defaults.checklist,
           prompts: s.prompts ?? defaults.prompts,
         };
-      }) ??
+      }) :
       suggestions.map(([n, d, v, a, c], order) => ({
         ...makeStep(n, d, v, a, c),
         order,
@@ -150,11 +130,12 @@ function AdvancedSetup({
         prompts: z.array(z.object({ id: z.uuid(), label: z.string().max(160), type: z.enum(["text", "number", "boolean", "choice"]), required: z.boolean(), choices: z.array(z.string().max(160)).max(30) })).max(30).optional(),
       })).max(100),
     }).parse(value));
-  const { stage, name, profile, steps } = draft.value;
+  const { stage, name, profile } = draft.value;
+  const steps = activePreparationSteps(draft.value.steps);
   const setStage = (stage: number) => draft.update(v => ({ ...v, stage }));
   const setName = (name: string) => draft.update(v => ({ ...v, name }));
   const setProfile = (value: typeof draft.value.profile | ((old: typeof draft.value.profile) => typeof draft.value.profile)) => draft.update(v => ({ ...v, profile: typeof value === "function" ? value(v.profile) : value }));
-  const setSteps = (value: Step[] | ((old: Step[]) => Step[])) => draft.update(v => ({ ...v, steps: typeof value === "function" ? value(v.steps) : value }));
+  const setSteps = (value: Step[] | ((old: Step[]) => Step[])) => draft.update(v => ({ ...v, steps: typeof value === "function" ? value(activePreparationSteps(v.steps)) : value }));
   const [expanded, setExpanded] = useState<string | undefined>(steps[0]?.id);
   const valid =
     name.trim().length > 0 &&
@@ -470,10 +451,10 @@ export default function GuidedPreparation(
 ) {
   const { store, day } = context;
   const [message, setMessage] = useState("");
-  const templates = latest(store.records, "protocol").sort(
+  const templates = latest(store.records, "protocol").filter(t => activePreparationSteps(t.body.steps).length).sort(
     (a, b) => b.createdAt - a.createdAt,
   );
-  const runs = latest(store.records, "run").filter(
+  const runs = latest(store.records, "run").filter(r => activePreparationSteps(r.body.steps).length).filter(
     (r) =>
       r.body.dayId === day.rootId &&
       (!r.body.sessionId || r.body.sessionId === routineSessionId(context.props.session, day)),
@@ -591,7 +572,7 @@ export default function GuidedPreparation(
                 .join(" · ")}
             </p>
             <ol className="prep-preview">
-              {template.body.steps.map((s) => (
+              {activePreparationSteps(template.body.steps).map((s) => (
                 <li key={s.id}>
                   {s.name}
                   <small>{cadences[s.cadence ?? "session"]}</small>

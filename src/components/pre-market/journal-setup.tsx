@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { createRecord, latest, type RecordOf } from "@/lib/process/model";
 import {
-  habitPrompt,
+  supportFocus,
+  supportQuestion,
   journalProfileSchema,
   moduleRecommendation,
   starterProfile,
@@ -14,7 +15,7 @@ import { dashboardRecords, freshDashboard } from "@/lib/process/dashboard";
 import { routineSessionId } from "@/lib/process/routine-session";
 import { useSavedGuide } from "../use-saved-guide";
 import PersonalStillness, { StillnessBuilder } from "../personal-stillness";
-import GuidedRuleBuilder from "../trade-quality/guided-rule-builder";
+import { activePreparationSteps } from "@/lib/process/active-preparation";
 import { Field, Panel, type Context } from "../command-center/shared";
 const stages = [
   "Welcome",
@@ -44,14 +45,13 @@ export default function JournalSetup({
   onClose: (id?: string) => void;
   onAdvanced: () => void;
 }) {
-  const [buildingRule, setBuildingRule] = useState(false);
   const owner = context.props.pulse?.owner ?? "local";
   const draft = useSavedGuide(
     `ss-guide-setup:${owner}:${template?.id ?? "new"}`,
     () => ({
       stage: 0,
       profile: template?.body.profile ?? starterProfile(),
-      prompts: [habitPrompt(template?.body.profile?.habit ?? "rush")],
+      prompts: [supportQuestion(template?.body.profile ?? starterProfile())],
       name: template?.body.name ?? "My personal journal",
       approved: false,
     }),
@@ -83,16 +83,19 @@ export default function JournalSetup({
             : "My trading session",
         profile,
         steps:
-          template?.body.steps.map((s) => ({
+          template && activePreparationSteps(template.body.steps).length ? activePreparationSteps(template.body.steps).map((s) => ({
             ...s,
             allowReflectionSkip: true,
             checklistMode: "reminder" as const,
-          })) ?? suggestedSteps(profile),
+          })) : suggestedSteps(profile),
       };
-      if (!template) {
-        const intention = body.steps.find((s) => s.activity === "intentions")!;
+      if (!template || !activePreparationSteps(template.body.steps).length || profile.focus !== template.body.profile?.focus) {
+        let intention = body.steps.find((s) => s.activity === "intentions");
+        if (!intention) {
+          intention = suggestedSteps(profile).find(s => s.activity === "intentions")!;
+          body.steps.push(intention);
+        }
         intention.prompts = [
-          ...(intention.prompts ?? []),
           ...prompts.filter(Boolean).map((label) => ({
             id: crypto.randomUUID(),
             label,
@@ -150,6 +153,7 @@ export default function JournalSetup({
             sessionId: routineSessionId(context.props.session, context.day),
           }),
         );
+      if (!body.steps.length) throw new Error("Choose at least one preparation section.");
       if (await context.store.save(batch)) {
         draft.clear();
         onClose(record.rootId);
@@ -163,13 +167,6 @@ export default function JournalSetup({
       setSaving(false);
     }
   }
-  if (buildingRule)
-    return (
-      <GuidedRuleBuilder
-        context={context}
-        onClose={() => setBuildingRule(false)}
-      />
-    );
   if (!draft.loaded) return <p role="status">Opening your setup…</p>;
   return (
     <Panel
@@ -283,10 +280,10 @@ export default function JournalSetup({
               </Field>
               <p className="guide-why">
                 {profile.holding === "position"
-                  ? "We will suggest a weekly market plan and keep your journal usable across days. Check-ins can be linked to an ongoing position."
+                  ? "Your journal can follow positions across days, with a short check-in when useful."
                   : profile.holding === "scalp"
                     ? "We will keep capture quick and suggest short chart timeframes. You can review several trades together after the session."
-                    : "We will suggest a daily plan with a weekly reference, then a session review after trading."}
+                    : "Your check-in, boundaries and personal questions will stay within reach during the session."}
               </p>
             </>
           )}
@@ -296,7 +293,16 @@ export default function JournalSetup({
                 Choose the experience closest to yours. There is no score and no
                 right answer.
               </p>
-              <Field label="A pattern I recognise">
+              <Field label="What would you like support with?">
+                <select value={profile.focus ?? "general"} onChange={(e) => {
+                  const focus = e.target.value as NonNullable<JournalProfile["focus"]>;
+                  draft.update(v => ({ ...v, profile: { ...v.profile, focus }, prompts: [supportFocus[focus].question], approved: false }));
+                }}>
+                  {Object.entries(supportFocus).map(([key, focus]) => <option key={key} value={key}>{focus.title}</option>)}
+                </select>
+              </Field>
+              <p>These experiences can overlap. Choose a starting focus, not a label for yourself. What happens today can be different.</p>
+              <Field label="What else do you recognise?">
                 <select
                   value={profile.habit}
                   onChange={(e) => {
@@ -304,7 +310,7 @@ export default function JournalSetup({
                     draft.update((v) => ({
                       ...v,
                       profile: { ...v.profile, habit },
-                      prompts: [habitPrompt(habit)],
+                      prompts: [supportQuestion({ ...v.profile, habit })],
                       approved: false,
                     }));
                   }}
@@ -364,8 +370,7 @@ export default function JournalSetup({
                 />
               </Field>
               <p className="guide-why">
-                This is your personal perspective over time. Your weekly market
-                outlook will have its own place.
+                This is your personal perspective over time. You can return to it without creating a market plan.
               </p>
               <Field label="Your risk commitments (one per line, optional)">
                 <textarea
@@ -401,7 +406,7 @@ export default function JournalSetup({
             <>
               <p>
                 Because you chose “
-                {
+                {profile.focus ? supportFocus[profile.focus].title :
                   {
                     results: "one day's result can define my progress",
                     "forget-plan": "I lose track of my narrative",
@@ -549,7 +554,7 @@ export default function JournalSetup({
                 <li>
                   <strong>1. Open preparation</strong>
                   <span>
-                    Follow the seven sections. Keep an existing weekly plan.
+                    Check in, revisit your boundaries and make space for reflection.
                     Move through one reflection at a time; skipped answers stay
                     labelled.
                   </span>
@@ -582,17 +587,6 @@ export default function JournalSetup({
                   ? "Your existing sections and answers are preserved. Use Advanced routine settings to edit those questions."
                   : `${profile.pace === "full" ? "Allow roughly 10–15 minutes" : "Take the shorter path when useful"}. You can leave and resume at any point.`}
               </p>
-            </>
-          )}
-          {stage === 7 && (
-            <>
-              <p>
-                A rule makes your later review concrete. A reusable mission can
-                count confirmed practice across days.
-              </p>
-              <button type="button" onClick={() => setBuildingRule(true)}>
-                Guide me through my first rule & mission
-              </button>
             </>
           )}
           {(error || draft.storageError) && (

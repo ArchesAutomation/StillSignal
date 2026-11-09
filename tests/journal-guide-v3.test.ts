@@ -58,8 +58,8 @@ test("guided presets distinguish position and scalp context without scoring or c
     holding: "position" as const,
     habit: "results" as const,
   };
-  assert.match(moduleRecommendation(scalp)[0].why, /narrative can get lost/);
-  assert.match(suggestedSteps(position)[1].description, /carried across days/);
+  assert.ok(moduleRecommendation(scalp).every(m => !["thesis", "missions"].includes(m.id)));
+  assert.ok(suggestedSteps(position).every(s => s.activity !== "thesis" && s.activity !== "missions"));
   assert.match(habitPrompt(position.habit), /regardless of the result/);
   const protocol = createRecord("protocol", {
     name: "My journal",

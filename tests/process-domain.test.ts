@@ -111,8 +111,8 @@ test("preparation keeps actual requirement versions and evidence timing", () => 
     ),
   );
   let records: ProcessRecord[] = validateAppend([], [d, template, run], []);
-  assert.equal(preparation(records, d.id).complete, 0);
-  assert.equal(preparation(records, d.id).unknown, 1);
+  assert.equal(preparation(records, d.id, Infinity, true).complete, 0);
+  assert.equal(preparation(records, d.id, Infinity, true).unknown, 1);
   const bad = createRecord(
     "response",
     {
@@ -150,8 +150,8 @@ test("preparation keeps actual requirement versions and evidence timing", () => 
     ),
   );
   records = validateAppend(records, [response], []);
-  assert.equal(preparation(records, d.id, now + 1500).complete, 0);
-  assert.equal(preparation(records, d.id).percent, 100);
+  assert.equal(preparation(records, d.id, now + 1500, true).complete, 0);
+  assert.equal(preparation(records, d.id, Infinity, true).percent, 100);
   const next = createRecord(
     "protocol",
     {
@@ -167,7 +167,7 @@ test("preparation keeps actual requirement versions and evidence timing", () => 
   );
   records = validateAppend(records, [withRefs(next)], []);
   assert.equal(
-    preparation(records, d.id).total,
+    preparation(records, d.id, Infinity, true).total,
     1,
     "Later checklist edits do not rewrite a completed run",
   );
