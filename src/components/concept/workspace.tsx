@@ -1,6 +1,8 @@
 "use client";
 import { GlassPanel } from "@/components/glassyui/glass-panel";
-import { useEffect, useRef, useState } from "react";
+import { GlassPreferenceScope } from "@/components/glassyui/glass-provider";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import ReadingRoomReference from "./reading-room-reference";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import PageDashboard from "../page-dashboard";
@@ -28,9 +30,9 @@ import ReferenceContext from "./reference-context";
 import ReferenceHistory from "./reference-history";
 import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
-function PageBoard({ owner, page, sessions, children }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode }) {
+function PageBoard({ owner, page, sessions, children, onPresentationChange }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode; onPresentationChange: (readingRoom: boolean) => void }) {
   if (page === "Journal" || page === "Patterns" || page === "Stillness")
-    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions}>{children}</PageDashboard>;
+    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions} onPresentationChange={onPresentationChange}>{children}</PageDashboard>;
   return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
 }
 const navigation: [Page, string, string][] = [
@@ -54,6 +56,13 @@ const commandPages: Page[] = [
 export default function ConceptWorkspace(props: Props) {
   const pageRoot = useRef<HTMLElement>(null);
   const { pulse: p, session: s, history, page } = props;
+  const [readingRoom, setReadingRoom] = useState(false);
+  const reading = page === "Journal" && readingRoom;
+  useLayoutEffect(() => {
+    if (reading) document.documentElement.dataset.journalPresentation = "reading-room";
+    else delete document.documentElement.dataset.journalPresentation;
+    return () => { delete document.documentElement.dataset.journalPresentation; };
+  }, [reading]);
   const daySession = dailyJournalSession(s, history);
   const resetSeen = useRef(new Set<string>());
   const [weekly, setWeekly] = useState(false);
@@ -211,7 +220,7 @@ export default function ConceptWorkspace(props: Props) {
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
   return (
-    <div className={cx("app", "reference-app")}>
+    <GlassPreferenceScope quiet={reading}><div className={cx("app", "reference-app", reading && "reading-room")}>
       <GlassPanel
         role="banner"
         preset="subtle"
@@ -250,6 +259,7 @@ export default function ConceptWorkspace(props: Props) {
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
+          {reading && <div className="rr-session-status" role="status"><i />{p.recording ? "HR recording" : p.active ? "Journal in progress" : "Journal ready"}</div>}
           <button className="ss-header-connection" onClick={() => go("Connections")}>Connections</button>
           <button className="ss-header-floating" onClick={props.onFloat}>Floating window ↗</button>
           <button className="ss-header-import" disabled={capturePending} onClick={props.onCsv}>Import session ↗</button>
@@ -350,7 +360,7 @@ export default function ConceptWorkspace(props: Props) {
       <main ref={pageRoot}>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            Workspace{" "}
+            {reading ? "Reading Room" : "Workspace"}{" "}
             <b>
               /{" "}
               {page === "Overview"
@@ -361,6 +371,10 @@ export default function ConceptWorkspace(props: Props) {
             </b>
           </div>
           <div className={cx("topactions")}>
+            {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => void act(async () => {
+              if (p.active) { await p.stop(); if (p.settings.startWithStillness !== false) go("Stillness"); }
+              else await startPreparedSession();
+            }, p.active)}>{p.active ? "End session" : "Start session"}</button>}
             <details className={cx("tools")}>
               <summary className={cx("iconbtn")} aria-label="Session tools">
                 ⋯
@@ -501,7 +515,8 @@ export default function ConceptWorkspace(props: Props) {
             </div>
           )}
         </header>
-        <PageBoard owner={p.owner} page={page} sessions={[s, ...history]}>
+        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
+        <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {s.demo && (
             <p className={cx("demo-notice")}>
               DEMO DATA · Simulated heart rate, trades and reflections. No
@@ -615,6 +630,9 @@ export default function ConceptWorkspace(props: Props) {
           )}
           <ModuleScope active={journal}>
             <div hidden={!journal} className={cx("reference-journal-grid")}>
+              <WorkspaceModule id="daily-reference" title="Daily reference" section="side" initiallyHidden>
+                <ReadingRoomReference props={viewProps} week={week} onWeek={setWeek} onOpen={openDay} />
+              </WorkspaceModule>
               <WorkspaceModule
                 id="dates"
                 title="Date overview"
@@ -1061,6 +1079,6 @@ export default function ConceptWorkspace(props: Props) {
           onSaveBlueprint={p.updateBlueprint}
         />
       </aside>
-    </div>
+    </div></GlassPreferenceScope>
   );
 }
