@@ -59,6 +59,8 @@ Home uses #79's Reading Room welcome, day cards, featured support and weekly ref
 
 A support library, replacing the cumbersome manual builder experience rather than merely restyling it. Make reminders, practices and complete sequences discoverable and previewable before adding. The Reading Room prototype offers a card library and adjacent preview; use it as the concrete starting reference, then refine with Caleb.
 
+Stillness opens as a full Reading Room page from the main navigation and from Preparation or Done. The Support Library is the main content. **Personal routines and practices** opens the existing dashboard, recordings and reset tools below the library.
+
 Adding defaults to **just today**. Offer explicit optional saving for future days; do not silently establish a recurring routine. Allow Preparation or Done as the destination and offer Undo. Keep a complete experience together as a sequence with optional/skippable steps and later customisation. Do not immediately explode it into independently configured pieces. Personal writing/recordings remain optional. Reuse actual run/profile/content structures and inspect legacy compatibility before schema decisions.
 
 Caleb approved the card library, side preview, today-only add and Undo, reusable saved support, grouped playback with optional steps, and handoff to the existing Journal composer. The feature uses dated trading-day records and the existing process save and sync path. Preview, playback and skip are read-only. Reflection opens today's Journal composer and is saved only when the user submits it. The existing personal routine editor, recordings, and reset practices remain available below the library.

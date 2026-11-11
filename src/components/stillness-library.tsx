@@ -295,7 +295,7 @@ export function StillnessLibrary({
   };
 
   return (
-    <section className="ss-support-root" aria-label="Stillness support">
+    <section className={page === "Stillness" ? "ss-support-root ss-support-page" : "ss-support-root"} aria-label="Stillness support">
       {page === "Stillness" ? (
         <>
           <div className="ss-support-heading">
@@ -388,10 +388,6 @@ export function StillnessLibrary({
                 ))}
               </div>
               {!results.length && <p>No support matches those filters.</p>}
-              <p className="ss-support-count">
-                Personal routines, recordings and existing practices remain
-                available below.
-              </p>
             </div>
             <aside className="ss-support-preview" aria-label="Support preview">
               <small>A CLOSER LOOK</small>

@@ -105,8 +105,14 @@ test("new authenticated workspace is empty and journaling does not require a wea
   await act(async () => button("Daily journal").click());
   assert.match(document.body.textContent!, /Your journal, moment by moment/);
   await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Stillness"]')!.click());
+  assert.equal(document.documentElement.dataset.journalPresentation, "reading-room");
+  const routines = document.querySelector<HTMLDetailsElement>("details.rr-stillness-routines")!;
+  assert.equal(routines.open, false);
+  assert.ok(document.querySelector(".ss-support-page"), "the library is the primary Stillness page");
+  await act(async () => routines.querySelector("summary")!.click());
   const stillness = document.querySelector('section[aria-label="Post-session Stillness reset"]');
   assert.ok(stillness, "the real workspace opens the SessionReset screen");
+  assert.equal(stillness.closest("details"), routines);
   assert.equal(stillness.querySelector('.shark-background canvas'), null, "Stillness uses the shared root ocean without mounting a second engine");
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);
