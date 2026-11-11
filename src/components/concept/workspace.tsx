@@ -1,4 +1,7 @@
 "use client";
+import { StillnessLibrary } from "../stillness-library";
+import { useProcess } from "../command-center/use-process";
+import { journalDateValue } from "@/lib/journal-day";
 import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { GlassPreferenceScope } from "@/components/glassyui/glass-provider";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -56,6 +59,8 @@ const commandPages: Page[] = [
 export default function ConceptWorkspace(props: Props) {
   const pageRoot = useRef<HTMLElement>(null);
   const { pulse: p, session: s, history, page } = props;
+  const process = useProcess(p.owner, [s, ...history]);
+  const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
   const [readingRoom, setReadingRoom] = useState(false);
   const reading = page === "Journal" && readingRoom;
   useLayoutEffect(() => {
@@ -122,19 +127,13 @@ export default function ConceptWorkspace(props: Props) {
   }
   const [view, setView] = useState<"story" | "patterns" | "review">("story"),
     [week, setWeek] = useState(0),
-    [welcome, setWelcome] = useState(false),
-    [startSignal, setStartSignal] = useState(0),
     [whisper, setWhisper] = useState(""),
     [widget, setWidget] = useState(false),
     [openingDay, setOpeningDay] = useState(false),
     [focusTime, setFocusTime] = useState<number | undefined>();
-  const welcomeRef = useRef<HTMLDialogElement>(null),
-    widgetRef = useRef<HTMLElement>(null),
+  const widgetRef = useRef<HTMLElement>(null),
     dragRef = useRef<{ x: number; y: number } | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    if (welcome) welcomeRef.current?.showModal();
-  }, [welcome]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -171,7 +170,6 @@ export default function ConceptWorkspace(props: Props) {
   const go = (next: Page) => {
     setWeekly(false);
     if (next !== "Journal") setFocusTime(undefined);
-    if (next === "Stillness" && page !== "Stillness") setWelcome(true);
     if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
@@ -516,6 +514,28 @@ export default function ConceptWorkspace(props: Props) {
           )}
         </header>
         {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
+        <StillnessLibrary
+          key={p.owner}
+          owner={p.owner}
+          store={process}
+          page={page}
+          onPage={go}
+          onOpenDay={(destination, date) => {
+            const next = destination === "Preparation" ? "Pre-Market" : "Trade Quality";
+            setSupportDay({ date, page: next });
+            go(next);
+          }}
+          onReflect={async () => {
+            if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
+            const now = Date.now();
+            const date = journalDateValue(now);
+            if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
+              throw new Error("Today’s Journal could not open. Try again.");
+            }
+            go("Journal");
+            props.onReflect({ t: now, eventTime: null, origin: "stillness" });
+          }}
+        />
         <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {s.demo && (
             <p className={cx("demo-notice")}>
@@ -545,7 +565,13 @@ export default function ConceptWorkspace(props: Props) {
           {page !== "Command Center" && <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
             <PostExitInvitation props={viewProps} />
           </WorkspaceModule>}
-          {<ProcessWorkspace key={p.owner} {...viewProps} />}
+          <ProcessWorkspace
+            key={p.owner}
+            {...viewProps}
+            store={process}
+            supportDay={supportDay}
+            onSupportDayOpened={() => setSupportDay(undefined)}
+          />
           {(page === "Overview" || page === "Journal") && (
             <WorkspaceModule id="weekly-reflection" title="Weekly reflection" order={41} width={6} initiallyHidden={page === "Journal"}>
               <WeeklyReminder
@@ -987,7 +1013,7 @@ export default function ConceptWorkspace(props: Props) {
                 id="personal-stillness"
                 title="My stillness routine"
               >
-                {page === "Stillness" && <SavedStillness props={viewProps} />}
+                {page === "Stillness" && <SavedStillness props={viewProps} store={process} />}
               </WorkspaceModule>
               <WorkspaceModule
                 id="stillness"
@@ -1034,26 +1060,6 @@ export default function ConceptWorkspace(props: Props) {
           </button>
         ))}
       </nav>
-      {welcome && (
-        <dialog
-          ref={welcomeRef}
-          className={cx("stillnesswelcome", "show")}
-          onCancel={() => setWelcome(false)}
-        >
-          <div className={cx("arrive")}>
-            <div className={cx("breathorb")} />
-            <div className={cx("eyebrow")}>Still Signal</div>
-            <h2>Arrive before you analyse.</h2>
-            <p>
-              Nothing needs to be fixed in this second. Let yourself notice
-              where you are.
-            </p>
-            <button className={cx("primary")} onClick={() => setWelcome(false)}>
-              I’m here
-            </button>
-          </div>
-        </dialog>
-      )}
       <div className={cx("whisper", "pos1", !!whisper && "show")}>
         {whisper}
       </div>

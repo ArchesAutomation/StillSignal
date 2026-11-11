@@ -83,10 +83,20 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       db.query("update trading_days set revision=2"),
       /permission denied/,
     );
-    const next = withRefs(
-      createRecord("day", { ...d.body, status: "no-trade" }, d),
-    );
+    const stillness = [{
+      id: crypto.randomUUID(),
+      itemId: "waiting",
+      destination: "Done" as const,
+      saved: true as const,
+    }];
+    const next = withRefs(createRecord("day", { ...d.body, status: "no-trade", stillness }, d));
+    validateAppend([d], [recordSchema.parse(next)], []);
     await db.query("select pulse_process_append($1,$2)", [alice, [next]]);
+    const storedSupport = await db.query<{ support: typeof stillness }>(
+      "select data#>'{body,stillness}' as support from trading_days where id=$1",
+      [next.id],
+    );
+    assert.deepEqual(storedSupport.rows[0].support, stillness);
     await assert.rejects(
       db.query("select pulse_process_append($1,$2)", [
         alice,
