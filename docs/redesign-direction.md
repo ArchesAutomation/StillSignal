@@ -1,10 +1,10 @@
 # StillSignal: shared redesign direction and continuation instructions
 
-This is the shared redesign direction, updated 10 November 2026. Read it before designing or implementing another milestone. The decisions below apply across feature PRs. Record changes here after review so a future chat can work from the repository and its references.
+This is the shared redesign direction, updated 11 November 2026. Read it before designing or implementing another milestone. The decisions below apply across feature PRs. Record changes here after review so a future chat can work from the repository and its references.
 
 ## Start here
 
-Review the Stillness milestone in its draft PR, then continue with Preparation after Stillness is approved and merged into integration. Inspect the references below, verify the repository and preview state, and show a local interactive proposal for each milestone. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
+Continue with Preparation after Home is approved and merged into integration. Inspect the references below, verify the repository and preview state, and show a local interactive proposal for Preparation. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
 
 Repository: https://github.com/ArchesAutomation/StillSignal
 
@@ -49,11 +49,13 @@ Use the application's actual Big 4 labels/data. Allow multi-selection. Prototype
 
 ## Page responsibilities
 
-### Home
+### Home: implemented for draft review
 
 A welcoming, simple entrance into today, with clear routes to Preparation, Stillness, Done and Journal. Summarise relevant daily context without recreating a competing Command Center. Integrate links/state from the completed daily flow. Keep weekly supportive reflection accessible without making it an assessment or mandatory task.
 
-### Stillness: implemented for draft review
+Home uses #79's Reading Room welcome, day cards, featured support and weekly reflection with horizontal navigation. Choose any of the canonical Big 4 to get support with patterns that may arise **during trading**. The choices save to the current trading day. Explore Stillness opens the existing library with those filters and a relevant preview. The library's filters can be changed independently. Preparation and Done open the existing workflows for today. Journal opens the existing Journal and its dashboard options.
+
+### Stillness: integrated
 
 A support library, replacing the cumbersome manual builder experience rather than merely restyling it. Make reminders, practices and complete sequences discoverable and previewable before adding. The Reading Room prototype offers a card library and adjacent preview; use it as the concrete starting reference, then refine with Caleb.
 
@@ -63,7 +65,7 @@ Caleb approved the card library, side preview, today-only add and Undo, reusable
 
 ### Preparation
 
-Simpler daily check-in, boundaries, intentions and selected support; multi-select Big 4. Separate initial setup from daily preparation. Show/add today's chosen Stillness support with minimal repetitive configuration. Primary place to start a session once this replacement is complete. Read/write the existing daily context, avoiding duplicate copies of answers.
+Use #79's Preparation layout with an optional check-in about how someone is arriving, boundaries, intentions and today's selected support. Read today's Big 4 choices from Home to surface relevant support. Keep initial setup separate. Show and add today's Stillness choices with minimal configuration. Make Preparation the primary place to start a session once the replacement is complete. Read and write the existing daily context so answers have one source.
 
 ### Done for the day
 
@@ -85,7 +87,7 @@ Later appearance milestone: Reading Room, Quiet Hours and Daily Space presets, p
 
 ## Milestone and integration workflow
 
-Agreed order: Journal (#78) -> Stillness -> Preparation -> Done -> Home/navigation transition -> appearance personalisation. Adjust PR boundaries with Caleb if implementation dependencies justify it; do not independently redesign the direction in each chat.
+Agreed order after Caleb moved Home earlier: Journal (#78) -> Stillness (#80) -> Home -> Preparation -> Done for the day -> combined release. Finish the navigation transition when the destinations are ready. Appearance personalisation is a later milestone.
 
 The shared base is [`integration/reading-room-redesign`](https://github.com/ArchesAutomation/StillSignal/tree/integration/reading-room-redesign). It started at main `d6aa146647e289a8acba104e580e36b45da3d4f3` after verifying that production still served the same Worker version whose embedded source matched that commit in the Journal handoff. #78 was retargeted only after checking its Journal-only diff and confirming the new base has the same SHA. Read repository instructions and verify live repository, PR and deployment state in each continuation.
 
@@ -105,7 +107,7 @@ Supabase preview branches are disabled. Cloudflare branch-build success does not
 
 Agreed: the purpose, five destinations, Reading Room basis, top navigation, existing systems preserved, library-first interaction, just-today default, sequence integrity/skipping/later customisation, Done outcomes, optional writing, dashboard compatibility and reviewed staged delivery.
 
-The Stillness implementation awaits review and merge. Final Preparation, Done and Home layouts, the Home summary, and the extent of later sequence customisation remain open. Saved support requires an explicit choice each time it is added to a day.
+Stillness is integrated. Home is implemented for draft review. Final Preparation and Done layouts, the navigation transition and the extent of later sequence customisation remain open. Saved support requires an explicit choice each time it is added to a day.
 
 ## Stillness design reference and original reuse plan
 
@@ -123,8 +125,9 @@ Try it: **Stillness → Make room for waiting → an individual step → Back to
 | --- | --- | --- |
 | Journal | `codex/reading-room-journal` → `integration/reading-room-redesign` | [#78](https://github.com/ArchesAutomation/StillSignal/pull/78), approved and merged at `60f3698`. |
 | Shared direction and Stillness prototype | `codex/stillness-design-review` → `integration/reading-room-redesign` | [#79](https://github.com/ArchesAutomation/StillSignal/pull/79), approved and merged at `b9aa42c`. |
-| Stillness implementation | `codex/stillness-library` → `integration/reading-room-redesign` | Scope approved and implemented from `b9aa42c`. Draft for manual review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/stillness-library) for the reviewed revision. |
-| Preparation → Done → Home/navigation → appearance | One feature branch each, from updated integration | Planned. |
+| Stillness implementation | `codex/stillness-library` → `integration/reading-room-redesign` | [#80](https://github.com/ArchesAutomation/StillSignal/pull/80), approved and merged at `835b3cb`. |
+| Home | `codex/reading-room-home` → `integration/reading-room-redesign` | Implemented from `835b3cb` for draft review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/reading-room-home) for the current revision. |
+| Preparation → Done for the day | One feature branch each, from updated integration | Planned. |
 | Combined release | `integration/reading-room-redesign` → `main` | Planned. One release PR, explicit approval required. |
 
 On 10 November 2026, GitHub reported #78's `check` and `Workers Builds: still-signal` successful at its head; `Supabase Preview` was skipped. Cloudflare's deployment API returned `f2543ebd-9b40-42a3-b397-7d608b93a606`, Worker `e844f543-c15b-4625-bc94-9f7edbb77254` at 100%, matching the prior source reconciliation. The Builds trigger read returned 403. Repository and CI use the existing Supabase project; actual preview bindings remain unverified, so no authenticated saves were attempted. Use the synthetic local fixture until isolation is established.
@@ -168,6 +171,27 @@ Verification on 11 November 2026:
 
 The local verification did not exercise live microphone recording, wearable capture, authenticated cloud sync or multi-device conflict recovery. Preview backend bindings still need verification.
 
+## Review the Home implementation
+
+Use the synthetic review environment documented above with `STILL_SIGNAL_QA_DIST='.next-glassy-build'` and port `3184`. Open `http://127.0.0.1:3184/review` and choose **Home**.
+
+1. Choose **Impatience** and **Fear**, reload, then return to **Home**. Both choices should remain selected.
+2. Choose **Explore Stillness** and check the preselected filters. Clear one library filter, add **Make room for waiting** to Preparation, then open Preparation. Return to **Home** and check both original choices and the updated Preparation count.
+3. Try **Begin preparation**, **Done for the day**, **Your journal** and **Open weekly reflection**. In Journal, use **Preview Reading Room** to open the #78 starter. The separate **Stillness** navigation entry opens the library with its own filters.
+
+[Desktop Home](design/home-implementation/home.jpg) · [Home at 390 px](design/home-implementation/home-mobile.jpg)
+
+The Home UI is in `src/components/concept/reading-room-home.tsx`, using `src/app/reading-room.css` and the existing workspace navigation. Read `day.body.supportFocuses` for today's date and timezone using `tradingDayFor`. Home saves a day revision with the existing fields and Stillness choices intact. Review the dated revision and both ways to enter Stillness.
+
+No SQL migration is required. The optional `supportFocuses` field is in the app and generated `pulse-process` validators. The combined release must coordinate the Edge Function update and app release before authenticated saves use the new field. Reload old app versions before syncing the new records because the previous validator is strict.
+
+Verification on 11 November 2026:
+
+- `npm run check` passed Worker type generation, TypeScript, all 337 tests and the production build. The build emitted source map and route classification warnings. `git diff --check` and `git diff --cached --check` passed.
+- `node --import ./tests/browser-environment.mjs --import tsx --test tests/dashboard.test.ts tests/process-core.test.ts` passed all 6 tests, including a local PostgreSQL round trip for the Big 4 and Stillness on the same day revision.
+- Edge verified the local synthetic flow above, including removing a saved focus, returning from the actual destinations and checking the 390 px layout for horizontal overflow. The browser reported zero console errors and outbound HTTP requests. Authenticated sync, hardware capture and actual session transitions were outside this walkthrough.
+- `node scripts/check-cloudflare.mjs` passed the read-only production smoke checks before Home work. Preview backend bindings and the production release were outside this milestone.
+
 ## Copy into the Preparation chat
 
-> Continue the StillSignal redesign with the Preparation milestone. Read `docs/redesign-direction.md` on `integration/reading-room-redesign`, open the Reading Room references, and verify the Stillness PR is reviewed and merged into integration before branching. Use the implemented Stillness entry point and existing dated support records. Propose a simpler daily check-in, canonical multi-select Big 4, intentions, boundaries and today's chosen support, with initial setup separate. Reuse the current records, pinned runs, session controls, Journal and dashboards. Show the proposed flow in the isolated synthetic `/review` app and get scope approval before implementation. Use a separate branch from updated integration. Run `npm run check`, exercise the flow in a local browser, and run `git diff --check` before opening a draft `manual-merge` PR to integration. Update this document with the approved decisions, screenshots, reproduction steps, exact checks, gaps and a copy-ready prompt for Done for the day. Ask for explicit approval before merging or releasing.
+> Continue StillSignal with Preparation after the Home PR is approved and merged. Read `docs/redesign-direction.md` on `integration/reading-room-redesign` and open #79's Reading Room Preparation reference. Start from updated integration with the real #78 Journal, #80 Stillness and Home. Show a connected proposal in synthetic `/review` before implementing. Keep the check-in about how the person is arriving. Use the existing `day.body.supportFocuses` choices from Home to surface relevant Stillness without asking again. Bring intentions, boundaries and today's chosen support together and keep initial setup separate. Reuse current records, pinned runs, session controls, Journal and dashboards. After approval, use a separate branch, run `npm run check` and `git diff --check`, verify in the local browser, and open a draft `manual-merge` PR to integration. Update this handoff with screenshots, checks, gaps and a copy-ready prompt for Done for the day. Ask before merging or releasing.

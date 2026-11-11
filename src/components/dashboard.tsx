@@ -212,7 +212,7 @@ export default function Dashboard({
     "Timeline",
   );
   const [mobileNav, setMobileNav] = useState(false);
-  const [tab, setTab] = useState<Tab>(initialSession ? "Journal" : "Command Center"),
+  const [tab, setTab] = useState<Tab>(initialSession ? "Journal" : "Home"),
     [modal, setModal] = useState<
       "trade" | "note" | "delete" | "csv" | "moment" | null
     >(null),

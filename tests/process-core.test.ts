@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { createRecord, latest, recordSchema } from "../src/lib/process/model";
+import { createRecord, latest, recordSchema, type SupportFocus } from "../src/lib/process/model";
 import { validateAppend, withRefs } from "../src/lib/process/engine";
 import { freshDashboard } from "../src/lib/process/dashboard";
 import { readProcess, saveProcess } from "../src/lib/process/storage";
@@ -89,14 +89,15 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       destination: "Done" as const,
       saved: true as const,
     }];
-    const next = withRefs(createRecord("day", { ...d.body, status: "no-trade", stillness }, d));
+    const supportFocuses: SupportFocus[] = ["fear", "impatience"];
+    const next = withRefs(createRecord("day", { ...d.body, status: "no-trade", stillness, supportFocuses }, d));
     validateAppend([d], [recordSchema.parse(next)], []);
     await db.query("select pulse_process_append($1,$2)", [alice, [next]]);
-    const storedSupport = await db.query<{ support: typeof stillness }>(
-      "select data#>'{body,stillness}' as support from trading_days where id=$1",
+    const storedSupport = await db.query<{ support: typeof stillness; focuses: SupportFocus[] }>(
+      "select data#>'{body,stillness}' as support, data#>'{body,supportFocuses}' as focuses from trading_days where id=$1",
       [next.id],
     );
-    assert.deepEqual(storedSupport.rows[0].support, stillness);
+    assert.deepEqual(storedSupport.rows[0], { support: stillness, focuses: supportFocuses });
     await assert.rejects(
       db.query("select pulse_process_append($1,$2)", [
         alice,

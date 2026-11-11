@@ -1,11 +1,13 @@
 "use client";
-import { StillnessLibrary } from "../stillness-library";
+import { StillnessLibrary, type StillnessBrowse } from "../stillness-library";
 import { useProcess } from "../command-center/use-process";
 import { journalDateValue } from "@/lib/journal-day";
+import { dateInZone } from "@/lib/process/model";
 import { GlassPanel } from "@/components/glassyui/glass-panel";
 import { GlassPreferenceScope } from "@/components/glassyui/glass-provider";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReadingRoomReference from "./reading-room-reference";
+import ReadingRoomHome from "./reading-room-home";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import PageDashboard from "../page-dashboard";
@@ -39,6 +41,7 @@ function PageBoard({ owner, page, sessions, children, onPresentationChange }: { 
   return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
 }
 const navigation: [Page, string, string][] = [
+  ["Home", "⌂", "Home"],
   ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
   ["Patterns", "⌁", "Patterns"],
@@ -61,13 +64,16 @@ export default function ConceptWorkspace(props: Props) {
   const { pulse: p, session: s, history, page } = props;
   const process = useProcess(p.owner, [s, ...history]);
   const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
+  const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
   const [readingRoom, setReadingRoom] = useState(false);
   const reading = page === "Journal" && readingRoom;
+  const home = page === "Home";
+  const quietRoom = reading || home;
   useLayoutEffect(() => {
-    if (reading) document.documentElement.dataset.journalPresentation = "reading-room";
+    if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
     else delete document.documentElement.dataset.journalPresentation;
     return () => { delete document.documentElement.dataset.journalPresentation; };
-  }, [reading]);
+  }, [quietRoom]);
   const daySession = dailyJournalSession(s, history);
   const resetSeen = useRef(new Set<string>());
   const [weekly, setWeekly] = useState(false);
@@ -169,10 +175,18 @@ export default function ConceptWorkspace(props: Props) {
   }
   const go = (next: Page) => {
     setWeekly(false);
+    if (next === "Home") setStillnessBrowse(undefined);
     if (next !== "Journal") setFocusTime(undefined);
     if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
+  };
+  const goFromHome = (next: Page) => {
+    if (next === "Pre-Market" || next === "Trade Quality") {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      setSupportDay({ date: dateInZone(Date.now(), timezone), page: next });
+    }
+    go(next);
   };
   const review = () => {
     setView("review");
@@ -218,7 +232,7 @@ export default function ConceptWorkspace(props: Props) {
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
   return (
-    <GlassPreferenceScope quiet={reading}><div className={cx("app", "reference-app", reading && "reading-room")}>
+    <GlassPreferenceScope quiet={quietRoom}><div className={cx("app", "reference-app", quietRoom && "reading-room")}>
       <GlassPanel
         role="banner"
         preset="subtle"
@@ -226,7 +240,7 @@ export default function ConceptWorkspace(props: Props) {
       >
         <button
           className={cx("reference-brand")}
-          onClick={() => go("Command Center")}
+          onClick={() => go("Home")}
         >
           <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <circle cx="16" cy="16" r="14" stroke="currentColor" />
@@ -257,7 +271,7 @@ export default function ConceptWorkspace(props: Props) {
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
-          {reading && <div className="rr-session-status" role="status"><i />{p.recording ? "HR recording" : p.active ? "Journal in progress" : "Journal ready"}</div>}
+          {quietRoom && <div className="rr-session-status" role="status"><i />{p.recording ? "HR recording" : p.active ? "Journal in progress" : "Journal ready"}</div>}
           <button className="ss-header-connection" onClick={() => go("Connections")}>Connections</button>
           <button className="ss-header-floating" onClick={props.onFloat}>Floating window ↗</button>
           <button className="ss-header-import" disabled={capturePending} onClick={props.onCsv}>Import session ↗</button>
@@ -356,6 +370,18 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
+        {home ? (
+          <ReadingRoomHome
+            key={p.owner}
+            owner={p.owner}
+            now={p.now}
+            store={process}
+            onPage={goFromHome}
+            onBrowse={(browse) => { setStillnessBrowse(browse); go("Stillness"); }}
+            onWeek={() => { go("Journal"); setReviewWeek(undefined); setWeekly(true); }}
+          />
+        ) : (
+        <>
         <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             {reading ? "Reading Room" : "Workspace"}{" "}
@@ -519,6 +545,7 @@ export default function ConceptWorkspace(props: Props) {
           owner={p.owner}
           store={process}
           page={page}
+          browse={stillnessBrowse}
           onPage={go}
           onOpenDay={(destination, date) => {
             const next = destination === "Preparation" ? "Pre-Market" : "Trade Quality";
@@ -1040,6 +1067,8 @@ export default function ConceptWorkspace(props: Props) {
             </div>
           </ModuleScope>
         </PageBoard>
+        </>
+        )}
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (

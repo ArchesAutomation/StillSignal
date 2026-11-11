@@ -3,18 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supportFocus } from "@/lib/process/journal-guide";
 import {
+  bigFour,
   createRecord,
   dateInZone,
   latest,
   type ProcessRecord,
   type StillnessSelection,
 } from "@/lib/process/model";
+import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { readProcess } from "@/lib/process/storage";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./command-center/use-process";
 import { catalogue } from "@/lib/stillness-catalogue";
 
 type Item = (typeof catalogue)[number];
+export type StillnessBrowse = { tags: string[]; itemId: Item["id"] };
 type Destination = StillnessSelection["destination"];
 type Choice = Pick<StillnessSelection, "itemId" | "piece">;
 type Panel =
@@ -37,7 +40,6 @@ type Notice = {
   destination?: Destination;
 };
 const types = ["All", "Sequence", "Practice", "Reminder"];
-const focuses = ["impulsiveness", "impatience", "fear", "greed"] as const;
 const find = (choice: Choice) =>
   catalogue.find((entry) => entry.id === choice.itemId)!;
 const same = (a: Choice, b: Choice) =>
@@ -56,10 +58,6 @@ const known = (choice: Choice) => {
     item && (choice.piece === undefined || choice.piece < item.steps.length)
   );
 };
-const dayFor = (records: ProcessRecord[], date: string, timezone: string) =>
-  latest(records, "day").find(
-    (day) => day.body.date === date && day.body.timezone === timezone,
-  );
 const todayIn = (timezone: string) => dateInZone(Date.now(), timezone);
 
 function Art({ item }: { item: Item }) {
@@ -77,6 +75,7 @@ export function StillnessLibrary({
   owner,
   store,
   page,
+  browse,
   onPage,
   onOpenDay,
   onReflect,
@@ -84,6 +83,7 @@ export function StillnessLibrary({
   owner: string;
   store: ProcessStore;
   page: Page;
+  browse?: StillnessBrowse;
   onPage: (page: Page) => void;
   onOpenDay: (destination: Destination, date: string) => void;
   onReflect: () => Promise<void>;
@@ -92,6 +92,13 @@ export function StillnessLibrary({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [tags, setTags] = useState<string[]>([]);
+  useEffect(() => {
+    if (!browse) return;
+    setSearch("");
+    setFilter("All");
+    setTags(browse.tags);
+    setSelected(catalogue.find((item) => item.id === browse.itemId) ?? catalogue[0]);
+  }, [browse]);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [destination, setDestination] = useState<Destination>("Preparation");
   const [keep, setKeep] = useState(false);
@@ -169,7 +176,7 @@ export function StillnessLibrary({
     void write(async (records) => {
       const currentDate = todayIn(timezone);
       setDate(currentDate);
-      const day = dayFor(records, currentDate, timezone);
+      const day = tradingDayFor(records, currentDate, timezone);
       const choices = day?.body.stillness ?? [];
       const previous = choices.find(
         (entry) => entry.destination === destination && same(entry, choice),
@@ -193,16 +200,7 @@ export function StillnessLibrary({
         const record = createRecord(
           "day",
           {
-            ...(day?.body ?? {
-              date: currentDate,
-              timezone,
-              status: "preparing",
-              instrument: "",
-              account: "",
-              timeframes: [],
-              sessionIds: [],
-              goal: "",
-            }),
+            ...(day?.body ?? emptyTradingDay(currentDate, timezone)),
             stillness: previous
               ? choices.map((entry) =>
                   entry.id === previous.id ? added : entry,
@@ -322,7 +320,7 @@ export function StillnessLibrary({
               role="group"
               aria-label="Big 4 filters"
             >
-              {focuses.map((focus) => {
+              {bigFour.map((focus) => {
                 const { title } = supportFocus[focus];
                 return (
                   <button

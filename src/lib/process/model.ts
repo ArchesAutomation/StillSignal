@@ -231,6 +231,8 @@ const stillnessSelectionSchema = z
   })
   .strict();
 export type StillnessSelection = z.infer<typeof stillnessSelectionSchema>;
+export const bigFour = ["impulsiveness", "impatience", "fear", "greed"] as const;
+export type SupportFocus = (typeof bigFour)[number];
 export const recordSchema = z
   .discriminatedUnion("kind", [
     entity(
@@ -252,6 +254,7 @@ export const recordSchema = z
           sessionIds: z.array(id).max(100),
           goal: text,
           stillness: z.array(stillnessSelectionSchema).max(100).optional(),
+          supportFocuses: z.array(z.enum(bigFour)).max(bigFour.length).optional(),
         })
         .strict(),
     ),

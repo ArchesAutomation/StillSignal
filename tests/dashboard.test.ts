@@ -81,8 +81,7 @@ test("new authenticated workspace is empty and journaling does not require a wea
       }),
     ),
   );
-  assert.match(document.body.textContent!, /Command Center/);
-  assert.match(document.body.textContent!, /No measured heart rate/);
+  assert.match(document.body.textContent!, /A little room for you/);
   assert.doesNotMatch(
     document.body.textContent!,
     /EXAMPLE SESSION|\bNQ\b|\bES\b/,
@@ -91,6 +90,8 @@ test("new authenticated workspace is empty and journaling does not require a wea
     [...document.querySelectorAll("button")].find(
       (b) => b.textContent?.trim() === label,
     )!;
+  await act(async () => button("Command Center").click());
+  assert.match(document.body.textContent!, /No measured heart rate/);
   await act(async () => button("Daily journal").click());
   assert.equal(button("＋ Add moment").disabled, false);
   await act(async () => button("Daily journal").click());
