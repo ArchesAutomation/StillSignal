@@ -71,19 +71,20 @@ export default function DashboardBoard({
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   const [selectedId, setSelectedId] = useState<string>();
-  const useClassic = (starter && selectedId === "classic") || (!home && selectedId === "starter");
-  const selected = useClassic || (starter && selectedId === "reading-room")
-    ? undefined
-    : (layouts.find((r) => r.rootId === selectedId) ?? home ?? (starter ? undefined : layouts[0]));
+  const chosenLayout = layouts.find((r) => r.rootId === selectedId);
+  const useClassic = starter ? selectedId === "classic" : !home && selectedId === "starter";
+  const selected = starter ? chosenLayout : useClassic ? undefined : chosenLayout ?? home ?? layouts[0];
   const builtIn = useClassic ? initial : starter ?? initial;
   const saved = selected ? normalizeLayout(selected.body) : builtIn;
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
   const [message, setMessage] = useState("");
+  const [showJournalLayouts, setShowJournalLayouts] = useState(false);
   const [snapshots, setSnapshots] = useState(false);
   const [snapshotCode, setSnapshotCode] = useState("");
   const [interacting, setInteracting] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
+  const journalLayoutsButton = useRef<HTMLButtonElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const wasEditing = useRef(false);
   const editing = !!draft;
@@ -103,13 +104,14 @@ export default function DashboardBoard({
     !!base &&
     layouts.some((r) => r.rootId === base.rootId && r.id !== base.id);
   useEffect(() => {
+    if (starter) return;
     try {
       const id = localStorage.getItem(selectionKey);
       if (id) setSelectedId(id);
     } catch {
       /* Device storage is optional. */
     }
-  }, [owner]);
+  }, [selectionKey, starter]);
   useEffect(() => {
     if (editing) nameInput.current?.focus();
     else if (wasEditing.current) editButton.current?.focus();
@@ -123,6 +125,7 @@ export default function DashboardBoard({
   }, [editing]);
   const choose = (id: string) => {
     setSelectedId(id);
+    if (starter) return;
     try {
       localStorage.setItem(selectionKey, id);
     } catch {
@@ -222,22 +225,17 @@ export default function DashboardBoard({
           ) : (
             <>
               <div className="cc-dashboard-current">
-                {starter || layouts.length > 1 || (layouts.length === 1 && !home) ? (
-                  <Field label={starter ? "Layout" : "Dashboard"}>
+                {!starter && (layouts.length > 1 || (layouts.length === 1 && !home)) ? (
+                  <Field label="Dashboard">
                     <select
                       disabled={store.busy}
-                      value={selected?.rootId ?? (starter ? (builtIn === starter ? "reading-room" : "classic") : "starter")}
+                      value={selected?.rootId ?? "starter"}
                       onChange={(e) => {
                         choose(e.target.value);
                         setMessage("");
                       }}
                     >
-                      {starter ? (
-                        <>
-                          <option value="reading-room">{starter.name}</option>
-                          <option value="classic">Classic Journal</option>
-                        </>
-                      ) : !home && (
+                      {!home && (
                         <option value="starter">
                           {initial.name} (starter)
                         </option>
@@ -250,10 +248,25 @@ export default function DashboardBoard({
                     </select>
                   </Field>
                 ) : (
-                  <strong>{saved.name}</strong>
+                  <strong>{starter && useClassic ? "Classic Journal" : saved.name}</strong>
                 )}
               </div>
               <div className="cc-actions">
+                {starter && (useClassic || selected) && (
+                  <button onClick={() => { choose("reading-room"); setMessage(""); }}>
+                    Back to Reading Room
+                  </button>
+                )}
+                {starter && (
+                  <button
+                    ref={journalLayoutsButton}
+                    disabled={store.busy}
+                    aria-expanded={showJournalLayouts}
+                    onClick={() => setShowJournalLayouts(!showJournalLayouts)}
+                  >
+                    Journal layouts
+                  </button>
+                )}
                 <button disabled={store.busy} onClick={() => start(true)}>
                   <Plus size={15} /> New dashboard
                 </button>
@@ -274,6 +287,33 @@ export default function DashboardBoard({
             </>
           )}
         </GlassPanel>
+        {starter && showJournalLayouts && !editing && (
+          <GlassPanel className="cc-snapshot-tools">
+            <Field label="Journal layout">
+              <select
+                disabled={store.busy}
+                value={selected?.rootId ?? (useClassic ? "classic" : "reading-room")}
+                onChange={(event) => {
+                  choose(event.target.value);
+                  setShowJournalLayouts(false);
+                  journalLayoutsButton.current?.focus();
+                  setMessage("");
+                }}
+              >
+                <option value="reading-room">Reading Room</option>
+                {layouts.filter((r) => isReadingRoom(r.body.workspace)).map((r) => (
+                  <option key={r.rootId} value={r.rootId}>{r.body.name}</option>
+                ))}
+                <optgroup label="Archived layouts">
+                  <option value="classic">Classic Journal</option>
+                  {layouts.filter((r) => !isReadingRoom(r.body.workspace)).map((r) => (
+                    <option key={r.rootId} value={r.rootId}>{r.body.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </Field>
+          </GlassPanel>
+        )}
         {snapshots && !editing && (
           <GlassPanel className="cc-snapshot-tools">
             <p>
@@ -334,7 +374,7 @@ export default function DashboardBoard({
                 onChange={(e) => change({ ...draft, name: e.target.value })}
               />
             </Field>
-            <label>
+            {!starter && <label>
               <input
                 type="checkbox"
                 checked={draft.isDefault}
@@ -343,7 +383,7 @@ export default function DashboardBoard({
                 }
               />{" "}
               Open by default
-            </label>
+            </label>}
             <p>Hiding a card keeps all its data and recordings.</p>
           </fieldset>
         </details>}

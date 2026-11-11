@@ -239,6 +239,21 @@ body:has(.ss-reference-app) {
   text-align: left;
   font-size: 12px;
 }
+.ss-reference-app .ss-reference-more > div {
+  left: 0;
+  right: auto;
+  width: min(220px, calc(100vw - 36px));
+  box-sizing: border-box;
+}
+@media (max-width: 700px) {
+  .ss-reference-app .ss-reference-more {
+    position: static;
+  }
+  .ss-reference-app .ss-reference-more > div {
+    left: auto;
+    right: 12px;
+  }
+}
 .ss-reference-app .ss-reference-journal-grid {
   display: grid;
   grid-template-columns: 235px minmax(0, 1fr);

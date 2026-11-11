@@ -90,7 +90,15 @@ test("new authenticated workspace is empty and journaling does not require a wea
     [...document.querySelectorAll("button")].find(
       (b) => b.textContent?.trim() === label,
     )!;
+  const more = document.querySelector<HTMLDetailsElement>("details.ss-reference-more")!;
+  assert.equal(more.open, false);
+  assert.equal(document.querySelector('.ss-reference-nav button[aria-label="Patterns"], .ss-reference-nav button[aria-label="Command Center"]'), null);
+  assert.equal(button("Command Center").closest("details"), more);
+  assert.equal(button("Patterns").closest("details"), more);
+  await act(async () => more.querySelector("summary")!.click());
+  assert.equal(more.open, true);
   await act(async () => button("Command Center").click());
+  assert.equal(more.open, false);
   assert.match(document.body.textContent!, /No measured heart rate/);
   await act(async () => button("Daily journal").click());
   assert.equal(button("＋ Add moment").disabled, false);

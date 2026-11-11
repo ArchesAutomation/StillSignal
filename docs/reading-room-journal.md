@@ -1,6 +1,6 @@
 # Reading Room: first Journal integration
 
-In the combined release, Reading Room opens by default when there is no selected layout or saved default. The **Layout** picker also offers Classic Journal and saved dashboards. The notes below describe the original #78 milestone.
+Daily journal opens in Reading Room. **Journal layouts** offers saved Reading Room dashboards and an **Archived layouts** group for Classic Journal and older dashboards. The notes below describe the original #78 milestone.
 
 The Journal can now preview a Reading Room starter without replacing an existing dashboard or changing its default. This is the first integration milestone, not the Stillness library or a new Home/Preparation/Done flow.
 
