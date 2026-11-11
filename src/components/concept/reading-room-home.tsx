@@ -11,7 +11,7 @@ import type { Page } from "./shared";
 const destinations = [
   ["Preparation", "Preparation", "A short check-in, your chosen support and an intention to return to.", "◒"],
   ["Journal", "Your journal", "Return to your reflections, recordings and the evidence behind each moment.", "▤"],
-  ["Trade Quality", "Done for the day", "Review how you traded and choose how to close the day.", "◐"],
+  ["Done", "Done for the day", "Review how you traded and choose how to close the day.", "◐"],
 ] as const;
 
 export default function ReadingRoomHome({

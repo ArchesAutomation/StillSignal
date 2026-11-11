@@ -8,6 +8,7 @@ import { validateAppend, withRefs } from "../src/lib/process/engine";
 import { freshDashboard } from "../src/lib/process/dashboard";
 import { readProcess, saveProcess } from "../src/lib/process/storage";
 import { preparationChanges } from "../src/lib/process/daily-preparation";
+import { dayCloseoutChange } from "../src/lib/process/day-closeout";
 const day = () =>
   createRecord("day", {
     date: "2026-10-29",
@@ -114,6 +115,16 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       day: { ...next.body, goal: "Wait for my setup", boundary: "Step away after chasing" },
       arrival: ["Tired"],
     });
+    const existing = [d, next, ...batch];
+    const closeout = { outcome: "no-trade", process: "followed" } as const;
+    const closing = withRefs(dayCloseoutChange(existing, d.body.date, d.body.timezone, closeout)!);
+    validateAppend(existing, [recordSchema.parse(closing)], []);
+    await db.query("select pulse_process_append($1,$2)", [alice, [closing]]);
+    const storedCloseout = await db.query(
+      "select data->'body' as day from trading_days where id=$1",
+      [closing.id],
+    );
+    assert.deepEqual(storedCloseout.rows[0], { day: { ...storedPreparation.rows[0].day, closeout } });
     await assert.rejects(
       db.query("select pulse_process_append($1,$2)", [
         alice,
@@ -237,7 +248,7 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
     await db.exec(`set request.jwt.claim.sub='${alice}'`);
     assert.deepEqual(
       (await db.query<{ id: string }>("select id from trading_days order by revision")).rows.map((row) => row.id),
-      [d.id, next.id, batch[0].id],
+      [d.id, next.id, batch[0].id, closing.id],
     );
     assert.equal(
       (await db.query("select * from dashboard_layouts")).rows.length,
