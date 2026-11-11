@@ -69,7 +69,7 @@ export default function ConceptWorkspace(props: Props) {
   const process = useProcess(p.owner, [s, ...history]);
   const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
   const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
-  const [readingRoom, setReadingRoom] = useState(false);
+  const [readingRoom, setReadingRoom] = useState(true);
   const reading = page === "Journal" && readingRoom;
   const home = page === "Home";
   const preparing = page === "Preparation";

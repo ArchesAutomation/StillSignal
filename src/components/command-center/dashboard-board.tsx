@@ -1,6 +1,6 @@
 "use client";
 import { GlassPanel } from "../glassyui/glass-panel";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Plus, RotateCcw, Undo2 } from "lucide-react";
 import DashboardCanvas from "./dashboard-canvas";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
@@ -71,12 +71,12 @@ export default function DashboardBoard({
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   const [selectedId, setSelectedId] = useState<string>();
-  const [previewingStarter, setPreviewingStarter] = useState(false);
-  const useStarter = !home && selectedId === "starter";
-  const selected = useStarter || previewingStarter
+  const useClassic = (starter && selectedId === "classic") || (!home && selectedId === "starter");
+  const selected = useClassic || (starter && selectedId === "reading-room")
     ? undefined
-    : (layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0]);
-  const saved = previewingStarter && starter ? starter : selected ? normalizeLayout(selected.body) : initial;
+    : (layouts.find((r) => r.rootId === selectedId) ?? home ?? (starter ? undefined : layouts[0]));
+  const builtIn = useClassic ? initial : starter ?? initial;
+  const saved = selected ? normalizeLayout(selected.body) : builtIn;
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
   const [message, setMessage] = useState("");
@@ -90,7 +90,7 @@ export default function DashboardBoard({
   // Preparation is a single entry button in Command Center, not a dashboard card.
   // Keep stored layouts compatible without mounting the old checklist module.
   const sourceLayout = draft ?? saved;
-  useEffect(() => { onWorkspaceChange?.(sourceLayout.workspace); }, [sourceLayout.workspace, onWorkspaceChange]);
+  useLayoutEffect(() => { onWorkspaceChange?.(sourceLayout.workspace); }, [sourceLayout.workspace, onWorkspaceChange]);
   const layout: DashboardLayout = {
     ...sourceLayout,
     panels: sourceLayout.panels.map(p => ["thesis", "missions"].includes(p.id) ? { ...p, visible: false } : p).filter((p) => p.id !== "preparation"),
@@ -122,7 +122,6 @@ export default function DashboardBoard({
     return () => window.removeEventListener("beforeunload", warn);
   }, [editing]);
   const choose = (id: string) => {
-    setPreviewingStarter(false);
     setSelectedId(id);
     try {
       localStorage.setItem(selectionKey, id);
@@ -223,17 +222,22 @@ export default function DashboardBoard({
           ) : (
             <>
               <div className="cc-dashboard-current">
-                {layouts.length > 1 || (layouts.length === 1 && !home) ? (
-                  <Field label="Dashboard">
+                {starter || layouts.length > 1 || (layouts.length === 1 && !home) ? (
+                  <Field label={starter ? "Layout" : "Dashboard"}>
                     <select
                       disabled={store.busy}
-                      value={selected?.rootId ?? "starter"}
+                      value={selected?.rootId ?? (starter ? (builtIn === starter ? "reading-room" : "classic") : "starter")}
                       onChange={(e) => {
                         choose(e.target.value);
                         setMessage("");
                       }}
                     >
-                      {!home && (
+                      {starter ? (
+                        <>
+                          <option value="reading-room">{starter.name}</option>
+                          <option value="classic">Classic Journal</option>
+                        </>
+                      ) : !home && (
                         <option value="starter">
                           {initial.name} (starter)
                         </option>
@@ -250,10 +254,6 @@ export default function DashboardBoard({
                 )}
               </div>
               <div className="cc-actions">
-                {starter && <button disabled={store.busy} onClick={() => {
-                  setPreviewingStarter(!previewingStarter);
-                  setMessage(previewingStarter ? "Returned to your saved dashboard." : "Reading Room preview. Existing dashboards and your default are unchanged. Edit and save to keep a new dashboard.");
-                }}>{previewingStarter ? "Exit Reading Room preview" : "Preview Reading Room"}</button>}
                 <button disabled={store.busy} onClick={() => start(true)}>
                   <Plus size={15} /> New dashboard
                 </button>

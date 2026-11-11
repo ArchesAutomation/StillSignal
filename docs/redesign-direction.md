@@ -79,7 +79,7 @@ The approved Reading Room layout keeps outcome, process, closing support and ref
 
 PR #78 arranges the real Journal around daily reference, session rhythm and moment-by-moment entries/evidence. It preserves before/entry/management/exit/after, day-level entries and entries without a trade, the existing chart/layers/measurements/gaps, evidence presentation and editing. No replacement evidence drawer or simulated Journal is authorized.
 
-Reading Room is an additional non-default starter preview. Entering it must not overwrite an existing dashboard or saved default. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. The Reading Room header retains recording status, Start and a route to Done while the session is active. Existing session tools and widget layouts remain available.
+For the combined release, Daily journal opens in Reading Room when there is no selected layout or saved default. The **Layout** picker offers Reading Room, Classic Journal and saved dashboards. Choosing a layout remembers it on this device without writing a dashboard revision. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. The Reading Room header retains recording status, Start and a route to Done while the session is active. Existing session tools and widget layouts remain available.
 
 ## Preserve throughout
 
@@ -182,7 +182,7 @@ Use the synthetic review environment documented above with `STILL_SIGNAL_QA_DIST
 
 1. Choose **Impatience** and **Fear**, reload, then return to **Home**. Both choices should remain selected.
 2. Choose **Explore Stillness** and check the preselected filters. Clear one library filter, add **Make room for waiting** to Preparation, then open Preparation. Return to **Home** and check both original choices and the updated Preparation count.
-3. Try **Begin preparation**, **Done for the day**, **Your journal** and **Open weekly reflection**. In Journal, use **Preview Reading Room** to open the #78 starter. The separate **Stillness** navigation entry opens the library with its own filters.
+3. Try **Begin preparation**, **Done for the day**, **Your journal** and **Open weekly reflection**. In Journal, the **Layout** picker can switch between Reading Room and Classic Journal. The separate **Stillness** navigation entry opens the library with its own filters.
 
 [Desktop Home](design/home-implementation/home.jpg) · [Home at 390 px](design/home-implementation/home-mobile.jpg)
 
@@ -208,7 +208,7 @@ Use the synthetic review setup above with `STILL_SIGNAL_QA_DIST='.next-glassy-bu
 1. On **Home**, select **Greed**, then **Begin preparation**. The support card shows **Greed** and offers **Preview Enough is a choice in Stillness**. Preparation is also a direct navigation destination.
 2. In Preparation, select **Tired** and enter an intention and boundary. Open **Initial setup** to see the original guided workspace, then use **Back to Preparation**.
 3. Open the suggestion, clear the **Greed** filter, then choose **Add to my day → Add for today → Open Preparation**. Confirm that the added support, draft fields and Home choice are still present. **Also keep in Saved support** starts unchecked.
-4. Choose **Start session**. Open **Preview Reading Room** in Daily journal and look for **How you arrived · Tired** and the intention in **Daily reference**. Return to Preparation and reload to check the saved fields. Use a fresh browser profile to check starting with all fields blank.
+4. Choose **Start session**. In the Reading Room Journal, look for **How you arrived · Tired** and the intention in **Daily reference**. Return to Preparation and reload to check the saved fields. Use a fresh browser profile to check starting with all fields blank.
 
 [Preparation suggestion](design/preparation-implementation/preparation-suggestion.jpg) · [Support added for today](design/preparation-implementation/preparation-support.jpg) · [Journal arrival](design/preparation-implementation/journal-arrival.jpg)
 
@@ -232,7 +232,7 @@ Verification on 11 November 2026:
 
 Use the synthetic review environment above with `STILL_SIGNAL_QA_DIST='.next-glassy-build'` and port `3190`. Open [the local review](http://127.0.0.1:3190/review). Keep the Supabase URL, anonymous key and publishable key empty. A fresh browser profile gives you an empty day and keeps your existing synthetic choices separate.
 
-1. Open **Home → Begin preparation → Start session** with every field blank. Open **Preview Reading Room** in Daily journal, then **Go to Done for the day → End session**. Confirm **Session ended** appears on Done and all choices remain blank.
+1. Open **Home → Begin preparation → Start session** with every field blank. In the Reading Room Journal, choose **Go to Done for the day → End session**. Confirm **Session ended** appears on Done and all choices remain blank.
 2. Select **No trade** and **Followed my rules**. Reload, reopen Done, and clear No trade by selecting it again. The process choice should remain selected. If there are fully closed trades on the current day, **Review trades and rules** uses the existing trade and playbook review. **Open Trade Quality** retains the full tools.
 3. Choose **Find closing support**. The existing library opens at **Leave the result here**. Try **Back to Done for the day** without adding, then return to the library and choose **Add to my day → Add for today → Open Done for the day**. Saved support starts unchecked. Begin the sequence, skip its steps and finish without reflection.
 4. Choose **Reflect in Daily journal**. The real composer opens at **Day review** and **Whole day · no trade required**. Close it without saving.
