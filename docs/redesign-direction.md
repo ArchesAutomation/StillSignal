@@ -59,6 +59,8 @@ Home uses #79's Reading Room welcome, day cards, featured support and weekly ref
 
 A support library, replacing the cumbersome manual builder experience rather than merely restyling it. Make reminders, practices and complete sequences discoverable and previewable before adding. The Reading Room prototype offers a card library and adjacent preview; use it as the concrete starting reference, then refine with Caleb.
 
+Stillness opens as a full Reading Room page from the main navigation and from Preparation or Done. The Support Library is the main content. **Personal routines and practices** opens the existing dashboard, recordings and reset tools below the library.
+
 Adding defaults to **just today**. Offer explicit optional saving for future days; do not silently establish a recurring routine. Allow Preparation or Done as the destination and offer Undo. Keep a complete experience together as a sequence with optional/skippable steps and later customisation. Do not immediately explode it into independently configured pieces. Personal writing/recordings remain optional. Reuse actual run/profile/content structures and inspect legacy compatibility before schema decisions.
 
 Caleb approved the card library, side preview, today-only add and Undo, reusable saved support, grouped playback with optional steps, and handoff to the existing Journal composer. The feature uses dated trading-day records and the existing process save and sync path. Preview, playback and skip are read-only. Reflection opens today's Journal composer and is saved only when the user submits it. The existing personal routine editor, recordings, and reset practices remain available below the library.
@@ -79,7 +81,7 @@ The approved Reading Room layout keeps outcome, process, closing support and ref
 
 PR #78 arranges the real Journal around daily reference, session rhythm and moment-by-moment entries/evidence. It preserves before/entry/management/exit/after, day-level entries and entries without a trade, the existing chart/layers/measurements/gaps, evidence presentation and editing. No replacement evidence drawer or simulated Journal is authorized.
 
-For the combined release, Daily journal opens in Reading Room when there is no selected layout or saved default. The **Layout** picker offers Reading Room, Classic Journal and saved dashboards. Choosing a layout remembers it on this device without writing a dashboard revision. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. The Reading Room header retains recording status, Start and a route to Done while the session is active. Existing session tools and widget layouts remain available.
+Daily journal opens in Reading Room. **Journal layouts** offers saved Reading Room dashboards and an **Archived layouts** group for Classic Journal and older dashboards. Opening an archived layout applies it only to the current Journal visit. **Back to Reading Room** restores the daily view. **More** in the header opens Command Center and Patterns. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. The Reading Room header retains recording status, Start and a route to Done while the session is active. Existing session tools and widget layouts remain available.
 
 ## Preserve throughout
 
@@ -182,7 +184,7 @@ Use the synthetic review environment documented above with `STILL_SIGNAL_QA_DIST
 
 1. Choose **Impatience** and **Fear**, reload, then return to **Home**. Both choices should remain selected.
 2. Choose **Explore Stillness** and check the preselected filters. Clear one library filter, add **Make room for waiting** to Preparation, then open Preparation. Return to **Home** and check both original choices and the updated Preparation count.
-3. Try **Begin preparation**, **Done for the day**, **Your journal** and **Open weekly reflection**. In Journal, the **Layout** picker can switch between Reading Room and Classic Journal. The separate **Stillness** navigation entry opens the library with its own filters.
+3. Try **Begin preparation**, **Done for the day**, **Your journal** and **Open weekly reflection**. In Journal, **Journal layouts** opens Classic Journal from the archive. The separate **Stillness** navigation entry opens the library with its own filters.
 
 [Desktop Home](design/home-implementation/home.jpg) · [Home at 390 px](design/home-implementation/home-mobile.jpg)
 

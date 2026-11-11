@@ -21,6 +21,27 @@
   border-radius: 20px;
   padding: clamp(16px, 3vw, 36px);
 }
+.ss-reading-room .ss-support-page {
+  margin: 0 0 28px;
+  padding: 28px 0 0;
+  border: 0;
+  background: transparent;
+}
+.rr-stillness-routines {
+  margin: 0 0 24px;
+  border: 1px solid var(--rr-line);
+  border-radius: 14px;
+  background: var(--rr-paper);
+  padding: 14px 18px;
+}
+.rr-stillness-routines > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rr-stillness-routines[open] > summary {
+  margin-bottom: 16px;
+}
 .ss-support-heading,
 .ss-support-tools,
 .ss-support-row,
@@ -96,6 +117,9 @@
   color: #fff;
   background: var(--accent);
   border-color: var(--accent);
+}
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root .ss-support-primary {
+  color: #fff !important;
 }
 .ss-support-tools {
   margin: 0 0 18px;

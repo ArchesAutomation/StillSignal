@@ -38,17 +38,26 @@ import ReferenceHistory from "./reference-history";
 import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
 function PageBoard({ owner, page, sessions, children, onPresentationChange }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode; onPresentationChange: (readingRoom: boolean) => void }) {
-  if (page === "Journal" || page === "Patterns" || page === "Stillness")
-    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions} onPresentationChange={onPresentationChange}>{children}</PageDashboard>;
+  if (page === "Journal" || page === "Patterns" || page === "Stillness") {
+    const dashboard = (
+      <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions} onPresentationChange={onPresentationChange}>
+        {children}
+      </PageDashboard>
+    );
+    return page === "Stillness" ? (
+      <details key={owner} className="rr-stillness-routines">
+        <summary>Personal routines and practices</summary>
+        {dashboard}
+      </details>
+    ) : dashboard;
+  }
   return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
 }
 const navigation: [Page, string, string][] = [
   ["Home", "⌂", "Home"],
   ["Preparation", "◒", "Preparation"],
-  ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
   ["Done", "◐", "Done for the day"],
-  ["Patterns", "⌁", "Patterns"],
   ["Stillness", "◌", "Stillness"],
   ["Settings", "⚙", "Settings"],
 ];
@@ -70,13 +79,15 @@ export default function ConceptWorkspace(props: Props) {
   const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
   const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
   const [readingRoom, setReadingRoom] = useState(true);
+  const [journalEntry, setJournalEntry] = useState(0);
   const reading = page === "Journal" && readingRoom;
   const home = page === "Home";
   const preparing = page === "Preparation";
   const closing = page === "Done";
+  const stillness = page === "Stillness";
   const [returnToPreparation, setReturnToPreparation] = useState<Page>();
   const [returnToDone, setReturnToDone] = useState(false);
-  const quietRoom = reading || home || preparing || closing || (page === "Stillness" && (returnToPreparation === page || returnToDone));
+  const quietRoom = reading || home || preparing || closing || stillness;
   const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const preparationDate = dateInZone(p.now, preparationTimezone);
   const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
@@ -192,6 +203,9 @@ export default function ConceptWorkspace(props: Props) {
     setReturnToDone(false);
     if (next === "Home") setStillnessBrowse(undefined);
     if (next !== "Journal") setFocusTime(undefined);
+    if (next === "Journal" && page === "Journal" && !readingRoom) {
+      setJournalEntry((entry) => entry + 1);
+    }
     if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
@@ -272,6 +286,28 @@ export default function ConceptWorkspace(props: Props) {
         : null;
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
+  const workspaceNotices = (
+    <>
+      {s.demo && (
+        <p className={cx("demo-notice")}>
+          DEMO DATA · Simulated heart rate, trades and reflections. No
+          broker or wearable is connected to this dataset.
+        </p>
+      )}
+      {p.error && (
+        <div className={cx("message", "error")} role="alert">
+          <span>{p.error}</span>
+          <button aria-label="Dismiss error" onClick={() => p.setError("")}>×</button>
+        </div>
+      )}
+      {p.notice && (
+        <div className={cx("message")} role="status">
+          <span>{p.notice}</span>
+          <button aria-label="Dismiss notification" onClick={() => p.setNotice("")}>×</button>
+        </div>
+      )}
+    </>
+  );
   return (
     <GlassPreferenceScope quiet={quietRoom}><div className={cx("app", "reference-app", quietRoom && "reading-room")}>
       <GlassPanel
@@ -293,18 +329,9 @@ export default function ConceptWorkspace(props: Props) {
           {navigation.map(([name, , label]) => (
             <button
               key={name}
-              aria-label={name === "Patterns" ? "Heart-rate analytics" : label}
-              aria-current={
-                page === name ||
-                (name === "Command Center" && commandPages.includes(page))
-                  ? "page"
-                  : undefined
-              }
-              className={cx(
-                (page === name ||
-                  (name === "Command Center" && commandPages.includes(page))) &&
-                  "active",
-              )}
+              aria-label={label}
+              aria-current={page === name ? "page" : undefined}
+              className={cx(page === name && "active")}
               onClick={() => go(name)}
             >
               {label}
@@ -312,6 +339,19 @@ export default function ConceptWorkspace(props: Props) {
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
+          <details className="ss-reference-tools ss-reference-more">
+            <summary>More</summary>
+            <GlassPanel preset="subtle" lens={false} className="ss-utilities-panel">
+              <button aria-current={commandPages.includes(page) ? "page" : undefined} onClick={(event) => {
+                event.currentTarget.closest("details")?.removeAttribute("open");
+                go("Command Center");
+              }}>Command Center</button>
+              <button aria-current={page === "Patterns" ? "page" : undefined} onClick={(event) => {
+                event.currentTarget.closest("details")?.removeAttribute("open");
+                go("Patterns");
+              }}>Patterns</button>
+            </GlassPanel>
+          </details>
           {quietRoom && <div className="rr-session-status" role="status"><i />{p.recording ? "HR recording" : p.active ? "Journal in progress" : "Journal ready"}</div>}
           <button className="ss-header-connection" onClick={() => go("Connections")}>Connections</button>
           <button className="ss-header-floating" onClick={props.onFloat}>Floating window ↗</button>
@@ -354,25 +394,10 @@ export default function ConceptWorkspace(props: Props) {
           {navigation.map(([name, icon, label]) => (
             <button
               key={name}
-              className={cx(
-                (page === name ||
-                  (name === "Command Center" && commandPages.includes(page))) &&
-                  "active",
-              )}
-              aria-current={
-                page === name ||
-                (name === "Command Center" && commandPages.includes(page))
-                  ? "page"
-                  : undefined
-              }
+              className={cx(page === name && "active")}
+              aria-current={page === name ? "page" : undefined}
               onClick={() => go(name)}
-              aria-label={
-                name === "Overview"
-                  ? "Overview"
-                  : name === "Patterns"
-                    ? "Heart-rate analytics"
-                    : label
-              }
+              aria-label={label}
               title={label}
             >
               <span className={cx("navicon")}>{icon}</span>
@@ -425,7 +450,7 @@ export default function ConceptWorkspace(props: Props) {
         <>
         {!preparing && !closing && <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            {reading ? "Reading Room" : "Workspace"}{" "}
+            {quietRoom ? "Reading Room" : "Workspace"}{" "}
             <b>
               /{" "}
               {page === "Overview"
@@ -584,6 +609,7 @@ export default function ConceptWorkspace(props: Props) {
         {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
         {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
         {page === "Stillness" && returnToDone && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Done")}>← Back to Done for the day</button></div>}
+        {stillness && workspaceNotices}
         <ReadingRoomPreparation
           key={p.owner}
           active={preparing}
@@ -623,32 +649,8 @@ export default function ConceptWorkspace(props: Props) {
           />
         </ReadingRoomDone>
         </ReadingRoomPreparation>
-        {!preparing && !closing && <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
-          {s.demo && (
-            <p className={cx("demo-notice")}>
-              DEMO DATA · Simulated heart rate, trades and reflections. No
-              broker or wearable is connected to this dataset.
-            </p>
-          )}
-          {p.error && (
-            <div className={cx("message", "error")} role="alert">
-              <span>{p.error}</span>
-              <button aria-label="Dismiss error" onClick={() => p.setError("")}>
-                ×
-              </button>
-            </div>
-          )}
-          {p.notice && (
-            <div className={cx("message")} role="status">
-              <span>{p.notice}</span>
-              <button
-                aria-label="Dismiss notification"
-                onClick={() => p.setNotice("")}
-              >
-                ×
-              </button>
-            </div>
-          )}
+        {!preparing && !closing && <PageBoard key={page === "Journal" ? journalEntry : undefined} owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
+          {!stillness && workspaceNotices}
           {page !== "Command Center" && <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
             <PostExitInvitation props={viewProps} />
           </WorkspaceModule>}
@@ -1133,17 +1135,11 @@ export default function ConceptWorkspace(props: Props) {
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (
           <button
-            className={cx(
-              (page === name ||
-                (name === "Command Center" && commandPages.includes(page))) &&
-                "active",
-            )}
+            className={cx(page === name && "active")}
             key={name}
             onClick={() => go(name)}
           >
-            {name === "Patterns"
-              ? "Patterns"
-              : name === "Journal"
+            {name === "Journal"
                 ? "Journal"
                 : label}
           </button>
