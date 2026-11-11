@@ -1,20 +1,23 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import DashboardBoard, { useDashboardEditor } from "./command-center/dashboard-board";
 import { useProcess } from "./command-center/use-process";
 import { emptyModuleLayout, moduleLayoutKey, readModuleLayout, type ModuleLayout } from "@/lib/module-layout";
 import { evidenceReadingLayout } from "@/lib/module-board";
 import type { Session } from "@/lib/model";
+import { readingRoomDashboard, isReadingRoom } from "@/lib/reading-room";
 
 /** Reuse the account-scoped cloud records; existing browser-only boards seed the starter. */
-export default function PageDashboard({ owner, page, sessions, children }: {
+export default function PageDashboard({ owner, page, sessions, children, onPresentationChange }: {
   owner: string; page: "Journal" | "Patterns" | "Stillness";
   sessions: Session[]; children: ReactNode;
+  onPresentationChange?: (readingRoom: boolean) => void;
 }) {
   const store = useProcess(owner, sessions);
   const editor = useDashboardEditor();
   const [seed, setSeed] = useState<ModuleLayout>(emptyModuleLayout);
   const [seedReady, setSeedReady] = useState(false);
+  const reportWorkspace = useCallback((workspace?: ModuleLayout) => onPresentationChange?.(page === "Journal" && isReadingRoom(workspace)), [page, onPresentationChange]);
   useEffect(() => {
     let raw: string | null = null;
     try { raw = localStorage.getItem(moduleLayoutKey(owner, page)); } catch {}
@@ -32,7 +35,7 @@ export default function PageDashboard({ owner, page, sessions, children }: {
 
   return <>
     {store.error && <p role="alert">{store.error}</p>}
-    <DashboardBoard owner={owner} page={page} seed={seed} store={{ ...store, busy: store.busy || !seedReady || !store.loaded }} editor={editor}>
+    <DashboardBoard owner={owner} page={page} seed={seed} starter={page === "Journal" ? readingRoomDashboard() : undefined} onWorkspaceChange={reportWorkspace} store={{ ...store, busy: store.busy || !seedReady || !store.loaded }} editor={editor}>
       {children}
     </DashboardBoard>
   </>;

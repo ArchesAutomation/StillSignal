@@ -18,6 +18,7 @@ import {
 } from "@/lib/process/dashboard";
 import type { ProcessStore } from "./use-process";
 import { Field } from "./shared";
+import { isReadingRoom } from "@/lib/reading-room";
 
 // Owned by the account-keyed workspace so navigation cannot discard a draft.
 export function useDashboardEditor() {
@@ -42,11 +43,15 @@ export default function DashboardBoard({
   page = "Command Center",
   children,
   seed,
+  starter,
+  onWorkspaceChange,
 }: {
   editor: DashboardEditor;
   page?: DashboardLayout["page"];
   children?: ReactNode;
   seed?: DashboardLayout["workspace"];
+  starter?: DashboardLayout;
+  onWorkspaceChange?: (workspace?: DashboardLayout["workspace"]) => void;
   before?: ReactNode;
   store: ProcessStore;
   owner: string;
@@ -66,11 +71,12 @@ export default function DashboardBoard({
     .filter((r) => r.body.isDefault)
     .sort((a, b) => b.createdAt - a.createdAt)[0];
   const [selectedId, setSelectedId] = useState<string>();
+  const [previewingStarter, setPreviewingStarter] = useState(false);
   const useStarter = !home && selectedId === "starter";
-  const selected = useStarter
+  const selected = useStarter || previewingStarter
     ? undefined
     : (layouts.find((r) => r.rootId === selectedId) ?? home ?? layouts[0]);
-  const saved = selected ? normalizeLayout(selected.body) : initial;
+  const saved = previewingStarter && starter ? starter : selected ? normalizeLayout(selected.body) : initial;
   const { draft, setDraft, base, setBase, undo, setUndo, adding, setAdding } =
     editor;
   const [message, setMessage] = useState("");
@@ -84,6 +90,7 @@ export default function DashboardBoard({
   // Preparation is a single entry button in Command Center, not a dashboard card.
   // Keep stored layouts compatible without mounting the old checklist module.
   const sourceLayout = draft ?? saved;
+  useEffect(() => { onWorkspaceChange?.(sourceLayout.workspace); }, [sourceLayout.workspace, onWorkspaceChange]);
   const layout: DashboardLayout = {
     ...sourceLayout,
     panels: sourceLayout.panels.map(p => ["thesis", "missions"].includes(p.id) ? { ...p, visible: false } : p).filter((p) => p.id !== "preparation"),
@@ -115,6 +122,7 @@ export default function DashboardBoard({
     return () => window.removeEventListener("beforeunload", warn);
   }, [editing]);
   const choose = (id: string) => {
+    setPreviewingStarter(false);
     setSelectedId(id);
     try {
       localStorage.setItem(selectionKey, id);
@@ -161,7 +169,7 @@ export default function DashboardBoard({
                   onClick={() =>
                     change(
                       {
-                        ...makeInitial(),
+                        ...(starter && isReadingRoom(sourceLayout.workspace) ? starter : makeInitial()),
                         name: draft.name,
                         isDefault: draft.isDefault,
                       },
@@ -242,6 +250,10 @@ export default function DashboardBoard({
                 )}
               </div>
               <div className="cc-actions">
+                {starter && <button disabled={store.busy} onClick={() => {
+                  setPreviewingStarter(!previewingStarter);
+                  setMessage(previewingStarter ? "Returned to your saved dashboard." : "Reading Room preview. Existing dashboards and your default are unchanged. Edit and save to keep a new dashboard.");
+                }}>{previewingStarter ? "Exit Reading Room preview" : "Preview Reading Room"}</button>}
                 <button disabled={store.busy} onClick={() => start(true)}>
                   <Plus size={15} /> New dashboard
                 </button>
