@@ -4,6 +4,7 @@ import { readingRoomDashboard, readingRoomReference, isReadingRoom } from "../sr
 import { dashboardRecords, dashboardSnapshot, readDashboardSnapshot, freshDashboard } from "../src/lib/process/dashboard";
 import { createRecord, recordSchema } from "../src/lib/process/model";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
+import { preparationChanges } from "../src/lib/process/daily-preparation";
 
 test("Reading Room is a non-default Journal starter compatible with existing snapshots", () => {
   const old = createRecord("layout", { ...freshDashboard(), page: "Journal", isDefault: true });
@@ -44,6 +45,11 @@ test("daily reference reads the selected timezone date and current check-in with
   const correction = createRecord("checkin", { ...first.body, answers: [{ question: "Energy", value: 6 }, { question: "Stress", value: null }] }, first);
   const anotherDay = createRecord("checkin", { ...first.body, dayId: other.rootId, observedAt: session.startedAt, reflection: "Do not borrow this" });
   assert.equal(readingRoomReference([...rows, first, correction, anotherDay], session).arrival, "Energy: 6/10");
+  const earlier = [...rows, first, correction, anotherDay];
+  const beforeSession = preparationChanges(earlier, day.body.date, day.body.timezone, { arrival: ["Tired"] }, session.startedAt - 1000);
+  assert.equal(readingRoomReference([...earlier, ...beforeSession], session).arrival, "Tired");
+  const cleared = preparationChanges([...earlier, ...beforeSession], day.body.date, day.body.timezone, { arrival: [] }, session.startedAt);
+  assert.equal(readingRoomReference([...earlier, ...beforeSession, ...cleared], session).arrival, "Energy: 6/10");
 });
 
 test("empty and ambiguous process days do not borrow another day's context", () => {

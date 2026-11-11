@@ -181,7 +181,7 @@ export default function PreparationSummary({ store, day, props }: Context) {
           <strong>How I described feeling</strong>
           <p>
             {checkin
-              ? checkin.body.answers
+              ? checkin.body.arrival?.join(" · ") || checkin.body.answers
                   .filter((a) => a.value !== null)
                   .map((a) => `${a.question}: ${a.value}/10`)
                   .join(" · ") ||

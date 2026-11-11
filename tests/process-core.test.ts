@@ -7,6 +7,7 @@ import { createRecord, latest, recordSchema, type SupportFocus } from "../src/li
 import { validateAppend, withRefs } from "../src/lib/process/engine";
 import { freshDashboard } from "../src/lib/process/dashboard";
 import { readProcess, saveProcess } from "../src/lib/process/storage";
+import { preparationChanges } from "../src/lib/process/daily-preparation";
 const day = () =>
   createRecord("day", {
     date: "2026-10-29",
@@ -98,6 +99,21 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       [next.id],
     );
     assert.deepEqual(storedSupport.rows[0], { support: stillness, focuses: supportFocuses });
+    const batch = preparationChanges([d, next], d.body.date, d.body.timezone, {
+      intention: "Wait for my setup",
+      boundary: "Step away after chasing",
+      arrival: ["Tired"],
+    }, Date.now()).map((row) => withRefs(recordSchema.parse(row)));
+    validateAppend([d, next], batch, []);
+    await db.query("select pulse_process_append($1,$2)", [alice, batch]);
+    const storedPreparation = await db.query(
+      "select d.data->'body' as day, c.data#>'{body,arrival}' as arrival from trading_days d cross join temperature_checks c where d.id=$1 and c.id=$2",
+      batch.map((row) => row.id),
+    );
+    assert.deepEqual(storedPreparation.rows[0], {
+      day: { ...next.body, goal: "Wait for my setup", boundary: "Step away after chasing" },
+      arrival: ["Tired"],
+    });
     await assert.rejects(
       db.query("select pulse_process_append($1,$2)", [
         alice,
@@ -198,6 +214,7 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       `reset role; set role authenticated; set request.jwt.claim.sub='${bob}'`,
     );
     assert.equal((await db.query("select * from trading_days")).rows.length, 0);
+    assert.equal((await db.query("select * from temperature_checks")).rows.length, 0);
     assert.equal(
       (await db.query("select * from dashboard_layouts")).rows.length,
       0,
@@ -218,7 +235,10 @@ test("Postgres enforces process isolation, immutable writes, revision lineage, r
       /permission denied/,
     );
     await db.exec(`set request.jwt.claim.sub='${alice}'`);
-    assert.equal((await db.query("select * from trading_days")).rows.length, 2);
+    assert.deepEqual(
+      (await db.query<{ id: string }>("select id from trading_days order by revision")).rows.map((row) => row.id),
+      [d.id, next.id, batch[0].id],
+    );
     assert.equal(
       (await db.query("select * from dashboard_layouts")).rows.length,
       1,

@@ -282,7 +282,7 @@ function DailyDashboard(
     readiness: [
       "Self-reported readiness",
       checkin
-        ? checkin.body.answers
+        ? checkin.body.arrival?.join(" · ") || checkin.body.answers
             .slice(0, 2)
             .map(
               (a) =>

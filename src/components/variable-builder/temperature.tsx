@@ -15,7 +15,7 @@ export default function Temperature(
 ) {
   const { day, store } = context;
   const rows = latest(store.records, "checkin")
-    .filter((r) => r.body.dayId === day.rootId)
+    .filter((r) => r.body.dayId === day.rootId && r.body.arrival === undefined)
     .sort((a, b) => b.body.observedAt - a.body.observedAt);
   const [open, setOpen] = useState(
     (context.initiallyOpen ?? false) && !rows.length,
