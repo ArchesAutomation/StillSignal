@@ -13,6 +13,7 @@ export const cx = (...names: (string | false | undefined)[]) =>
 export type Page =
   | "Home"
   | "Preparation"
+  | "Done"
   | "Command Center"
   | "Pre-Market"
   | "Trading Thesis"

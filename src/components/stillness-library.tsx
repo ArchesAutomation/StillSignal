@@ -77,6 +77,8 @@ export function StillnessLibrary({
   page,
   browse,
   preparation,
+  closing,
+  closingBrowse,
   onPage,
   onOpenDay,
   onReflect,
@@ -86,8 +88,10 @@ export function StillnessLibrary({
   page: Page;
   browse?: StillnessBrowse;
   preparation?: { tags: string[]; suggestion?: Item; onBrowse: () => void };
+  closing?: { onBrowse: () => void };
+  closingBrowse?: boolean;
   onPage: (page: Page) => void;
-  onOpenDay: (destination: Destination, date: string) => void;
+  onOpenDay: (destination: Destination) => void;
   onReflect: () => Promise<void>;
 }) {
   const [selected, setSelected] = useState(catalogue[0]);
@@ -147,7 +151,7 @@ export function StillnessLibrary({
   }, [panel, paused]);
 
   function add(choice: Choice) {
-    setDestination("Preparation");
+    setDestination(closingBrowse ? "Done" : "Preparation");
     setKeep(false);
     setPanel({ type: "add", choice });
   }
@@ -272,7 +276,7 @@ export function StillnessLibrary({
   const daily =
     page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"
-      : page === "Trade Quality"
+      : page === "Trade Quality" || page === "Done"
         ? "Done"
         : null;
   if (page !== "Stillness" && !daily) return null;
@@ -460,7 +464,7 @@ export function StillnessLibrary({
                       : "Nothing added for today."}
                 </p>
               </div>
-              <button onClick={preparation?.onBrowse ?? (() => onPage("Stillness"))}>
+              <button onClick={closing?.onBrowse ?? preparation?.onBrowse ?? (() => onPage("Stillness"))}>
                 Find support in Stillness
               </button>
             </div>
@@ -478,7 +482,7 @@ export function StillnessLibrary({
               .filter((choice) => choice.destination === daily && known(choice))
               .map((choice) => (
                 <article className="ss-support-row" key={choice.id}>
-                  {preparation && <Art item={find(choice)} />}
+                  {(preparation || closing) && <Art item={find(choice)} />}
                   <div>
                     <strong>{title(choice)}</strong>
                     <p>
@@ -512,8 +516,8 @@ export function StillnessLibrary({
               </button>
             )}
             {notice.destination && notice.destination !== daily && (
-              <button onClick={() => onOpenDay(notice.destination!, date)}>
-                Open {notice.destination}
+              <button onClick={() => onOpenDay(notice.destination!)}>
+                Open {notice.destination === "Done" ? "Done for the day" : notice.destination}
               </button>
             )}
             <button

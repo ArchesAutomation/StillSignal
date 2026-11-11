@@ -12,8 +12,9 @@ import { z } from "zod";
 import { Field, Panel, type Context } from "./command-center/shared";
 import PnlSnapshot from "./pnl-snapshot";
 import PersonalStillness from "./personal-stillness";
-export default function SessionReviewGuide(context: Context) {
+export default function SessionReviewGuide(context: Context & { embedded?: boolean }) {
   const { store, props, day } = context;
+  const embedded = context.embedded === true;
   const ideas = useMemo(
     () =>
       completedOn(
@@ -126,16 +127,16 @@ export default function SessionReviewGuide(context: Context) {
   }
   return (
     <Panel
-      title="Review this session"
-      detail="Outcome and process are different questions. Each trade keeps its own rule checks."
+      title={embedded ? "Trade rule checks" : "Review this session"}
+      detail={embedded ? undefined : "Outcome and process are different questions. Each trade keeps its own rule checks."}
     >
       <div className="guide-review-overview">
         <p>
           {ideas.length
-            ? `${ideas.length} fully closed trades on ${day.body.date}. Choose one to review its rules.`
+            ? embedded ? "Choose a trade to review its rules." : `${ideas.length} fully closed trades on ${day.body.date}. Choose one to review its rules.`
             : "No completed trades on this date. You can still pause, write or speak about your day."}
         </p>
-        {profile?.reviewOrder !== "rules-first" &&
+        {!embedded && profile?.reviewOrder !== "rules-first" &&
           !!profile?.stillness.length && (
             <details>
               <summary>Start with my optional stillness</summary>
@@ -263,7 +264,7 @@ export default function SessionReviewGuide(context: Context) {
             {error && <p role="alert">{error}</p>}
           </section>
         )}
-        {!!profile?.stillness.length &&
+        {!embedded && !!profile?.stillness.length &&
           profile.reviewOrder === "rules-first" && (
             <details>
               <summary>Pause alongside my review</summary>
@@ -273,7 +274,7 @@ export default function SessionReviewGuide(context: Context) {
               />
             </details>
           )}
-        <div className="cc-actions">
+        {!embedded && <><div className="cc-actions">
           <button
             onClick={() =>
               props.onReflect({
@@ -306,7 +307,7 @@ export default function SessionReviewGuide(context: Context) {
             Finish session / review today
           </button>
         </div>
-        <PnlSnapshot {...context} />
+        <PnlSnapshot {...context} /></>}
         <p className="cc-muted">
           Confirmations stay available in your process review. Unknown
           rules remain unreviewed; one trade's checks never replace another's.

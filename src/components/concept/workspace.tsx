@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReadingRoomReference from "./reading-room-reference";
 import ReadingRoomHome from "./reading-room-home";
 import ReadingRoomPreparation, { preparationSupport } from "./reading-room-preparation";
+import ReadingRoomDone from "./reading-room-done";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import PageDashboard from "../page-dashboard";
@@ -46,6 +47,7 @@ const navigation: [Page, string, string][] = [
   ["Preparation", "◒", "Preparation"],
   ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
+  ["Done", "◐", "Done for the day"],
   ["Patterns", "⌁", "Patterns"],
   ["Stillness", "◌", "Stillness"],
   ["Settings", "⚙", "Settings"],
@@ -71,8 +73,10 @@ export default function ConceptWorkspace(props: Props) {
   const reading = page === "Journal" && readingRoom;
   const home = page === "Home";
   const preparing = page === "Preparation";
+  const closing = page === "Done";
   const [returnToPreparation, setReturnToPreparation] = useState<Page>();
-  const quietRoom = reading || home || preparing || (page === "Stillness" && returnToPreparation === page);
+  const [returnToDone, setReturnToDone] = useState(false);
+  const quietRoom = reading || home || preparing || closing || (page === "Stillness" && (returnToPreparation === page || returnToDone));
   const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const preparationDate = dateInZone(p.now, preparationTimezone);
   const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
@@ -113,6 +117,7 @@ export default function ConceptWorkspace(props: Props) {
     if (
       previousActive.current &&
       !p.active &&
+      !closing &&
       p.settings.startWithStillness !== false
     )
       props.onPage("Stillness");
@@ -122,6 +127,7 @@ export default function ConceptWorkspace(props: Props) {
     s.endedAt,
     p.active,
     p.settings.startWithStillness,
+    closing,
     page,
     props.onPage,
   ]);
@@ -183,6 +189,7 @@ export default function ConceptWorkspace(props: Props) {
   const go = (next: Page) => {
     setWeekly(false);
     setReturnToPreparation(undefined);
+    setReturnToDone(false);
     if (next === "Home") setStillnessBrowse(undefined);
     if (next !== "Journal") setFocusTime(undefined);
     if (next === "Journal" || next === "Live Session") setView("story");
@@ -200,8 +207,23 @@ export default function ConceptWorkspace(props: Props) {
     go("Pre-Market");
     setReturnToPreparation("Pre-Market");
   };
+  const browseFromDone = () => {
+    setStillnessBrowse({ tags: [], itemId: "release" });
+    go("Stillness");
+    setReturnToDone(true);
+  };
+  const reflectForToday = async (from: "stillness" | "done") => {
+    if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
+    const now = Date.now();
+    const date = journalDateValue(now);
+    if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
+      throw new Error("Today’s Journal could not open. Try again.");
+    }
+    go("Journal");
+    props.onReflect({ t: now, eventTime: null, ...(from === "stillness" ? { origin: "stillness" } : { section: "day-review" }) });
+  };
   const goFromHome = (next: Page) => {
-    if (next === "Pre-Market" || next === "Trade Quality") {
+    if (next === "Pre-Market") {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       setSupportDay({ date: dateInZone(Date.now(), timezone), page: next });
     }
@@ -401,7 +423,7 @@ export default function ConceptWorkspace(props: Props) {
           />
         ) : (
         <>
-        {!preparing && <header className={cx("topbar")}>
+        {!preparing && !closing && <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             {reading ? "Reading Room" : "Workspace"}{" "}
             <b>
@@ -414,10 +436,11 @@ export default function ConceptWorkspace(props: Props) {
             </b>
           </div>
           <div className={cx("topactions")}>
-            {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => void act(async () => {
-              if (p.active) { await p.stop(); if (p.settings.startWithStillness !== false) go("Stillness"); }
-              else await startPreparedSession();
-            }, p.active)}>{p.active ? "End session" : "Start session"}</button>}
+            {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => {
+              if (p.active) go("Done");
+              else void act(startPreparedSession);
+            }}>{p.active ? "Go to Done for the day →" : "Start session"}</button>}
+            {page === "Journal" && !reading && p.active && <button onClick={() => go("Done")}>Go to Done for the day →</button>}
             <details className={cx("tools")}>
               <summary className={cx("iconbtn")} aria-label="Session tools">
                 ⋯
@@ -560,6 +583,7 @@ export default function ConceptWorkspace(props: Props) {
         </header>}
         {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
         {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
+        {page === "Stillness" && returnToDone && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Done")}>← Back to Done for the day</button></div>}
         <ReadingRoomPreparation
           key={p.owner}
           active={preparing}
@@ -573,32 +597,33 @@ export default function ConceptWorkspace(props: Props) {
           onStart={async () => { await p.start(); go("Journal"); }}
           onJournal={() => go("Journal")}
         >
-        <StillnessLibrary
-          key={p.owner}
-          owner={p.owner}
+        <ReadingRoomDone
+          active={closing}
           store={process}
-          page={page}
-          browse={stillnessBrowse}
-          preparation={support && { tags: support.tags, suggestion: support.suggestion, onBrowse: browseFromPreparation }}
-          onPage={go}
-          onOpenDay={(destination, date) => {
-            const next = destination === "Preparation" ? "Preparation" : "Trade Quality";
-            if (next === "Trade Quality") setSupportDay({ date, page: next });
-            go(next);
+          props={viewProps}
+          onEnd={p.stop}
+          onBrowse={browseFromDone}
+          onReflect={() => reflectForToday("done")}
+          onTradeQuality={() => {
+            setSupportDay({ date: preparationDate, page: "Trade Quality" });
+            go("Trade Quality");
           }}
-          onReflect={async () => {
-            if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
-            const now = Date.now();
-            const date = journalDateValue(now);
-            if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
-              throw new Error("Today’s Journal could not open. Try again.");
-            }
-            go("Journal");
-            props.onReflect({ t: now, eventTime: null, origin: "stillness" });
-          }}
-        />
+        >
+          <StillnessLibrary
+            owner={p.owner}
+            store={process}
+            page={page}
+            browse={stillnessBrowse}
+            preparation={support && { tags: support.tags, suggestion: support.suggestion, onBrowse: browseFromPreparation }}
+            closing={closing ? { onBrowse: browseFromDone } : undefined}
+            closingBrowse={returnToDone}
+            onPage={go}
+            onOpenDay={(destination) => go(destination === "Preparation" ? "Preparation" : "Done")}
+            onReflect={() => reflectForToday("stillness")}
+          />
+        </ReadingRoomDone>
         </ReadingRoomPreparation>
-        {!preparing && <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
+        {!preparing && !closing && <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {s.demo && (
             <p className={cx("demo-notice")}>
               DEMO DATA · Simulated heart rate, trades and reflections. No

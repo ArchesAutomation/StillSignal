@@ -5,6 +5,28 @@ import { dashboardRecords, dashboardSnapshot, readDashboardSnapshot, freshDashbo
 import { createRecord, recordSchema } from "../src/lib/process/model";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
 import { preparationChanges } from "../src/lib/process/daily-preparation";
+import { dayCloseoutChange } from "../src/lib/process/day-closeout";
+import { emptyTradingDay } from "../src/lib/process/trading-day";
+
+test("Done records only the edited choice on today's trading day", () => {
+  const date = "2026-11-11", zone = "Europe/London";
+  const base = { ...emptyTradingDay(date, zone), goal: "Wait for my setup", boundary: "Step away after chasing" };
+  const day = createRecord("day", base);
+  const prior = createRecord("day", { ...base, date: "2026-11-10", closeout: { outcome: "loss" } });
+  const otherZone = createRecord("day", { ...base, timezone: "America/New_York", closeout: { outcome: "profit" } });
+  const records = [day, prior, otherZone];
+  assert.equal(dayCloseoutChange([], date, zone, {}), undefined);
+  assert.equal(dayCloseoutChange([], date, zone, { outcome: "no-trade" })?.body.closeout?.outcome, "no-trade");
+  const outcome = dayCloseoutChange(records, date, zone, { outcome: "no-trade" })!;
+  const both = dayCloseoutChange([...records, outcome], date, zone, { process: "followed" })!;
+  assert.equal(both.rootId, day.rootId);
+  assert.deepEqual(recordSchema.parse(both).body, { ...base, closeout: { outcome: "no-trade", process: "followed" } });
+  assert.equal(dayCloseoutChange([...records, outcome, both], date, zone, { process: "followed" }), undefined);
+  const processOnly = dayCloseoutChange([...records, outcome, both], date, zone, { outcome: undefined })!;
+  assert.deepEqual(processOnly.body.closeout, { outcome: undefined, process: "followed" });
+  const cleared = dayCloseoutChange([...records, outcome, both, processOnly], date, zone, { process: undefined })!;
+  assert.deepEqual(cleared.body, base);
+});
 
 test("Reading Room is a non-default Journal starter compatible with existing snapshots", () => {
   const old = createRecord("layout", { ...freshDashboard(), page: "Journal", isDefault: true });

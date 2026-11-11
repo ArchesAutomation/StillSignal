@@ -4,7 +4,7 @@ This is the shared redesign direction, updated 11 November 2026. Read it before 
 
 ## Start here
 
-Continue with Done for the day after the Preparation implementation is approved for merge and merged into integration. Inspect the references below and verify the live repository and preview state. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
+Done for the day is the last milestone PR into integration. After it is approved and merged, start a separate chat for the combined review. Inspect the references below and verify the live repository and preview state. Caleb wants visual iteration before implementation and explicit approval for each merge and for the combined production release.
 
 Repository: https://github.com/ArchesAutomation/StillSignal
 
@@ -53,7 +53,7 @@ Use the application's actual Big 4 labels/data. Allow multi-selection. Prototype
 
 A welcoming, simple entrance into today, with clear routes to Preparation, Stillness, Done and Journal. Summarise relevant daily context without recreating a competing Command Center. Integrate links/state from the completed daily flow. Keep weekly supportive reflection accessible without making it an assessment or mandatory task.
 
-Home uses #79's Reading Room welcome, day cards, featured support and weekly reflection with horizontal navigation. Choose any of the canonical Big 4 to get support with patterns that may arise **during trading**. The choices save to the current trading day. Explore Stillness opens the existing library with those filters and a relevant preview. The library's filters can be changed independently. Home links to Reading Room Preparation, the existing Done workflow and the real Journal.
+Home uses #79's Reading Room welcome, day cards, featured support and weekly reflection with horizontal navigation. Choose any of the canonical Big 4 to get support with patterns that may arise **during trading**. The choices save to the current trading day. Explore Stillness opens the existing library with those filters and a relevant preview. The library's filters can be changed independently. Home links to Reading Room Preparation, Done for the day and the real Journal.
 
 ### Stillness: integrated
 
@@ -71,13 +71,15 @@ Preparation shows today's Home choices and a Stillness suggestion in the support
 
 ### Done for the day
 
-Primary place to end a session once ready. Outcome choices belong here. Review process, offer selected closing support and optional reflection. Do not require original writing to complete the day and do not turn this into another Preparation screen.
+Done is the primary place to end a session. From Home or the top navigation, open Done; an active Daily journal also offers **Go to Done for the day**. **End session** stops through the existing session controls and keeps you on Done even when the Stillness redirect is enabled. You can leave with everything blank, or record a no-trade outcome and still review how you followed your plan.
+
+The approved Reading Room layout keeps outcome, process, closing support and reflection as separate sections so each can become a widget later. Outcome and day-level process choices are independently editable. Where trades fully closed today, **Review trades and rules** embeds the existing `SessionReviewGuide`. The full **Trade Quality** tools remain reachable. **Find closing support** opens the existing Stillness library at **Leave the result here** and defaults the add dialog to Done for today. Keeping a choice for later requires explicit opt-in. **Reflect in Daily journal** opens today's existing composer at **Day review**, with Whole day selected. A future composer redesign is separate.
 
 ### Journal: implemented first milestone
 
 PR #78 arranges the real Journal around daily reference, session rhythm and moment-by-moment entries/evidence. It preserves before/entry/management/exit/after, day-level entries and entries without a trade, the existing chart/layers/measurements/gaps, evidence presentation and editing. No replacement evidence drawer or simulated Journal is authorized.
 
-Reading Room is an additional non-default starter preview. Entering it must not overwrite an existing dashboard or saved default. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. Header retains recording status and accessible Start/End controls; secondary actions use its tools menu until future session-flow transitions are reviewed.
+Reading Room is an additional non-default starter preview. Entering it must not overwrite an existing dashboard or saved default. Daily reference is movable/resizable using the same editor and reads selected-day records. Existing move, resize, hide, restore, Undo, Cancel, Save, snapshots and old widget identities/arrangements remain. Secondary widgets are hidden in the starter but restorable. The Reading Room header retains recording status, Start and a route to Done while the session is active. Existing session tools and widget layouts remain available.
 
 ## Preserve throughout
 
@@ -109,7 +111,7 @@ Supabase preview branches are disabled. Cloudflare branch-build success does not
 
 Agreed: the purpose, five destinations, Reading Room basis, top navigation, existing systems preserved, library-first interaction, just-today default, sequence integrity/skipping/later customisation, Done outcomes, optional writing, dashboard compatibility and reviewed staged delivery.
 
-Stillness and Home are integrated. Caleb approved the Preparation proposal and its implementation is ready for draft review. The Done layout, the final navigation transition and later sequence customisation remain open. At combined review, Caleb wants the Reading Room Journal to be the view people see when they open Daily journal. Decide how that landing behavior should respect existing custom dashboards, and revisit how Command Center and Patterns move out of the main navigation. Saved support requires an explicit choice each time it is added to a day.
+Stillness, Home and Preparation are integrated. Caleb approved the Done layout and flow on 11 November 2026. At combined review, Caleb wants the new Reading Room experience to be what people see when they open the site. Review how Daily journal opens to Reading Room without overriding saved dashboards, and decide where to put Command Center, Patterns and the older Journal view. Treat archiving as an access and navigation decision until Caleb confirms what should remain reachable. Later sequence customisation and the composer redesign remain separate. Saved support requires an explicit choice each time it is added to a day.
 
 ## Stillness design reference and original reuse plan
 
@@ -129,8 +131,8 @@ Try it: **Stillness → Make room for waiting → an individual step → Back to
 | Shared direction and Stillness prototype | `codex/stillness-design-review` → `integration/reading-room-redesign` | [#79](https://github.com/ArchesAutomation/StillSignal/pull/79), approved and merged at `b9aa42c`. |
 | Stillness implementation | `codex/stillness-library` → `integration/reading-room-redesign` | [#80](https://github.com/ArchesAutomation/StillSignal/pull/80), approved and merged at `835b3cb`. |
 | Home | `codex/reading-room-home` → `integration/reading-room-redesign` | [#81](https://github.com/ArchesAutomation/StillSignal/pull/81), approved and merged at `76c8873`. |
-| Preparation | `codex/reading-room-preparation` → `integration/reading-room-redesign` | Proposal approved, implemented from `76c8873` for draft review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/reading-room-preparation) for the current revision. |
-| Done for the day | Separate feature branch from updated integration | Planned. |
+| Preparation | `codex/reading-room-preparation` → `integration/reading-room-redesign` | [#82](https://github.com/ArchesAutomation/StillSignal/pull/82), approved and merged at `7be98f0`. |
+| Done for the day | `codex/reading-room-done` → `integration/reading-room-redesign` | Proposal approved, implemented from `7be98f05e3a4ed885eca568af48c8383c08d49c8` for [draft review](https://github.com/ArchesAutomation/StillSignal/pulls?q=is%3Apr+head%3Acodex%2Freading-room-done). See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/reading-room-done) for the revision under review. |
 | Combined release | `integration/reading-room-redesign` → `main` | Planned. One release PR, explicit approval required. |
 
 On 10 November 2026, GitHub reported #78's `check` and `Workers Builds: still-signal` successful at its head; `Supabase Preview` was skipped. Cloudflare's deployment API returned `f2543ebd-9b40-42a3-b397-7d608b93a606`, Worker `e844f543-c15b-4625-bc94-9f7edbb77254` at 100%, matching the prior source reconciliation. The Builds trigger read returned 403. Repository and CI use the existing Supabase project; actual preview bindings remain unverified, so no authenticated saves were attempted. Use the synthetic local fixture until isolation is established.
@@ -225,3 +227,32 @@ Verification on 11 November 2026:
 ## Copy into the Done for the day chat
 
 > Continue StillSignal with Done for the day. Verify the live `integration/reading-room-redesign` ref and the Preparation PR first. Read `docs/redesign-direction.md`, especially “Review the Preparation implementation,” and open #79’s original Done for the day screen. Branch from updated integration once Preparation has merged. Show the connected proposal in synthetic `/review` and get visual approval before implementing. Use the Reading Room palette and existing navigation. Make Done the primary place to end a session when ready, record outcomes and process separately, offer today’s closing Stillness support, and keep reflection optional in the real Journal. Reuse current sessions, daily records, review tools, and dashboard layouts. Start and end should work without optional writing. After approval run `npm run check` and `git diff --check`, verify in a local browser, and open a draft `manual-merge` PR to integration. Update this handoff with screenshots, exact checks, and gaps. Ask before merging or releasing. For the combined integration review, decide how Daily journal opens into Reading Room while respecting existing saved dashboards, and revisit where Command Center and Patterns should be accessed. Release the combined redesign once after approval.
+
+## Review the Done for the day implementation
+
+Use the synthetic review environment above with `STILL_SIGNAL_QA_DIST='.next-glassy-build'` and port `3190`. Open [the local review](http://127.0.0.1:3190/review). Keep the Supabase URL, anonymous key and publishable key empty. A fresh browser profile gives you an empty day and keeps your existing synthetic choices separate.
+
+1. Open **Home → Begin preparation → Start session** with every field blank. Open **Preview Reading Room** in Daily journal, then **Go to Done for the day → End session**. Confirm **Session ended** appears on Done and all choices remain blank.
+2. Select **No trade** and **Followed my rules**. Reload, reopen Done, and clear No trade by selecting it again. The process choice should remain selected. If there are fully closed trades on the current day, **Review trades and rules** uses the existing trade and playbook review. **Open Trade Quality** retains the full tools.
+3. Choose **Find closing support**. The existing library opens at **Leave the result here**. Try **Back to Done for the day** without adding, then return to the library and choose **Add to my day → Add for today → Open Done for the day**. Saved support starts unchecked. Begin the sequence, skip its steps and finish without reflection.
+4. Choose **Reflect in Daily journal**. The real composer opens at **Day review** and **Whole day · no trade required**. Close it without saving.
+
+[Active session](design/done-implementation/02-done-active.jpg) · [Stillness add](design/done-implementation/03-stillness-add.jpg) · [No-trade close with today's support](design/done-implementation/05-done-ended.jpg) · [Journal composer](design/done-implementation/06-journal-reflection.jpg) · [390 px layout](design/done-implementation/07-done-mobile.jpg) · [Embedded trade rule review](design/done-implementation/08-trade-rule-review.jpg)
+
+The Done layout is in `src/components/concept/reading-room-done.tsx` and uses the Reading Room and Preparation styles with scoped Done styles. Review the stop transition in `src/components/concept/workspace.tsx`: Done calls the existing stop control and suppresses the automatic Stillness route only while on Done. The Stillness library remains mounted across the return so the added choice and Undo carry through. The closeout helper reads and revises the current date and timezone's trading day, preserving the other choice, Preparation, Home and Stillness fields. The manual day outcome does not change execution data, individual trade evaluations, or the existing trading-day workflow status. A blank session end needs no day review record.
+
+The optional `closeout` object is accepted by the app and generated `pulse-process` validators. There is no SQL migration. For the combined release, verify which Supabase project the app and preview use. Coordinate the generated Edge Function and app update so the endpoint accepts all redesign fields before the new app can write them. Old app versions use a strict validator; plan the reload before they sync newer records. Do not write to an authenticated preview before confirming backend isolation and the test account.
+
+Verification on 11 November 2026:
+
+- GitHub and the local clone both placed the live integration base at `7be98f05e3a4ed885eca568af48c8383c08d49c8`. GitHub main was `d6aa146`. Cloudflare still reported deployment `f2543ebd-9b40-42a3-b397-7d608b93a606` serving Worker version `e844f543-c15b-4625-bc94-9f7edbb77254` at 100%, matching the source reconciliation above. `node scripts/check-cloudflare.mjs` passed before feature work.
+- `node scripts/prepare-edge.mjs` regenerated the Edge sources. Only the matching `pulse-process/process/model.ts` change was retained.
+- `node --import ./tests/browser-environment.mjs --import tsx --test tests/reading-room.test.ts tests/process-core.test.ts` passed all 7 tests. The database test round-tripped both closeout choices alongside the existing Home, Preparation and Stillness day fields. The first focused run exposed a test assertion that still expected the old number of revisions; the assertion now includes the closeout revision.
+- `npm run check` passed Worker type generation, TypeScript, all 338 tests and the Vinext production build. Windows used the workspace npm runner on PATH and loopback access for the build helper. The build emitted source map, chunk, dynamic import and route classification warnings. `git diff --check` and `git diff --cached --check` passed.
+- Local Edge (Playwright) exercised the four steps above, including a blank end with the existing Stillness redirect preference on and no closeout record written, a no-trade review, reload and independent clearing, returning from Stillness with and without adding, skipping the full sequence, and opening and dismissing the real Journal composer. Saved support stayed empty. The 390 px layout had no horizontal overflow. With the browser clock set to the original synthetic AAPL fixture date and a synthetic playbook seeded, the existing guide saved a rule evaluation. The final walkthrough recorded zero outbound HTTP requests and browser errors.
+
+Browser verification used synthetic data and local storage. Authenticated cloud sync, preview backend bindings, physical wearable, microphone and screen capture, and the combined production release were outside this verification.
+
+## Copy into the combined review chat
+
+> Review the complete StillSignal Reading Room redesign after the Done PR merges into `integration/reading-room-redesign`. Verify the live integration tip and that #78–#82 and the Done PR are present. Read `docs/redesign-direction.md`, especially the Done walkthrough and the Edge Function handoffs. In the synthetic /review app, walk Home → Preparation → Start session → Daily journal → Done → optional Journal reflection, including the Stillness return and a blank/no-trade close. Then review how Daily journal should open in Reading Room while honouring existing saved dashboards, and ask Caleb how Command Center, Patterns and the older Journal view should be archived or accessed. Preserve their functionality, saved layouts and records until that is agreed. Keep the existing composer for now. Check the coordinated `pulse-process` Edge Function and app release steps, verify preview isolation, and request separate approval before the single combined production release. Do not deploy just to assemble or review integration.

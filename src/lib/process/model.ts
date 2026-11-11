@@ -234,6 +234,13 @@ export type StillnessSelection = z.infer<typeof stillnessSelectionSchema>;
 export const bigFour = ["impulsiveness", "impatience", "fear", "greed"] as const;
 export type SupportFocus = (typeof bigFour)[number];
 export const arrivalFeelings = ["Settled", "Restless", "Tired", "Uncertain", "Hopeful"] as const;
+export const dayOutcomes = ["profit", "loss", "breakeven", "no-trade", "rather-not-say"] as const;
+export const dayProcessChoices = ["followed", "partial", "broken", "not-reviewed"] as const;
+const dayCloseoutSchema = z.object({
+  outcome: z.enum(dayOutcomes).optional(),
+  process: z.enum(dayProcessChoices).optional(),
+}).strict();
+export type DayCloseout = z.infer<typeof dayCloseoutSchema>;
 
 export const recordSchema = z
   .discriminatedUnion("kind", [
@@ -258,6 +265,7 @@ export const recordSchema = z
           boundary: text.optional(),
           stillness: z.array(stillnessSelectionSchema).max(100).optional(),
           supportFocuses: z.array(z.enum(bigFour)).max(bigFour.length).optional(),
+          closeout: dayCloseoutSchema.optional(),
         })
         .strict(),
     ),
