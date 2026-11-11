@@ -66,7 +66,7 @@ export default function JournalContext({ store, day, props }: Context) {
           <p>
             Self-reported check-in:{" "}
             {checkin
-              ? checkin.body.answers
+              ? checkin.body.arrival?.join(" · ") || checkin.body.answers
                   .map((a) => `${a.question} ${a.value ?? "missing"}`)
                   .join(" · ")
               : "Not recorded before this time"}

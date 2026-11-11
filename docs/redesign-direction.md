@@ -4,7 +4,7 @@ This is the shared redesign direction, updated 11 November 2026. Read it before 
 
 ## Start here
 
-Continue with Preparation after Home is approved and merged into integration. Inspect the references below, verify the repository and preview state, and show a local interactive proposal for Preparation. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
+Continue with Done for the day after the Preparation implementation is approved for merge and merged into integration. Inspect the references below and verify the live repository and preview state. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
 
 Repository: https://github.com/ArchesAutomation/StillSignal
 
@@ -49,11 +49,11 @@ Use the application's actual Big 4 labels/data. Allow multi-selection. Prototype
 
 ## Page responsibilities
 
-### Home: implemented for draft review
+### Home: integrated
 
 A welcoming, simple entrance into today, with clear routes to Preparation, Stillness, Done and Journal. Summarise relevant daily context without recreating a competing Command Center. Integrate links/state from the completed daily flow. Keep weekly supportive reflection accessible without making it an assessment or mandatory task.
 
-Home uses #79's Reading Room welcome, day cards, featured support and weekly reflection with horizontal navigation. Choose any of the canonical Big 4 to get support with patterns that may arise **during trading**. The choices save to the current trading day. Explore Stillness opens the existing library with those filters and a relevant preview. The library's filters can be changed independently. Preparation and Done open the existing workflows for today. Journal opens the existing Journal and its dashboard options.
+Home uses #79's Reading Room welcome, day cards, featured support and weekly reflection with horizontal navigation. Choose any of the canonical Big 4 to get support with patterns that may arise **during trading**. The choices save to the current trading day. Explore Stillness opens the existing library with those filters and a relevant preview. The library's filters can be changed independently. Home links to Reading Room Preparation, the existing Done workflow and the real Journal.
 
 ### Stillness: integrated
 
@@ -65,7 +65,9 @@ Caleb approved the card library, side preview, today-only add and Undo, reusable
 
 ### Preparation
 
-Use #79's Preparation layout with an optional check-in about how someone is arriving, boundaries, intentions and today's selected support. Read today's Big 4 choices from Home to surface relevant support. Keep initial setup separate. Show and add today's Stillness choices with minimal configuration. Make Preparation the primary place to start a session once the replacement is complete. Read and write the existing daily context so answers have one source.
+Reading Room Preparation follows #79's Today’s path layout and Home’s colours. Open it from Home or from **Preparation** in the top navigation. The optional arrival chips save as a pre-market check-in and appear under **How you arrived** in the Journal’s **Daily reference** for that date. Intention and boundary save together on the existing trading day. **Save for today** saves without starting a session. **Start session** saves any edits, starts through the existing session controls and opens Journal. All fields can be left blank.
+
+Preparation shows today's Home choices and a Stillness suggestion in the support card. Opening the suggestion seeds the library's editable filters. Support joins today's list only after an explicit add. **Initial setup** opens the existing guided tools and routine library. Existing layouts, saved runs and their pinned requirements are retained. Preparation’s arrival, support and intention sections provide the basis for future widgets.
 
 ### Done for the day
 
@@ -107,7 +109,7 @@ Supabase preview branches are disabled. Cloudflare branch-build success does not
 
 Agreed: the purpose, five destinations, Reading Room basis, top navigation, existing systems preserved, library-first interaction, just-today default, sequence integrity/skipping/later customisation, Done outcomes, optional writing, dashboard compatibility and reviewed staged delivery.
 
-Stillness is integrated. Home is implemented for draft review. Final Preparation and Done layouts, the navigation transition and the extent of later sequence customisation remain open. Saved support requires an explicit choice each time it is added to a day.
+Stillness and Home are integrated. Caleb approved the Preparation proposal and its implementation is ready for draft review. The Done layout, the final navigation transition and later sequence customisation remain open. At combined review, Caleb wants the Reading Room Journal to be the view people see when they open Daily journal. Decide how that landing behavior should respect existing custom dashboards, and revisit how Command Center and Patterns move out of the main navigation. Saved support requires an explicit choice each time it is added to a day.
 
 ## Stillness design reference and original reuse plan
 
@@ -126,8 +128,9 @@ Try it: **Stillness → Make room for waiting → an individual step → Back to
 | Journal | `codex/reading-room-journal` → `integration/reading-room-redesign` | [#78](https://github.com/ArchesAutomation/StillSignal/pull/78), approved and merged at `60f3698`. |
 | Shared direction and Stillness prototype | `codex/stillness-design-review` → `integration/reading-room-redesign` | [#79](https://github.com/ArchesAutomation/StillSignal/pull/79), approved and merged at `b9aa42c`. |
 | Stillness implementation | `codex/stillness-library` → `integration/reading-room-redesign` | [#80](https://github.com/ArchesAutomation/StillSignal/pull/80), approved and merged at `835b3cb`. |
-| Home | `codex/reading-room-home` → `integration/reading-room-redesign` | Implemented from `835b3cb` for draft review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/reading-room-home) for the current revision. |
-| Preparation → Done for the day | One feature branch each, from updated integration | Planned. |
+| Home | `codex/reading-room-home` → `integration/reading-room-redesign` | [#81](https://github.com/ArchesAutomation/StillSignal/pull/81), approved and merged at `76c8873`. |
+| Preparation | `codex/reading-room-preparation` → `integration/reading-room-redesign` | Proposal approved, implemented from `76c8873` for draft review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/reading-room-preparation) for the current revision. |
+| Done for the day | Separate feature branch from updated integration | Planned. |
 | Combined release | `integration/reading-room-redesign` → `main` | Planned. One release PR, explicit approval required. |
 
 On 10 November 2026, GitHub reported #78's `check` and `Workers Builds: still-signal` successful at its head; `Supabase Preview` was skipped. Cloudflare's deployment API returned `f2543ebd-9b40-42a3-b397-7d608b93a606`, Worker `e844f543-c15b-4625-bc94-9f7edbb77254` at 100%, matching the prior source reconciliation. The Builds trigger read returned 403. Repository and CI use the existing Supabase project; actual preview bindings remain unverified, so no authenticated saves were attempted. Use the synthetic local fixture until isolation is established.
@@ -195,3 +198,30 @@ Verification on 11 November 2026:
 ## Copy into the Preparation chat
 
 > Continue StillSignal with Preparation after the Home PR is approved and merged. Read `docs/redesign-direction.md` on `integration/reading-room-redesign` and open #79's Reading Room Preparation reference. Start from updated integration with the real #78 Journal, #80 Stillness and Home. Show a connected proposal in synthetic `/review` before implementing. Keep the check-in about how the person is arriving. Use the existing `day.body.supportFocuses` choices from Home to surface relevant Stillness without asking again. Bring intentions, boundaries and today's chosen support together and keep initial setup separate. Reuse current records, pinned runs, session controls, Journal and dashboards. After approval, use a separate branch, run `npm run check` and `git diff --check`, verify in the local browser, and open a draft `manual-merge` PR to integration. Update this handoff with screenshots, checks, gaps and a copy-ready prompt for Done for the day. Ask before merging or releasing.
+
+## Review the Preparation implementation
+
+Use the synthetic review setup above with `STILL_SIGNAL_QA_DIST='.next-glassy-build'` and port `3187`. Open [the local review](http://127.0.0.1:3187/review).
+
+1. On **Home**, select **Greed**, then **Begin preparation**. The support card shows **Greed** and offers **Preview Enough is a choice in Stillness**. Preparation is also a direct navigation destination.
+2. In Preparation, select **Tired** and enter an intention and boundary. Open **Initial setup** to see the original guided workspace, then use **Back to Preparation**.
+3. Open the suggestion, clear the **Greed** filter, then choose **Add to my day → Add for today → Open Preparation**. Confirm that the added support, draft fields and Home choice are still present. **Also keep in Saved support** starts unchecked.
+4. Choose **Start session**. Open **Preview Reading Room** in Daily journal and look for **How you arrived · Tired** and the intention in **Daily reference**. Return to Preparation and reload to check the saved fields. Use a fresh browser profile to check starting with all fields blank.
+
+[Preparation suggestion](design/preparation-implementation/preparation-suggestion.jpg) · [Support added for today](design/preparation-implementation/preparation-support.jpg) · [Journal arrival](design/preparation-implementation/journal-arrival.jpg)
+
+The Preparation view is in `src/components/concept/reading-room-preparation.tsx`. `workspace.tsx` keeps the guided tools reachable and passes the real Stillness library and session controls through. `src/lib/process/daily-preparation.ts` appends only edited fields and reads the current record before writing, so unrelated day fields and Stillness selections survive. The day stores its existing goal and an optional boundary. The existing check-in record stores the optional pre-market arrival choices. Clearing those choices archives that check-in revision. Legacy rated check-ins stay editable in Temperature check. Journal reads the selected day, including its timezone.
+
+The matching `pulse-process` validators are generated. There is no SQL migration. Coordinate the Edge Function update with the app in the combined release so the endpoint accepts the new fields when clients start writing them. Existing strict validators in older app versions require a reload before syncing the new records.
+
+Verification on 11 November 2026:
+
+- `node scripts/prepare-edge.mjs` regenerated the function sources. The change retains only the matching `pulse-process/process/model.ts` diff.
+- `node --import ./tests/browser-environment.mjs --import tsx --test tests/reading-room.test.ts tests/process-core.test.ts` passed all 6 tests. Local Postgres round-tripped arrival, intention, and boundary alongside existing Home and Stillness choices. The Journal test checked clearing the arrival and returning to the older rated check-in.
+- `npm run check` passed Worker type generation, TypeScript, 337 tests, and the Vinext production build. The build reported source map and route classification warnings. `git diff --check` and `git diff --cached --check` passed.
+- Local Edge exercised the steps above, including a real session start with blank fields, a start with unsaved edits, reload and clearing, and a 390 px viewport. The final run recorded no browser errors or outbound HTTP requests. An earlier run emitted one generic browser event error that did not recur.
+- The review used synthetic data and local storage. Authenticated cloud sync, preview backend bindings, and physical wearable, microphone, or screen capture were outside this verification. The Journal landing view and final navigation changes are for combined integration review.
+
+## Copy into the Done for the day chat
+
+> Continue StillSignal with Done for the day. Verify the live `integration/reading-room-redesign` ref and the Preparation PR first. Read `docs/redesign-direction.md`, especially “Review the Preparation implementation,” and open #79’s original Done for the day screen. Branch from updated integration once Preparation has merged. Show the connected proposal in synthetic `/review` and get visual approval before implementing. Use the Reading Room palette and existing navigation. Make Done the primary place to end a session when ready, record outcomes and process separately, offer today’s closing Stillness support, and keep reflection optional in the real Journal. Reuse current sessions, daily records, review tools, and dashboard layouts. Start and end should work without optional writing. After approval run `npm run check` and `git diff --check`, verify in a local browser, and open a draft `manual-merge` PR to integration. Update this handoff with screenshots, exact checks, and gaps. Ask before merging or releasing. For the combined integration review, decide how Daily journal opens into Reading Room while respecting existing saved dashboards, and revisit where Command Center and Patterns should be accessed. Release the combined redesign once after approval.

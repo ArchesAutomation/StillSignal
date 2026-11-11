@@ -2,6 +2,7 @@ import { emptyModuleLayout, type ModuleLayout } from "./module-layout";
 import { freshDashboard, type DashboardLayout } from "./process/dashboard";
 import { dateInZone, latest, type ProcessRecord } from "./process/model";
 import type { Session } from "./model";
+import { arrivalCheckin } from "./process/daily-preparation";
 
 // A validated section ID identifies the presentation without changing saved record schemas.
 export const READING_ROOM_SECTION = "reading-room";
@@ -30,8 +31,12 @@ export function readingRoomReference(records: ProcessRecord[], session: Session)
   const days = latest(records, "day").filter(d => d.body.date === date);
   const day = days.find(d => d.body.timezone === session.timezone) ?? (days.length === 1 ? days[0] : undefined);
   const checkin = day && latest(records, "checkin").filter(c => c.body.dayId === day.rootId).sort((a,b) => b.body.observedAt - a.body.observedAt)[0];
+  const arrival = arrivalCheckin(records, day?.rootId)?.body.arrival;
   return {
     intention: day?.body.goal || session.blueprint?.plan?.intention || "No intention recorded for this day.",
-    arrival: checkin ? checkin.body.answers.filter(a => a.value !== null).map(a => `${a.question}: ${a.value}/10`).join(" · ") || checkin.body.reflection || "Check-in saved without ratings" : "No check-in recorded for this day.",
+    arrival: arrival?.length ? arrival.join(" · ") :
+      checkin
+        ? checkin.body.answers.filter(a => a.value !== null).map(a => `${a.question}: ${a.value}/10`).join(" · ") || checkin.body.reflection || "Check-in saved without ratings"
+        : "No check-in recorded for this day.",
   };
 }

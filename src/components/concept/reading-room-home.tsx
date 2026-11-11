@@ -9,7 +9,7 @@ import { catalogue } from "@/lib/stillness-catalogue";
 import type { Page } from "./shared";
 
 const destinations = [
-  ["Pre-Market", "Preparation", "A short check-in, your chosen support and an intention to return to.", "◒"],
+  ["Preparation", "Preparation", "A short check-in, your chosen support and an intention to return to.", "◒"],
   ["Journal", "Your journal", "Return to your reflections, recordings and the evidence behind each moment.", "▤"],
   ["Trade Quality", "Done for the day", "Review how you traded and choose how to close the day.", "◐"],
 ] as const;
@@ -66,7 +66,7 @@ export default function ReadingRoomHome({
           <h1>A little room for you.</h1>
           <p>Less noise. More space to notice what matters.</p>
           <div className="rr-home-actions">
-            <button className="ss-primary" onClick={() => onPage("Pre-Market")}>Begin preparation <span aria-hidden="true">↗</span></button>
+            <button className="ss-primary" onClick={() => onPage("Preparation")}>Begin preparation <span aria-hidden="true">↗</span></button>
             <button onClick={browse}>Explore Stillness <span aria-hidden="true">→</span></button>
           </div>
         </div>
@@ -95,7 +95,7 @@ export default function ReadingRoomHome({
               <strong>{title}</strong>
               <span>{description}</span>
               <span className="rr-home-card-end">
-                {page === "Pre-Market" && supportCount > 0 ? `${supportCount} ${supportCount === 1 ? "choice" : "choices"} for today` : ""}
+                {page === "Preparation" && supportCount > 0 ? `${supportCount} ${supportCount === 1 ? "choice" : "choices"} for today` : ""}
                 <span aria-hidden="true">↗</span>
               </span>
             </button>

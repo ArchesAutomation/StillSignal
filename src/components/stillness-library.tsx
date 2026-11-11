@@ -76,6 +76,7 @@ export function StillnessLibrary({
   store,
   page,
   browse,
+  preparation,
   onPage,
   onOpenDay,
   onReflect,
@@ -84,6 +85,7 @@ export function StillnessLibrary({
   store: ProcessStore;
   page: Page;
   browse?: StillnessBrowse;
+  preparation?: { tags: string[]; suggestion?: Item; onBrowse: () => void };
   onPage: (page: Page) => void;
   onOpenDay: (destination: Destination, date: string) => void;
   onReflect: () => Promise<void>;
@@ -268,7 +270,7 @@ export function StillnessLibrary({
         .includes(search.trim().toLowerCase()),
   );
   const daily =
-    page === "Pre-Market" || page === "Prepare"
+    page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"
       : page === "Trade Quality"
         ? "Done"
@@ -458,14 +460,25 @@ export function StillnessLibrary({
                       : "Nothing added for today."}
                 </p>
               </div>
-              <button onClick={() => onPage("Stillness")}>
+              <button onClick={preparation?.onBrowse ?? (() => onPage("Stillness"))}>
                 Find support in Stillness
               </button>
             </div>
+            {preparation && preparation.tags.length > 0 && (
+              <div className="rr-preparation-from-home">
+                <p>Support you chose on Home <strong>{preparation.tags.join(" · ")}</strong></p>
+                {preparation.suggestion && !today.some((choice) =>
+                  choice.destination === "Preparation" && choice.itemId === preparation.suggestion?.id && choice.piece === undefined
+                ) && (
+                  <button onClick={preparation.onBrowse}>Preview {preparation.suggestion.name} in Stillness <span aria-hidden="true">↗</span></button>
+                )}
+              </div>
+            )}
             {today
               .filter((choice) => choice.destination === daily && known(choice))
               .map((choice) => (
                 <article className="ss-support-row" key={choice.id}>
+                  {preparation && <Art item={find(choice)} />}
                   <div>
                     <strong>{title(choice)}</strong>
                     <p>

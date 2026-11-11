@@ -8,6 +8,7 @@ import { GlassPreferenceScope } from "@/components/glassyui/glass-provider";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReadingRoomReference from "./reading-room-reference";
 import ReadingRoomHome from "./reading-room-home";
+import ReadingRoomPreparation, { preparationSupport } from "./reading-room-preparation";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import PageDashboard from "../page-dashboard";
@@ -42,6 +43,7 @@ function PageBoard({ owner, page, sessions, children, onPresentationChange }: { 
 }
 const navigation: [Page, string, string][] = [
   ["Home", "⌂", "Home"],
+  ["Preparation", "◒", "Preparation"],
   ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
   ["Patterns", "⌁", "Patterns"],
@@ -68,7 +70,12 @@ export default function ConceptWorkspace(props: Props) {
   const [readingRoom, setReadingRoom] = useState(false);
   const reading = page === "Journal" && readingRoom;
   const home = page === "Home";
-  const quietRoom = reading || home;
+  const preparing = page === "Preparation";
+  const [returnToPreparation, setReturnToPreparation] = useState<Page>();
+  const quietRoom = reading || home || preparing || (page === "Stillness" && returnToPreparation === page);
+  const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const preparationDate = dateInZone(p.now, preparationTimezone);
+  const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
   useLayoutEffect(() => {
     if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
     else delete document.documentElement.dataset.journalPresentation;
@@ -171,15 +178,27 @@ export default function ConceptWorkspace(props: Props) {
   }
   async function startPreparedSession() {
     await p.start();
-    props.onPage("Pre-Market");
+    props.onPage("Preparation");
   }
   const go = (next: Page) => {
     setWeekly(false);
+    setReturnToPreparation(undefined);
     if (next === "Home") setStillnessBrowse(undefined);
     if (next !== "Journal") setFocusTime(undefined);
     if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
+  };
+  const browseFromPreparation = () => {
+    if (!support) return;
+    setStillnessBrowse(support.browse);
+    go("Stillness");
+    setReturnToPreparation("Stillness");
+  };
+  const openPreparationSetup = () => {
+    setSupportDay({ date: preparationDate, page: "Pre-Market" });
+    go("Pre-Market");
+    setReturnToPreparation("Pre-Market");
   };
   const goFromHome = (next: Page) => {
     if (next === "Pre-Market" || next === "Trade Quality") {
@@ -382,7 +401,7 @@ export default function ConceptWorkspace(props: Props) {
           />
         ) : (
         <>
-        <header className={cx("topbar")}>
+        {!preparing && <header className={cx("topbar")}>
           <div className={cx("crumb")}>
             {reading ? "Reading Room" : "Workspace"}{" "}
             <b>
@@ -538,18 +557,33 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             </div>
           )}
-        </header>
+        </header>}
         {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
+        {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
+        <ReadingRoomPreparation
+          key={p.owner}
+          active={preparing}
+          owner={p.owner}
+          now={p.now}
+          store={process}
+          sessionActive={p.active}
+          capturePending={capturePending}
+          onBrowse={browseFromPreparation}
+          onSetup={openPreparationSetup}
+          onStart={async () => { await p.start(); go("Journal"); }}
+          onJournal={() => go("Journal")}
+        >
         <StillnessLibrary
           key={p.owner}
           owner={p.owner}
           store={process}
           page={page}
           browse={stillnessBrowse}
+          preparation={support && { tags: support.tags, suggestion: support.suggestion, onBrowse: browseFromPreparation }}
           onPage={go}
           onOpenDay={(destination, date) => {
-            const next = destination === "Preparation" ? "Pre-Market" : "Trade Quality";
-            setSupportDay({ date, page: next });
+            const next = destination === "Preparation" ? "Preparation" : "Trade Quality";
+            if (next === "Trade Quality") setSupportDay({ date, page: next });
             go(next);
           }}
           onReflect={async () => {
@@ -563,7 +597,8 @@ export default function ConceptWorkspace(props: Props) {
             props.onReflect({ t: now, eventTime: null, origin: "stillness" });
           }}
         />
-        <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
+        </ReadingRoomPreparation>
+        {!preparing && <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {s.demo && (
             <p className={cx("demo-notice")}>
               DEMO DATA · Simulated heart rate, trades and reflections. No
@@ -1066,7 +1101,7 @@ export default function ConceptWorkspace(props: Props) {
               </WorkspaceModule>
             </div>
           </ModuleScope>
-        </PageBoard>
+        </PageBoard>}
         </>
         )}
       </main>
