@@ -11,6 +11,7 @@ export const cx = (...names: (string | false | undefined)[]) =>
     .map((n) => "ss-" + n)
     .join(" ");
 export type Page =
+  | "Home"
   | "Command Center"
   | "Pre-Market"
   | "Trading Thesis"
