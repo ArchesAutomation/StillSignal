@@ -1,0 +1,18 @@
+.rr-done-bridge { display: contents; }
+.rr-done .rr-preparation-rail { grid-row: 2 / span 6; }
+.rr-done .rr-done-session { background: #e7eee8; border-color: #cad9ce; }
+.rr-done-session strong { display: flex; gap: 8px; align-items: center; }
+.rr-done-session i { width: 8px; height: 8px; border-radius: 50%; background: #517863; }
+.rr-done .rr-done-outcome { background: #fdf6f7; border-color: #ead8df; }
+.rr-done .rr-done-outcome .rr-preparation-optional { background: #f0e1e8; color: #744c65; }
+.rr-done .rr-done-outcome .rr-preparation-chips button[aria-pressed="true"] { background: #f0e1e8; border-color: #ad7f95; }
+.rr-done .rr-done-reflection { background: #f5f1f9; }
+.rr-done .rr-done-trades { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; border-top: 1px solid var(--rr-line); margin-top: 20px; padding-top: 14px; }
+.rr-done .rr-done-trades p { flex: 1 1 240px; }
+.rr-done .rr-preparation-support-heading { scroll-margin-top: 90px; }
+.rr-done section[id] { scroll-margin-top: 90px; }
+.rr-done-process .cc-panel { margin-top: 14px; }
+.rr-done-process .cc-panel h2 { font-size: 23px; text-transform: none; }
+@media (max-width: 760px) {
+  .rr-done .rr-preparation-rail { grid-row: auto; }
+}

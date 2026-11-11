@@ -1,6 +1,15 @@
 "use client";
+import { StillnessLibrary, type StillnessBrowse } from "../stillness-library";
+import { useProcess } from "../command-center/use-process";
+import { journalDateValue } from "@/lib/journal-day";
+import { dateInZone } from "@/lib/process/model";
 import { GlassPanel } from "@/components/glassyui/glass-panel";
-import { useEffect, useRef, useState } from "react";
+import { GlassPreferenceScope } from "@/components/glassyui/glass-provider";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import ReadingRoomReference from "./reading-room-reference";
+import ReadingRoomHome from "./reading-room-home";
+import ReadingRoomPreparation, { preparationSupport } from "./reading-room-preparation";
+import ReadingRoomDone from "./reading-room-done";
 import { pullSessions } from "@/lib/cloud";
 import { summary } from "@/lib/analytics";
 import PageDashboard from "../page-dashboard";
@@ -28,14 +37,17 @@ import ReferenceContext from "./reference-context";
 import ReferenceHistory from "./reference-history";
 import ReferenceWeek from "./reference-week";
 import WeeklyReminder from "./weekly-reminder";
-function PageBoard({ owner, page, sessions, children }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode }) {
+function PageBoard({ owner, page, sessions, children, onPresentationChange }: { owner: string; page: Page; sessions: Props["history"]; children: React.ReactNode; onPresentationChange: (readingRoom: boolean) => void }) {
   if (page === "Journal" || page === "Patterns" || page === "Stillness")
-    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions}>{children}</PageDashboard>;
+    return <PageDashboard key={owner + page} owner={owner} page={page} sessions={sessions} onPresentationChange={onPresentationChange}>{children}</PageDashboard>;
   return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Command Center" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
 }
 const navigation: [Page, string, string][] = [
+  ["Home", "⌂", "Home"],
+  ["Preparation", "◒", "Preparation"],
   ["Command Center", "⌂", "Command Center"],
   ["Journal", "▣", "Daily journal"],
+  ["Done", "◐", "Done for the day"],
   ["Patterns", "⌁", "Patterns"],
   ["Stillness", "◌", "Stillness"],
   ["Settings", "⚙", "Settings"],
@@ -54,6 +66,25 @@ const commandPages: Page[] = [
 export default function ConceptWorkspace(props: Props) {
   const pageRoot = useRef<HTMLElement>(null);
   const { pulse: p, session: s, history, page } = props;
+  const process = useProcess(p.owner, [s, ...history]);
+  const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
+  const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
+  const [readingRoom, setReadingRoom] = useState(true);
+  const reading = page === "Journal" && readingRoom;
+  const home = page === "Home";
+  const preparing = page === "Preparation";
+  const closing = page === "Done";
+  const [returnToPreparation, setReturnToPreparation] = useState<Page>();
+  const [returnToDone, setReturnToDone] = useState(false);
+  const quietRoom = reading || home || preparing || closing || (page === "Stillness" && (returnToPreparation === page || returnToDone));
+  const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const preparationDate = dateInZone(p.now, preparationTimezone);
+  const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
+  useLayoutEffect(() => {
+    if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
+    else delete document.documentElement.dataset.journalPresentation;
+    return () => { delete document.documentElement.dataset.journalPresentation; };
+  }, [quietRoom]);
   const daySession = dailyJournalSession(s, history);
   const resetSeen = useRef(new Set<string>());
   const [weekly, setWeekly] = useState(false);
@@ -86,6 +117,7 @@ export default function ConceptWorkspace(props: Props) {
     if (
       previousActive.current &&
       !p.active &&
+      !closing &&
       p.settings.startWithStillness !== false
     )
       props.onPage("Stillness");
@@ -95,6 +127,7 @@ export default function ConceptWorkspace(props: Props) {
     s.endedAt,
     p.active,
     p.settings.startWithStillness,
+    closing,
     page,
     props.onPage,
   ]);
@@ -113,19 +146,13 @@ export default function ConceptWorkspace(props: Props) {
   }
   const [view, setView] = useState<"story" | "patterns" | "review">("story"),
     [week, setWeek] = useState(0),
-    [welcome, setWelcome] = useState(false),
-    [startSignal, setStartSignal] = useState(0),
     [whisper, setWhisper] = useState(""),
     [widget, setWidget] = useState(false),
     [openingDay, setOpeningDay] = useState(false),
     [focusTime, setFocusTime] = useState<number | undefined>();
-  const welcomeRef = useRef<HTMLDialogElement>(null),
-    widgetRef = useRef<HTMLElement>(null),
+  const widgetRef = useRef<HTMLElement>(null),
     dragRef = useRef<{ x: number; y: number } | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    if (welcome) welcomeRef.current?.showModal();
-  }, [welcome]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -157,15 +184,50 @@ export default function ConceptWorkspace(props: Props) {
   }
   async function startPreparedSession() {
     await p.start();
-    props.onPage("Pre-Market");
+    props.onPage("Preparation");
   }
   const go = (next: Page) => {
     setWeekly(false);
+    setReturnToPreparation(undefined);
+    setReturnToDone(false);
+    if (next === "Home") setStillnessBrowse(undefined);
     if (next !== "Journal") setFocusTime(undefined);
-    if (next === "Stillness" && page !== "Stillness") setWelcome(true);
     if (next === "Journal" || next === "Live Session") setView("story");
     if (next === "Patterns") setView("patterns");
     props.onPage(next);
+  };
+  const browseFromPreparation = () => {
+    if (!support) return;
+    setStillnessBrowse(support.browse);
+    go("Stillness");
+    setReturnToPreparation("Stillness");
+  };
+  const openPreparationSetup = () => {
+    setSupportDay({ date: preparationDate, page: "Pre-Market" });
+    go("Pre-Market");
+    setReturnToPreparation("Pre-Market");
+  };
+  const browseFromDone = () => {
+    setStillnessBrowse({ tags: [], itemId: "release" });
+    go("Stillness");
+    setReturnToDone(true);
+  };
+  const reflectForToday = async (from: "stillness" | "done") => {
+    if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
+    const now = Date.now();
+    const date = journalDateValue(now);
+    if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
+      throw new Error("Today’s Journal could not open. Try again.");
+    }
+    go("Journal");
+    props.onReflect({ t: now, eventTime: null, ...(from === "stillness" ? { origin: "stillness" } : { section: "day-review" }) });
+  };
+  const goFromHome = (next: Page) => {
+    if (next === "Pre-Market") {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      setSupportDay({ date: dateInZone(Date.now(), timezone), page: next });
+    }
+    go(next);
   };
   const review = () => {
     setView("review");
@@ -211,7 +273,7 @@ export default function ConceptWorkspace(props: Props) {
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
   return (
-    <div className={cx("app", "reference-app")}>
+    <GlassPreferenceScope quiet={quietRoom}><div className={cx("app", "reference-app", quietRoom && "reading-room")}>
       <GlassPanel
         role="banner"
         preset="subtle"
@@ -219,7 +281,7 @@ export default function ConceptWorkspace(props: Props) {
       >
         <button
           className={cx("reference-brand")}
-          onClick={() => go("Command Center")}
+          onClick={() => go("Home")}
         >
           <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <circle cx="16" cy="16" r="14" stroke="currentColor" />
@@ -250,6 +312,7 @@ export default function ConceptWorkspace(props: Props) {
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
+          {quietRoom && <div className="rr-session-status" role="status"><i />{p.recording ? "HR recording" : p.active ? "Journal in progress" : "Journal ready"}</div>}
           <button className="ss-header-connection" onClick={() => go("Connections")}>Connections</button>
           <button className="ss-header-floating" onClick={props.onFloat}>Floating window ↗</button>
           <button className="ss-header-import" disabled={capturePending} onClick={props.onCsv}>Import session ↗</button>
@@ -348,9 +411,21 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
-        <header className={cx("topbar")}>
+        {home ? (
+          <ReadingRoomHome
+            key={p.owner}
+            owner={p.owner}
+            now={p.now}
+            store={process}
+            onPage={goFromHome}
+            onBrowse={(browse) => { setStillnessBrowse(browse); go("Stillness"); }}
+            onWeek={() => { go("Journal"); setReviewWeek(undefined); setWeekly(true); }}
+          />
+        ) : (
+        <>
+        {!preparing && !closing && <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            Workspace{" "}
+            {reading ? "Reading Room" : "Workspace"}{" "}
             <b>
               /{" "}
               {page === "Overview"
@@ -361,6 +436,11 @@ export default function ConceptWorkspace(props: Props) {
             </b>
           </div>
           <div className={cx("topactions")}>
+            {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => {
+              if (p.active) go("Done");
+              else void act(startPreparedSession);
+            }}>{p.active ? "Go to Done for the day →" : "Start session"}</button>}
+            {page === "Journal" && !reading && p.active && <button onClick={() => go("Done")}>Go to Done for the day →</button>}
             <details className={cx("tools")}>
               <summary className={cx("iconbtn")} aria-label="Session tools">
                 ⋯
@@ -500,8 +580,50 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             </div>
           )}
-        </header>
-        <PageBoard owner={p.owner} page={page} sessions={[s, ...history]}>
+        </header>}
+        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
+        {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
+        {page === "Stillness" && returnToDone && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Done")}>← Back to Done for the day</button></div>}
+        <ReadingRoomPreparation
+          key={p.owner}
+          active={preparing}
+          owner={p.owner}
+          now={p.now}
+          store={process}
+          sessionActive={p.active}
+          capturePending={capturePending}
+          onBrowse={browseFromPreparation}
+          onSetup={openPreparationSetup}
+          onStart={async () => { await p.start(); go("Journal"); }}
+          onJournal={() => go("Journal")}
+        >
+        <ReadingRoomDone
+          active={closing}
+          store={process}
+          props={viewProps}
+          onEnd={p.stop}
+          onBrowse={browseFromDone}
+          onReflect={() => reflectForToday("done")}
+          onTradeQuality={() => {
+            setSupportDay({ date: preparationDate, page: "Trade Quality" });
+            go("Trade Quality");
+          }}
+        >
+          <StillnessLibrary
+            owner={p.owner}
+            store={process}
+            page={page}
+            browse={stillnessBrowse}
+            preparation={support && { tags: support.tags, suggestion: support.suggestion, onBrowse: browseFromPreparation }}
+            closing={closing ? { onBrowse: browseFromDone } : undefined}
+            closingBrowse={returnToDone}
+            onPage={go}
+            onOpenDay={(destination) => go(destination === "Preparation" ? "Preparation" : "Done")}
+            onReflect={() => reflectForToday("stillness")}
+          />
+        </ReadingRoomDone>
+        </ReadingRoomPreparation>
+        {!preparing && !closing && <PageBoard owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {s.demo && (
             <p className={cx("demo-notice")}>
               DEMO DATA · Simulated heart rate, trades and reflections. No
@@ -530,7 +652,13 @@ export default function ConceptWorkspace(props: Props) {
           {page !== "Command Center" && <WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
             <PostExitInvitation props={viewProps} />
           </WorkspaceModule>}
-          {<ProcessWorkspace key={p.owner} {...viewProps} />}
+          <ProcessWorkspace
+            key={p.owner}
+            {...viewProps}
+            store={process}
+            supportDay={supportDay}
+            onSupportDayOpened={() => setSupportDay(undefined)}
+          />
           {(page === "Overview" || page === "Journal") && (
             <WorkspaceModule id="weekly-reflection" title="Weekly reflection" order={41} width={6} initiallyHidden={page === "Journal"}>
               <WeeklyReminder
@@ -615,6 +743,9 @@ export default function ConceptWorkspace(props: Props) {
           )}
           <ModuleScope active={journal}>
             <div hidden={!journal} className={cx("reference-journal-grid")}>
+              <WorkspaceModule id="daily-reference" title="Daily reference" section="side" initiallyHidden>
+                <ReadingRoomReference props={viewProps} week={week} onWeek={setWeek} onOpen={openDay} />
+              </WorkspaceModule>
               <WorkspaceModule
                 id="dates"
                 title="Date overview"
@@ -969,7 +1100,7 @@ export default function ConceptWorkspace(props: Props) {
                 id="personal-stillness"
                 title="My stillness routine"
               >
-                {page === "Stillness" && <SavedStillness props={viewProps} />}
+                {page === "Stillness" && <SavedStillness props={viewProps} store={process} />}
               </WorkspaceModule>
               <WorkspaceModule
                 id="stillness"
@@ -995,7 +1126,9 @@ export default function ConceptWorkspace(props: Props) {
               </WorkspaceModule>
             </div>
           </ModuleScope>
-        </PageBoard>
+        </PageBoard>}
+        </>
+        )}
       </main>
       <nav className={cx("mobilebar")} aria-label="Mobile navigation">
         {navigation.map(([name, , label]) => (
@@ -1016,26 +1149,6 @@ export default function ConceptWorkspace(props: Props) {
           </button>
         ))}
       </nav>
-      {welcome && (
-        <dialog
-          ref={welcomeRef}
-          className={cx("stillnesswelcome", "show")}
-          onCancel={() => setWelcome(false)}
-        >
-          <div className={cx("arrive")}>
-            <div className={cx("breathorb")} />
-            <div className={cx("eyebrow")}>Still Signal</div>
-            <h2>Arrive before you analyse.</h2>
-            <p>
-              Nothing needs to be fixed in this second. Let yourself notice
-              where you are.
-            </p>
-            <button className={cx("primary")} onClick={() => setWelcome(false)}>
-              I’m here
-            </button>
-          </div>
-        </dialog>
-      )}
       <div className={cx("whisper", "pos1", !!whisper && "show")}>
         {whisper}
       </div>
@@ -1061,6 +1174,6 @@ export default function ConceptWorkspace(props: Props) {
           onSaveBlueprint={p.updateBlueprint}
         />
       </aside>
-    </div>
+    </div></GlassPreferenceScope>
   );
 }

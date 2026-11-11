@@ -1,0 +1,86 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readingRoomDashboard, readingRoomReference, isReadingRoom } from "../src/lib/reading-room";
+import { dashboardRecords, dashboardSnapshot, readDashboardSnapshot, freshDashboard } from "../src/lib/process/dashboard";
+import { createRecord, recordSchema } from "../src/lib/process/model";
+import { reviewFixtures } from "../src/lib/staging-fixtures";
+import { preparationChanges } from "../src/lib/process/daily-preparation";
+import { dayCloseoutChange } from "../src/lib/process/day-closeout";
+import { emptyTradingDay } from "../src/lib/process/trading-day";
+
+test("Done records only the edited choice on today's trading day", () => {
+  const date = "2026-11-11", zone = "Europe/London";
+  const base = { ...emptyTradingDay(date, zone), goal: "Wait for my setup", boundary: "Step away after chasing" };
+  const day = createRecord("day", base);
+  const prior = createRecord("day", { ...base, date: "2026-11-10", closeout: { outcome: "loss" } });
+  const otherZone = createRecord("day", { ...base, timezone: "America/New_York", closeout: { outcome: "profit" } });
+  const records = [day, prior, otherZone];
+  assert.equal(dayCloseoutChange([], date, zone, {}), undefined);
+  assert.equal(dayCloseoutChange([], date, zone, { outcome: "no-trade" })?.body.closeout?.outcome, "no-trade");
+  const outcome = dayCloseoutChange(records, date, zone, { outcome: "no-trade" })!;
+  const both = dayCloseoutChange([...records, outcome], date, zone, { process: "followed" })!;
+  assert.equal(both.rootId, day.rootId);
+  assert.deepEqual(recordSchema.parse(both).body, { ...base, closeout: { outcome: "no-trade", process: "followed" } });
+  assert.equal(dayCloseoutChange([...records, outcome, both], date, zone, { process: "followed" }), undefined);
+  const processOnly = dayCloseoutChange([...records, outcome, both], date, zone, { outcome: undefined })!;
+  assert.deepEqual(processOnly.body.closeout, { outcome: undefined, process: "followed" });
+  const cleared = dayCloseoutChange([...records, outcome, both, processOnly], date, zone, { process: undefined })!;
+  assert.deepEqual(cleared.body, base);
+});
+
+test("Reading Room is a non-default Journal starter compatible with existing snapshots", () => {
+  const old = createRecord("layout", { ...freshDashboard(), page: "Journal", isDefault: true });
+  const original = structuredClone(old);
+  const preset = readingRoomDashboard();
+  assert.equal(isReadingRoom(preset.workspace), true);
+  assert.equal(preset.page, "Journal");
+  assert.equal(preset.isDefault, false);
+  assert.doesNotThrow(() => recordSchema.parse(createRecord("layout", preset)));
+  assert.deepEqual(readDashboardSnapshot(dashboardSnapshot(preset)), preset);
+  const result = dashboardRecords(preset, undefined, [old]);
+  assert.equal(result.batch.length, 1);
+  assert.notEqual(result.record.rootId, old.rootId);
+  assert.deepEqual(old, original);
+  assert.equal(isReadingRoom(old.body.workspace), false);
+});
+
+test("secondary journal widgets remain registered but hidden; core IDs stay intact", () => {
+  const layout = readingRoomDashboard().workspace!;
+  assert.deepEqual(Object.entries(layout.modules).filter(([,p]) => !p.hidden).map(([id]) => id), ["daily-reference", "timeline", "moments", "evidence"]);
+  for (const id of ["calendar", "dates", "writing", "session-controls", "process-context", "review-chart", "observations"]) assert.equal(layout.modules[id].hidden, true);
+  const another = readingRoomDashboard();
+  another.workspace!.modules.timeline.hidden = true;
+  assert.equal(readingRoomDashboard().workspace!.modules.timeline.hidden, false);
+});
+
+test("daily reference reads the selected timezone date and current check-in without writing", () => {
+  const session = { ...reviewFixtures().session, startedAt: Date.parse("2026-11-10T00:30:00Z"), timezone: "America/New_York" };
+  const day = createRecord("day", { date: "2026-11-09", timezone: session.timezone, status: "preparing", instrument: "", account: "", timeframes: [], sessionIds: [], goal: "Give myself time" });
+  const other = createRecord("day", { ...day.body, date: "2026-11-10", goal: "Another day" });
+  const rows = [day, other];
+  const original = structuredClone(rows);
+  const result = readingRoomReference(rows, session);
+  assert.equal(result.intention, "Give myself time");
+  assert.equal(result.arrival, "No check-in recorded for this day.");
+  assert.deepEqual(rows, original);
+  const first = createRecord("checkin", { dayId: day.rootId, observedAt: session.startedAt - 2000, answers: [{ question: "Energy", value: 3 }], physical: "", circumstances: "", reflection: "" });
+  const correction = createRecord("checkin", { ...first.body, answers: [{ question: "Energy", value: 6 }, { question: "Stress", value: null }] }, first);
+  const anotherDay = createRecord("checkin", { ...first.body, dayId: other.rootId, observedAt: session.startedAt, reflection: "Do not borrow this" });
+  assert.equal(readingRoomReference([...rows, first, correction, anotherDay], session).arrival, "Energy: 6/10");
+  const earlier = [...rows, first, correction, anotherDay];
+  const beforeSession = preparationChanges(earlier, day.body.date, day.body.timezone, { arrival: ["Tired"] }, session.startedAt - 1000);
+  assert.equal(readingRoomReference([...earlier, ...beforeSession], session).arrival, "Tired");
+  const cleared = preparationChanges([...earlier, ...beforeSession], day.body.date, day.body.timezone, { arrival: [] }, session.startedAt);
+  assert.equal(readingRoomReference([...earlier, ...beforeSession, ...cleared], session).arrival, "Energy: 6/10");
+});
+
+test("empty and ambiguous process days do not borrow another day's context", () => {
+  const session = { ...reviewFixtures().session, timezone: "UTC", blueprint: undefined };
+  const result = readingRoomReference([], session);
+  assert.match(result.intention, /No intention recorded/);
+  assert.match(result.arrival, /No check-in recorded/);
+  const date = new Date(session.startedAt).toISOString().slice(0,10);
+  const day = createRecord("day", { date, timezone: "Europe/London", status: "preparing", instrument: "", account: "", timeframes: [], sessionIds: [], goal: "Wrong timezone" });
+  const other = createRecord("day", { ...day.body, timezone: "Asia/Tokyo" });
+  assert.match(readingRoomReference([day, other], session).intention, /No intention recorded/);
+});

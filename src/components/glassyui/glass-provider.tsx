@@ -79,6 +79,16 @@ const readServerTransparency = () => DEFAULT_STATE.reduceTransparency;
 
 const PreferencesContext = createContext<PreferenceContextValue | null>(null);
 
+/** A view-local material override. Never applies to the document or persisted preferences. */
+export function GlassPreferenceScope({ quiet, children }: { quiet: boolean; children: ReactNode }) {
+  const inherited = useContext(PreferencesContext);
+  const value = useMemo(() => inherited && quiet ? {
+    ...inherited,
+    preferences: { ...inherited.preferences, theme: 'light' as const, reduceTransparency: true, reduceMotion: true },
+  } : inherited, [inherited, quiet]);
+  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+}
+
 function warnPreferenceFailure(message: string, cause: unknown) {
   console.warn(message, cause);
 }

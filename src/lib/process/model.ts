@@ -221,6 +221,27 @@ export const responseStatus = z.enum([
   "not-applicable",
   "unverified",
 ]);
+const stillnessSelectionSchema = z
+  .object({
+    id,
+    itemId: z.string().min(1).max(80),
+    piece: z.number().int().min(0).max(99).optional(),
+    destination: z.enum(["Preparation", "Done"]),
+    saved: z.literal(true).optional(),
+  })
+  .strict();
+export type StillnessSelection = z.infer<typeof stillnessSelectionSchema>;
+export const bigFour = ["impulsiveness", "impatience", "fear", "greed"] as const;
+export type SupportFocus = (typeof bigFour)[number];
+export const arrivalFeelings = ["Settled", "Restless", "Tired", "Uncertain", "Hopeful"] as const;
+export const dayOutcomes = ["profit", "loss", "breakeven", "no-trade", "rather-not-say"] as const;
+export const dayProcessChoices = ["followed", "partial", "broken", "not-reviewed"] as const;
+const dayCloseoutSchema = z.object({
+  outcome: z.enum(dayOutcomes).optional(),
+  process: z.enum(dayProcessChoices).optional(),
+}).strict();
+export type DayCloseout = z.infer<typeof dayCloseoutSchema>;
+
 export const recordSchema = z
   .discriminatedUnion("kind", [
     entity(
@@ -241,6 +262,10 @@ export const recordSchema = z
           timeframes: z.array(name).max(12),
           sessionIds: z.array(id).max(100),
           goal: text,
+          boundary: text.optional(),
+          stillness: z.array(stillnessSelectionSchema).max(100).optional(),
+          supportFocuses: z.array(z.enum(bigFour)).max(bigFour.length).optional(),
+          closeout: dayCloseoutSchema.optional(),
         })
         .strict(),
     ),
@@ -372,6 +397,7 @@ export const recordSchema = z
           dayId: id,
           observedAt: timestamp,
           phase: z.enum(["pre-market", "during", "post-session"]).optional(),
+          arrival: z.array(z.enum(arrivalFeelings)).max(arrivalFeelings.length).optional(),
           sessionId: id.optional(),
           tradeId: z.string().min(1).max(160).optional(),
           answers: z

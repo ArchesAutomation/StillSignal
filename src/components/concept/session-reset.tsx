@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { openAwareness } from "@/lib/stillness-catalogue";
 import { cx } from "./shared";
 const modules = {
   "Box breathing": [
@@ -8,12 +9,7 @@ const modules = {
     "Exhale slowly",
     "Rest gently",
   ],
-  "Open awareness": [
-    "Notice contact with the chair and floor.",
-    "Notice a thought without solving it.",
-    "Notice any urge to act.",
-    "Allow the experience to be here.",
-  ],
+  "Open awareness": openAwareness,
   "Body scan": [
     "Soften your face and jaw if that feels comfortable.",
     "Notice your shoulders and hands.",

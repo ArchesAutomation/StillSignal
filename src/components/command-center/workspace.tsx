@@ -8,7 +8,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import PostExitInvitation from "../post-exit-invitation";
 import { WorkspaceModule, ModuleScope } from "../module-workspace";
 import type { Props } from "../concept/shared";
-import { useProcess } from "./use-process";
 import JournalContext from "./journal-context";
 import DashboardBoard, {
   useDashboardEditor,
@@ -283,7 +282,7 @@ function DailyDashboard(
     readiness: [
       "Self-reported readiness",
       checkin
-        ? checkin.body.answers
+        ? checkin.body.arrival?.join(" · ") || checkin.body.answers
             .slice(0, 2)
             .map(
               (a) =>
@@ -587,7 +586,16 @@ function StartDashboard({
     />
   );
 }
-export default function ProcessWorkspace(props: Props) {
+export default function ProcessWorkspace({
+  store,
+  supportDay,
+  onSupportDayOpened,
+  ...props
+}: Props & {
+  store: Context["store"];
+  supportDay?: { date: string; page: Props["page"] };
+  onSupportDayOpened: () => void;
+}) {
   const dashboardEditor = useDashboardEditor();
   const dateDraft = useSavedGuide(
     `ss-trading-date:${props.pulse.owner}`,
@@ -600,8 +608,7 @@ export default function ProcessWorkspace(props: Props) {
   );
   const date = dateDraft.value,
     setDate = dateDraft.update;
-  const store = useProcess(props.pulse.owner, props.history),
-    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     [editDay, setEditDay] = useState(false),
     days = latest(store.records, "day"),
     selectedDate =
@@ -612,6 +619,12 @@ export default function ProcessWorkspace(props: Props) {
       days.find(
         (d) => d.body.date === selectedDate && d.body.timezone === zone,
       ) ?? days.find((d) => d.body.date === selectedDate);
+  useEffect(() => {
+    if (dateDraft.loaded && supportDay?.page === props.page) {
+      setDate(supportDay.date);
+      onSupportDayOpened();
+    }
+  }, [dateDraft.loaded, supportDay, props.page]);
   useEffect(() => {
     const open = (event: Event) => {
       const requested = (event as CustomEvent<string>).detail;
@@ -837,6 +850,7 @@ export default function ProcessWorkspace(props: Props) {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
               const body: BodyOf<"day"> = {
+                ...day?.body,
                 date,
                 timezone: string(f, "timezone"),
                 status: string(f, "status") as BodyOf<"day">["status"],
