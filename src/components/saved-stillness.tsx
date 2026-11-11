@@ -2,11 +2,10 @@
 import { useState } from "react";
 import { createRecord, latest } from "@/lib/process/model";
 import { starterProfile } from "@/lib/process/journal-guide";
-import { useProcess } from "./command-center/use-process";
+import type { ProcessStore } from "./command-center/use-process";
 import PersonalStillness, { StillnessBuilder } from "./personal-stillness";
 import type { Props } from "./concept/shared";
-export default function SavedStillness({ props }: { props: Props }) {
-  const store = useProcess(props.pulse.owner, props.history);
+export default function SavedStillness({ props, store }: { props: Props; store: ProcessStore }) {
   const routine = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
   )[0];

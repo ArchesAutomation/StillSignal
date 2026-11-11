@@ -4,7 +4,7 @@ This is the shared redesign direction, updated 10 November 2026. Read it before 
 
 ## Start here
 
-Continue with the Stillness milestone. First inspect the references below, verify current GitHub/Cloudflare/Supabase access and repository state, and show a connected local interactive proposal for review. Do not implement additional production features, merge PRs or deploy merely because this handoff exists. Caleb wants visual iteration and feedback before finalising each next milestone. Check the latest user instructions for any later authorization.
+Review the Stillness milestone in its draft PR, then continue with Preparation after Stillness is approved and merged into integration. Inspect the references below, verify the repository and preview state, and show a local interactive proposal for each milestone. Caleb wants visual iteration before implementation and explicit approval for each merge and production release.
 
 Repository: https://github.com/ArchesAutomation/StillSignal
 
@@ -53,13 +53,13 @@ Use the application's actual Big 4 labels/data. Allow multi-selection. Prototype
 
 A welcoming, simple entrance into today, with clear routes to Preparation, Stillness, Done and Journal. Summarise relevant daily context without recreating a competing Command Center. Integrate links/state from the completed daily flow. Keep weekly supportive reflection accessible without making it an assessment or mandatory task.
 
-### Stillness: next milestone
+### Stillness: implemented for draft review
 
 A support library, replacing the cumbersome manual builder experience rather than merely restyling it. Make reminders, practices and complete sequences discoverable and previewable before adding. The Reading Room prototype offers a card library and adjacent preview; use it as the concrete starting reference, then refine with Caleb.
 
 Adding defaults to **just today**. Offer explicit optional saving for future days; do not silently establish a recurring routine. Allow Preparation or Done as the destination and offer Undo. Keep a complete experience together as a sequence with optional/skippable steps and later customisation. Do not immediately explode it into independently configured pieces. Personal writing/recordings remain optional. Reuse actual run/profile/content structures and inspect legacy compatibility before schema decisions.
 
-The future production flow must use existing records and Journal reflection, not the prototype's localStorage simulation. Distinguish previewing content, adding it, starting it, skipping a step, finishing and reflecting. Confirm detailed player behavior and content with Caleb rather than treating all sample prototype interactions as final approval.
+Caleb approved the card library, side preview, today-only add and Undo, reusable saved support, grouped playback with optional steps, and handoff to the existing Journal composer. The feature uses dated trading-day records and the existing process save and sync path. Preview, playback and skip are read-only. Reflection opens today's Journal composer and is saved only when the user submits it. The existing personal routine editor, recordings, and reset practices remain available below the library.
 
 ### Preparation
 
@@ -105,9 +105,9 @@ Supabase preview branches are disabled. Cloudflare branch-build success does not
 
 Agreed: the purpose, five destinations, Reading Room basis, top navigation, existing systems preserved, library-first interaction, just-today default, sequence integrity/skipping/later customisation, Done outcomes, optional writing, dashboard compatibility and reviewed staged delivery.
 
-Still open: Stillness library/player approval, final Preparation/Done/Home compositions, exact Home summary, future saving semantics and where to persist dated grouped choices. The prototypes are concrete proposals and references. They do not authorize production changes.
+The Stillness implementation awaits review and merge. Final Preparation, Done and Home layouts, the Home summary, and the extent of later sequence customisation remain open. Saved support requires an explicit choice each time it is added to a day.
 
-## Stillness proposal and reuse plan
+## Stillness design reference and original reuse plan
 
 - Start with the existing `PageDashboard` and Stillness widget identities `personal-stillness` and `stillness` in `src/components/concept/workspace.tsx`. A library-first starter can keep personal content and practices reachable and existing layouts intact. Reuse the Reading Room material scope and tokens from #78; leave app navigation and default layouts alone during this milestone.
 - `SavedStillness`, `StillnessBuilder`, `PersonalStillness` and `RoutineAudio` already handle account-scoped routine revisions and existing device-local audio. Keep the original editor/playback available as personal support. Reuse practice behaviour from `SessionReset` and existing Stillness components, and the canonical `supportFocus` labels in `src/lib/process/journal-guide.ts`. Multi-select filters do not change the existing single-focus profile.
@@ -121,9 +121,9 @@ Try it: **Stillness → Make room for waiting → an individual step → Back to
 
 | Milestone | Branch and base | Revision and status |
 | --- | --- | --- |
-| Journal | `codex/reading-room-journal` → `integration/reading-room-redesign` | [#78](https://github.com/ArchesAutomation/StillSignal/pull/78), `bf4ed9dc5271ebd0908e4c615de69e58ea150202`: implemented, open draft, `manual-merge`, not approved for merge, not integrated or released. |
-| Shared direction and Stillness prototype | `codex/stillness-design-review` → `integration/reading-room-redesign` | Design proposal and portable references only. No Stillness application implementation, integration merge or release. See this branch's draft PR for the reviewed revision. |
-| Stillness implementation | New feature branch from updated integration | Awaiting proposal approval and Journal integration. |
+| Journal | `codex/reading-room-journal` → `integration/reading-room-redesign` | [#78](https://github.com/ArchesAutomation/StillSignal/pull/78), approved and merged at `60f3698`. |
+| Shared direction and Stillness prototype | `codex/stillness-design-review` → `integration/reading-room-redesign` | [#79](https://github.com/ArchesAutomation/StillSignal/pull/79), approved and merged at `b9aa42c`. |
+| Stillness implementation | `codex/stillness-library` → `integration/reading-room-redesign` | Scope approved and implemented from `b9aa42c`. Draft for manual review. See the [feature branch](https://github.com/ArchesAutomation/StillSignal/tree/codex/stillness-library) for the reviewed revision. |
 | Preparation → Done → Home/navigation → appearance | One feature branch each, from updated integration | Planned. |
 | Combined release | `integration/reading-room-redesign` → `main` | Planned. One release PR, explicit approval required. |
 
@@ -131,6 +131,43 @@ On 10 November 2026, GitHub reported #78's `check` and `Workers Builds: still-si
 
 Design review checks: `npm ci --no-audit --no-fund` installed the 278 locked packages (an offline attempt missed the cached `zod` package). `npm run check` passed Worker type generation, TypeScript, 333 tests and the production build on the integration baseline with no app source changes. On Windows, use the workspace npm runner on PATH and run with local socket access for the build helper. Existing build warnings remain. `node --check docs/design/stillness-proposal/app.js` and `git diff --check` (including the staged diff) passed. In the local browser, individual preview → add for today → Undo, whole sequence → Done → pause/resume → skip → finish → local reflection, and explicit save for future → Preparation → customise → reload passed. Finishing a catalogue preview without reflection did not add a note. No browser errors were captured. Hardware capture, authenticated writes and actual session changes are outside this design review.
 
-## Copy into the next chat
+## Review the Stillness implementation
 
-> Continue the StillSignal redesign. Read `docs/redesign-direction.md` on the latest integration or design-review PR branch, open the referenced prototypes and inspect the actual PRs, repository and Worker state. Verify the preceding milestone is approved and merged into `integration/reading-room-redesign` before branching. If Stillness is still proposed, show the local proposal and get explicit scope approval before implementation. Once Stillness is merged, the next milestone is Preparation: simpler daily check-in, canonical multi-select Big 4, intentions, boundaries and today's chosen support, separate from initial setup. Reuse the current records, pinned runs, session controls and dashboards. Show a local interactive proposal before implementation. Use a separate feature branch, run `npm run check`, browser verification and `git diff --check` before pushing, and open a draft `manual-merge` PR to integration. Update this document with the approved decisions, files, screenshots, checks, gaps and the next-chat prompt. Do not merge or release without explicit approval.
+Start from the feature branch with its locked dependencies installed. Use these PowerShell commands to launch the existing synthetic fixture.
+
+```powershell
+$env:APP_ENV='staging'
+$env:TRADERPULSE_UI_REVIEW='true'
+$env:NEXT_PUBLIC_SUPABASE_URL=''
+$env:NEXT_PUBLIC_SUPABASE_ANON_KEY=''
+$env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=''
+$env:NEXT_TELEMETRY_DISABLED='1'
+$env:STILL_SIGNAL_QA_DIST='.next-stillness-feature'
+node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3182
+```
+
+1. Open `http://127.0.0.1:3182/review` and choose **Stillness**. Filter by Big 4 or content type, and try a reminder or practice in the side preview.
+2. Choose **Add to my day → Preparation → Add for today**. **Also keep in Saved support** starts unchecked. Open Preparation and use **Undo**. Try the same flow with a practice in Done.
+3. In **Make room for waiting**, preview one step, then try the sequence. Add it to Done with **Also keep in Saved support** checked. The existing review screen shows the three steps together as one choice.
+4. Begin the sequence, skip a step, and finish without writing. Repeat and choose **Reflect in Journal**. The original composer opens for today's date with Whole day selected.
+5. Reload, open **Saved support**, and reuse the sequence in Preparation. Undo the reuse. The earlier saved copy remains available.
+
+[Library](design/stillness-implementation/library.jpg) · [Add for today](design/stillness-implementation/add.jpg) · [Preparation](design/stillness-implementation/preparation.jpg) · [Done](design/stillness-implementation/done.jpg) · [Journal composer](design/stillness-implementation/journal.jpg) · [Saved support](design/stillness-implementation/saved.jpg)
+
+The library and player are in `src/components/stillness-library.tsx`. The catalogue keeps item IDs and step indexes stable because dated choices reference them. The existing Preparation and Done entry points share the same process store, and their shortcut selects the actual current trading date. A first addition can create today's trading-day record. Undo revises the affected choice and keeps the day and unrelated changes. Saved support reads the explicitly kept choices across days and never inserts them into a new day. Review date selection, revision handling, and the Journal handoff closely.
+
+Stillness adds an optional field to the existing day record. The current database stores the JSON body as-is, so there is no SQL migration. The app's validator and the generated `pulse-process` Edge Function validator both accept the field. The production release needs a coordinated Edge Function and app update before authenticated users save Stillness choices. Older running app versions use a strict validator and need to reload before syncing new records. Confirm which Supabase project and Edge revision a preview uses before any authenticated save test. Only the local synthetic account and a local PostgreSQL test were used in this milestone.
+
+Verification on 11 November 2026:
+
+- `node scripts/prepare-edge.mjs` regenerated the Edge Function source. Only the matching `pulse-process/process/model.ts` change is included.
+- `node --import ./tests/browser-environment.mjs --import tsx --test tests/dashboard.test.ts tests/navigation.test.ts tests/process-core.test.ts` passed all 7 tests. The local PostgreSQL test round-tripped a saved Stillness choice in an existing trading-day revision.
+- `npm run check` passed Worker type generation, TypeScript, all 337 tests, and the production build. This Windows checkout used the existing workspace npm wrapper on PATH and loopback access for the build helper. The build printed source map and route-classification warnings.
+- `node node_modules/vinext/dist/cli.js check` reported 13 supported, 0 partial and 0 issues. `git diff --check` and `git diff --cached --check` passed.
+- The local browser verified Big 4 multi-selection, reminder and practice preview, adds to both destinations and Undo, individual step preview, grouped sequence playback with pause/resume and skip, optional reflection and a synthetic Journal save on today's date. Reload restored Saved support. Reusing a saved sequence then undoing the new add preserved its saved copy. At a 390 px viewport the page had no horizontal overflow and the add dialog remained reachable. The browser recorded no warnings or errors.
+
+The local verification did not exercise live microphone recording, wearable capture, authenticated cloud sync or multi-device conflict recovery. Preview backend bindings still need verification.
+
+## Copy into the Preparation chat
+
+> Continue the StillSignal redesign with the Preparation milestone. Read `docs/redesign-direction.md` on `integration/reading-room-redesign`, open the Reading Room references, and verify the Stillness PR is reviewed and merged into integration before branching. Use the implemented Stillness entry point and existing dated support records. Propose a simpler daily check-in, canonical multi-select Big 4, intentions, boundaries and today's chosen support, with initial setup separate. Reuse the current records, pinned runs, session controls, Journal and dashboards. Show the proposed flow in the isolated synthetic `/review` app and get scope approval before implementation. Use a separate branch from updated integration. Run `npm run check`, exercise the flow in a local browser, and run `git diff --check` before opening a draft `manual-merge` PR to integration. Update this document with the approved decisions, screenshots, reproduction steps, exact checks, gaps and a copy-ready prompt for Done for the day. Ask for explicit approval before merging or releasing.

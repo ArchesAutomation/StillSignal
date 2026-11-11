@@ -221,6 +221,16 @@ export const responseStatus = z.enum([
   "not-applicable",
   "unverified",
 ]);
+const stillnessSelectionSchema = z
+  .object({
+    id,
+    itemId: z.string().min(1).max(80),
+    piece: z.number().int().min(0).max(99).optional(),
+    destination: z.enum(["Preparation", "Done"]),
+    saved: z.literal(true).optional(),
+  })
+  .strict();
+export type StillnessSelection = z.infer<typeof stillnessSelectionSchema>;
 export const recordSchema = z
   .discriminatedUnion("kind", [
     entity(
@@ -241,6 +251,7 @@ export const recordSchema = z
           timeframes: z.array(name).max(12),
           sessionIds: z.array(id).max(100),
           goal: text,
+          stillness: z.array(stillnessSelectionSchema).max(100).optional(),
         })
         .strict(),
     ),
