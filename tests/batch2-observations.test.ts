@@ -1,16 +1,22 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import QuickCaffeine from "../src/components/variable-builder/quick-caffeine";
+import type { Context } from "../src/components/process/shared";
+import VariablesPanel from "../src/components/process/variables-panel";
 import GuidedCheckin from "../src/components/variable-builder/guided-checkin";
-import Variables, { ObservationForm } from "../src/components/variable-builder/workspace";
-import { createRecord, type ProcessRecord, type BodyOf } from "../src/lib/process/model";
+import QuickCaffeine from "../src/components/variable-builder/quick-caffeine";
+import Variables, {
+  ObservationForm,
+} from "../src/components/variable-builder/workspace";
 import { temperatureRecords } from "../src/lib/environment/temperature";
 import { activeObservations } from "../src/lib/environment/values";
-import VariablesPanel from "../src/components/command-center/variables-panel";
-import type { Context } from "../src/components/command-center/shared";
+import {
+  createRecord,
+  type BodyOf,
+  type ProcessRecord,
+} from "../src/lib/process/model";
 
 const day = () => createRecord("day", { date: "2026-10-27", timezone: "America/Denver", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
 const caffeine = (name: string) => createRecord("variable", { name, category: "Context", type: "number", unit: "mg", min: 0, max: 60, choices: [], frequency: "event", phases: ["pre-market", "during"], required: false, source: "manual", archived: false, analytics: true });

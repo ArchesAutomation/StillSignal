@@ -1,15 +1,20 @@
 "use client";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import DashboardBoard, { useDashboardEditor } from "./command-center/dashboard-board";
-import { useProcess } from "./command-center/use-process";
-import { emptyModuleLayout, moduleLayoutKey, readModuleLayout, type ModuleLayout } from "@/lib/module-layout";
-import { evidenceReadingLayout } from "@/lib/module-board";
 import type { Session } from "@/lib/model";
-import { readingRoomDashboard, isReadingRoom } from "@/lib/reading-room";
+import { evidenceReadingLayout } from "@/lib/module-board";
+import {
+  emptyModuleLayout,
+  moduleLayoutKey,
+  readModuleLayout,
+  type ModuleLayout,
+} from "@/lib/module-layout";
+import { isReadingRoom, readingRoomDashboard } from "@/lib/reading-room";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import DashboardBoard, { useDashboardEditor } from "./process/dashboard-board";
+import { useProcess } from "./process/use-process";
 
 /** Reuse the account-scoped cloud records; existing browser-only boards seed the starter. */
 export default function PageDashboard({ owner, page, sessions, children, onPresentationChange }: {
-  owner: string; page: "Journal" | "Patterns" | "Stillness";
+  owner: string; page: "Journal" | "Stillness";
   sessions: Session[]; children: ReactNode;
   onPresentationChange?: (readingRoom: boolean) => void;
 }) {

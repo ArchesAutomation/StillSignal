@@ -1,13 +1,17 @@
 "use client";
+import {
+  currentTimeOnDay,
+  observationTime,
+  observationTimeInput,
+} from "@/lib/environment/observation-time";
+import { temperatureRecords } from "@/lib/environment/temperature";
+import { positionIdeas } from "@/lib/position-ideas";
+import { type RecordOf } from "@/lib/process/model";
+import { mergeEvents } from "@/lib/trade-context";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { temperatureRecords } from "@/lib/environment/temperature";
-import { currentTimeOnDay, observationTime, observationTimeInput } from "@/lib/environment/observation-time";
-import { latest, type RecordOf } from "@/lib/process/model";
-import { mergeEvents } from "@/lib/trade-context";
-import { positionIdeas } from "@/lib/position-ideas";
+import { Field, type Context } from "../process/shared";
 import { useSavedGuide } from "../use-saved-guide";
-import { Field, type Context } from "../command-center/shared";
 const questions = [
   "Focus",
   "Energy",
@@ -352,7 +356,7 @@ export default function GuidedCheckin({
       </div>
       <p className="cc-muted">
         Ratings are self-reported. Missing answers stay unrecorded. This
-        check-in is shared with your preparation, journal and Command Center.
+        check-in is shared with your preparation, journal and Preparation.
       </p>
     </section>
   );

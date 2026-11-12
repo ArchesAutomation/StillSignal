@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Mic, X } from "lucide-react";
-import type { HrMoment } from "@/lib/smart-journal";
-import type { Settings } from "@/lib/model";
-import type { ReflectionDraft } from "./reflection-editor";
 import {
   extensionOwnsShortcut,
   routeExtensionPrompt,
 } from "@/lib/extension-bridge";
+import type { Settings } from "@/lib/model";
+import type { HrMoment } from "@/lib/smart-journal";
+import { Mic, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { ReflectionDraft } from "./reflection-editor";
 
 export default function SmartCheckins({
   owner,
@@ -196,7 +196,7 @@ export default function SmartCheckins({
   if (!prompt) return null;
   return (
     <aside
-      className="smart-checkin glass"
+      className="smart-checkin surface"
       role="status"
       aria-label="Heart-rate check-in"
     >

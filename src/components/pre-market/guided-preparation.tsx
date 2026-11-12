@@ -1,21 +1,21 @@
 "use client";
-import { routineSessionId } from "@/lib/process/routine-session";
-import { useEffect, useState } from "react";
-import { z } from "zod";
-import { useSavedGuide } from "../use-saved-guide";
+import { activePreparationSteps } from "@/lib/process/active-preparation";
 import {
   createRecord,
-  requirementSchema,
   latest,
+  requirementSchema,
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import { activePreparationSteps, activePreparationRun } from "@/lib/process/active-preparation";
 import { activityOf, cadences } from "@/lib/process/preparation-workflow";
-import StepSettings from "./step-settings";
-import JournalSetup from "./journal-setup";
+import { routineSessionId } from "@/lib/process/routine-session";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { Field, Panel, type Context } from "../process/shared";
+import { useSavedGuide } from "../use-saved-guide";
 import FocusedRun from "./focused-run";
-import { Panel, Field, type Context } from "../command-center/shared";
+import JournalSetup from "./journal-setup";
+import StepSettings from "./step-settings";
 
 type Step = BodyOf<"protocol">["steps"][number];
 const suggestions = [
@@ -425,7 +425,7 @@ function AdvancedSetup({
                 ? () => setStage(stage - 1)
                 : template
                   ? () => onClose()
-                  : () => context.props.onPage("Command Center")
+                  : () => context.props.onPage("Preparation")
             }
           >
             {stage ? "Back" : "Cancel"}
@@ -496,7 +496,7 @@ export default function GuidedPreparation(
           if (id) setSelected(id);
           setEditing(false);
           setCreating(false);
-          if (!id) context.props.onPage("Command Center");
+          if (!id) context.props.onPage("Preparation");
         }}
       />
     );

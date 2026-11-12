@@ -10,8 +10,6 @@
 @import "./journal-reference.css" layer(legacy);
 @import "./implementation-plan.css" layer(legacy);
 @import "./journal-space.css" layer(legacy);
-@import "./page-layout.css" layer(legacy);
 @import "./journal-select.css" layer(legacy);
-@import "./command-center.css" layer(legacy);
+@import "./process.css" layer(legacy);
 @import "./module-layout.css" layer(legacy);
-@import "./shark-background.css" layer(legacy);

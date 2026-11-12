@@ -1,18 +1,12 @@
 "use client";
-import { useState } from "react";
-import { useSavedGuide } from "../use-saved-guide";
-import { z } from "zod";
 import { createRecord, latest } from "@/lib/process/model";
 import { activityOf } from "@/lib/process/preparation-workflow";
-import {
-  Panel,
-  Field,
-  Empty,
-  Save,
-  type Context,
-} from "../command-center/shared";
-import Variables from "../variable-builder/workspace";
+import { useState } from "react";
+import { z } from "zod";
+import { Empty, Field, Panel, Save, type Context } from "../process/shared";
+import { useSavedGuide } from "../use-saved-guide";
 import Temperature from "../variable-builder/temperature";
+import Variables from "../variable-builder/workspace";
 import GuidedPreparation from "./guided-preparation";
 
 const modules = [
@@ -47,7 +41,7 @@ function Intentions({ store, day }: Context) {
   return (
     <Panel
       title="Session intentions"
-      detail="Your intention is saved as today's Command Center process goal. Recurring intentions can also be configured in your routine."
+      detail="Your intention is saved as today's Preparation process goal. Recurring intentions can also be configured in your routine."
     >
       <form
         className="cc-form"

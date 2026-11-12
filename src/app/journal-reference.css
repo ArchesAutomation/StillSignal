@@ -239,21 +239,6 @@ body:has(.ss-reference-app) {
   text-align: left;
   font-size: 12px;
 }
-.ss-reference-app .ss-reference-more > div {
-  left: 0;
-  right: auto;
-  width: min(220px, calc(100vw - 36px));
-  box-sizing: border-box;
-}
-@media (max-width: 700px) {
-  .ss-reference-app .ss-reference-more {
-    position: static;
-  }
-  .ss-reference-app .ss-reference-more > div {
-    left: auto;
-    right: 12px;
-  }
-}
 .ss-reference-app .ss-reference-journal-grid {
   display: grid;
   grid-template-columns: 235px minmax(0, 1fr);
@@ -405,9 +390,6 @@ body:has(.ss-reference-app) {
   gap: 5px;
   flex-wrap: wrap;
 }
-.ss-reference-app .ss-currentdate {
-  font-size: 10px;
-}
 .ss-reference-app .ss-journal-day-picker {
   display: none;
 }
@@ -438,24 +420,7 @@ body:has(.ss-reference-app) {
   font-size: 10px;
   color: var(--muted);
 }
-.ss-reference-app .ss-metrics,
-.ss-reference-app .ss-sectiontabs {
-  display: none;
-}
-.ss-reference-app .ss-timeline-layout {
-  display: block;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 20px;
-  background: var(--panel);
-  margin-bottom: 16px;
-}
-.ss-reference-app .ss-timeline-layout > div {
-  padding: 0;
-  width: 100%;
-  min-width: 0;
-}
-.ss-reference-app .ss-timeline-layout > .ss-moment {
+.ss-reference-app .ss-metrics {
   display: none;
 }
 .ss-reference-app .ss-timeline-head {
@@ -491,12 +456,6 @@ body:has(.ss-reference-app) {
   height: 220px;
   max-width: 100%;
   width: 100%;
-}
-.ss-reference-app .ss-chartlegend {
-  font-size: 10px;
-  gap: 12px;
-  display: flex;
-  flex-wrap: wrap;
 }
 .ss-reference-app .ss-phases {
   display: grid;
@@ -658,18 +617,6 @@ body:has(.ss-reference-app) {
   font-weight: 500;
   color: var(--purple);
 }
-.ss-reference-app .ss-stream-detail {
-  padding: 6px 0 20px;
-}
-.ss-reference-app .ss-stream-detail blockquote {
-  margin-left: 0;
-  color: var(--green);
-  font-size: 13px;
-}
-.ss-reference-app .ss-stream-detail p {
-  color: var(--ink);
-  white-space: pre-wrap;
-}
 .ss-reference-app .ss-emotion-summary {
   margin-top: 20px;
 }
@@ -684,9 +631,6 @@ body:has(.ss-reference-app) {
 }
 .ss-reference-app .ss-sectiontitle button {
   font-size: 11px;
-}
-.ss-reference-app .ss-journalflow {
-  margin: 26px 0;
 }
 .ss-reference-app .ss-journal-trade {
   border: 1px solid var(--line);
@@ -766,8 +710,7 @@ body:has(.ss-reference-app) {
   color: var(--ink);
   margin-top: 7px;
 }
-.ss-reference-app .ss-original-image img,
-.ss-reference-app .ss-capture-original {
+.ss-reference-app .ss-original-image img {
   max-width: 100%;
   max-height: 360px;
   border: 1px solid var(--line);
@@ -778,67 +721,8 @@ body:has(.ss-reference-app) {
   color: var(--green);
   font-size: 12px;
 }
-.ss-reference-app .ss-moment-evidence > summary {
-  cursor: pointer;
-  color: var(--green);
-}
-.ss-reference-app .ss-widgetpanel {
-  max-height: 75vh;
-  overflow: auto;
-  position: relative;
-  inset: auto;
-  margin-bottom: 8px;
-  display: block;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 18px;
-}
 .ss-reference-app .ss-livewidget:not(.ss-expanded) > .ss-widgetpanel {
   display: none;
-}
-.ss-reference-app .ss-livewidget {
-  width: 320px;
-  right: 25px;
-  bottom: 20px;
-}
-.ss-reference-app .ss-widgetpill {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  touch-action: none;
-  background: var(--surface2);
-  border: 1px solid #51645b;
-  border-radius: 16px;
-  padding: 9px 13px;
-}
-.ss-reference-app .ss-widgetpanel textarea {
-  min-height: 80px;
-  font-size: 12px;
-}
-.ss-reference-app .ss-widgetpanel label {
-  font-size: 11px;
-}
-.ss-reference-app .ss-widgetpanel button {
-  font-size: 11px;
-  padding: 7px 10px;
-}
-.ss-reference-app .ss-widgetpanel small,
-.ss-reference-app .ss-capture-evidence small {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-}
-.ss-reference-app .ss-widgetpanel audio {
-  width: 100%;
-}
-.ss-reference-app .ss-widgetpanel .ss-widgetpanelhead {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-}
-.ss-reference-app .ss-widgetpanel h3 {
-  font-size: 17px;
 }
 /* Portals live outside the workspace; retain the same theme without its page layout. */
 .ss-app.ss-reference-app.ss-popup-root {
@@ -847,42 +731,14 @@ body:has(.ss-reference-app) {
   max-width: none;
   min-height: 0;
 }
-.ss-app.ss-reference-app.ss-popup-root .ss-widgetpanel {
-  position: static;
-  width: 100%;
-  margin: 0;
-  max-height: none;
-  border: 0;
-  border-radius: 0;
-}
 .ss-app.ss-popup-root .sr-only {
   left: 0;
   top: 0;
-}
-.ss-reference-app .ss-widgetpanel .ss-destinations {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-}
-.ss-reference-app .ss-widgetpanel .ss-destinations label {
-  min-width: 0;
-  margin: 0;
 }
 .ss-reference-app .ss-widgetpanel label:has(> input[type="checkbox"]) {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-}
-.ss-reference-app .ss-widgetpanel input[type="checkbox"] {
-  margin: 2px 0 0;
-}
-.ss-reference-app .ss-widgetpanel .ss-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-.ss-reference-app .ss-widgetpanel small {
-  overflow-wrap: anywhere;
 }
 .floating-journal-host[data-floating="true"] {
   width: 100%;
@@ -1045,9 +901,6 @@ body:has(.ss-reference-app) {
   .ss-reference-app .ss-hero h1 {
     font-size: 25px;
   }
-  .ss-reference-app .ss-timeline-layout {
-    padding: 15px;
-  }
   .ss-reference-app .ss-chart {
     height: 190px;
     min-height: 0;
@@ -1071,14 +924,6 @@ body:has(.ss-reference-app) {
   .ss-reference-app .ss-reference-composer {
     padding: 17px;
   }
-  .ss-reference-app .ss-livewidget {
-    right: 12px;
-    bottom: 12px;
-    width: min(320px, calc(100vw - 24px));
-  }
-  .ss-reference-app .ss-livewidget .ss-widgetpanel {
-    max-height: 70vh;
-  }
   .ss-reference-app .ss-reset h1 {
     font-size: 38px;
   }
@@ -1095,35 +940,12 @@ body:has(.ss-reference-app) {
     font-size: 8px;
   }
 }
-.ss-reference-app .ss-reference-chart-tools {
-  font-size: 11px;
-  margin: 4px 0 12px;
-}
-.ss-reference-chart-tools > summary {
-  cursor: pointer;
-  color: var(--muted);
-  padding: 5px 0;
-}
-.ss-reference-app .ss-rhythm-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 10px;
-  color: var(--muted);
-}
 .ss-reference-app .ss-rhythm-svg {
   display: block;
   width: 100%;
   height: auto;
   margin-top: 20px;
   overflow: visible;
-}
-.ss-reference-app .ss-rhythm-inspector {
-  font-size: 11px;
-  color: var(--muted);
-}
-.ss-rhythm-inspector summary {
-  cursor: pointer;
 }
 .ss-reference-app .ss-rhythm-svg g[role="button"] {
   cursor: pointer;
@@ -1175,89 +997,6 @@ body:has(.ss-reference-app) {
     grid-column: 2;
     font-size: 10px;
     align-self: start;
-  }
-}
-.ss-reference-app .ss-analysis-controls {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-.ss-reference-app .ss-reference-table-wrap {
-  overflow: auto;
-  margin-top: 15px;
-}
-.ss-reference-app .ss-reference-table-wrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  text-align: left;
-}
-.ss-reference-table-wrap th {
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.ss-reference-app .ss-reference-table-wrap td,
-.ss-reference-app .ss-reference-table-wrap th {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
-}
-.ss-reference-app .ss-reference-patterns details > summary {
-  cursor: pointer;
-  padding: 10px 0;
-  color: var(--green);
-  font-size: 12px;
-}
-.ss-reference-app .ss-analysis-evidence {
-  display: grid;
-  gap: 5px;
-  width: 100%;
-  text-align: left;
-  margin: 8px 0;
-  font-size: 12px;
-}
-.ss-reference-app .ss-analysis-evidence strong {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--green);
-}
-.ss-reference-app .ss-reference-patterns .ss-reference-page-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.ss-reference-app .ss-perspective-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 20px;
-}
-.ss-reference-app .ss-perspective-pair blockquote {
-  border-left: 2px solid var(--green);
-  padding: 10px 16px;
-  margin: 0;
-  white-space: pre-wrap;
-}
-.ss-perspective-pair small {
-  display: block;
-}
-.ss-reference-app .ss-perspective-pair button {
-  grid-column: 1/-1;
-  justify-self: start;
-}
-@media (max-width: 760px) {
-  .ss-reference-app .ss-analysis-controls {
-    grid-template-columns: 1fr 1fr;
-  }
-  .ss-reference-app .ss-perspective-pair {
-    grid-template-columns: 1fr;
-  }
-  .ss-reference-app .ss-reference-patterns .ss-reference-page-head {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,9 +1,14 @@
 "use client";
-import { useState } from "react";
-import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import {
+  currentTimeOnDay,
+  earlierObservationTime,
+  observationTime,
+  observationTimeInput,
+} from "@/lib/environment/observation-time";
 import { activeObservations, validateValue } from "@/lib/environment/values";
-import { Field, type Context } from "../command-center/shared";
-import { currentTimeOnDay, observationTimeInput, observationTime, earlierObservationTime } from "@/lib/environment/observation-time";
+import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import { useState } from "react";
+import { Field, type Context } from "../process/shared";
 export default function QuickCaffeine({ store, day, props }: Context) {
   return <CaffeineEntry key={`${props.pulse?.owner ?? "local"}:${day.rootId}`} store={store} day={day} props={props} />;
 }

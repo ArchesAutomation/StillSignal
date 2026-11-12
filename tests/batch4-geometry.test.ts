@@ -1,15 +1,17 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { act, createElement as h } from "react";
 import { createRoot } from "react-dom/client";
-import DashboardCanvas from "../src/components/command-center/dashboard-canvas";
-import ModuleWorkspace, { WorkspaceModule } from "../src/components/module-workspace";
+import ModuleWorkspace, {
+  WorkspaceModule,
+} from "../src/components/module-workspace";
+import DashboardCanvas from "../src/components/process/dashboard-canvas";
+import { moduleBoard } from "../src/lib/module-board";
+import { emptyModuleLayout, moduleLayoutKey } from "../src/lib/module-layout";
 import { freshDashboard } from "../src/lib/process/dashboard";
 import { dashboardGrid, placeCard } from "../src/lib/process/dashboard-grid";
 import { createRecord, recordSchema } from "../src/lib/process/model";
-import { moduleBoard } from "../src/lib/module-board";
-import { emptyModuleLayout, moduleLayoutKey } from "../src/lib/module-layout";
 
 function setup() {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
@@ -30,7 +32,7 @@ test("dashboard vertical resizing survives its content measurement", async () =>
   Object.defineProperty(globalThis, "ResizeObserver", { value: Observer, configurable: true });
   Object.defineProperty(ui.dom.window, "ResizeObserver", { value: Observer, configurable: true });
   let layout = freshDashboard();
-  const render = () => h(DashboardCanvas, { layout, editing: true, disabled: false, onInteracting() {}, onChange(next) { layout = next; }, renderContent() { return "Measured content"; } });
+  const render = () => h(DashboardCanvas, { layout, editing: true, disabled: false, onInteracting() {}, onChange(next) { layout = next; }, children: h(WorkspaceModule, { id: "preparation", title: "Pre-market non-negotiables", children: "Measured content" }) });
   try {
     await act(async () => ui.root.render(render()));
     const inner = document.querySelector<HTMLElement>('[data-module-id="preparation"]')!;

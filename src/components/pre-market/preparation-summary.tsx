@@ -1,9 +1,12 @@
 "use client";
-import { useState } from "react";
-import { createRecord, latest, type RecordOf } from "@/lib/process/model";
-import { Field, History, Panel, type Context } from "../command-center/shared";
 import { activePreparationRun } from "@/lib/process/active-preparation";
-import { activityOf, type PreparationStep } from "@/lib/process/preparation-workflow";
+import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import {
+  activityOf,
+  type PreparationStep,
+} from "@/lib/process/preparation-workflow";
+import { useState } from "react";
+import { Field, History, Panel, type Context } from "../process/shared";
 export default function PreparationSummary({ store, day, props }: Context) {
   const runs = latest(store.records, "run").map(activePreparationRun).filter(
     (r) => r.body.dayId === day.rootId,

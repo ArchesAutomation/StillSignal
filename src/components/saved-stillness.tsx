@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
-import { createRecord, latest } from "@/lib/process/model";
 import { starterProfile } from "@/lib/process/journal-guide";
-import type { ProcessStore } from "./command-center/use-process";
-import PersonalStillness, { StillnessBuilder } from "./personal-stillness";
+import { createRecord, latest } from "@/lib/process/model";
+import { useState } from "react";
 import type { Props } from "./concept/shared";
+import PersonalStillness, { StillnessBuilder } from "./personal-stillness";
+import type { ProcessStore } from "./process/use-process";
 export default function SavedStillness({ props, store }: { props: Props; store: ProcessStore }) {
   const routine = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,

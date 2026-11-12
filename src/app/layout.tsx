@@ -1,25 +1,13 @@
 import "./legacy.css";
 import "./tailwind.css";
-import "../components/glassyui/styles/liquid.css";
-import "../components/glassyui/nordify/liquid-glass.css";
-import "./appearance-colors.css";
-import "./liquid-glass.css";
-import "./wallpaper.css";
+import "./surfaces.css";
 import "./workflow-fixes.css";
 import type { Metadata, Viewport } from "next";
 import "./journal-guide.css";
-// Keep the Nordify overrides after all app styles in the root CSS entry.
-// Client-component stylesheets can otherwise load before the layout on Workers.
-import "../components/glassyui/styles/nordify-integration.css";
 import "./reading-room.css";
 import "./stillness-library.css";
 import "./reading-room-preparation.css";
 import "./reading-room-done.css";
-import SharkBackground from "@/components/shark-background";
-import { GlassProvider } from "@/components/glassyui/glass-provider";
-import { AppearanceProvider } from "@/components/appearance-context";
-import Appearance from "@/components/appearance";
-import WallpaperBackground from "@/components/wallpaper-background";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:
@@ -41,14 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <GlassProvider>
-          <AppearanceProvider>
-            <SharkBackground />
-            <WallpaperBackground />
-            {children}
-            <Appearance />
-          </AppearanceProvider>
-        </GlassProvider>
+        {children}
       </body>
     </html>
   );

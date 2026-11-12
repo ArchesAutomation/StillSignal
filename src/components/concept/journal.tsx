@@ -1,33 +1,29 @@
 "use client";
-import JournalSelect from "./journal-select";
-import { useEffect, useMemo, useRef, useState } from "react";
 import { nearest, summary } from "@/lib/analytics";
-import { liveNotes } from "@/lib/smart-journal";
-import { money } from "@/lib/model";
-import { isDemoSession, demoCandles } from "@/lib/demo-market";
-import { timelinePhase } from "@/lib/timeline-phase";
-import { noteTime, isTradeSection, sessionTrades } from "@/lib/journal-routing";
+import { demoCandles, isDemoSession } from "@/lib/demo-market";
 import { dailyJournalSession } from "@/lib/journal-collection";
+import { isTradeSection, noteTime, sessionTrades } from "@/lib/journal-routing";
+import { money } from "@/lib/model";
+import { liveNotes } from "@/lib/smart-journal";
+import { timelinePhase } from "@/lib/timeline-phase";
+import { useEffect, useMemo, useState } from "react";
+import { ModuleScope, WorkspaceModule } from "../module-workspace";
+import { useJournalSamples } from "../use-journal-samples";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
-import ReferenceRhythm from "./reference-rhythm";
+import JournalSelect from "./journal-select";
 import JournalSpace from "./journal-space";
-import { WorkspaceModule, ModuleScope } from "../module-workspace";
+import ReferenceRhythm from "./reference-rhythm";
 import Review from "./review";
-import ReferencePatterns from "./reference-patterns";
-import { useJournalSamples } from "../use-journal-samples";
 import { cx, type Moment, type Props } from "./shared";
 export default function Journal(
   props: Props & {
-    view: "story" | "patterns" | "review";
-    setView: (v: "story" | "patterns" | "review") => void;
+    view: "story" | "review";
+    setView: (v: "story" | "review") => void;
     focusTime?: number;
   },
 ) {
   const { pulse: p, session: s, history, view, setView } = props;
-  const [patternsVisited,setPatternsVisited]=useState(view==="patterns"), [analysisScroll,setAnalysisScroll]=useState<number>();
-  const pendingSource=useRef<Moment|null>(null);
-  useEffect(()=>{if(view==="patterns")setPatternsVisited(true);},[view]);
   const daySession = useMemo(
     () => dailyJournalSession(s, history),
     [s, history],
@@ -94,8 +90,7 @@ export default function Journal(
     ? Math.max(s.startedAt, cutoff - range * 60000)
     : s.startedAt;
   useEffect(() => {
-    setSelected(pendingSource.current);
-    pendingSource.current=null;
+    setSelected(null);
     setRange(0);
     setChartSymbol("");
     setReplay(false);
@@ -285,7 +280,7 @@ export default function Journal(
     row.note?.section || timelinePhase(row.phase, row.t, trades);
   return (
     <>
-      {view==="story" && analysisScroll!==undefined && <button onClick={()=>{const position=analysisScroll;setView("patterns");requestAnimationFrame(()=>window.scrollTo({top:position}));}}>← Back to this analysis</button>}
+
       {view === "review" && (
         <button onClick={() => setView("story")}>← Continue to journal</button>
       )}
@@ -442,31 +437,7 @@ export default function Journal(
           onReview={() => setView("review")}
         />
       </section></ModuleScope>
-      <ModuleScope active={view === "patterns"}><section hidden={view !== "patterns"}>
-        {(view === "patterns" || patternsVisited) && (
-          <WorkspaceModule id="pattern-analysis" title="Heart-rate and journal patterns"><ReferencePatterns
-            onConnect={() => props.onPage("Connections")}
-            sessions={history}
-            selected={s}
-            selectedSamples={p.samples}
-            baselineSeconds={p.settings.baselineSeconds}
-            onOpen={(target, t) => {
-              setAnalysisScroll(window.scrollY);
-              const n=target.journal.find(n=>noteTime(n)===t || n.t===t);
-              const row:Moment={id:n?.id || `source-${t}`,t:t??target.startedAt,phase:n?.section || "REFLECTION",label:n?.label || "Source moment",text:n?.text || "",bpm:n?.context?.bpm ?? null,...(n?{note:n}:{})};
-              pendingSource.current=row;
-              void p
-                .openSession(target)
-                .then(() => {
-                  setView("story");
-                  props.onPage("Journal");
-                  setSelected(row);
-                })
-                .catch((error) => p.setError(error.message));
-            }}
-          /></WorkspaceModule>
-        )}
-      </section></ModuleScope>
+
       <ModuleScope active={view === "review"}><section hidden={view !== "review"}>
         <WorkspaceModule id="mindful-review" title="Mindful trade review"><Review
           key={s.id}

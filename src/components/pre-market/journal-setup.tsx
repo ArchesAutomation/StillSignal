@@ -1,22 +1,22 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import { activePreparationSteps } from "@/lib/process/active-preparation";
+import { dashboardRecords, freshDashboard } from "@/lib/process/dashboard";
 import {
-  supportFocus,
-  supportQuestion,
   journalProfileSchema,
   moduleRecommendation,
   starterProfile,
   suggestedSteps,
+  supportFocus,
+  supportQuestion,
   type JournalProfile,
 } from "@/lib/process/journal-guide";
-import { dashboardRecords, freshDashboard } from "@/lib/process/dashboard";
+import { createRecord, latest, type RecordOf } from "@/lib/process/model";
 import { routineSessionId } from "@/lib/process/routine-session";
-import { useSavedGuide } from "../use-saved-guide";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import PersonalStillness, { StillnessBuilder } from "../personal-stillness";
-import { activePreparationSteps } from "@/lib/process/active-preparation";
-import { Field, Panel, type Context } from "../command-center/shared";
+import { Field, Panel, type Context } from "../process/shared";
+import { useSavedGuide } from "../use-saved-guide";
 const stages = [
   "Welcome",
   "How you trade",
@@ -562,7 +562,7 @@ export default function JournalSetup({
                 <li>
                   <strong>2. Return to your plan</strong>
                   <span>
-                    Find today's summary in Command Center. Edit only the item
+                    Find today's summary in Preparation. Edit only the item
                     that changed; the original stays in history.
                   </span>
                 </li>

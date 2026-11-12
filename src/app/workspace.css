@@ -35,7 +35,6 @@ body {
   border-radius: 5px;
   color: var(--orange);
 }
-.brand-dot,
 .brand-light {
   color: var(--text);
 }
@@ -45,11 +44,6 @@ body {
   background: none;
   border-color: var(--line);
   border-radius: 5px;
-}
-.workspace-icon {
-  border-radius: 3px;
-  background: #fc7c5915;
-  color: var(--orange);
 }
 .workspace small {
   color: var(--muted);
@@ -75,13 +69,6 @@ body {
 }
 .nav.active svg {
   color: var(--orange);
-}
-.nav-active-dot {
-  background: var(--orange);
-}
-.nav-count {
-  background: #33352e;
-  color: var(--text);
 }
 .device-mini {
   background: none;
@@ -134,7 +121,7 @@ body {
   color: var(--orange);
   margin-bottom: 8px;
 }
-.glass {
+.surface {
   background: var(--panel);
   border-radius: var(--radius);
   box-shadow: none;
@@ -327,9 +314,6 @@ body {
   background: var(--mint);
 }
 .rose-bg {
-  background: var(--rose);
-}
-.purple-bg {
   background: var(--rose);
 }
 .live-badge {
@@ -727,21 +711,14 @@ td {
   font-size: 10px;
   color: var(--muted);
 }
-.journal-strip {
-  border-style: dashed;
-  background: #fc7c5905;
-  border-color: #fc7c5933;
-}
 .observation-icon,
-.observation-icon.purple,
-.journal-strip-icon {
+.observation-icon.purple {
   background: #fc7c5910;
   color: var(--orange);
   border-radius: 4px;
 }
 .observation p,
-.insight-note,
-.journal-strip p {
+.insight-note {
   font-size: 11px;
   color: var(--muted);
 }
@@ -829,18 +806,6 @@ textarea::placeholder {
   background: #22241d;
 }
 .event-stats small {
-  color: var(--muted);
-}
-.session-item {
-  background: #151710;
-  border-color: var(--line);
-  border-radius: 5px;
-}
-.session-item-icon {
-  background: #fc7c5910;
-  color: var(--orange);
-}
-.session-item p {
   color: var(--muted);
 }
 .filter {
@@ -948,37 +913,6 @@ textarea::placeholder {
   color: var(--muted);
   font-size: 11px;
 }
-.pulse-sculpture {
-  height: 95px;
-  margin-top: 26px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  max-width: 390px;
-}
-.pulse-sculpture i {
-  display: block;
-  flex: 1;
-  height: 28%;
-  background: linear-gradient(180deg, #fc7c5915, #fc7c59 60%, #f2eee5);
-  border-radius: 1px;
-  transform: skewY(-10deg);
-}
-.pulse-sculpture i:nth-child(2),
-.pulse-sculpture i:nth-child(8) {
-  height: 44%;
-}
-.pulse-sculpture i:nth-child(3),
-.pulse-sculpture i:nth-child(7) {
-  height: 70%;
-}
-.pulse-sculpture i:nth-child(4),
-.pulse-sculpture i:nth-child(6) {
-  height: 90%;
-}
-.pulse-sculpture i:nth-child(5) {
-  height: 100%;
-}
 .legal-page {
   max-width: 830px;
   padding: 60px 30px;
@@ -1026,55 +960,8 @@ textarea::placeholder {
   font-size: 12px;
   margin-top: 8px;
 }
-.broker-routes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 0 22px 22px;
-}
-.broker-route {
-  border: 1px solid var(--line);
-  padding: 16px;
-  border-radius: 5px;
-}
-.broker-route h3 {
-  font-size: 14px;
-}
-.broker-route p {
-  font-size: 11px;
-  margin: 8px 0;
-}
-.broker-route small {
-  display: block;
-  color: var(--orange);
-  font-size: 10px;
-  margin: 9px 0;
-}
-.broker-route .inline-actions {
-  margin-top: 12px;
-}
-.broker-route a {
-  font-size: 11px;
-  text-decoration: underline;
-  color: var(--muted);
-}
 .broker-catalog {
   padding: 0 22px 22px;
-}
-.catalog-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-.catalog-options button {
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 11px;
-}
-.catalog-options button:hover {
-  border-color: var(--orange);
 }
 .broker-connected {
   padding: 0 22px 22px;
@@ -1265,9 +1152,6 @@ textarea::placeholder {
   .auth-story h1 {
     font-size: 44px;
   }
-  .pulse-sculpture {
-    height: 65px;
-  }
 }
 @media (max-width: 580px) {
   .sidebar {
@@ -1302,10 +1186,6 @@ textarea::placeholder {
   }
   .nav.active {
     color: var(--orange);
-  }
-  .nav-count,
-  .nav-active-dot {
-    display: none;
   }
   .main-wrap main {
     padding: 16px 12px;
@@ -1402,10 +1282,6 @@ textarea::placeholder {
   }
   .timeline-moment-picker {
     flex-wrap: wrap;
-  }
-  .broker-routes {
-    grid-template-columns: 1fr;
-    padding: 0 14px 14px;
   }
   .broker-intro {
     flex-direction: column;

@@ -1,13 +1,20 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { test } from "node:test";
 import { activePreparationSteps } from "../src/lib/process/active-preparation";
-import { starterProfile, suggestedSteps, supportFocus, supportQuestion, journalProfileSchema } from "../src/lib/process/journal-guide";
+import {
+  preparation,
+  validateAppend,
+  withRefs,
+} from "../src/lib/process/engine";
+import {
+  journalProfileSchema,
+  starterProfile,
+  suggestedSteps,
+  supportFocus,
+  supportQuestion,
+} from "../src/lib/process/journal-guide";
 import { createRecord, type ProcessRecord } from "../src/lib/process/model";
-import { preparation, validateAppend, withRefs } from "../src/lib/process/engine";
-import ArchivedTools from "../src/components/command-center/archived-tools";
-import type { ProcessStore } from "../src/components/command-center/use-process";
+
 
 test("each chosen focus produces an optional editable question without archived dependencies", () => {
   for (const focus of Object.keys(supportFocus) as (keyof typeof supportFocus)[]) {
@@ -43,17 +50,4 @@ test("active preparation excludes retired requirements without changing historic
   const nextRun = withRefs(createRecord("run", { ...run.body, steps: activePreparationSteps(run.body.steps) }));
   assert.throws(() => validateAppend(records, [nextRun], []), /preserve its template version/);
   assert.doesNotThrow(() => validateAppend(records.slice(0, 2), [withRefs(run)], []));
-});
-
-test("retired records and their preparation answers have a read-only archive", () => {
-  const step = { ...suggestedSteps(starterProfile())[0], activity: "missions" as const, verification: "manual" as const };
-  const run = createRecord("run", { dayId: crypto.randomUUID(), templateId: crypto.randomUUID(), steps: [step], startedAt: Date.now() });
-  const response = createRecord("response", { runId: run.id, stepId: step.id, status: "skipped", method: "manual", reason: "" });
-  const routine = createRecord("protocol", { name: "Retained routine", description: "", instrument: "", strategy: "", session: "", steps: [step] });
-  const records = [routine, run, response];
-  const html = renderToStaticMarkup(createElement(ArchivedTools, { store: { records } as ProcessStore, onBack() {} }));
-  assert.match(html, /Archived tools/);
-  assert.match(html, /skipped/);
-  assert.match(html, /Retained routine/);
-  assert.doesNotMatch(html, /<form\b|<input\b|<textarea\b|<button[^>]*>(?:Save|Delete)/);
 });

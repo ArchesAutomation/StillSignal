@@ -1,9 +1,6 @@
 "use client";
-import { useState } from "react";
-import { activePreparationSteps, activePreparationRun } from "@/lib/process/active-preparation";
-import PreparationTools from "./preparation-tools";
-import { ModuleScope, WorkspaceModule } from "../module-workspace";
-import TemplateTools from "../command-center/template-tools";
+import { activePreparationSteps } from "@/lib/process/active-preparation";
+import { preparation, verificationEvidence } from "@/lib/process/engine";
 import {
   createRecord,
   latest,
@@ -11,18 +8,21 @@ import {
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import { preparation, verificationEvidence } from "@/lib/process/engine";
+import { useState } from "react";
+import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import {
-  Panel,
-  Field,
-  Input,
   Area,
-  Save,
   Empty,
+  Field,
   History,
+  Input,
+  Panel,
+  Save,
   string,
   type Context,
-} from "../command-center/shared";
+} from "../process/shared";
+import TemplateTools from "../process/template-tools";
+import PreparationTools from "./preparation-tools";
 const step = (): BodyOf<"protocol">["steps"][number] => ({
   id: crypto.randomUUID(),
   name: "",
@@ -172,7 +172,7 @@ export function PreparationPanel({
                                 ? "complete"
                                 : "incomplete",
                               method: "manual",
-                              reason: "Confirmed in Command Center",
+                              reason: "Confirmed in Preparation",
                               completedAt: e.target.checked
                                 ? Date.now()
                                 : undefined,

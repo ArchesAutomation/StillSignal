@@ -548,21 +548,6 @@
 .ss-reference-app .ss-rhythm-svg {
   touch-action: none;
 }
-.ss-comparison-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-.ss-comparison-groups > article {
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-}
-.ss-comparison-groups p,
-.ss-comparison-groups small {
-  font-size: 11px;
-}
 .ss-grouping-preview {
   padding: 15px;
   margin-top: 14px;
@@ -572,22 +557,6 @@
 .ss-grouping-preview > div {
   border-bottom: 1px solid var(--line);
   padding: 10px 0;
-}
-.ss-profit-preview > p {
-  max-width: 740px;
-}
-.ss-profit-preview svg {
-  display: block;
-  width: min(600px, 100%);
-  margin: 14px 0;
-}
-.ss-profit-preview details {
-  margin-top: 16px;
-}
-.ss-profit-preview details strong {
-  display: block;
-  color: var(--gold);
-  font-size: 11px;
 }
 .ss-reference-app .ss-weekly-invitation {
   padding: 15px 18px;
@@ -626,9 +595,6 @@
   .ss-reference-app .ss-inline-moment-head small {
     width: 100%;
     order: 4;
-  }
-  .ss-reference-app .ss-analysis-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ss-reference-app .ss-weekly-invitation {
     display: block;

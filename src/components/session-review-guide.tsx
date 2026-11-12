@@ -1,17 +1,17 @@
 "use client";
-import { useMemo, useState } from "react";
-import { completedOn, tradeRuleStatuses } from "@/lib/process/session-review";
 import {
   createRecord,
   latest,
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import { useSavedGuide } from "./use-saved-guide";
+import { completedOn, tradeRuleStatuses } from "@/lib/process/session-review";
+import { useMemo, useState } from "react";
 import { z } from "zod";
-import { Field, Panel, type Context } from "./command-center/shared";
-import PnlSnapshot from "./pnl-snapshot";
 import PersonalStillness from "./personal-stillness";
+import PnlSnapshot from "./pnl-snapshot";
+import { Field, Panel, type Context } from "./process/shared";
+import { useSavedGuide } from "./use-saved-guide";
 export default function SessionReviewGuide(context: Context & { embedded?: boolean }) {
   const { store, props, day } = context;
   const embedded = context.embedded === true;

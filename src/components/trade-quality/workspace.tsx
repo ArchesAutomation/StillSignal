@@ -1,23 +1,23 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import TemplateTools from "../command-center/template-tools";
-import {
-  recordSchema,
-  ruleSchema,
-  adherenceSchema,
-  createRecord,
-  latest,
-  type BodyOf,
-  type RecordOf,
-  type Rule,
-} from "@/lib/process/model";
 import {
   evaluateRule,
   processScore,
   sessionsForDay,
 } from "@/lib/process/engine";
+import {
+  adherenceSchema,
+  createRecord,
+  latest,
+  recordSchema,
+  ruleSchema,
+  type BodyOf,
+  type RecordOf,
+  type Rule,
+} from "@/lib/process/model";
 import { isActualExecution } from "@/lib/trade-context";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import PersistentForm, { clearFormDraft } from "../persistent-form";
 import {
   Area,
   Badge,
@@ -31,8 +31,8 @@ import {
   number,
   string,
   type Context,
-} from "../command-center/shared";
-import PersistentForm, { clearFormDraft } from "../persistent-form";
+} from "../process/shared";
+import TemplateTools from "../process/template-tools";
 import GuidedRuleBuilder from "./guided-rule-builder";
 const newRule = (): Rule => ({
   id: crypto.randomUUID(),

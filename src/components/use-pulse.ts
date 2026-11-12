@@ -1,47 +1,47 @@
 "use client";
-import { applyJournalChange, type JournalChange } from "@/lib/journal-history";
-import { excludedAt } from "@/lib/context-comparison";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  emptyWorkspace,
-  mergeSessions,
-  type WorkspaceUser,
-} from "@/lib/workspace";
-import {
-  defaults,
-  type Session,
-  type Sample,
-  type Settings,
-  type TradeEvent,
-  type JournalEntry,
-} from "@/lib/model";
-import * as storage from "@/lib/storage";
+import type { SessionBlueprint } from "@/lib/blueprint-schema";
+import { connectHeartRate, requestHeartRateDevice } from "@/lib/bluetooth";
 import {
   api,
-  sync,
+  authClient,
+  cloudConfigured,
   pullSession,
   pullSessions,
-  cloudConfigured,
-  authClient,
+  sync,
 } from "@/lib/cloud";
-import { eventSchema, sessionSchema } from "@/lib/validation";
-import { connectHeartRate, requestHeartRateDevice } from "@/lib/bluetooth";
-import { mergeNotes, reflectionContext, liveNotes } from "@/lib/smart-journal";
-import { removeSessionScreenshots } from "@/lib/screenshots";
+import { excludedAt } from "@/lib/context-comparison";
 import {
   mergeCsvEvents,
   planCsvSessions,
   type CsvDestination,
 } from "@/lib/csv-session";
-import { noteTime, validateDestination } from "@/lib/journal-routing";
+import type { ImportSource } from "@/lib/import-selection";
 import {
   dailyJournalSession,
   journalDaySessions,
 } from "@/lib/journal-collection";
-import { journalDayRange, journalDateValue } from "@/lib/journal-day";
-import type { SessionBlueprint } from "@/lib/blueprint-schema";
+import { journalDateValue, journalDayRange } from "@/lib/journal-day";
+import { applyJournalChange, type JournalChange } from "@/lib/journal-history";
+import { noteTime, validateDestination } from "@/lib/journal-routing";
+import {
+  defaults,
+  type JournalEntry,
+  type Sample,
+  type Session,
+  type Settings,
+  type TradeEvent,
+} from "@/lib/model";
 import { cleanPrivateFiles, removePrivateFile } from "@/lib/private-files";
-import type { ImportSource } from "@/lib/import-selection";
+import { removeSessionScreenshots } from "@/lib/screenshots";
+import { mergeNotes, reflectionContext } from "@/lib/smart-journal";
+import * as storage from "@/lib/storage";
+import { eventSchema, sessionSchema } from "@/lib/validation";
+import {
+  emptyWorkspace,
+  mergeSessions,
+  type WorkspaceUser,
+} from "@/lib/workspace";
+import { useCallback, useEffect, useRef, useState } from "react";
 export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
   const owner = user.id,
     email = user.email || "";
@@ -281,16 +281,6 @@ export function usePulse(user: WorkspaceUser, onSessionStart?: () => void) {
       try {
         const value = JSON.parse(event.newValue);
         if (!value || typeof value !== "object" || Array.isArray(value)) return;
-        if (
-          value.phaseLabels &&
-          Object.values(value.phaseLabels).some(
-            (rows) =>
-              !Array.isArray(rows) ||
-              rows.length > 30 ||
-              rows.some((row) => typeof row !== "string" || row.length > 40),
-          )
-        )
-          return;
         setSettings({ ...defaults, ...value });
         setInsightTime(Date.now());
       } catch {

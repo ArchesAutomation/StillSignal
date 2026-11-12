@@ -1,9 +1,9 @@
 "use client";
-import { BookOpen, ArrowUpRight } from "lucide-react";
+import { eventWindow, positionWindow } from "@/lib/analytics";
 import type { Sample, TradeEvent } from "@/lib/model";
 import { clock, money } from "@/lib/model";
-import { eventWindow, positionWindow } from "@/lib/analytics";
-import { executionAction, eventOrigin } from "@/lib/trade-context";
+import { eventOrigin, executionAction } from "@/lib/trade-context";
+import { ArrowUpRight, BookOpen } from "lucide-react";
 export default function TradeContextPanel({
   event,
   samples,
@@ -26,7 +26,7 @@ export default function TradeContextPanel({
       ? eventWindow(samples, event, seconds)
       : null;
   return (
-    <aside className="glass trade-context-panel">
+    <aside className="surface trade-context-panel">
       <div className="context-heading">
         <span className="eyebrow">TRADE CONTEXT</span>
         <BookOpen size={16} />

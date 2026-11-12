@@ -1,15 +1,15 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import PreMarket from "../src/components/pre-market/workspace";
 import ModuleWorkspace from "../src/components/module-workspace";
-import { moduleLayoutKey, emptyModuleLayout } from "../src/lib/module-layout";
-import { createRecord, type ProcessRecord } from "../src/lib/process/model";
+import PreMarket from "../src/components/pre-market/workspace";
+import type { Context } from "../src/components/process/shared";
+import { emptyModuleLayout, moduleLayoutKey } from "../src/lib/module-layout";
 import { validateAppend, withRefs } from "../src/lib/process/engine";
+import { createRecord, type ProcessRecord } from "../src/lib/process/model";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
-import type { Context } from "../src/components/command-center/shared";
 
 test("preparation retires thesis and missions while keeping active tools and saved records", async () => {
   const dom = new JSDOM('<div id="root"></div>', {

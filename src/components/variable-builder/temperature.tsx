@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
 import { latest, type RecordOf } from "@/lib/process/model";
-import { Empty, History, Panel, type Context } from "../command-center/shared";
+import { useState } from "react";
+import { Empty, History, Panel, type Context } from "../process/shared";
 import GuidedCheckin from "./guided-checkin";
 export const defaultQuestions = [
   "Focus",

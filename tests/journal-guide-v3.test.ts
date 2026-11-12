@@ -1,8 +1,24 @@
 import "fake-indexeddb/auto";
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { highestTimeframeFirst } from "../src/components/command-center/market-outlook";
+import { test } from "node:test";
+
 import { readFileSync } from "node:fs";
+import { mergeCsvEvents } from "../src/lib/csv-session";
+import { temperatureRecords } from "../src/lib/environment/temperature";
+import {
+  activeObservations,
+  validateValue,
+} from "../src/lib/environment/values";
+import { evidenceReadingLayout, moduleBoard } from "../src/lib/module-board";
+import { emptyModuleLayout } from "../src/lib/module-layout";
+import { keepRoutineAudio, privateFile } from "../src/lib/private-files";
+import { validateAppend, withRefs } from "../src/lib/process/engine";
+import {
+  habitPrompt,
+  moduleRecommendation,
+  starterProfile,
+  suggestedSteps,
+} from "../src/lib/process/journal-guide";
 import {
   createRecord,
   latest,
@@ -10,31 +26,15 @@ import {
   type BodyOf,
   type ProcessRecord,
 } from "../src/lib/process/model";
-import {
-  starterProfile,
-  suggestedSteps,
-  habitPrompt,
-  moduleRecommendation,
-} from "../src/lib/process/journal-guide";
-import { validateAppend, withRefs } from "../src/lib/process/engine";
 import { unansweredReflections } from "../src/lib/process/preparation-workflow";
-import { temperatureRecords } from "../src/lib/environment/temperature";
-import {
-  activeObservations,
-  validateValue,
-} from "../src/lib/environment/values";
+import { goalProgress } from "../src/lib/process/reviews";
 import {
   completedIdeas,
   completedOn,
   reviewInvitationKey,
   tradeRuleStatuses,
 } from "../src/lib/process/session-review";
-import { goalProgress } from "../src/lib/process/reviews";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
-import { mergeCsvEvents } from "../src/lib/csv-session";
-import { evidenceReadingLayout, moduleBoard } from "../src/lib/module-board";
-import { emptyModuleLayout } from "../src/lib/module-layout";
-import { keepRoutineAudio, privateFile } from "../src/lib/private-files";
 const day = () =>
   createRecord("day", {
     date: "2026-10-13",
@@ -399,10 +399,7 @@ test("the process edge validator is generated from the same profile and preparat
       .replaceAll('"./journal-guide"', '"./journal-guide.ts"')
       .replaceAll('"./widget-layout"', '"./widget-layout.ts"'),
   );
-  assert.match(
-    readFileSync("src/app/layout.tsx", "utf8"),
-    /AppearanceProvider.*SharkBackground/s,
-  );
+  assert.doesNotMatch(readFileSync("src/app/layout.tsx", "utf8"), /AppearanceProvider|SharkBackground|GlassProvider/);
 });
 
 test("the wider evidence preset changes displayed widths without rewriting workspace preferences", () => {
@@ -430,11 +427,4 @@ test("the wider evidence preset changes displayed widths without rewriting works
   const boxes = moduleBoard(preset, modules, { moments: 400, evidence: 300 });
   assert.ok(boxes.evidence.w > boxes.moments.w);
   assert.deepEqual(layout.modules, {});
-});
-
-test("market outlook orders chart timeframes from highest to lowest and removes exact duplicates", () => {
-  assert.deepEqual(
-    highestTimeframeFirst(["15M", "Daily", "1H", "Weekly", "4H", "Daily"]),
-    ["Weekly", "Daily", "4H", "1H", "15M"],
-  );
 });

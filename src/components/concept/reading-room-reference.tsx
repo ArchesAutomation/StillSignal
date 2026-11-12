@@ -1,6 +1,6 @@
 "use client";
-import { useProcess } from "../command-center/use-process";
 import { readingRoomReference } from "@/lib/reading-room";
+import { useProcess } from "../process/use-process";
 import { Calendar } from "./calendar";
 import JournalDayPicker from "./journal-day-picker";
 import type { Props } from "./shared";

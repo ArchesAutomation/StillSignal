@@ -1,10 +1,10 @@
 "use client";
+import { Panel } from "@/components/ui/panel";
 import { useEffect, useRef, useState } from "react";
-import { GlassPanel } from "./glassyui/glass-panel";
 import { z } from "zod";
-import { useSavedGuide } from "./use-saved-guide";
 import type { Props } from "./concept/shared";
 import LearningCentre from "./learning-centre";
+import { useSavedGuide } from "./use-saved-guide";
 export default function WorkspaceAppearance({ props, settings = false }: { props: Pick<Props, "onPage"> & { pulse: Pick<Props["pulse"], "owner"> }; settings?: boolean }) {
   const container = useRef<HTMLDivElement>(null), dialog = useRef<HTMLDialogElement>(null), helpTrigger = useRef<HTMLButtonElement>(null);
   const [learning, setLearning] = useState(false), [tour, setTour] = useState(false), [step, setStep] = useState(0);
@@ -22,13 +22,13 @@ export default function WorkspaceAppearance({ props, settings = false }: { props
   const tourSteps = [
     [
       "Prepare with a guide",
-      "Start / resume preparation in Command Center. Set up your journal once, then follow the same steps each day. You can skip a reflection, return later or edit your summary.",
+      "Start / resume preparation in Preparation. Set up your journal once, then follow the same steps each day. You can skip a reflection, return later or edit your summary.",
       "Pre-Market",
     ],
     [
       "Keep your plan within reach",
-      "Today's reference in Command Center holds your narrative, intentions, risk and check-in. Edit just one answer when something changes.",
-      "Command Center",
+      "Today's reference in Preparation holds your narrative, intentions, risk and check-in. Edit just one answer when something changes.",
+      "Preparation",
     ],
     [
       "Capture a moment",
@@ -39,11 +39,6 @@ export default function WorkspaceAppearance({ props, settings = false }: { props
       "Review your process",
       "A fully closed trade offers one invitation. Start with the session overview, then review a trade one rule at a time. Unknown checks are not violations. Stillness is optional.",
       "Trade Quality",
-    ],
-    [
-      "Explore your own context",
-      "Patterns compares measured records with labels and observations you entered. A simultaneous HR change and feeling does not establish a cause.",
-      "Patterns",
     ],
   ] as const;
   return <div ref={container} className={settings ? "guide-text-settings" : "guide-resources guide-header-resources"}>
@@ -58,14 +53,14 @@ export default function WorkspaceAppearance({ props, settings = false }: { props
     </>}
     {learning && <LearningCentre onStartTour={() => { setLearning(false); setStep(0); setTour(true); }} onClose={() => { setLearning(false); helpTrigger.current?.focus(); }} onNavigate={props.onPage} />}
     <dialog ref={dialog} aria-label="Still Signal guided tour" className="guide-tour" onClose={() => { setTour(false); helpTrigger.current?.focus(); }}>
-      <GlassPanel><small>Learn Still Signal · {step+1} of {tourSteps.length}</small><h2>{tourSteps[step][0]}</h2><p>{tourSteps[step][1]}</p>
+      <Panel><small>Learn Still Signal · {step+1} of {tourSteps.length}</small><h2>{tourSteps[step][0]}</h2><p>{tourSteps[step][1]}</p>
         <div className="cc-actions">
           <button disabled={!step} onClick={() => setStep(s => s-1)}>Back</button>
           <button onClick={() => { props.onPage(tourSteps[step][2]); setTour(false); }}>Take me there</button>
           <button onClick={() => step+1 < tourSteps.length ? setStep(s => s+1) : setTour(false)}>{step+1 < tourSteps.length ? "Next" : "Finish tour"}</button>
           <button autoFocus onClick={() => setTour(false)}>Close tour</button>
         </div>
-      </GlassPanel>
+      </Panel>
     </dialog>
   </div>;
 }

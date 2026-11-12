@@ -1,8 +1,8 @@
 import "fake-indexeddb/auto";
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { createRecord } from "../src/lib/process/model";
 
@@ -15,7 +15,7 @@ test("the workspace displays downloaded evidence after upload failure and update
     Object.defineProperty(globalThis, key, { value, configurable: true });
   const { authClient } = await import("../src/lib/cloud");
   const { saveProcess } = await import("../src/lib/process/storage");
-  const { useProcess } = await import("../src/components/command-center/use-process");
+  const { useProcess } = await import("../src/components/process/use-process");
   const owner = crypto.randomUUID();
   const local = createRecord("day", { date: "2026-11-04", timezone: "UTC", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
   const remote = createRecord("day", { ...local.body, date: "2026-11-03" });

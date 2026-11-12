@@ -110,12 +110,12 @@ test("Bluetooth recording survives every dashboard tab and workspace instrument 
     );
     assert.ok(session);
     for (const [i, tab] of [
-      "Overview",
+      "Home",
       "Settings",
       "Daily journal",
-      "Patterns",
+      "Preparation",
       "Stillness",
-      "Sessions",
+      "Done for the day",
       "Connections",
       "Daily journal",
     ].entries()) {

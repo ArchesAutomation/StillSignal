@@ -1,15 +1,5 @@
 /* Daily workflow navigation stays outside the user's customizable card layout. */
-.cc-workflow-navigation { display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin:20px 0; }
-.cc-workflow-group { padding:20px; min-width:0; }
-.cc-workflow-group h2 { font-size:16px; margin:0 0 12px; }
-.cc-workflow-group nav { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-.cc-workflow-group button { min-height:40px; }
 /* Editor chrome overlays the card without changing saved grid coordinates. */
-html .cc-canvas .cc-card-controls { position:absolute; top:0; left:0; right:0; z-index:3; max-height:96px; overflow:auto; flex-wrap:wrap; background:var(--lg-opaque-surface); border-radius:12px 12px 0 0; }
-html .cc-card-controls button[aria-label^="Fit "] { width:auto; min-width:76px; }
-html .cc-canvas-editing .cc-tile-scroll { padding-top:96px; padding-bottom:36px; }
-html .cc-canvas .cc-resize-left { left:0; right:auto; cursor:nesw-resize; border-radius:0 8px 0 7px; }
-/* Keep Nordify's optical overhang outside the content viewport. */
 html .ss-free-board > .ss-module-sized { display:flex; flex-direction:column; overflow:visible; }
 html .ss-workspace-module > .ss-module-surface {
   display:flex; flex-direction:column; min-width:0; min-height:0; padding:12px;
@@ -18,7 +8,7 @@ html .ss-module-sized > .ss-module-surface { flex:1; }
 html .ss-module-surface > .ss-module-content {
   flex:1; min-width:0; min-height:0; padding:8px;
   overflow-x:hidden; overflow-y:auto;
-  border-radius:max(4px, calc(var(--ss-glass-radius, 18px) - 12px));
+  border-radius:max(4px, calc(18px - 12px));
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb, var(--signal-muted) 48%, transparent) transparent;
 }
@@ -48,7 +38,7 @@ html .ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-rhyt
 .pnl-export .cc-grid > * { min-width:0; }
 .pnl-export canvas { max-width:100%; }
 /* Reflection dialogs live outside .ss-reference-app; give their shared selectors full styling. */
-.modal:has(.reflection-form) { color:var(--signal-text); background:var(--lg-opaque-surface); overflow:auto; }
+.modal:has(.reflection-form) { color:var(--signal-text); background:#fffefa; overflow:auto; }
 .reflection-form { color:var(--signal-text); }
 .reflection-form :is(label,.form-intro,.voice-toolbar,.voice-toolbar span) { color:var(--signal-text); }
 .reflection-form :is(input:not([type="checkbox"]),textarea,select,.button) { color:var(--signal-text); background:var(--ocean-bg); border:1px solid var(--signal-line); }
@@ -60,18 +50,17 @@ html .ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-rhyt
 .reflection-form .ss-journal-select select[hidden] { display:none!important; }
 .reflection-form .ss-select-trigger { display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:10px 12px; margin:0; border:1px solid var(--signal-line); border-radius:8px; background:var(--ocean-bg); color:var(--signal-text); text-align:left; }
 .reflection-form .ss-select-trigger:focus-visible { outline:2px solid var(--signal-text); outline-offset:2px; }
-.ss-journal-select-menu { color:var(--signal-text); background:var(--lg-opaque-surface); }
+.ss-journal-select-menu { color:var(--signal-text); background:#fffefa; }
 .ss-journal-select-menu .ss-select-option { color:var(--signal-text); }
 .ss-journal-select-menu .ss-select-menu-heading, .ss-journal-select-menu .ss-select-menu-heading span { color:var(--signal-muted); }
-.ss-journal-select-menu .ss-select-option-active { background:color-mix(in srgb,var(--signal-text) 12%,var(--lg-opaque-surface)); }
-@media(max-width:700px) { .cc-workflow-navigation { grid-template-columns:1fr; } }
+.ss-journal-select-menu .ss-select-option-active { background:color-mix(in srgb,var(--signal-text) 12%,#fffefa); }
 
 /* Keep ordinary wheel scrolling available over a resized timeline. */
 html .ss-free-board > [data-module-id="timeline"].ss-module-sized > .ss-module-surface > .ss-module-content {
   overscroll-behavior-y: auto;
 }
 
-html .ss-module-toolbar-idle.lg-glass-surface {
+html .ss-module-toolbar-idle.ui-panel {
   width: fit-content;
   max-width: 100%;
   padding: 6px 10px;
@@ -85,7 +74,7 @@ html .ss-module-toolbar-idle.lg-glass-surface {
 .ss-workspace-module:is([data-module-id="post-exit-review"],[data-module-id="weekly-reflection"]):not(.ss-module-editing):has(> .ss-module-surface > .ss-module-content:empty) {
   display: none;
 }
-html .guide-exit-invitation.lg-glass-surface,
+html .guide-exit-invitation.ui-panel,
 html .ss-workspace-module .ss-weekly-invitation {
   margin: 0;
   padding: 8px 12px;
@@ -99,15 +88,9 @@ html .ss-reference-app .ss-space-title {
 html .ss-reference-app .ss-space-title h2 { font-size: 17px; }
 html .ss-reference-app .ss-space-title .ss-eyebrow { display: none; }
 
-html :is(.cc-daybar, .cc-greeting, .cc-dashboard-toolbar, .cc-dashboard-status).lg-glass-surface {
+html :is(.cc-daybar, .cc-greeting, .cc-dashboard-toolbar, .cc-dashboard-status).ui-panel {
   padding: 8px 12px;
   margin-block: 0 8px;
   min-height: 0;
 }
-html .cc-greeting h1 { font-size: 20px; margin-block: 0; }
-html .cc-greeting .cc-eyebrow,
-html .cc-greeting p { margin-block: 2px; }
-html .cc-workflow-navigation { gap: 8px; margin-block: 8px; }
-html .cc-workflow-group.lg-glass-surface { padding: 8px 12px; }
-.cc-workflow-group summary { cursor: pointer; }
 .cc-snapshot-tools { padding: 12px; }

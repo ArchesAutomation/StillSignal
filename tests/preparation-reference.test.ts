@@ -1,11 +1,11 @@
-import { test } from "node:test";
+import { JSDOM } from "jsdom";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import PreparationSummary from "../src/components/pre-market/preparation-summary";
+import type { Context } from "../src/components/process/shared";
 import { createRecord } from "../src/lib/process/model";
-import type { Context } from "../src/components/command-center/shared";
-import { JSDOM } from "jsdom";
 
 test("restarting a routine keeps historical runs out of the current reference", () => {
   const day = createRecord("day", { date: "2026-11-03", timezone: "UTC", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });

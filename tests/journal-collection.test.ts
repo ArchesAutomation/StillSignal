@@ -1,23 +1,33 @@
 import "fake-indexeddb/auto";
-import { test } from "node:test";
+import { JSDOM } from "jsdom";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { JSDOM } from "jsdom";
-import { dailyJournalSession, collectedNotes, journalPlacement, journalSources } from "../src/lib/journal-collection";
-import { destination, noteTime, sessionTrades, validateDestination } from "../src/lib/journal-routing";
+import {
+  collectedNotes,
+  dailyJournalSession,
+  journalPlacement,
+  journalSources,
+} from "../src/lib/journal-collection";
+import {
+  destination,
+  noteTime,
+  sessionTrades,
+  validateDestination,
+} from "../src/lib/journal-routing";
+import type { JournalEntry, Session } from "../src/lib/model";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
 import { sessionSchema } from "../src/lib/validation";
-import type { JournalEntry, Session } from "../src/lib/model";
-import CollectedNotes from "../src/components/concept/collected-notes";
+
+import { Calendar } from "../src/components/concept/calendar";
+import JournalDayPicker from "../src/components/concept/journal-day-picker";
+import Writing from "../src/components/concept/writing";
 import ReflectionEditor from "../src/components/reflection-editor";
 import { usePulse } from "../src/components/use-pulse";
-import { saveSession, listSessions, appendSamples } from "../src/lib/storage";
-import { journalDayRange, journalDateValue } from "../src/lib/journal-day";
+import { journalDateValue, journalDayRange } from "../src/lib/journal-day";
 import { groupSessionDays } from "../src/lib/session-days";
-import { Calendar } from "../src/components/concept/calendar";
-import Writing from "../src/components/concept/writing";
-import JournalDayPicker from "../src/components/concept/journal-day-picker";
+import { appendSamples, listSessions, saveSession } from "../src/lib/storage";
 
 const fixture = reviewFixtures();
 const session = fixture.session;
@@ -100,20 +110,7 @@ async function select(label: string, value: string) {
   await act(async () => { element.value = value; element.dispatchEvent(new window.Event("change", { bubbles: true })); });
 }
 
-test("collected-note controls filter the rendered list and expose manual assignment without a separate earlier-notes list", async () => {
-  const ui = setup(); let edited: JournalEntry | undefined;
-  try {
-    await act(async () => ui.root.render(createElement(CollectedNotes, { session: { ...session, journal: allSources.filter(n => !n.screenshot) }, samples: [], sampleNoteIds: new Set<string>(), onEdit: n => { edited = n; } })));
-    await select("Filter journal stage", "before");
-    assert.equal(document.querySelectorAll("article").length, 1);
-    assert.match(document.body.textContent!, /Trade 1 · Before/);
-    await select("Filter journal stage", "unsorted");
-    assert.equal(document.querySelectorAll("article").length, 2);
-    assert.doesNotMatch(document.body.textContent!, /Earlier notes/);
-    await act(async () => (document.querySelector("article button") as HTMLButtonElement).click());
-    assert.ok(edited && ["stillness", "unknown"].includes(edited.id));
-  } finally { await ui.close(); }
-});
+
 
 test("assigning a legacy Stillness reflection edits the original and preserves its source, time, screenshot and HR", async () => {
   const ui = setup(); let saved: JournalEntry | undefined;

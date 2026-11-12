@@ -1,16 +1,20 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { act, createElement as h } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import FocusedRun from "../src/components/pre-market/focused-run";
 import PreparationSummary from "../src/components/pre-market/preparation-summary";
 import StepSettings from "../src/components/pre-market/step-settings";
-import { createRecord, type ProcessRecord } from "../src/lib/process/model";
+import type { Context } from "../src/components/process/shared";
 import { starterProfile } from "../src/lib/process/journal-guide";
-import { emptyThesis } from "../src/components/trading-thesis/workspace";
-import type { Context } from "../src/components/command-center/shared";
+import { createRecord, type ProcessRecord } from "../src/lib/process/model";
+// Historical fixtures stay readable after the archived editor is retired.
+const emptyThesis = (day: import("../src/lib/process/model").RecordOf<"day">, scope: "weekly" | "daily") => ({
+  scope, dayId: scope === "daily" ? day.id : undefined, periodStart: day.body.date,
+  instrument: day.body.instrument, bias: "neutral" as const, timeframes: [], structure: "", events: "", levels: "", liquidity: "", primary: "", alternate: "", entries: "", invalidation: "", noTrade: "", targets: "", notes: "", screenshots: [], reason: "Historical fixture",
+});
 
 function fixture() {
   const day=createRecord("day",{date:"2026-11-03",timezone:"UTC",status:"preparing",instrument:"ES",account:"",timeframes:[],sessionIds:[],goal:""});

@@ -1,9 +1,9 @@
 "use client";
+import { createRecord } from "@/lib/process/model";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { createRecord } from "@/lib/process/model";
+import { Field, Panel, type Context } from "../process/shared";
 import { useSavedGuide } from "../use-saved-guide";
-import { Field, Panel, type Context } from "../command-center/shared";
 const fields = [
   "entries",
   "sizing",

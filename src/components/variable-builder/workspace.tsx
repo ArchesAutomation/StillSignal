@@ -1,5 +1,10 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import {
+  currentTimeOnDay,
+  observationTime,
+  observationTimeInput,
+} from "@/lib/environment/observation-time";
+import { displayValue } from "@/lib/environment/values";
 import {
   createRecord,
   latest,
@@ -7,11 +12,8 @@ import {
   type BodyOf,
   type RecordOf,
 } from "@/lib/process/model";
-import { displayValue } from "@/lib/environment/values";
-import { currentTimeOnDay, observationTimeInput, observationTime } from "@/lib/environment/observation-time";
+import { useEffect, useRef, useState } from "react";
 import PersistentForm, { clearFormDraft } from "../persistent-form";
-import Temperature from "./temperature";
-import GuidedCheckin from "./guided-checkin";
 import {
   Area,
   Badge,
@@ -25,7 +27,9 @@ import {
   number,
   string,
   type Context,
-} from "../command-center/shared";
+} from "../process/shared";
+import GuidedCheckin from "./guided-checkin";
+import Temperature from "./temperature";
 const empty: BodyOf<"variable"> = {
   name: "",
   category: "Environment",

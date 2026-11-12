@@ -26,7 +26,7 @@ export default function TodayReview({
     .sort((a, b) => a.note.t - b.note.t);
   return (
     <section
-      className="glass content-panel"
+      className="surface content-panel"
       aria-label="Today's journal review"
     >
       <div className="panel-heading">

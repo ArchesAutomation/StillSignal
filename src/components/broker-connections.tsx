@@ -1,14 +1,14 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, ShieldCheck } from "lucide-react";
 import { routeAvailability } from "@/lib/brokers/registry";
-import BrokerWizard from "./broker-wizard";
+import { RefreshCw, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   brokerHelp,
   brokerRequest,
   type BrokerActionResult,
   type BrokerState,
 } from "./broker-client";
+import BrokerWizard from "./broker-wizard";
 const empty = (): BrokerState => ({
   routes: routeAvailability({}),
   connections: [],
@@ -95,7 +95,7 @@ export default function BrokerConnections({
     }
   }
   return (
-    <section className="glass broker-section">
+    <section className="surface broker-section">
       <div className="broker-intro">
         <div>
           <span className="eyebrow">AUTOMATIC JOURNALING</span>

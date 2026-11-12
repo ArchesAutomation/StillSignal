@@ -13,7 +13,7 @@ import {
 import { sessionIdeas } from "../src/lib/position-ideas";
 import { sessionSchema } from "../src/lib/validation";
 import { contextMatches, excludedAt } from "../src/lib/context-comparison";
-import { referenceAnalysis } from "../src/lib/reference-analysis";
+
 import { pendingWeekly } from "../src/components/concept/weekly-reminder";
 import { noCombination } from "../src/lib/blueprint-schema";
 import type { JournalEntry, Session } from "../src/lib/model";
@@ -131,46 +131,7 @@ test("blank caffeine stays unknown; explicit no stays separate; interval changes
   assert.ok(contextMatches(s, t + 61000, { location: "Cafe" }));
   assert.equal(contextMatches(s, t, { location: "Cafe" }), false);
 });
-test("Patterns date range recomputes event counts and dates, while away samples are excluded", () => {
-  const s = base(),
-    next = {
-      ...s,
-      id: crypto.randomUUID(),
-      startedAt: s.startedAt + 86400000,
-      events: s.events.map((e) => ({
-        ...e,
-        id: "day2-" + e.id,
-        t: e.t + 86400000,
-      })),
-      journal: [],
-    };
-  const from = new Date(s.startedAt).toISOString().slice(0, 10),
-    to = new Date(next.startedAt).toISOString().slice(0, 10),
-    filter = {
-      from,
-      to: from,
-      origin: "all",
-      stage: "all",
-      scope: "",
-      baselineSeconds: 300,
-    };
-  const one = referenceAnalysis([s, next], s.owner, {}, filter),
-    both = referenceAnalysis([s, next], s.owner, {}, { ...filter, to });
-  assert.equal(both.responses[0].count, one.responses[0].count * 2);
-  assert.equal(both.responses[0].dates, 2);
-  s.blueprint = {
-    updatedAt: Date.now(),
-    measurementPauses: [{ start: s.events[0].t, end: s.events.at(-1)!.t }],
-  };
-  assert.ok(excludedAt(s, s.events[0].t));
-  assert.equal(
-    referenceAnalysis([s], s.owner, {}, filter).responses.reduce(
-      (n, r) => n + r.count,
-      0,
-    ),
-    0,
-  );
-});
+
 test("new provenance, frame history, pauses and grouping history survive the same API contract", () => {
   const s = base(),
     at = Date.now(),

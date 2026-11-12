@@ -1,14 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
 import { authClient } from "@/lib/cloud";
 import {
-  pairingRequestSchema,
-  extensionMessage,
   connectedExtension,
+  extensionMessage,
+  pairingRequestSchema,
   updateExtensionLease,
 } from "@/lib/extension-bridge";
-import type { WorkspaceUser } from "@/lib/workspace";
 import type { JournalEntry } from "@/lib/model";
+import type { WorkspaceUser } from "@/lib/workspace";
+import { useEffect, useState } from "react";
 type Connection = {
   id: string;
   instance_id: string;
@@ -147,7 +147,7 @@ export default function ExtensionConnection({
   if (!pair && !manage && !message) return null;
   return (
     <section
-      className={manage ? "glass settings-card" : "banner"}
+      className={manage ? "surface settings-card" : "banner"}
       aria-label="Voice journal extension"
     >
       {pair ? (

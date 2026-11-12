@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
-import type { JournalEntry, Session } from "@/lib/model";
-import { noteTime } from "@/lib/journal-routing";
 import { labelsFor } from "@/lib/journal-reference";
-import { usePhaseLabels } from "../phase-label-context";
+import { noteTime } from "@/lib/journal-routing";
+import type { JournalEntry, Session } from "@/lib/model";
 import { phaseColors } from "@/lib/phase-colors";
+import { useEffect, useId, useRef, useState } from "react";
+import PrivateImage from "../private-image";
 import { AudioPlayback } from "../reflection-audio";
 import { Screenshot } from "../reflection-editor";
-import PrivateImage from "../private-image";
 import Destination from "./destination";
 import { cx, time } from "./shared";
 
@@ -37,7 +36,6 @@ export default function InlineMoment({
   timezone?: string;
   idPrefix?: string;
 }) {
-  const labels = usePhaseLabels();
   const labelsId = useId();
   const [label, setLabel] = useState(
     note.label === "Unlabelled" ? "" : note.label,
@@ -155,7 +153,7 @@ export default function InlineMoment({
           }}
         />
         <datalist id={labelsId}>
-          {labelsFor(note.section, labels).map((l) => (
+          {labelsFor(note.section).map((l) => (
             <option key={l}>{l}</option>
           ))}
         </datalist>

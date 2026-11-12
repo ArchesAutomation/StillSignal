@@ -1,15 +1,13 @@
 "use client";
-import { useState } from "react";
+import { sessionIdeas } from "@/lib/position-ideas";
 import {
   liveNotes,
   personalProfile,
   personalQuestion,
-  reconstructTrades,
 } from "@/lib/smart-journal";
-import { sessionIdeas } from "@/lib/position-ideas";
-import { isActualExecution } from "@/lib/trade-context";
+import { useState } from "react";
 import { Calendar } from "./calendar";
-import { cx, Metric, Title, type Props } from "./shared";
+import { Metric, Title, cx, type Props } from "./shared";
 export default function Overview(props: Props & { onReview: () => void }) {
   const { history, session: s, pulse: p } = props,
     [period, setPeriod] = useState<"day" | "week">("day"),
@@ -85,7 +83,7 @@ export default function Overview(props: Props & { onReview: () => void }) {
           </p>
           <button
             className={cx("primary")}
-            onClick={() => props.onPage("Patterns")}
+            onClick={() => props.onPage("Journal")}
           >
             See the evidence
           </button>
@@ -146,7 +144,7 @@ export default function Overview(props: Props & { onReview: () => void }) {
             Reflections with recorded heart rate at least 10 BPM above the
             opening baseline.
           </p>
-          <button onClick={() => props.onPage("Patterns")}>
+          <button onClick={() => props.onPage("Journal")}>
             View supporting moments →
           </button>
         </article>
@@ -159,7 +157,7 @@ export default function Overview(props: Props & { onReview: () => void }) {
             Self-reported reflections recorded within ten minutes of a losing
             exit.
           </p>
-          <button onClick={() => props.onPage("Patterns")}>
+          <button onClick={() => props.onPage("Journal")}>
             Compare the timelines →
           </button>
         </article>
@@ -172,7 +170,7 @@ export default function Overview(props: Props & { onReview: () => void }) {
             Moments you labelled as focused. Explore what helped your attention
             stay with the plan.
           </p>
-          <button onClick={() => props.onPage("Patterns")}>
+          <button onClick={() => props.onPage("Journal")}>
             Inspect the moments →
           </button>
         </article>
