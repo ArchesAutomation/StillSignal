@@ -507,6 +507,15 @@ export function WorkspaceModule({
   );
 }
 
+const boardNames: Record<string, string> = {
+  Journal: "Daily journal",
+  Done: "Done for the day",
+  Preparation: "Preparation",
+  Stillness: "Stillness",
+  Overview: "Overview",
+  Sessions: "Saved sessions",
+};
+
 export default function ModuleWorkspace({
   owner,
   page,
@@ -1222,7 +1231,7 @@ export default function ModuleWorkspace({
   return (
     <Context.Provider value={enabled ? context : null}>
       <div
-        className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}${controlled ? " ss-module-controlled" : ""}`}
+        className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}${controlled ? " ss-module-controlled" : ""}${editing ? " ss-board-editing" : ""}`}
       >
         {enabled && controlled?.editing && (
           <Panel className="ss-module-toolbar">
@@ -1253,7 +1262,7 @@ export default function ModuleWorkspace({
           >
             <div>
               <strong>
-                {editing ? "Make this board yours" : workspaceTitle}
+                {editing ? `You’re editing your ${boardNames[page.replace(/ (review|tools)$/, "")] ?? page} board` : workspaceTitle}
               </strong>
               <small hidden={!editing}>
                 {editing

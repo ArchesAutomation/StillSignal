@@ -172,7 +172,7 @@
   padding: 7px;
   font-size: 11px;
   border-radius: 6px;
-  background: #0d1618;
+  background: var(--theme-bg);
 }
 .ss-reference-app .ss-space-moments {
   border: 1px solid var(--line);
@@ -197,7 +197,7 @@
   border-bottom: 0;
 }
 .ss-reference-app .ss-space-selected {
-  background: #a8c6b207;
+  background: color-mix(in srgb, var(--theme-journal-tint) 7%, transparent);
   box-shadow: inset 2px 0 var(--green);
 }
 .ss-reference-app .ss-space-moment .ss-inline-moment-head {
@@ -222,14 +222,14 @@
   letter-spacing: 0;
 }
 .ss-reference-app .ss-capture-badge {
-  border: 1px solid #a8c6b23a;
+  border: 1px solid color-mix(in srgb, var(--theme-journal-dot) 23%, transparent);
   color: var(--green);
   padding: 1px 5px;
   border-radius: 4px;
   white-space: nowrap;
 }
 .ss-reference-app .ss-later-badge {
-  border-color: #d4bd8340;
+  border-color: color-mix(in srgb, var(--theme-warning) 25%, transparent);
   color: var(--gold);
 }
 .ss-reference-app .ss-space-moment .ss-inline-moment-head input {
@@ -242,8 +242,8 @@
   padding: 3px 6px;
   height: 25px;
   font-size: 11px;
-  background: #b6a3cb09;
-  border-color: #b6a3cb25;
+  background: color-mix(in srgb, var(--theme-prep-tint) 9%, transparent);
+  border-color: color-mix(in srgb, var(--theme-link) 15%, transparent);
   color: var(--purple);
   border-radius: 6px;
 }
@@ -285,7 +285,7 @@
 }
 .ss-reference-app .ss-space-moment > textarea:focus {
   border-color: var(--line);
-  background: #0b1112;
+  background: var(--theme-bg);
   padding: 5px;
 }
 .ss-reference-app .ss-space-moment > .ss-inline-save {
@@ -322,7 +322,7 @@
   width: 34px !important;
   height: 26px !important;
   object-fit: cover;
-  border: 1px solid #405552;
+  border: 1px solid var(--theme-line);
   border-radius: 3px;
   margin: 0 !important;
   min-height: 0 !important;
@@ -375,7 +375,7 @@
   font-size: 11px;
 }
 .ss-space-evidence blockquote {
-  border-left: 2px solid #536c61;
+  border-left: 2px solid var(--theme-line);
   margin: 10px 0;
   padding-left: 12px;
   font-size: 12px;
@@ -524,7 +524,7 @@
   padding: 16px;
 }
 .ss-evidence-dialog::backdrop {
-  background: #000b;
+  background: color-mix(in srgb, var(--theme-shadow) 73%, transparent);
 }
 .ss-evidence-dialog > div {
   display: flex;
@@ -635,5 +635,5 @@
 @media(max-width:600px){.ss-reference-app .ss-reference-rhythm .ss-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.ss-reference-app .ss-reference-rhythm .ss-phases .ss-phase-link:last-child{grid-column:1/-1}}
 .ss-reference-app .ss-moment-stage{display:inline-flex;align-items:center;gap:4px;border:1px solid;border-radius:4px;padding:1px 5px;font-size:9px;line-height:1.35;white-space:nowrap}
 .ss-moment-stage::before{content:"";width:4px;height:4px;background:currentColor;border-radius:50%;flex-shrink:0}
-.ss-reference-app .ss-log-highlight-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 9px;padding:8px 10px;border:1px solid #42534b;border-radius:8px;background:#a8c6b206;font-size:11px}
+.ss-reference-app .ss-log-highlight-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 9px;padding:8px 10px;border:1px solid var(--theme-line);border-radius:8px;background:color-mix(in srgb, var(--theme-journal-tint) 6%, transparent);font-size:11px}
 .ss-reference-app .ss-log-highlight-notice button{padding:3px 7px;font-size:10px;white-space:nowrap;background:transparent}

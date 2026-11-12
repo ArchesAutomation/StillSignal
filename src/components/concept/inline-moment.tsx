@@ -2,7 +2,7 @@
 import { labelsFor } from "@/lib/journal-reference";
 import { noteTime } from "@/lib/journal-routing";
 import type { JournalEntry, Session } from "@/lib/model";
-import { phaseColors } from "@/lib/phase-colors";
+import { phaseColors, phaseTint } from "@/lib/phase-colors";
 import { useEffect, useId, useRef, useState } from "react";
 import PrivateImage from "../private-image";
 import { AudioPlayback } from "../reflection-audio";
@@ -126,7 +126,7 @@ export default function InlineMoment({
         selected && "space-selected",
       )}
       data-note-id={note.id}
-      style={selected ? {boxShadow:`inset 3px 0 ${highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection}`,backgroundColor:`${highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection}0c`} : undefined}
+      style={selected ? {boxShadow:`inset 3px 0 ${highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection}`,backgroundColor:phaseTint(highlightColor || phaseColors[note.section || "reflection"] || phaseColors.reflection, 5)} : undefined}
     >
       <div className={cx("inline-moment-head")}>
         <time>
@@ -173,7 +173,7 @@ export default function InlineMoment({
           {note.labelAddedAt && note.labelAddedAt > (note.capturedAt ?? note.t)
             ? " · labelled later"
             : ""}
-          {note.section ? <>{" · "}<span className={cx("moment-stage")} data-stage={note.section} style={{color:phaseColors[note.section] || phaseColors.reflection,borderColor:`${phaseColors[note.section] || phaseColors.reflection}40`,backgroundColor:`${phaseColors[note.section] || phaseColors.reflection}12`}}>{note.section[0].toUpperCase()+note.section.slice(1)}</span></> : " · No stage"}
+          {note.section ? <>{" · "}<span className={cx("moment-stage")} data-stage={note.section} style={{color:phaseColors[note.section] || phaseColors.reflection,borderColor:phaseTint(phaseColors[note.section] || phaseColors.reflection, 25),backgroundColor:phaseTint(phaseColors[note.section] || phaseColors.reflection, 7)}}>{note.section[0].toUpperCase()+note.section.slice(1)}</span></> : " · No stage"}
           {bpm === undefined
             ? note.context?.bpm === undefined
               ? ""

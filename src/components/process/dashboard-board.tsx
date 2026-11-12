@@ -161,14 +161,14 @@ export default function DashboardBoard({
   };
   return (
     <ModuleScope active={false}>
-      <div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")}>
+      <div className={"cc-dashboard-board" + (draft ? " cc-editing" : "")} data-board-section={page === "Journal" ? "journal" : "stillness"}>
         <Panel className="cc-dashboard-toolbar">
           {draft ? (
             <>
-              <div className="cc-dashboard-editor-title">
-                <Pencil size={16} />
-                <strong>Make this dashboard yours</strong>
-                <span>Drag to move. Resize from any edge or corner.</span>
+              <div className="cc-dashboard-editor-title" role="status">
+                <Pencil size={16} aria-hidden="true" />
+                <strong>You’re editing your {page === "Journal" ? "Daily journal" : "Stillness"} board</strong>
+                <span>Drag a card to move it, pull a corner to resize it.</span>
               </div>
               <div className="cc-actions">
                 <button

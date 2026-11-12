@@ -8,8 +8,9 @@ import {
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProcessStore } from "../process/use-process";
+import { ColoursButton } from "../theme-controls";
 import type { StillnessBrowse } from "../stillness-library";
 import type { Page } from "./shared";
 
@@ -38,6 +39,15 @@ export default function ReadingRoomHome({
   const supportCount = day?.body.stillness?.filter((item) => item.destination === "Preparation").length ?? 0;
   const writing = useRef(false);
   const [saving, setSaving] = useState(false);
+  const [lit, setLit] = useState(false);
+  const litTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(litTimer.current), []);
+  // The sphere only glows for now; it has no other action yet.
+  const light = () => {
+    setLit(true);
+    clearTimeout(litTimer.current);
+    litTimer.current = setTimeout(() => setLit(false), 1800);
+  };
 
   async function toggle(focus: SupportFocus) {
     if (writing.current) return;
@@ -75,7 +85,10 @@ export default function ReadingRoomHome({
             <button onClick={browse}>Explore Stillness <span aria-hidden="true">→</span></button>
           </div>
         </div>
-        <div className="rr-home-art" aria-hidden="true"><i /><i /><i /><span>✳</span></div>
+        <div className="rr-home-art">
+          <button type="button" className={`rr-home-sphere${lit ? " lit" : ""}`} aria-label="Glowing sphere. Press to light it up" onClick={light} />
+        </div>
+        <ColoursButton owner={owner} />
       </section>
 
       <section className="rr-home-focus" aria-labelledby="rr-home-focus">

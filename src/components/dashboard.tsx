@@ -76,6 +76,7 @@ import { useCaptureBaseline } from "./use-capture-baseline";
 import { useFloatingJournal } from "./use-floating-journal";
 import { useMomentCapture } from "./use-moment-capture";
 import { usePulse } from "./use-pulse";
+import { ThemePicker } from "./theme-controls";
 import WorkspaceAppearance from "./workspace-appearance";
 import WorkspaceToolbar from "./workspace-toolbar";
 const CsvImporter = dynamic(() => import("./csv-importer"));
@@ -1730,6 +1731,7 @@ export default function Dashboard({
               )}
               {tab === "Settings" && (
                 <div className="settings-grid">
+                  <WorkspaceModule id="appearance" title="Appearance" section="main" order={-1}><section className="surface settings-card ss-appearance-settings"><h2>Appearance</h2><p>Colours and light or dark mode are saved for this account on this device.</p><ThemePicker owner={p.owner} /></section></WorkspaceModule>
                   <WorkspaceModule id="journal-text" title="Journal text size" section="main" order={0}><WorkspaceAppearance settings props={{ pulse: { owner: p.owner }, onPage: next => setTab(next) }} /></WorkspaceModule>
 
 

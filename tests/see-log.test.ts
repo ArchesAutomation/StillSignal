@@ -36,7 +36,8 @@ test("See log highlights every matching moment without hiding other trades or st
     await render("before",{id:source.id,t:source.t,phase:"BEFORE",label:source.label,text:source.text,note:source,bpm:null});
     assert.equal(document.querySelectorAll('[data-note-id]').length,5);
     assert.equal(document.querySelector('.ss-space-selected')?.getAttribute('data-note-id'),source.id);
-    assert.match(document.querySelector<HTMLElement>('.ss-space-selected')!.style.boxShadow,/#72b7ff|114, 183, 255/);
+    // "Before" moments use the theme's before-phase colour token.
+    assert.match(document.querySelector<HTMLElement>('.ss-space-selected')!.getAttribute("style") ?? "",/box-shadow:\s*inset 3px 0 var\(--theme-done-ink\)/);
     assert.equal(source.section,undefined,"highlighting a chart source must not assign an unknown stage");
   }finally{await act(async()=>root.unmount());dom.window.close();for(const[name,value]of originals){if(value)Object.defineProperty(globalThis,name,value);else Reflect.deleteProperty(globalThis,name);}}
 });

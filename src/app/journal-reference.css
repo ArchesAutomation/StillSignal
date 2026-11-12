@@ -1,20 +1,20 @@
 /* October journal reference: the shared application keeps its existing services. */
 .ss-app.ss-reference-app {
-  --bg: #0b1112;
-  --panel: #111a1c;
-  --surface: #111a1c;
-  --surface2: #172225;
-  --line: #293639;
-  --text: #edf1e9;
-  --ink: #edf1e9;
-  --muted: #93a5a5;
-  --coral: #ee957d;
-  --orange: #ee957d;
-  --green: #a8c6b2;
-  --accent: #a8c6b2;
-  --blue: #89b7d2;
-  --gold: #d4bd83;
-  --purple: #b6a3cb;
+  --bg: var(--theme-bg);
+  --panel: var(--theme-bg);
+  --surface: var(--theme-bg);
+  --surface2: var(--theme-recess);
+  --line: var(--theme-line);
+  --text: var(--theme-heading);
+  --ink: var(--theme-heading);
+  --muted: var(--theme-muted);
+  --coral: var(--theme-danger);
+  --orange: var(--theme-danger);
+  --green: var(--theme-journal-ink);
+  --accent: var(--theme-journal-ink);
+  --blue: var(--theme-link);
+  --gold: var(--theme-warning);
+  --purple: var(--theme-link);
   display: block;
   width: 100%;
   max-width: 1320px;
@@ -30,7 +30,7 @@
   min-height: 100vh;
 }
 body:has(.ss-reference-app) {
-  background: #0b1112;
+  background: var(--theme-bg);
 }
 .ss-reference-app :where(*:not(svg *)) {
   box-sizing: border-box;
@@ -71,7 +71,7 @@ body:has(.ss-reference-app) {
     border-color 0.18s;
 }
 .ss-reference-app button:hover {
-  background: #233035;
+  background: var(--theme-surface);
   border-color: var(--muted);
 }
 .ss-reference-app button:disabled {
@@ -79,7 +79,7 @@ body:has(.ss-reference-app) {
   cursor: not-allowed;
 }
 .ss-reference-app button.ss-primary {
-  color: #181d1b;
+  color: var(--theme-on-accent);
   background: var(--coral);
   border-color: var(--coral);
   font-weight: 650;
@@ -95,7 +95,7 @@ body:has(.ss-reference-app) {
 .ss-reference-app textarea {
   font: inherit;
   color: var(--ink);
-  background: #0d1618;
+  background: var(--theme-bg);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
@@ -231,7 +231,7 @@ body:has(.ss-reference-app) {
   border: 1px solid var(--line);
   background: var(--panel);
   border-radius: 12px;
-  box-shadow: 0 12px 30px #0005;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--theme-shadow) 33%, transparent);
   display: grid;
   gap: 5px;
 }
@@ -301,8 +301,8 @@ body:has(.ss-reference-app) {
   color: var(--green);
 }
 .ss-reference-app .ss-mini-month button[aria-current="date"] {
-  background: #273634;
-  border-color: #779185;
+  background: var(--theme-surface);
+  border-color: var(--theme-line);
 }
 .ss-mini-month i {
   position: absolute;
@@ -346,7 +346,7 @@ body:has(.ss-reference-app) {
 }
 .ss-reference-app .ss-day {
   min-width: 0;
-  background: #172225;
+  background: var(--theme-surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 12px 10px;
@@ -365,7 +365,7 @@ body:has(.ss-reference-app) {
 }
 .ss-reference-app .ss-day.ss-selected {
   border-color: var(--green);
-  background: #151f1d;
+  background: var(--theme-surface);
 }
 .ss-reference-app .ss-hero {
   margin: 0 0 25px;
@@ -482,7 +482,7 @@ body:has(.ss-reference-app) {
 .ss-reference-app .ss-phase:hover,
 .ss-reference-app .ss-phase.ss-active {
   transform: none;
-  background: #ffffff08;
+  background: color-mix(in srgb, var(--theme-heading) 3%, transparent);
 }
 .ss-reference-app .ss-pnl-panel {
   margin: 16px 0;
@@ -554,7 +554,7 @@ body:has(.ss-reference-app) {
   color: var(--green);
 }
 .ss-reference-app .ss-reference-composer {
-  border: 1px solid #3e514c;
+  border: 1px solid var(--theme-line);
   background: var(--panel);
   border-radius: 16px;
   padding: 22px;
@@ -967,26 +967,26 @@ body:has(.ss-reference-app) {
   font-family: inherit;
 }
 .ss-reference-app {
-  --before: #89b7d2;
-  --entry: #a8c6b2;
-  --management: #d4bd83;
-  --exit: #ee957d;
-  --after: #b6a3cb;
+  --before: var(--theme-link);
+  --entry: var(--theme-journal-ink);
+  --management: var(--theme-warning);
+  --exit: var(--theme-danger);
+  --after: var(--theme-link);
 }
 .ss-reference-app [data-phase="before"] {
-  --phase-color: #89b7d2;
+  --phase-color: var(--theme-link);
 }
 .ss-reference-app [data-phase="entry"] {
-  --phase-color: #a8c6b2;
+  --phase-color: var(--theme-journal-ink);
 }
 .ss-reference-app [data-phase="management"] {
-  --phase-color: #d4bd83;
+  --phase-color: var(--theme-warning);
 }
 .ss-reference-app [data-phase="exit"] {
-  --phase-color: #ee957d;
+  --phase-color: var(--theme-danger);
 }
 .ss-reference-app [data-phase="after"] {
-  --phase-color: #b6a3cb;
+  --phase-color: var(--theme-link);
 }
 .ss-reference-app .ss-mobile-week-open {
   display: none;

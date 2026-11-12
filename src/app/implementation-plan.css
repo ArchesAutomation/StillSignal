@@ -5,7 +5,7 @@
   border-radius: 12px;
   padding: 12px 14px;
   margin: 10px 0;
-  background: var(--panel, #101a1b);
+  background: var(--panel, var(--theme-bg));
   min-width: 0;
 }
 .ss-reference-app .ss-inline-moment-head {
@@ -24,10 +24,10 @@
   min-width: 160px;
   max-width: 330px;
   padding: 7px 10px;
-  border: 1px solid #655972;
-  background: #272330;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface);
   border-radius: 7px;
-  color: #c1accb;
+  color: var(--theme-link);
   font-size: 12px;
 }
 .ss-reference-app .ss-inline-moment-head small {
@@ -130,10 +130,10 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  background: #111b1b;
-  border: 1px solid #384849;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-line);
   border-radius: 30px;
-  box-shadow: 0 8px 30px #0004;
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--theme-shadow) 27%, transparent);
 }
 .ss-capture-reading {
   display: flex;
@@ -160,20 +160,20 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  background: #e98e6c;
-  color: #172022;
+  background: var(--theme-danger);
+  color: var(--theme-on-accent);
   font-size: 17px;
   min-height: 0;
 }
 .ss-reference-app .ss-capture-record[aria-pressed="true"] {
-  background: #ed6f63;
-  box-shadow: 0 0 0 4px #ed6f6324;
+  background: var(--theme-danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-danger) 14%, transparent);
 }
 .ss-reference-app .ss-capture-options-button {
   border: 0;
   padding: 0;
   background: none;
-  color: #abbdbb;
+  color: var(--theme-text);
   font-size: 23px;
   width: 20px;
   min-height: 0;
@@ -186,13 +186,13 @@
   width: 290px;
   max-height: min(70vh, 550px);
   overflow: auto;
-  border: 1px solid #394a48;
-  background: #111b1b;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-bg);
   border-radius: 12px;
   padding: 12px;
   display: grid;
   gap: 8px;
-  box-shadow: 0 10px 40px #0008;
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--theme-shadow) 53%, transparent);
   color: var(--text);
   z-index: 3;
   font-size: 12px;
@@ -229,12 +229,12 @@
   bottom: calc(100% + 8px);
   width: 270px;
   padding: 10px;
-  background: #172221;
+  background: var(--theme-surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   font-size: 10px;
   line-height: 1.5;
-  box-shadow: 0 8px 20px #0004;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-shadow) 27%, transparent);
   z-index: 2;
 }
 .ss-capture-menu ~ .ss-capture-feedback {
@@ -299,7 +299,7 @@
 .ss-reference-app .ss-see-log {
   width: 100%;
   border: 1px solid var(--line);
-  background: #142020;
+  background: var(--theme-surface);
   color: var(--muted);
   border-radius: 7px;
   padding: 7px 10px;
@@ -309,7 +309,7 @@
 }
 .ss-reference-app .ss-see-log:hover {
   color: var(--text);
-  border-color: #748c87;
+  border-color: var(--theme-line);
 }
 .ss-reference-app :is(.ss-see-log, .ss-emotion-bars button):focus-visible {
   outline: 2px solid var(--green);
@@ -403,12 +403,12 @@
 }
 .ss-recorder-screen-state {
   padding: 10px 12px;
-  border: 1px solid #354a43;
+  border: 1px solid var(--theme-line);
   border-radius: 8px;
   color: var(--green);
   font-size: 10px;
   line-height: 1.5;
-  background: #14221e;
+  background: var(--theme-surface);
 }
 .ss-recorder-actions {
   display: grid;
@@ -417,7 +417,7 @@
   margin: 12px 0 20px;
 }
 .ss-reference-app .ss-recorder-actions button {
-  background: #152021;
+  background: var(--theme-surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   font-size: 11px;
@@ -455,13 +455,13 @@
   text-align: left;
 }
 .ss-reference-app .ss-emotion-bars button[aria-pressed="true"] {
-  border-color: #82ab99;
-  background: #1c3029;
+  border-color: var(--theme-journal-ink);
+  background: var(--theme-surface);
 }
 .ss-emotion-track {
   display: block;
   height: 8px;
-  background: #1e2b2b;
+  background: var(--theme-surface);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -495,7 +495,7 @@
   line-height: 1.7;
   padding: 12px;
   border-left: 2px solid var(--green);
-  background: #14201e;
+  background: var(--theme-surface);
 }
 @media (max-width: 380px) {
   .ss-popup-root:has(.ss-capture-expanded) {
@@ -532,15 +532,15 @@
   opacity: 0.5;
 }
 .ss-chart-layers button[aria-pressed="true"] {
-  border-color: #638779;
-  background: #63877918;
+  border-color: var(--theme-journal-ink);
+  background: color-mix(in srgb, var(--theme-journal-tint) 24%, transparent);
 }
 .ss-reference-app .ss-chart-wide {
   position: fixed;
   inset: 20px;
   z-index: 150;
   overflow: auto;
-  background: #0d1718;
+  background: var(--theme-bg);
 }
 .ss-reference-app .ss-chart-wide .ss-rhythm-svg {
   min-height: 50vh;
@@ -561,13 +561,13 @@
 .ss-reference-app .ss-weekly-invitation {
   padding: 15px 18px;
   margin: 12px 0 20px;
-  border: 1px solid #64867566;
+  border: 1px solid color-mix(in srgb, var(--theme-journal-ink) 40%, transparent);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  background: #6486750b;
+  background: color-mix(in srgb, var(--theme-journal-tint) 11%, transparent);
   font-size: 12px;
 }
 .ss-weekly-invitation p {

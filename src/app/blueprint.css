@@ -3,10 +3,10 @@
 .ss-pnl-panel,
 .ss-reflection-stream {
   margin: 24px 0;
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 14px;
   padding: 24px;
-  background: var(--panel, #101719);
+  background: var(--panel, var(--theme-bg));
 }
 .ss-reset {
   max-width: 900px;
@@ -43,7 +43,7 @@
   gap: 8px;
 }
 .ss-reset-choices {
-  border-top: 1px solid var(--line, #2b3438);
+  border-top: 1px solid var(--line, var(--theme-line));
   margin-top: 30px;
   padding-top: 24px;
 }
@@ -68,10 +68,10 @@
   stroke-width: 2;
 }
 .ss-breath-track {
-  stroke: var(--line, #2b3438);
+  stroke: var(--line, var(--theme-on-accent));
 }
 .ss-breath-progress {
-  stroke: var(--accent, #b5d6a5);
+  stroke: var(--accent, var(--theme-journal-ink));
   stroke-linecap: round;
 }
 .ss-breathing-square > div {
@@ -123,8 +123,8 @@
 .ss-reset select {
   font: inherit;
   color: inherit;
-  background: var(--bg, #0c1214);
-  border: 1px solid var(--line, #2b3438);
+  background: var(--bg, var(--theme-bg));
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 7px;
   padding: 10px;
   max-width: 100%;
@@ -140,7 +140,7 @@
 }
 .ss-commitments li {
   padding: 14px;
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 8px;
 }
 .ss-commitments p {
@@ -171,19 +171,19 @@
 }
 .ss-compact-stages .ss-journey-stage-head small {
   font-size: 10px;
-  color: var(--muted, #8b999a);
+  color: var(--muted, var(--theme-muted));
 }
 .ss-compact-stages .ss-journey-stage-head p {
   font-size: 12px;
   line-height: 1.5;
   margin: 2px 0 0;
   font-weight: 400;
-  color: var(--muted, #8b999a);
+  color: var(--muted, var(--theme-muted));
 }
 .ss-grouping-tools {
   margin: 20px 0;
   padding: 12px 18px;
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 10px;
 }
 .ss-grouping-tools label {
@@ -192,7 +192,7 @@
   margin: 12px 0;
 }
 .ss-stream-note {
-  border-top: 1px solid var(--line, #2b3438);
+  border-top: 1px solid var(--line, var(--theme-line));
 }
 .ss-stream-note > summary {
   display: flex;
@@ -208,7 +208,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted, #8b999a);
+  color: var(--muted, var(--theme-muted));
 }
 .ss-stream-note time {
   min-width: 82px;
@@ -221,7 +221,7 @@
   margin-top: 20px;
 }
 .ss-emotion-summary > span {
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 20px;
   padding: 6px 12px;
   font-size: 11px;
@@ -244,12 +244,12 @@
   display: grid;
   gap: 8px;
   font-size: 11px;
-  color: var(--muted, #8b999a);
+  color: var(--muted, var(--theme-muted));
 }
 .ss-exposure-metrics b {
   font-size: 20px;
   font-weight: 400;
-  color: var(--text, #d5dfda);
+  color: var(--text, var(--theme-text));
 }
 .ss-source-row {
   display: flex;
@@ -257,7 +257,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--line, #2b3438);
+  border-bottom: 1px solid var(--line, var(--theme-line));
 }
 .ss-source-row small {
   overflow-wrap: anywhere;
@@ -268,7 +268,7 @@
   gap: 10px;
   margin: 16px 0;
   padding: 14px;
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 8px;
 }
 .ss-audio-playback audio {
@@ -278,7 +278,7 @@
 .ss-audio-capture small,
 .ss-audio-playback small {
   font-size: 11px;
-  color: var(--muted, #8b999a);
+  color: var(--muted, var(--theme-muted));
   line-height: 1.6;
 }
 .ss-audio-capture label {
@@ -289,7 +289,7 @@
 .ss-import-selection {
   margin: 16px 0;
   padding: 18px;
-  border: 1px solid var(--line, #2b3438);
+  border: 1px solid var(--line, var(--theme-line));
   border-radius: 10px;
 }
 @media (max-width: 900px) {

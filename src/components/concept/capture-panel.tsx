@@ -329,12 +329,12 @@ export default function CapturePanel(props: {
                         style={{
                           width: `${((counts.get(label) || 0) / maxCount) * 100}%`,
                           background: [
-                            "#9fc8b0",
-                            "#8cb9d5",
-                            "#c6b2d8",
-                            "#dac080",
-                            "#ed9b83",
-                            "#caa7ae",
+                            "var(--theme-journal-dot)",
+                            "var(--theme-prep-dot)",
+                            "var(--theme-done-dot)",
+                            "var(--theme-warning)",
+                            "var(--theme-danger)",
+                            "var(--theme-accent)",
                           ][i % 6],
                         }}
                       />

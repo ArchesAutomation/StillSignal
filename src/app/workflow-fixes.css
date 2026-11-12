@@ -38,7 +38,7 @@ html .ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-rhyt
 .pnl-export .cc-grid > * { min-width:0; }
 .pnl-export canvas { max-width:100%; }
 /* Reflection dialogs live outside .ss-reference-app; give their shared selectors full styling. */
-.modal:has(.reflection-form) { color:var(--signal-text); background:#fffefa; overflow:auto; }
+.modal:has(.reflection-form) { color:var(--signal-text); background:var(--theme-surface); overflow:auto; }
 .reflection-form { color:var(--signal-text); }
 .reflection-form :is(label,.form-intro,.voice-toolbar,.voice-toolbar span) { color:var(--signal-text); }
 .reflection-form :is(input:not([type="checkbox"]),textarea,select,.button) { color:var(--signal-text); background:var(--ocean-bg); border:1px solid var(--signal-line); }
@@ -50,10 +50,10 @@ html .ss-module-sized[data-module-id="timeline"] .ss-reference-rhythm > .ss-rhyt
 .reflection-form .ss-journal-select select[hidden] { display:none!important; }
 .reflection-form .ss-select-trigger { display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:10px 12px; margin:0; border:1px solid var(--signal-line); border-radius:8px; background:var(--ocean-bg); color:var(--signal-text); text-align:left; }
 .reflection-form .ss-select-trigger:focus-visible { outline:2px solid var(--signal-text); outline-offset:2px; }
-.ss-journal-select-menu { color:var(--signal-text); background:#fffefa; }
+.ss-journal-select-menu { color:var(--signal-text); background:var(--theme-surface); }
 .ss-journal-select-menu .ss-select-option { color:var(--signal-text); }
 .ss-journal-select-menu .ss-select-menu-heading, .ss-journal-select-menu .ss-select-menu-heading span { color:var(--signal-muted); }
-.ss-journal-select-menu .ss-select-option-active { background:color-mix(in srgb,var(--signal-text) 12%,#fffefa); }
+.ss-journal-select-menu .ss-select-option-active { background:color-mix(in srgb,var(--signal-text) 12%,var(--theme-surface)); }
 
 /* Keep ordinary wheel scrolling available over a resized timeline. */
 html .ss-free-board > [data-module-id="timeline"].ss-module-sized > .ss-module-surface > .ss-module-content {

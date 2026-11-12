@@ -1,13 +1,12 @@
 .ss-support-root,
 .ss-support-dialog {
-  color-scheme: light;
-  --paper: #fffefa;
-  --base: #f7f6f2;
-  --ink: #302e3b;
-  --quiet: #665e71;
-  --line: #e5e1e8;
-  --accent: #665589;
-  --lavender: #ece6f6;
+  --paper: var(--theme-surface);
+  --base: var(--theme-bg);
+  --ink: var(--theme-heading);
+  --quiet: var(--theme-muted);
+  --line: var(--theme-line);
+  --accent: var(--theme-link);
+  --lavender: var(--theme-line);
   background: var(--base);
   color: var(--ink);
   font:
@@ -110,16 +109,16 @@
 }
 .ss-support-root button[aria-pressed="true"] {
   background: var(--lavender);
-  border-color: #b8a7d2;
+  border-color: var(--theme-link);
 }
 .ss-support-root .ss-support-primary,
 .ss-support-dialog .ss-support-primary {
-  color: #fff;
+  color: var(--theme-on-accent);
   background: var(--accent);
   border-color: var(--accent);
 }
 html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root .ss-support-primary {
-  color: #fff !important;
+  color: var(--theme-on-accent) !important;
 }
 .ss-support-tools {
   margin: 0 0 18px;
@@ -174,16 +173,16 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   min-height: 70px;
   width: 100%;
   overflow: hidden;
-  background: #eae2f5;
-  color: #8e73aa;
+  background: var(--theme-line);
+  color: var(--theme-link);
 }
 .ss-support-art[data-tone="green"] {
-  background: #dce9dc;
-  color: #63826a;
+  background: var(--theme-line);
+  color: var(--theme-journal-ink);
 }
 .ss-support-art[data-tone="pink"] {
-  background: #f2e1e8;
-  color: #a06d86;
+  background: var(--theme-line);
+  color: var(--theme-done-ink);
 }
 .ss-support-art i {
   position: absolute;
@@ -275,7 +274,7 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   inset: 0;
 }
 .ss-support-dialog::backdrop {
-  background: #231a34aa;
+  background: color-mix(in srgb, var(--theme-heading) 67%, transparent);
 }
 .ss-support-dialog .ss-support-close {
   position: absolute;

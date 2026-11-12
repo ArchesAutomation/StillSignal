@@ -1,4 +1,13 @@
+// Phase colours follow the active theme (see src/lib/theme.ts). Values are CSS colours, so use them in
+// `style` (not SVG presentation attributes) and blend with phaseTint() rather than appending hex alpha.
 export const phaseColors: Record<string, string> = {
-  before: "#72b7ff", entry: "#58d6ac", management: "#f2cc72",
-  exit: "#ff7654", after: "#a88bff", reflection: "#a0aeae",
+  before: "var(--theme-done-ink)",
+  entry: "var(--theme-journal-ink)",
+  management: "var(--theme-warning)",
+  exit: "var(--theme-danger)",
+  after: "var(--theme-link)",
+  reflection: "var(--theme-muted)",
 };
+
+export const phaseTint = (color: string, percent: number) =>
+  `color-mix(in srgb, ${color} ${percent}%, transparent)`;

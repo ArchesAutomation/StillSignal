@@ -1,0 +1,375 @@
+/* Theme-aware UI from the approved palette mockup: top bar, Home sphere, colour controls and
+   board-editing / toast / menu fixes. Colours come only from --theme-* tokens (theme.css). */
+
+/* ---------- Top bar ---------- */
+html .ss-reference-app .ss-reference-nav { align-items: center; gap: 4px; overflow: visible; padding-block: 12px; margin-block: -12px; }
+html .ss-reference-app .ss-reference-nav button[data-section] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+html .ss-reference-app .ss-reference-nav button[data-section],
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-reference-nav button[data-section] { color: var(--theme-heading) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-reference-nav button[data-section="settings"],
+html .ss-reference-app .ss-reference-nav button[data-section="settings"] { color: var(--theme-muted) !important; }
+.ss-nav-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--theme-heading); }
+[data-section="prep"] > .ss-nav-dot { background: var(--theme-prep-dot); }
+[data-section="journal"] > .ss-nav-dot { background: var(--theme-journal-dot); }
+[data-section="done"] > .ss-nav-dot { background: var(--theme-done-dot); }
+html .ss-reference-app .ss-reference-nav button[data-section][aria-current="page"] { font-weight: 800; box-shadow: none; }
+html .ss-reference-app .ss-reference-nav button[data-section="home"][aria-current="page"] { background: var(--theme-prep-tint); }
+html .ss-reference-app .ss-reference-nav button[data-section="prep"][aria-current="page"] { background: var(--theme-prep-tint); }
+html .ss-reference-app .ss-reference-nav button[data-section="journal"][aria-current="page"] { background: var(--theme-journal-tint); }
+html .ss-reference-app .ss-reference-nav button[data-section="done"][aria-current="page"] { background: var(--theme-done-tint); }
+html .ss-reference-app .ss-reference-nav button[data-section="settings"][aria-current="page"] { background: var(--theme-recess); color: var(--theme-heading) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-reference-nav button[data-section="prep"][aria-current="page"] { color: var(--theme-prep-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-reference-nav button[data-section="journal"][aria-current="page"] { color: var(--theme-journal-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-reference-nav button[data-section="done"][aria-current="page"] { color: var(--theme-done-ink) !important; }
+
+/* Stillness: an accent pill with three slow orbs in the section colours. */
+.ss-nav-stillness { position: relative; display: inline-flex; margin: 0 22px; }
+html .ss-reference-app .ss-reference-nav .ss-nav-stillness button[data-section="stillness"] {
+  position: relative;
+  z-index: 1;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--theme-accent);
+  color: var(--theme-on-accent) !important;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--theme-on-accent) 22%, transparent), 0 4px 14px color-mix(in srgb, var(--theme-accent) 40%, transparent);
+}
+html[data-mode="dark"] .ss-reference-app .ss-reference-nav .ss-nav-stillness button[data-section="stillness"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 33%, transparent), 0 0 26px color-mix(in srgb, var(--theme-accent) 67%, transparent);
+}
+html .ss-reference-app .ss-reference-nav .ss-nav-stillness button[aria-current="page"] {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+}
+.ss-nav-orbs { position: absolute; inset: 0; pointer-events: none; }
+.ss-nav-orbs i { position: absolute; border-radius: 50%; }
+.ss-nav-orbs i:nth-child(1) { left: -12px; top: -8px; width: 12px; height: 12px; background: var(--theme-prep-dot); animation: ss-wob0 5.5s ease-in-out infinite; }
+.ss-nav-orbs i:nth-child(2) { right: -14px; top: -12px; width: 16px; height: 16px; background: var(--theme-journal-dot); animation: ss-wob1 6.8s ease-in-out infinite; }
+.ss-nav-orbs i:nth-child(3) { right: 12px; bottom: -11px; width: 9px; height: 9px; background: var(--theme-done-dot); animation: ss-wob2 8.1s ease-in-out infinite; }
+@keyframes ss-wob0 { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(2px, -2px); } 50% { transform: translate(-2px, -1px); } 75% { transform: translate(1px, 2px); } }
+@keyframes ss-wob1 { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(-2px, 2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(-1px, -2px); } }
+@keyframes ss-wob2 { 0%, 100% { transform: translate(0, 0); } 35% { transform: translate(2px, 1px); } 70% { transform: translate(-2px, -2px); } }
+
+/* ⋯ menus open fully below their button instead of being pushed off the top of the page. */
+html .ss-reference-app .ss-reference-tools { position: relative; }
+html .ss-reference-app .ss-reference-tools > .ss-utilities-panel.ui-panel,
+html .ss-reference-app .ss-tools > .ss-tool-menu {
+  position: absolute !important;
+  top: calc(100% + 8px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 60;
+  width: 240px;
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--theme-line) !important;
+  border-radius: 16px;
+  background: var(--theme-bg) !important;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--theme-shadow) 16%, transparent) !important;
+  transform: none;
+}
+html .ss-reference-app :is(.ss-reference-tools > .ss-utilities-panel, .ss-tools > .ss-tool-menu) button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+html .ss-reference-app :is(.ss-reference-tools > .ss-utilities-panel, .ss-tools > .ss-tool-menu) button:is(:hover, :focus-visible) {
+  background: var(--theme-prep-tint);
+  color: var(--theme-prep-ink) !important;
+}
+
+/* "Undo capture" and other capture messages: readable size and contrast. */
+html .ss-reference-app .ss-capture-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  width: 300px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--theme-line);
+  border-radius: 14px;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--theme-shadow) 14%, transparent);
+}
+html .ss-reference-app .ss-capture-feedback > span { flex: 1 1 140px; color: var(--theme-text) !important; }
+html .ss-reference-app .ss-capture-feedback button {
+  min-height: 38px;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--theme-line);
+  border-radius: 10px;
+  background: var(--theme-surface);
+  color: var(--theme-text) !important;
+  font-size: 14px;
+  font-weight: 700;
+}
+html .ss-reference-app .ss-capture-feedback button:last-child {
+  border-color: var(--theme-accent);
+  background: var(--theme-accent);
+  color: var(--theme-on-accent) !important;
+  font-weight: 800;
+}
+
+/* Chart layer toggles that are switched off stay readable; a dashed outline shows they're off. */
+html .ss-chart-layers button[aria-pressed="false"] { opacity: 1; border-style: dashed !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-chart-layers button[aria-pressed="true"] { color: var(--theme-journal-ink) !important; background: var(--theme-journal-tint) !important; border-color: var(--theme-journal-ink) !important; }
+
+html[data-journal-presentation="reading-room"] .ss-reading-room button.ss-capture-record { color: var(--theme-on-accent) !important; }
+
+/* Sun / moon switch */
+html .ss-app button.ss-mode-switch {
+  display: inline-grid;
+  place-items: center;
+  min-height: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+.ss-mode-switch-track {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 26px;
+  border: 1px solid var(--theme-line);
+  border-radius: 999px;
+  background: var(--theme-recess);
+}
+.ss-mode-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--theme-surface);
+  color: var(--theme-heading);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--theme-shadow) 25%, transparent);
+  transition: transform .25s ease;
+}
+.ss-mode-switch[aria-checked="true"] .ss-mode-switch-thumb { transform: translateX(20px); background: var(--theme-accent); color: var(--theme-on-accent); }
+.ss-mode-switch-thumb svg { width: 13px; height: 13px; }
+
+/* ---------- Home ---------- */
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-hero {
+  position: relative;
+  border-color: transparent;
+  background: var(--theme-prep-tint);
+}
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home .rr-home-date { color: var(--theme-prep-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-hero > div:first-child p:not(.rr-home-date) { color: var(--theme-text) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home .ss-primary { border-color: var(--theme-accent) !important; }
+.rr-home-art {
+  min-height: 240px;
+  overflow: visible;
+  border-radius: 0;
+  background: none;
+}
+html .rr-home button.rr-home-sphere {
+  --sphere-hi: color-mix(in srgb, var(--theme-surface) 80%, transparent);
+  width: 150px;
+  height: 150px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, var(--sphere-hi) 0%, var(--theme-prep-dot) 30%, var(--theme-accent) 70%, var(--theme-done-dot) 100%);
+  box-shadow: 0 0 40px var(--theme-prep-dot), 0 0 90px var(--theme-done-dot);
+  animation: ss-sphere 7s ease-in-out infinite;
+  transition: filter .6s ease, box-shadow .6s ease;
+}
+html[data-mode="dark"] .rr-home button.rr-home-sphere { --sphere-hi: color-mix(in srgb, var(--theme-heading) 75%, transparent); }
+html .rr-home button.rr-home-sphere:hover { border: 0; }
+html .rr-home button.rr-home-sphere.lit {
+  filter: brightness(1.45) saturate(1.2);
+  box-shadow: 0 0 60px var(--theme-prep-dot), 0 0 140px var(--theme-accent), 0 0 200px var(--theme-done-dot);
+}
+html .rr-home button.rr-home-sphere:focus-visible { outline: 3px solid var(--theme-heading) !important; outline-offset: 8px; }
+@keyframes ss-sphere { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+html .rr-home button.rr-home-colours {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border-color: var(--theme-line);
+  background: var(--theme-surface);
+  font-size: 13px;
+}
+.rr-home-colours-dots { display: inline-flex; }
+.rr-home-colours-dots i { width: 10px; height: 10px; margin-inline-start: -3px; border: 1.5px solid var(--theme-surface); border-radius: 50%; background: var(--theme-prep-dot); }
+.rr-home-colours-dots i:first-child { margin: 0; background: var(--theme-accent); }
+.rr-home-colours-dots i:nth-child(2) { background: var(--theme-journal-dot); }
+.rr-home-colours-dots i:nth-child(3) { background: var(--theme-done-dot); }
+
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-focus button[aria-pressed="true"] {
+  background: var(--theme-prep-tint);
+  border-color: var(--theme-prep-ink);
+  color: var(--theme-prep-ink) !important;
+}
+html .rr-home-card .rr-home-icon { background: var(--theme-prep-tint); color: var(--theme-prep-ink); }
+html .rr-home-card:nth-child(2) .rr-home-icon { background: var(--theme-journal-tint); color: var(--theme-journal-ink); }
+html .rr-home-card:nth-child(3) .rr-home-icon { background: var(--theme-done-tint); color: var(--theme-done-ink); }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-card .rr-home-icon { color: var(--theme-prep-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-card:nth-child(2) .rr-home-icon { color: var(--theme-journal-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-card:nth-child(3) .rr-home-icon { color: var(--theme-done-ink) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-card strong { color: var(--theme-heading) !important; }
+html .rr-home-lower section { border-color: transparent; }
+html .rr-home-lower .rr-home-feature { background: var(--theme-journal-tint); }
+html .rr-home-lower .rr-home-week { background: var(--theme-done-tint); }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-lower p { color: var(--theme-text) !important; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-feature button { border-color: transparent; color: var(--theme-journal-ink) !important; font-weight: 800; }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-home-week button { border-color: transparent; color: var(--theme-done-ink) !important; font-weight: 800; }
+
+/* ---------- Colour picker (Settings → Appearance and the Home dialog) ---------- */
+.ss-theme-picker { display: grid; gap: 18px; color: var(--theme-text); }
+.ss-theme-picker fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+html .ss-theme-picker legend { margin-bottom: 8px; padding: 0; color: var(--theme-heading) !important; font-size: 13px; font-weight: 800; }
+.ss-theme-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+html .ss-theme-picker label.ss-theme-preset {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--theme-line);
+  border-radius: 14px;
+  background: var(--theme-surface);
+  color: var(--theme-heading) !important;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ss-theme-preset input { position: absolute; opacity: 0; pointer-events: none; }
+html .ss-theme-picker label.ss-theme-preset:has(input:checked) { border: 2px solid var(--theme-accent); padding: 11px 13px; background: var(--theme-prep-tint); }
+.ss-theme-preset:has(input:focus-visible) { outline: 2px solid var(--theme-accent); outline-offset: 3px; }
+.ss-theme-preset small { display: block; color: var(--theme-muted); font-size: 12px; font-weight: 600; }
+.ss-theme-preset-dots { display: flex; gap: 4px; }
+.ss-theme-preset-dots i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--theme-heading) 18%, transparent); }
+.ss-theme-modes { display: inline-flex; gap: 6px; }
+html .ss-theme-picker .ss-theme-modes button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid var(--theme-line);
+  border-radius: 999px;
+  background: var(--theme-surface);
+  color: var(--theme-heading) !important;
+  font-weight: 700;
+}
+html .ss-theme-picker .ss-theme-modes button[aria-pressed="true"] { background: var(--theme-heading); border-color: var(--theme-heading); color: var(--theme-bg) !important; }
+html .ss-theme-custom > p { margin: 0 0 12px; color: var(--theme-muted) !important; font-size: 13px; }
+.ss-theme-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.ss-theme-slot { display: flex; flex-direction: column; gap: 6px; }
+html .ss-theme-slot label { color: var(--theme-heading) !important; font-size: 12px; font-weight: 700; }
+.ss-theme-slot input[type="color"] { width: 56px; height: 36px; padding: 2px; border: 1px solid var(--theme-line); border-radius: 8px; background: var(--theme-surface); cursor: pointer; }
+.ss-theme-swatches { display: flex; flex-wrap: wrap; gap: 4px; }
+html .ss-theme-swatches button { width: 22px; height: 22px; min-height: 0; padding: 0; border: 2px solid var(--theme-surface); border-radius: 50%; outline: 1px solid var(--theme-line); }
+html .ss-theme-swatches button[aria-pressed="true"] { outline: 2px solid var(--theme-heading); }
+.ss-theme-dialog {
+  width: min(720px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--theme-line);
+  border-radius: 20px;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--theme-shadow) 30%, transparent);
+}
+.ss-theme-dialog::backdrop { background: color-mix(in srgb, var(--theme-shadow) 40%, transparent); }
+.ss-theme-dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+html .ss-theme-dialog h2 { margin: 0; color: var(--theme-heading) !important; font: 400 28px/1.2 Georgia, "Times New Roman", serif; }
+html .ss-theme-dialog-head button { min-height: 40px; padding: 8px 16px; border: 0; border-radius: 10px; background: var(--theme-accent); color: var(--theme-on-accent) !important; font-weight: 800; }
+.ss-appearance-settings > p { margin: 0 0 16px; color: var(--theme-muted); }
+
+/* ---------- Board-editing mode: clearly coloured, with a "You're editing your … board" banner ---------- */
+html .cc-dashboard-board.cc-editing > .cc-dashboard-toolbar.ui-panel,
+html .ss-module-workspace.ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar.ui-panel,
+html[data-journal-presentation="reading-room"] .cc-dashboard-board.cc-editing > .cc-dashboard-toolbar.ui-panel,
+html[data-journal-presentation="reading-room"] .ss-module-workspace.ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar.ui-panel {
+  background: var(--theme-accent) !important;
+  border-color: var(--theme-accent) !important;
+  color: var(--theme-on-accent) !important;
+  border-radius: 14px;
+}
+html .cc-editing > .cc-dashboard-toolbar :is(strong, span, small, svg),
+html .ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar :is(strong, span, small),
+html[data-journal-presentation="reading-room"] .ss-reading-room .cc-editing > .cc-dashboard-toolbar :is(strong, span, small, svg),
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar :is(strong, span, small) {
+  color: var(--theme-on-accent) !important;
+}
+.cc-editing > .cc-dashboard-toolbar strong { font-size: 15px; font-weight: 800; }
+html .cc-editing > .cc-dashboard-toolbar button,
+html .ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar button,
+html[data-journal-presentation="reading-room"] .ss-reading-room .cc-editing > .cc-dashboard-toolbar button,
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-board-editing:not(.ss-module-controlled) > .ss-module-toolbar button {
+  border: 1px solid var(--theme-on-accent) !important;
+  background: transparent !important;
+  color: var(--theme-on-accent) !important;
+}
+html .cc-editing > .cc-dashboard-toolbar button.cc-primary,
+html[data-journal-presentation="reading-room"] .ss-reading-room .cc-editing > .cc-dashboard-toolbar button.cc-primary {
+  border-color: var(--theme-on-accent) !important;
+  background: var(--theme-on-accent) !important;
+  color: var(--theme-accent) !important;
+  font-weight: 800;
+}
+html .cc-editing > .cc-dashboard-toolbar button:disabled { opacity: .6; }
+/* Line icons: older rules reset SVG paint, which turned these into solid blobs. */
+html .ss-app svg.lucide { fill: none !important; stroke: currentColor !important; }
+html .ss-app svg.lucide :is(path, circle, line, polyline, rect) { fill: none !important; stroke: inherit !important; }
+html .cc-editing .ss-free-board.ss-free-board-editing,
+html .ss-board-editing > .ss-free-board.ss-free-board-editing {
+  border: 2px dashed var(--theme-accent) !important;
+  border-radius: 20px;
+  background-color: var(--theme-bg);
+}
+html .cc-editing .ss-module-toolbar.ui-panel { border-color: var(--theme-accent) !important; }
+html[data-journal-presentation="reading-room"] .ss-workspace-module.ss-module-editing > .ss-module-surface.ui-panel {
+  border: 2px solid var(--theme-prep-ink) !important;
+}
+html[data-journal-presentation="reading-room"] [data-board-section="journal"] .ss-workspace-module.ss-module-editing > .ss-module-surface.ui-panel {
+  border-color: var(--theme-journal-ink) !important;
+}
+.ss-module-editing .ss-module-controls { background: var(--theme-prep-tint); color: var(--theme-prep-ink); border-radius: 10px; }
+[data-board-section="journal"] .ss-module-editing .ss-module-controls { background: var(--theme-journal-tint); color: var(--theme-journal-ink); }
+html[data-journal-presentation="reading-room"] .ss-reading-room .ss-module-editing .ss-module-controls button { color: inherit !important; }
+.ss-module-editing .ss-module-resize span { border-color: var(--theme-accent) !important; background: var(--theme-accent) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-nav-orbs i, html .rr-home button.rr-home-sphere { animation: none !important; }
+  .ss-mode-switch-thumb, html .rr-home button.rr-home-sphere { transition: none; }
+}
