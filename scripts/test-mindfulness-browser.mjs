@@ -37,8 +37,10 @@ try {
   await page.getByRole("button", { name: "Open today's preparation →", exact: true }).click();
   await page.getByRole("button", { name: /Routine library & advanced settings/ }).waitFor();
   await navigate("Done for the day");
-  await page.getByRole("button", { name: "Open Trade Quality ↗", exact: true }).click();
-  await page.getByText("Strategy playbooks", { exact: true }).first().waitFor();
+  const plan = page.getByRole("group", { name: "How you followed your plan" });
+  await plan.getByRole("button", { name: "Followed it", exact: true }).click();
+  await plan.locator('[aria-pressed="true"]', { hasText: "Followed it" }).waitFor();
+  assert.equal(await page.getByText("Trade Quality").count(), 0);
   await navigate("Daily journal");
   const popupPromise = context.waitForEvent("page");
   await page.getByRole("button", { name: "Start session", exact: true }).first().click();

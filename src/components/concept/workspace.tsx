@@ -603,10 +603,6 @@ export default function ConceptWorkspace(props: Props) {
           onEnd={p.stop}
           onBrowse={browseFromDone}
           onReflect={() => reflectForToday("done")}
-          onTradeQuality={() => {
-            setSupportDay({ date: preparationDate, page: "Trade Quality" });
-            go("Trade Quality");
-          }}
         >
           <StillnessLibrary
             owner={p.owner}

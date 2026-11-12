@@ -1,6 +1,5 @@
 "use client";
 import { Panel } from "@/components/ui/panel";
-import { dateInZone } from "@/lib/process/model";
 import {
   completedIdeas,
   reviewInvitationKey,
@@ -69,18 +68,10 @@ export default function PostExitInvitation({ props }: { props: Props }) {
           className="cc-primary"
           onClick={() => {
             acknowledge();
-            window.dispatchEvent(
-              new CustomEvent("ss-review-day", {
-                detail: dateInZone(
-                  pending.at(-1)!.exit!,
-                  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-                ),
-              }),
-            );
-            props.onPage("Trade Quality");
+            props.onPage("Done");
           }}
         >
-          Review session →
+          Close the day →
         </button>
         <button onClick={() => acknowledge()}>Later</button>
         <button

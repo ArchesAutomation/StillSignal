@@ -1,6 +1,6 @@
 import { openDB, type DBSchema } from "idb";
 import type { ProcessRecord, Kind } from "./model";
-import { kinds, recordSchema } from "./model";
+import { isLiveKind, kinds, recordSchema } from "./model";
 import { authClient, cloudConfigured } from "../cloud";
 interface ProcessDB extends DBSchema {
   records: {
@@ -24,6 +24,9 @@ const db = () =>
   });
 export async function readProcess(owner: string) {
   return (await (await db()).getAllFromIndex("records", "owner", owner))
+    // Playbooks, trade assessments and rule evaluations are retired. Older copies may still be
+    // stored on this device; they stay untouched but are no longer loaded or synced.
+    .filter((r) => isLiveKind(r.record.kind))
     .sort((a, b) => a.order - b.order)
     .map((r) => r.record);
 }
@@ -136,7 +139,7 @@ export function syncProcess(owner: string) {
     const pending = (
       await (await db()).getAllFromIndex("records", "owner", owner)
     )
-      .filter((r) => r.pending)
+      .filter((r) => r.pending && isLiveKind(r.record.kind))
       .sort((a, b) => a.order - b.order);
     let uploadError: unknown;
     try {

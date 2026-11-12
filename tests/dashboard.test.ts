@@ -136,7 +136,7 @@ test("account access opens, navigates, closes with Escape and reports sign-out f
   } finally { await act(async () => root.unmount()); dom.window.close(); }
 });
 
-test("Preparation setup and Done review keep their shared tools after retiring Command Center", async () => {
+test("Preparation setup and Done for the day keep their shared tools; the plan question stays on the page", async () => {
   const dom = domSetup();
   const root = createRoot(document.getElementById("root")!);
   const find = (label: string) => [...document.querySelectorAll("button")].find(b => b.textContent?.trim() === label);
@@ -155,8 +155,15 @@ test("Preparation setup and Done review keep their shared tools after retiring C
     await click("Open today's preparation →");
     await waitFor(() => document.querySelector(".prep-library"));
     await click("Done for the day");
-    await click("Open Trade Quality ↗");
-    await waitFor(() => document.body.textContent?.includes("Strategy playbooks"));
+    const plan = () => document.querySelector('[aria-label="How you followed your plan"]');
+    await waitFor(plan);
+    assert.deepEqual([...plan()!.querySelectorAll("button")].map(b => b.textContent), ["Followed it", "Partly", "Not today"]);
+    await click("Followed it");
+    const followed = () => [...plan()!.querySelectorAll("button")].find(b => b.textContent?.includes("Followed it"));
+    await waitFor(() => followed()?.getAttribute("aria-pressed") === "true");
+    assert.equal(followed()!.textContent, "✓ Followed it");
+    assert.ok(document.querySelector("#done-process"), "Choosing an answer keeps you on Done for the day");
+    assert.doesNotMatch(document.body.textContent!, /Trade Quality|Strategy playbooks|rule checks/);
     assert.doesNotMatch(document.querySelector(".ss-reference-topbar")!.textContent!, /Command Center|Patterns/);
   } finally {
     await act(async () => root.unmount());

@@ -17,6 +17,8 @@ import {
   string,
   type Context,
 } from "../process/shared";
+// Kept in the saved audit format for older audits, but no longer shown (rule checks are retired).
+const retiredSnapshotFields = new Set(["knownRules", "unknownRules", "brokenRules", "unreviewedTrades"]);
 export default function Audits({ store, day, props }: Context) {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily"),
     [start, setStart] = useState(day.body.date),
@@ -78,7 +80,7 @@ export default function Audits({ store, day, props }: Context) {
           </Field>
         </div>
         <div className="cc-status-grid">
-          {Object.entries(snapshot).map(([key, value]) => (
+          {Object.entries(snapshot).filter(([key]) => !retiredSnapshotFields.has(key)).map(([key, value]) => (
             <div key={key}>
               <small>{key.replace(/([A-Z])/g, " $1")}</small>
               <strong>{value}</strong>
@@ -118,9 +120,7 @@ export default function Audits({ store, day, props }: Context) {
             const f = new FormData(e.currentTarget);
             const sources = [
               ...records.days,
-              ...records.assessments,
               ...records.runs,
-              ...records.evaluations,
               ...records.responses,
               ...records.checkins,
               ...records.observations,

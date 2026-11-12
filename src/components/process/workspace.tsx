@@ -1,26 +1,17 @@
 "use client";
 import { Panel as Surface } from "@/components/ui/panel";
 import {
-  preparation,
-  processScore,
-  sessionsForDay,
-} from "@/lib/process/engine";
-import {
   createRecord,
   dateInZone,
   dateSchema,
   latest,
   type BodyOf,
-  type RecordOf,
 } from "@/lib/process/model";
-import { isActualExecution } from "@/lib/trade-context";
 import { useEffect, useState } from "react";
 import Audits from "../audits/workspace";
 import type { Props } from "../concept/shared";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import PreMarket, { PreparationPanel } from "../pre-market/workspace";
-import SessionReviewGuide from "../session-review-guide";
-import TradeQuality, { Violations } from "../trade-quality/workspace";
 import { useSavedGuide } from "../use-saved-guide";
 import Variables from "../variable-builder/workspace";
 import JournalContext from "./journal-context";
@@ -36,95 +27,11 @@ import {
 import VariablesPanel from "./variables-panel";
 const processPages = new Set([
   "Pre-Market",
-  "Trade Quality",
-  "Rule Violations",
   "Audits",
   "Settings & Variables",
   "Journal",
   "Live Session",
 ]);
-function ProcessPanel({ store, day, props }: Context) {
-  const prep = preparation(store.records, day.rootId),
-    assessments = latest(store.records, "assessment").filter(
-      (a) => a.body.dayId === day.rootId,
-    );
-  let known = 0,
-    unknown = 0,
-    broken = 0,
-    numerator = 0,
-    scored = 0;
-  for (const a of assessments) {
-    const book = store.records.find(
-      (r): r is RecordOf<"playbook"> =>
-        r.kind === "playbook" && r.id === a.body.playbookId,
-    );
-    if (!book) continue;
-    const score = processScore(
-      latest(store.records, "evaluation").filter(
-        (e) => e.body.assessmentId === a.id,
-      ),
-      book.body.rules,
-    );
-    known += score.known;
-    unknown += score.unknown;
-    broken += score.broken;
-    if (score.score !== null) {
-      numerator += score.score;
-      scored++;
-    }
-  }
-  const executions = sessionsForDay(props.history, day).flatMap((s) =>
-      s.events.filter(isActualExecution),
-    ),
-    reviewed = new Set(assessments.map((a) => a.body.tradeId).filter(Boolean)),
-    unreviewed = executions.filter((e) => !reviewed.has(e.id)).length;
-  return (
-    <Panel
-      title="Trade quality"
-      detail="Your rules. Your execution. Review the process."
-      action={
-        <button onClick={() => props.onPage("Trade Quality")}>Review</button>
-      }
-    >
-      <div className="cc-readiness">
-        <div>
-          <small>Preparation</small>
-          <strong>
-            {prep.percent === null
-              ? "Not recorded"
-              : Math.round(prep.percent) + "%"}
-          </strong>
-        </div>
-        <div>
-          <small>Mean reviewed process score</small>
-          <strong>
-            {scored ? Math.round(numerator / scored) + "%" : "Unreviewed"}
-          </strong>
-        </div>
-        <div>
-          <small>Confirmed rule reviews</small>
-          <strong>{known}</strong>
-        </div>
-        <div>
-          <small>Unknown rules</small>
-          <strong>{unknown}</strong>
-        </div>
-        <div>
-          <small>Recorded violations</small>
-          <strong>{broken}</strong>
-        </div>
-        <div>
-          <small>Executions without a review</small>
-          <strong>{unreviewed}</strong>
-        </div>
-      </div>
-      <p className="cc-muted">
-        A profitable trade can break your process. A losing trade can follow it.
-        A planned no-trade day can be successful.
-      </p>
-    </Panel>
-  );
-}
 
 export default function ProcessWorkspace({
   store,
@@ -233,7 +140,6 @@ export default function ProcessWorkspace({
           [
             ["preparation", "Pre-market non-negotiables", PreparationPanel],
             ["variables", "Personal variables", VariablesPanel],
-            ["quality", "Trade quality", ProcessPanel],
           ] as const
         ).map(([id, title, Component]) => (
           <WorkspaceModule
@@ -449,13 +355,6 @@ export default function ProcessWorkspace({
           {props.page === "Pre-Market" && (
             <PreMarket key={day!.rootId} {...context} />
           )}
-          {props.page === "Trade Quality" && (
-            <>
-              <SessionReviewGuide key={"review-" + day!.rootId} {...context} />
-              <TradeQuality key={day!.rootId} {...context} />
-            </>
-          )}
-          {props.page === "Rule Violations" && <Violations {...context} />}
           {props.page === "Settings & Variables" && (
             <Variables key={day!.rootId} {...context} />
           )}

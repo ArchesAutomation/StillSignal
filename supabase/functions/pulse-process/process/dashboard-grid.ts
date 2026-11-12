@@ -103,3 +103,13 @@ export function placeCard(
     panels: [...ordered, ...panels.filter((p) => !p.visible)],
   };
 }
+
+/** Reorder swaps occupied slots, including across columns, instead of pushing a neighbor to the bottom. */
+export function swapCardSlots(layout: DashboardLayout, grid: Grid, id: CardId, to: CardId) {
+  const a = grid[id]!, b = grid[to]!;
+  const swapped = { ...grid,
+    [id]: boundedBox({ ...a, x: b.x, y: b.y }),
+    [to]: boundedBox({ ...b, x: a.x, y: a.y }),
+  };
+  return placeCard(layout, swapped, id, swapped[id]!);
+}

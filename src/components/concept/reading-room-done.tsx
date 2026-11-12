@@ -5,34 +5,32 @@ import {
   createRecord,
   dateInZone,
   dayOutcomes,
-  dayProcessChoices,
   type DayCloseout,
 } from "@/lib/process/model";
-import { completedOn } from "@/lib/process/session-review";
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import PnlSnapshot from "../pnl-snapshot";
 import type { ProcessStore } from "../process/use-process";
-import SessionReviewGuide from "../session-review-guide";
 import type { Props } from "./shared";
 
 const outcomes = {
   profit: "Profit", loss: "Loss", breakeven: "Breakeven",
   "no-trade": "No trade", "rather-not-say": "Rather not say",
 } satisfies Record<(typeof dayOutcomes)[number], string>;
+// Three simple answers, saved on this page. Older days may still hold "not-reviewed"; it simply shows no selection.
+const processChoices = ["followed", "partial", "broken"] as const;
 const processes = {
-  followed: "Followed my rules", partial: "Partly followed",
-  broken: "Not followed", "not-reviewed": "Not reviewed",
-} satisfies Record<(typeof dayProcessChoices)[number], string>;
+  followed: "Followed it", partial: "Partly", broken: "Not today",
+} satisfies Record<(typeof processChoices)[number], string>;
 
-export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse, onReflect, onTradeQuality, children }: {
+export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse, onReflect, children }: {
   active: boolean;
   store: ProcessStore;
   props: Props;
   onEnd: () => Promise<void>;
   onBrowse: () => void;
   onReflect: () => Promise<void>;
-  onTradeQuality: () => void;
   children: ReactNode;
 }) {
   const p = props.pulse;
@@ -42,7 +40,6 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
   const [ending, setEnding] = useState(false);
   const [writing, setWriting] = useState(false);
   const writeLock = useRef(false);
-  const [reviewDate, setReviewDate] = useState<string>();
   const [sessionError, setSessionError] = useState("");
   const [error, setError] = useState("");
   const [reflectionError, setReflectionError] = useState("");
@@ -51,12 +48,12 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
         .filter((session) => session.owner === p.owner)
         .map((session) => [session.id, session])).values()]
     : [];
-  const trades = completedOn(sessions, date, timezone);
   const ended = sessions.some((session) => !session.demo && session.id !== "workspace" &&
     session.endedAt && session.endedAt <= p.now && dateInZone(session.endedAt, timezone) === date);
   const count = day?.body.stillness?.filter((choice) => choice.destination === "Done").length ?? 0;
   const pending = props.capture?.pendingCapture;
-  const review = reviewDate === date;
+  // The optional P&L image only needs today's date and timezone; nothing is saved by showing it.
+  const snapshotDay = useMemo(() => day ?? createRecord("day", emptyTradingDay(date, timezone)), [day, date, timezone]);
   const unavailable = !store.loaded || store.busy || writing;
 
   async function end() {
@@ -85,20 +82,14 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
     });
   }
 
-  async function openReview() {
-    if (review) { setReviewDate(undefined); return; }
-    await write(async (records) => {
-      if (tradingDayFor(records, date, timezone) ||
-        await store.save([createRecord("day", emptyTradingDay(date, timezone))])) setReviewDate(date);
-    });
-  }
-
   const chips = <K extends keyof DayCloseout, V extends NonNullable<DayCloseout[K]>>(
     field: K, label: string, values: readonly V[], labels: Record<V, string>,
   ) => (
     <div className="rr-preparation-chips" role="group" aria-label={label}>
       {values.map((value) => <button key={value} aria-pressed={day?.body.closeout?.[field] === value}
-        disabled={unavailable} onClick={() => choose(field, value)}>{labels[value]}</button>)}
+        disabled={unavailable} onClick={() => choose(field, value)}>
+        {day?.body.closeout?.[field] === value && <span aria-hidden="true">✓ </span>}{labels[value]}
+      </button>)}
     </div>
   );
 
@@ -142,14 +133,9 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
           <div className="rr-preparation-label"><span className="rr-preparation-kicker">02 / Your process</span><span className="rr-preparation-optional">Optional</span></div>
           <h2 id="done-process-title">How did you follow your plan?</h2>
           <p>Think about your choices, including any decision to sit out.</p>
-          {chips("process", "How you followed your plan", dayProcessChoices, processes)}
-          <div className="rr-done-trades">
-            <p>{trades.length ? `${trades.length} fully closed ${trades.length === 1 ? "trade" : "trades"} today. Each trade keeps its own rule checks.` : "No completed trades to review today."}</p>
-            {!!trades.length && <button disabled={unavailable} aria-expanded={review} onClick={() => void openReview()}>{review ? "Hide trade review" : "Review trades and rules"}</button>}
-            <button onClick={onTradeQuality}>Open Trade Quality ↗</button>
-          </div>
-          {review && day && <SessionReviewGuide embedded key={day.rootId} store={store} props={props} day={day} />}
+          {chips("process", "How you followed your plan", processChoices, processes)}
           {error && <p role="alert">{error}</p>}
+          <PnlSnapshot store={store} day={snapshotDay} props={props} />
         </section>
         <div className="rr-preparation-support-heading" id="done-support"><h2>03 / Your support for today</h2></div>
       </>}

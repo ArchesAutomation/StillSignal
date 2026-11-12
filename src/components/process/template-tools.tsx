@@ -11,7 +11,7 @@ export default function TemplateTools({
   kind,
   store,
 }: {
-  kind: "protocol" | "playbook";
+  kind: "protocol";
   store: ProcessStore;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -72,14 +72,6 @@ export default function TemplateTools({
                   return createRecord("protocol", {
                     ...row.body,
                     steps: row.body.steps.map((s) => ({
-                      ...s,
-                      id: crypto.randomUUID(),
-                    })),
-                  });
-                if (row.kind === "playbook")
-                  return createRecord("playbook", {
-                    ...row.body,
-                    rules: row.body.rules.map((s) => ({
                       ...s,
                       id: crypto.randomUUID(),
                     })),
