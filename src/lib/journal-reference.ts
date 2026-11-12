@@ -47,10 +47,9 @@ export const stageLabels: Record<Stage, string[]> = {
 };
 export function labelsFor(
   section?: JournalEntry["section"],
-  custom?: Partial<Record<Stage, string[]>>,
 ) {
   return section && stages.includes(section as Stage)
-    ? (custom?.[section as Stage] ?? stageLabels[section as Stage])
+    ? stageLabels[section as Stage]
     : [
         "Calm",
         "Focused",

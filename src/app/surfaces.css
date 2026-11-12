@@ -1,0 +1,196 @@
+/* Shared native surfaces. Reading Room supplies page-specific paper and ink. */
+:root {
+  color-scheme: light;
+  --background: #f7f6f2;
+  --foreground: #302e3b;
+  --accent-color: #71609a;
+}
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+.ui-panel {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line, #e4dfe8);
+  border-radius: 16px;
+  background: #fffefa;
+  color: #302e3b;
+}
+.ui-button {
+  border: 1px solid #71609a;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: #71609a;
+  color: white;
+  cursor: pointer;
+}
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ui-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e4dfe8;
+  border-radius: 7px;
+  background: #f7f6f2;
+  color: #302e3b;
+}
+:focus-visible {
+  outline: 2px solid #71609a;
+  outline-offset: 3px;
+}
+:root {
+  --signal-text: #302e3b;
+  --signal-muted: #736b7d;
+  --signal-line: #e4dfe8;
+  --signal-recess: #fafaf8;
+  --text: var(--signal-text);
+  --muted: var(--signal-muted);
+  --line: var(--signal-line);
+}
+html :is(.ss-app.ss-reference-app, .ss-app, .app-shell) {
+  --bg: transparent;
+  --rail: transparent;
+  --panel: transparent;
+  --surface: transparent;
+  --surface2: var(--signal-recess);
+  --text: var(--signal-text);
+  --ink: var(--signal-text);
+  --muted: var(--signal-muted);
+  --line: var(--signal-line);
+  background: transparent;
+  color: var(--signal-text);
+}
+html :is(.auth-page, .stillness-canvas, .ss-app main, .ss-app .ss-reset) {
+  background: transparent;
+}
+html .ss-reference-topbar.ui-panel {
+  padding: 16px 20px;
+  margin: 16px 0 24px;
+  gap: 16px;
+  overflow: visible;
+}
+html .ss-reference-nav button:not(:last-child) {
+  font-weight: 650;
+}
+html .ss-reference-nav button:last-child {
+  font-size: 11px;
+}
+html .ss-app :is(button, summary) {
+  background: var(--signal-recess);
+  color: var(--signal-text);
+  border-color: var(--signal-line);
+}
+html .ss-app button[aria-current="page"] {
+  background: #f4f8f8;
+}
+html .ss-module-content > :is(section, article, div) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+html
+  .ss-module-content
+  :is(.ss-chartwrap, .ss-journalflow, .ss-supportstep, .ss-custom-module) {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--signal-line);
+}
+html .cc-workspace {
+  --cc-muted: var(--signal-muted);
+  --cc-line: var(--signal-line);
+  color: var(--signal-text);
+}
+html .cc-panel.ui-panel {
+  padding: 20px;
+}
+html .cc-panel.ui-panel > header {
+  padding: 0 0 16px;
+  margin: 0 0 16px;
+  border-color: var(--signal-line);
+}
+html .cc-panel.ui-panel > .cc-panel-body {
+  padding: 0;
+}
+html .auth-card.ui-panel {
+  padding: 32px;
+}
+html
+  :is(
+    .ss-module-library,
+    .ss-module-options,
+    .ss-tool-menu,
+    .ss-capture-menu,
+    .ss-utilities-panel
+  ) {
+  background: #fffefa;
+  color: var(--signal-text);
+}
+html
+  :is(input, textarea, select):not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"]
+  ) {
+  color: var(--signal-text);
+  background-color: var(--signal-recess);
+  border-color: var(--signal-line);
+  border-radius: 10px;
+}
+html option {
+  color: var(--signal-text);
+  background: #fffefa;
+}
+html
+  .ss-app
+  .ss-module-content
+  :is(
+    .ss-inline-moment > textarea,
+    .ss-reference-composer textarea,
+    .ss-space-moments p,
+    .ss-space-evidence p,
+    .ss-space-card textarea,
+    .ss-space-card .ss-journal-text,
+    .ss-space-writing textarea
+  ) {
+  font-size: calc(14px * var(--journal-text-scale, 1));
+}
+html .guide-text-settings label {
+  display: grid;
+  gap: 8px;
+}
+html .guide-text-settings small {
+  color: var(--signal-muted);
+}
+@media (max-width: 760px) {
+  html .ss-reference-top-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  html .guide-header-resources {
+    flex: 1 1 180px;
+  }
+  html .ss-reference-nav {
+    max-width: 100%;
+  }
+}
+/* The capture pill retains its position and controls without a backdrop engine. */
+html .ss-reference-app .ss-capture-pill {
+  background: #fafaf8;
+  color: #302e3b;
+  border-color: #736b7d;
+}
+html .ss-reference-app .ss-capture-record {
+  background: #e98e6c;
+  color: #172022;
+}
+html .ss-reference-app .ss-capture-record[aria-pressed="true"] {
+  background: #ed6f63;
+}
+html .ss-reference-app .ss-capture-options-button {
+  background: transparent;
+  color: #494052;
+}

@@ -1,11 +1,16 @@
-import { useRef, useState } from "react";
-import type { ProcessStore } from "../command-center/use-process";
-import type { StillnessBrowse } from "../stillness-library";
 import { supportFocus } from "@/lib/process/journal-guide";
-import { bigFour, createRecord, dateInZone, type SupportFocus } from "@/lib/process/model";
+import {
+  bigFour,
+  createRecord,
+  dateInZone,
+  type SupportFocus,
+} from "@/lib/process/model";
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
+import { useRef, useState } from "react";
+import type { ProcessStore } from "../process/use-process";
+import type { StillnessBrowse } from "../stillness-library";
 import type { Page } from "./shared";
 
 const destinations = [

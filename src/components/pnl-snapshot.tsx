@@ -1,8 +1,12 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  paintSnapshot,
+  snapshotTrades,
+  type SnapshotOptions,
+} from "@/lib/pnl-export";
 import { weekOf } from "@/lib/process/model";
-import { paintSnapshot, snapshotTrades, type SnapshotOptions } from "@/lib/pnl-export";
-import { Field, type Context } from "./command-center/shared";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Field, type Context } from "./process/shared";
 export default function PnlSnapshot({day,props}:Context) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const [period,setPeriod]=useState("day"),[from,setFrom]=useState(day.body.date),[to,setTo]=useState(day.body.date);

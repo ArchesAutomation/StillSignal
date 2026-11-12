@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import { supportFocus } from "@/lib/process/journal-guide";
 import {
   bigFour,
@@ -10,11 +9,12 @@ import {
   type ProcessRecord,
   type StillnessSelection,
 } from "@/lib/process/model";
-import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { readProcess } from "@/lib/process/storage";
-import type { Page } from "./concept/shared";
-import type { ProcessStore } from "./command-center/use-process";
+import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Page } from "./concept/shared";
+import type { ProcessStore } from "./process/use-process";
 
 type Item = (typeof catalogue)[number];
 export type StillnessBrowse = { tags: string[]; itemId: Item["id"] };

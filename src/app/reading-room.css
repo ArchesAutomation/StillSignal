@@ -13,8 +13,7 @@ html[data-journal-presentation="reading-room"] body {
   background: #f7f6f2 !important;
   color: var(--rr-text);
 }
-html[data-journal-presentation="reading-room"] :is(.shark-background,.wallpaper-background,.appearance-controls) { display: none !important; }
-html[data-journal-presentation="reading-room"] :is(.lg-glass-surface,.ss-module-content) {
+html[data-journal-presentation="reading-room"] :is(.ui-panel,.ss-module-content) {
   color-scheme: light;
   background: var(--rr-paper) !important;
   color: var(--rr-text) !important;
@@ -24,8 +23,8 @@ html[data-journal-presentation="reading-room"] :is(.lg-glass-surface,.ss-module-
   filter: none !important;
   border-radius: 16px;
 }
-html[data-journal-presentation="reading-room"] .lg-glass-surface::before,
-html[data-journal-presentation="reading-room"] .lg-glass-surface::after { display: none !important; }
+html[data-journal-presentation="reading-room"] .ui-panel::before,
+html[data-journal-presentation="reading-room"] .ui-panel::after { display: none !important; }
 html[data-journal-presentation="reading-room"] .ss-reading-room .ss-module-content { border: 0 !important; background: transparent !important; }
 html[data-journal-presentation="reading-room"] :is(.ss-reading-room,.ss-capture-widget,.ss-live-widget,.ss-recording-widget) {
   --text: #302e3b; --muted: #736b7d; --line: #e4dfe8; --accent: #71609a;
@@ -194,3 +193,5 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .rr-daily-refere
 html[data-journal-presentation="reading-room"] .ss-reading-room :is(.ss-reference-rhythm,.ss-rhythm-container,.ss-space-moments-scroll) { border: 0 !important; box-shadow: none !important; }
 @media(max-width:1100px) { .ss-reading-room { padding: 15px 20px 60px; } .ss-reading-room .ss-reference-topbar { gap: 9px; flex-wrap: wrap; } .ss-reading-room .ss-reference-nav button { padding: 9px; } .ss-reading-room .ss-module-content { padding: 18px; } }
 @media(max-width:700px) { .ss-reading-room { padding: 8px 10px 75px; } .ss-reading-room .ss-reference-nav { overflow-x: auto; max-width: 100%; } .ss-reading-room .ss-reference-topbar { padding: 12px; } .ss-reading-room .ss-topbar { gap: 8px; } .ss-reading-room .ss-topactions { flex-wrap: wrap; } .ss-reading-room .rr-journal-heading { padding: 25px 5px 18px; } .ss-reading-room .cc-dashboard-toolbar { flex-wrap: wrap; } }
+/* Native chart controls keep the Reading Room paper surface. */
+.ss-reading-room .ss-ranges { background: #fafaf8; border: 1px solid var(--rr-line); }

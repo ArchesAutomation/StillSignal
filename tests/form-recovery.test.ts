@@ -1,14 +1,13 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { act, createElement as h } from "react";
 import { createRoot } from "react-dom/client";
 import PersistentForm from "../src/components/persistent-form";
-import Missions from "../src/components/process-goals/workspace";
-import { createRecord } from "../src/lib/process/model";
-import type { Context } from "../src/components/command-center/shared";
+import type { Context } from "../src/components/process/shared";
 import TradeQuality from "../src/components/trade-quality/workspace";
 import GuidedCheckin from "../src/components/variable-builder/guided-checkin";
+import { createRecord } from "../src/lib/process/model";
 
 test("draft recovery retains unchecked boxes and all selected choices after leaving a form", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
@@ -42,33 +41,7 @@ test("draft recovery retains unchecked boxes and all selected choices after leav
   }
 });
 
-test("Missions opens a usable builder rather than navigating back to itself; its draft survives leaving", async () => {
-  const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
-  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, FormData: dom.window.FormData, localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true }))
-    Object.defineProperty(globalThis, key, { value, configurable: true });
-  const day = createRecord("day", { date: "2026-11-03", timezone: "UTC", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
-  Object.assign(dom.window.HTMLElement.prototype, { attachEvent() {}, detachEvent() {} });
-  let navigations = 0;
-  const context = { day, props: { page: "Missions", onPage() { navigations++; } }, store: { records: [day], busy: false } } as unknown as Context;
-  const root = createRoot(document.getElementById("root")!);
-  const open = async () => act(async () => [...document.querySelectorAll("button")].find(b => b.textContent === "Create mission")!.click());
-  try {
-    await act(async () => root.render(h(Missions, context)));
-    await open();
-    assert.equal(navigations, 0);
-    const input = document.querySelector<HTMLInputElement>('[name="name"]')!;
-    assert.ok(input);
-    input.value = "Keep my mission draft";
-    await act(async () => input.dispatchEvent(new dom.window.Event("input", { bubbles: true })));
-    await act(async () => root.render(null));
-    await act(async () => root.render(h(Missions, context)));
-    await open();
-    assert.equal(document.querySelector<HTMLInputElement>('[name="name"]')!.value, "Keep my mission draft");
-  } finally {
-    await act(async () => root.unmount());
-    dom.window.close();
-  }
-});
+
 
 test("an unfinished playbook rule is restored before it is ready for final validation", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });

@@ -1,11 +1,11 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
+import type { Context } from "../src/components/process/shared";
 import { ObservationForm } from "../src/components/variable-builder/workspace";
 import { createRecord, type ProcessRecord } from "../src/lib/process/model";
-import type { Context } from "../src/components/command-center/shared";
 
 test("correcting a timestamp observation preserves both original instants in a repeated DST hour", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });

@@ -1,12 +1,12 @@
 import "fake-indexeddb/auto";
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import Dashboard from "../src/components/dashboard";
 import AccountMenu from "../src/components/account-menu";
 import AuthGate from "../src/components/auth-gate";
+import Dashboard from "../src/components/dashboard";
 function domSetup() {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://trade-pulse.test",
@@ -90,16 +90,9 @@ test("new authenticated workspace is empty and journaling does not require a wea
     [...document.querySelectorAll("button")].find(
       (b) => b.textContent?.trim() === label,
     )!;
-  const more = document.querySelector<HTMLDetailsElement>("details.ss-reference-more")!;
-  assert.equal(more.open, false);
-  assert.equal(document.querySelector('.ss-reference-nav button[aria-label="Patterns"], .ss-reference-nav button[aria-label="Command Center"]'), null);
-  assert.equal(button("Command Center").closest("details"), more);
-  assert.equal(button("Patterns").closest("details"), more);
-  await act(async () => more.querySelector("summary")!.click());
-  assert.equal(more.open, true);
-  await act(async () => button("Command Center").click());
-  assert.equal(more.open, false);
-  assert.match(document.body.textContent!, /No measured heart rate/);
+  assert.equal(document.querySelector("details.ss-reference-more"), null);
+  assert.equal(button("Command Center"), undefined);
+  assert.equal(button("Patterns"), undefined);
   await act(async () => button("Daily journal").click());
   assert.equal(button("＋ Add moment").disabled, false);
   await act(async () => button("Daily journal").click());
@@ -113,7 +106,7 @@ test("new authenticated workspace is empty and journaling does not require a wea
   const stillness = document.querySelector('section[aria-label="Post-session Stillness reset"]');
   assert.ok(stillness, "the real workspace opens the SessionReset screen");
   assert.equal(stillness.closest("details"), routines);
-  assert.equal(stillness.querySelector('.shark-background canvas'), null, "Stillness uses the shared root ocean without mounting a second engine");
+  assert.equal(stillness.querySelector('.shark-background canvas'), null, "Stillness has no animation engine");
   await act(async () => button("Settings").click());
   assert.match(document.body.textContent!, /tester@example.test/);
   } finally {
@@ -141,4 +134,32 @@ test("account access opens, navigates, closes with Escape and reports sign-out f
     await act(async () => root.render(createElement(AccountMenu, { ...props, blocked: true })));
     assert.equal([...document.querySelectorAll("button")].find(b => b.textContent === "Sign out")!.disabled, true);
   } finally { await act(async () => root.unmount()); dom.window.close(); }
+});
+
+test("Preparation setup and Done review keep their shared tools after retiring Command Center", async () => {
+  const dom = domSetup();
+  const root = createRoot(document.getElementById("root")!);
+  const find = (label: string) => [...document.querySelectorAll("button")].find(b => b.textContent?.trim() === label);
+  const waitFor = async (condition: () => unknown) => {
+    for (let i = 0; i < 80 && !condition(); i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.ok(condition(), "Shared process tools must finish loading");
+  };
+  const click = async (label: string) => {
+    await waitFor(() => find(label) && !find(label)!.disabled);
+    await act(async () => find(label)!.click());
+  };
+  try {
+    await act(async () => root.render(createElement(Dashboard, { user: { id: "22222222-2222-4222-8222-222222222222", email: "mindfulness@example.test" } })));
+    await click("Preparation");
+    await click("Initial setup ↗");
+    await click("Open today's preparation →");
+    await waitFor(() => document.querySelector(".prep-library"));
+    await click("Done for the day");
+    await click("Open Trade Quality ↗");
+    await waitFor(() => document.body.textContent?.includes("Strategy playbooks"));
+    assert.doesNotMatch(document.querySelector(".ss-reference-topbar")!.textContent!, /Command Center|Patterns/);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
 });

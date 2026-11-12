@@ -1,12 +1,12 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import GuidedPreparation from "../src/components/pre-market/guided-preparation";
-import { createRecord, type ProcessRecord } from "../src/lib/process/model";
+import type { Context } from "../src/components/process/shared";
 import { validateAppend, withRefs } from "../src/lib/process/engine";
-import type { Context } from "../src/components/command-center/shared";
+import { createRecord, type ProcessRecord } from "../src/lib/process/model";
 
 test("guided discovery, honest skipping, save failure recovery, resume and immutable run snapshots", async () => {
   const dom = new JSDOM('<div id="root"></div>', {

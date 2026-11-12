@@ -1,4 +1,36 @@
 "use client";
+import { Panel } from "@/components/ui/panel";
+import {
+  alignModuleSpacing,
+  canPlaceModule,
+  canPlaceModuleGroup,
+  closeRemovedModuleSpace,
+  limitModuleResize,
+  moveModuleGroup,
+  resizeModuleBox,
+  snapModuleBox,
+  type ResizeEdge,
+} from "@/lib/module-geometry";
+import {
+  boundModuleBox,
+  emptyModuleLayout,
+  moduleLayoutKey,
+  readModuleLayout,
+  type CustomModule,
+  type ModuleBox,
+  type ModuleLayout,
+  type ModulePlacement,
+} from "@/lib/module-layout";
+import {
+  EyeOff,
+  GripVertical,
+  Plus,
+  Redo2,
+  RotateCcw,
+  Settings2,
+  Undo2,
+  X,
+} from "lucide-react";
 import {
   createContext,
   isValidElement,
@@ -11,47 +43,15 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { GlassPanel } from "./glassyui/glass-panel";
 import { createPortal } from "react-dom";
-import {
-  resizeModuleBox,
-  snapModuleBox,
-  canPlaceModule,
-  alignModuleSpacing,
-  limitModuleResize,
-  closeRemovedModuleSpace,
-  moveModuleGroup,
-  canPlaceModuleGroup,
-  type ResizeEdge,
-} from "@/lib/module-geometry";
-import {
-  GripVertical,
-  Plus,
-  RotateCcw,
-  Undo2,
-  Redo2,
-  Settings2,
-  X,
-  EyeOff,
-} from "lucide-react";
-import {
-  emptyModuleLayout,
-  moduleLayoutKey,
-  readModuleLayout,
-  boundModuleBox,
-  type ModuleLayout,
-  type ModulePlacement,
-  type ModuleBox,
-  type CustomModule,
-} from "@/lib/module-layout";
 
 import {
+  availableModuleBox,
   evidenceReadingLayout,
+  materializeBoard,
   moduleBoard,
   modulePlacement,
-  materializeBoard,
   placeModule,
-  availableModuleBox,
 } from "@/lib/module-board";
 
 export type ModulePart = { id: string; title: string; selector: string };
@@ -462,19 +462,17 @@ export function WorkspaceModule({
           </button>
         </fieldset>
       )}
-      <GlassPanel
-        preset="standard"
-        lens
+      <Panel
         className="ss-module-surface"
         inert={ctx.editing}
       >
-        <div className="ss-module-content ss-module-glass" inert={ctx.editing}>
+        <div className="ss-module-content ss-module-body" inert={ctx.editing}>
           {placement.title && placement.title !== title && (
             <h2 className="ss-module-custom-title">{placement.title}</h2>
           )}
           {children}
         </div>
-      </GlassPanel>
+      </Panel>
       {ctx.editing &&
         (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeEdge[]).map(
           (edge) => (
@@ -1227,7 +1225,7 @@ export default function ModuleWorkspace({
         className={`ss-module-workspace${enabled ? " ss-module-workspace-active" : ""}${controlled ? " ss-module-controlled" : ""}`}
       >
         {enabled && controlled?.editing && (
-          <GlassPanel preset="standard" className="ss-module-toolbar">
+          <Panel className="ss-module-toolbar">
             <small>
               Drag anywhere to move. Resize from any edge or corner. Content is
               paused.
@@ -1247,11 +1245,10 @@ export default function ModuleWorkspace({
                 Add modules
               </button>
             </div>
-          </GlassPanel>
+          </Panel>
         )}
         {enabled && !controlled && (
-          <GlassPanel
-            preset="standard"
+          <Panel
             className={`ss-module-toolbar${editing ? "" : " ss-module-toolbar-idle"}`}
           >
             <div>
@@ -1369,7 +1366,7 @@ export default function ModuleWorkspace({
                 </button>
               )}
             </div>
-          </GlassPanel>
+          </Panel>
         )}
         <p className="ss-module-message" role="status" aria-live="polite">
           {message}

@@ -1,8 +1,24 @@
 "use client";
-import { useCaptureBaseline } from "./use-capture-baseline";
-import { useMomentCapture } from "./use-moment-capture";
+import { downsample, eventWindow, nearest, summary } from "@/lib/analytics";
+import { authClient } from "@/lib/cloud";
+import type { CsvDestination } from "@/lib/csv-session";
+import type { ImportSource } from "@/lib/import-selection";
 import { dailyJournalSession } from "@/lib/journal-collection";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { cadenceOptions, clock, money, type TradeEvent } from "@/lib/model";
+import { keepPrivateFile } from "@/lib/private-files";
+import { removeScreenshot } from "@/lib/screenshots";
+import {
+  detectHrMoments,
+  liveNotes,
+  personalProfile,
+  personalQuestion,
+} from "@/lib/smart-journal";
+import {
+  eventOrigin,
+  executionAction,
+  isActualExecution,
+  pnlByCurrency,
+} from "@/lib/trade-context";
 import {
   Activity,
   ArrowDownLeft,
@@ -10,19 +26,19 @@ import {
   Bluetooth,
   BookOpen,
   Check,
-  ChevronDown,
   ChevronRight,
   Clock,
   Cloud,
   Download,
   ExternalLink,
   Heart,
-  History,
-  LayoutDashboard,
   Link2,
   LogOut,
+  Menu,
+  Mic,
   MoreHorizontal,
   Pause,
+  Pencil,
   Play,
   Plus,
   Radio,
@@ -35,63 +51,35 @@ import {
   Upload,
   X,
   Zap,
-  Mic,
-  Pencil,
-  Sparkles,
-  Circle,
-  Menu,
 } from "lucide-react";
-import ConceptWorkspace from "./concept/workspace";
-import { PhaseLabelsContext } from "./phase-label-context";
-import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
-import BlueprintPreferences from "./blueprint-preferences";
-import WorkspaceAppearance from "./workspace-appearance";
-import SharkSettings from "./shark-settings";
-import WallpaperSettings from "./wallpaper-settings";
-import PhaseLabelPreferences from "./phase-label-preferences";
-import SignalCalendar from "./signal-calendar";
-import SignalOverview from "./signal-overview";
-import Stillness from "./stillness";
-import SessionReview from "./session-review";
-import JournalWriting from "./journal-writing";
-import { usePulse } from "./use-pulse";
-import { createPortal } from "react-dom";
-import { useFloatingJournal } from "./use-floating-journal";
-import FloatingJournal from "./floating-journal";
-import { Timeline } from "./timeline";
-import WorkspaceToolbar from "./workspace-toolbar";
-import TradeContextPanel, { PositionHeartRate } from "./trade-context-panel";
-import BrokerConnections from "./broker-connections";
-import {
-  executionAction,
-  eventOrigin,
-  isActualExecution,
-  pnlByCurrency,
-} from "@/lib/trade-context";
-import { summary, eventWindow, nearest, downsample } from "@/lib/analytics";
-import { cadenceOptions, clock, money, type TradeEvent } from "@/lib/model";
 import dynamic from "next/dynamic";
-const CsvImporter = dynamic(() => import("./csv-importer"));
-const TradingViewConnection = dynamic(() => import("./tradingview-connection"));
-import { authClient, cloudConfigured, pullSessions, sync } from "@/lib/cloud";
-import {
-  detectHrMoments,
-  liveNotes,
-  personalProfile,
-  personalQuestion,
-} from "@/lib/smart-journal";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import BlueprintPreferences from "./blueprint-preferences";
+import BrokerConnections from "./broker-connections";
+import ConceptWorkspace from "./concept/workspace";
+import ExtensionConnection from "./extension-connection";
+import FloatingJournal from "./floating-journal";
+import JournalWriting from "./journal-writing";
+import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
 import ReflectionEditor, {
   Screenshot,
   type ReflectionDraft,
 } from "./reflection-editor";
+import SessionReview from "./session-review";
+import SignalCalendar from "./signal-calendar";
 import SmartCheckins from "./smart-checkins";
-import ExtensionConnection from "./extension-connection";
+import { Timeline } from "./timeline";
 import TodayReview from "./today-review";
-import JournalInsights from "./journal-insights";
-import { removeScreenshot } from "@/lib/screenshots";
-import type { CsvDestination } from "@/lib/csv-session";
-import type { ImportSource } from "@/lib/import-selection";
-import { keepPrivateFile } from "@/lib/private-files";
+import TradeContextPanel, { PositionHeartRate } from "./trade-context-panel";
+import { useCaptureBaseline } from "./use-capture-baseline";
+import { useFloatingJournal } from "./use-floating-journal";
+import { useMomentCapture } from "./use-moment-capture";
+import { usePulse } from "./use-pulse";
+import WorkspaceAppearance from "./workspace-appearance";
+import WorkspaceToolbar from "./workspace-toolbar";
+const CsvImporter = dynamic(() => import("./csv-importer"));
+const TradingViewConnection = dynamic(() => import("./tradingview-connection"));
 type Tab = import("./concept/shared").Page;
 function duration(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -125,7 +113,7 @@ function Stat({
   children?: ReactNode;
 }) {
   return (
-    <div className="stat glass">
+    <div className="stat surface">
       <div className="stat-label">
         {label}
         <span>{icon}</span>
@@ -229,7 +217,7 @@ export default function Dashboard({
     if (initialSession) return;
     try {
       const saved = localStorage.getItem(`ss-workflow-page:${p.owner}`);
-      if (["Pre-Market", "Trade Quality", "Audits", "Rule Violations", "Settings & Variables", "Trading Thesis", "Missions"].includes(saved ?? "")) setTab(saved as Tab);
+      if (["Pre-Market", "Trade Quality", "Audits", "Rule Violations", "Settings & Variables"].includes(saved ?? "")) setTab(saved as Tab);
     } catch {}
   }, [p.owner, initialSession]);
   useEffect(() => {
@@ -481,7 +469,7 @@ export default function Dashboard({
     p.setNotice(
       `${events.length} trade events imported by timestamp. Your recorded heart rate is preserved. Other dates are available in Sessions.`,
     );
-    if (tab !== "Journal" && tab !== "Patterns") setTab("Journal");
+    if (tab !== "Journal") setTab("Journal");
   }
   async function openLiveReflection(draft: ReflectionDraft) {
     if (!p.active && !isWorkspace) await p.start();
@@ -574,7 +562,7 @@ export default function Dashboard({
       </div>
     );
   return (
-    <PhaseLabelsContext.Provider value={p.settings.phaseLabels}><div className="dashboard-shell">
+    <div className="dashboard-shell">
       <ConceptWorkspace
         capture={capture}
         pulse={p}
@@ -663,11 +651,7 @@ export default function Dashboard({
             <nav aria-label="Main navigation">
               {(
                 [
-                  { name: "Overview", icon: LayoutDashboard },
                   { name: "Journal", icon: BookOpen },
-                  { name: "Patterns", icon: Activity },
-                  { name: "Sessions", icon: History },
-                  { name: "Stillness", icon: Circle },
                   { name: "Connections", icon: Link2 },
                   { name: "Settings", icon: SlidersHorizontal },
                 ] as const
@@ -680,9 +664,6 @@ export default function Dashboard({
                 >
                   <n.icon size={18} />
                   {n.name === "Journal" ? "Daily journal" : n.name}
-                  {n.name === "Sessions" && (
-                    <span className="nav-count">{p.history.length}</span>
-                  )}
                 </button>
               ))}
             </nav>
@@ -779,8 +760,6 @@ export default function Dashboard({
                               day: "numeric",
                               month: "long",
                             })
-                          : tab === "Patterns"
-                            ? "The patterns in your signal."
                             : tab === "Stillness"
                               ? "Arrive before you analyse."
                               : tab === "Connections"
@@ -794,8 +773,6 @@ export default function Dashboard({
                         ? "Revisit your heart rate, trade events, and personal context."
                         : tab === "Journal"
                           ? "Heart rate, execution, and reflection. One shared timeline."
-                          : tab === "Patterns"
-                            ? "Your history is evidence. What it means is yours to explore."
                             : tab === "Stillness"
                               ? "There is nothing you need to prove in this moment."
                               : tab === "Connections"
@@ -867,29 +844,6 @@ export default function Dashboard({
                   </button>
                 </div>
               )}
-              {tab === "Overview" && (
-                <SignalOverview
-                  sessions={history}
-                  session={s}
-                  profile={profile}
-                  recording={p.active}
-                  onJournal={() => {
-                    setJournalView("Timeline");
-                    setTab("Journal");
-                  }}
-                  onPatterns={() => setTab("Patterns")}
-                  onReflect={() => openReflection({ t: viewEnd })}
-                  onOpen={(item) => {
-                    void act(async () => {
-                      if (item.id !== s.id) await p.openSession(item);
-                      setTab("Journal");
-                    });
-                  }}
-                />
-              )}
-              <div hidden={tab !== "Stillness"}>
-                <Stillness time={viewEnd} onReflect={openReflection} />
-              </div>
               {tab === "Journal" && !todayReview && (
                 <div className="smart-journal-toolbar">
                   <button
@@ -1117,9 +1071,7 @@ export default function Dashboard({
                     >
                       Daily timeline
                     </button>
-                    <button onClick={() => setTab("Patterns")}>
-                      Patterns & insights
-                    </button>
+
                     <button
                       className={journalView === "Review" ? "active" : ""}
                       aria-pressed={journalView === "Review"}
@@ -1136,7 +1088,7 @@ export default function Dashboard({
                   </div>
                   <div hidden={journalView !== "Timeline"}>
                     <div className="trading-grid">
-                      <WorkspaceModule id="tools-the-rhythm-of-your-session" title="The rhythm of your session" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass timeline-panel">
+                      <WorkspaceModule id="tools-the-rhythm-of-your-session" title="The rhythm of your session" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface timeline-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1316,7 +1268,7 @@ export default function Dashboard({
                       />
                     </div>
                     <div className="lower-grid">
-                      <WorkspaceModule id="tools-trade-activity" title="Trade activity" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass events-panel">
+                      <WorkspaceModule id="tools-trade-activity" title="Trade activity" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface events-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1468,7 +1420,7 @@ export default function Dashboard({
                           </button>
                         </div>
                       </section></WorkspaceModule>
-                      <WorkspaceModule id="tools-session-observations" title="Session observations" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass insights-panel">
+                      <WorkspaceModule id="tools-session-observations" title="Session observations" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface insights-panel">
                         <div className="panel-heading">
                           <div>
                             <h2>
@@ -1534,82 +1486,7 @@ export default function Dashboard({
                   </div>
                 </>
               )}
-              {tab === "Sessions" && (
-                <WorkspaceModule id="tools-saved-sessions" title="Saved sessions" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass content-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Saved sessions</h2>
-                      <p>
-                        Your recordings stay on this browser. Sign in to enable
-                        cloud sync when configured.
-                      </p>
-                    </div>
-                    <button
-                      className="button"
-                      disabled={!p.email || busy}
-                      onClick={() =>
-                        act(async () => {
-                          await pullSessions(p.owner);
-                          await p.refreshHistory();
-                          p.setNotice("Cloud sessions refreshed.");
-                        })
-                      }
-                    >
-                      <Cloud size={16} />
-                      Refresh cloud
-                    </button>
-                  </div>
-                  {p.history.length === 0 ? (
-                    <div className="empty-state tall">
-                      <History size={32} />
-                      <h3>Your trading story starts here.</h3>
-                      <p>
-                        Start a journal, drop a CSV, or connect TradingView. No
-                        wearable needed.
-                      </p>
-                      <button
-                        className="button primary"
-                        onClick={() => act(p.start)}
-                      >
-                        Start a session
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="session-list">
-                      {p.history.map((item) => (
-                        <button
-                          key={item.id}
-                          className="session-item"
-                          onClick={() =>
-                            act(async () => {
-                              await p.openSession(item);
-                              if (!p.active) setTab("Journal");
-                            })
-                          }
-                        >
-                          <span className="session-item-icon">
-                            <Activity size={20} />
-                          </span>
-                          <div>
-                            <h3>{item.name}</h3>
-                            <p>
-                              {new Date(item.startedAt).toLocaleString()} ·{" "}
-                              {item.events.length} events ·{" "}
-                              {item.sampleCount.toLocaleString()} samples
-                            </p>
-                          </div>
-                          <span className="tag">
-                            {item.endedAt
-                              ? "Completed"
-                              : "Interrupted / active"}
-                          </span>
-                          <ChevronRight size={17} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </section></WorkspaceModule>
-              )}
+
               {tab === "Journal" && todayReview && (
                 <TodayReview
                   sessions={history}
@@ -1626,7 +1503,7 @@ export default function Dashboard({
               {tab === "Journal" &&
                 !todayReview &&
                 journalView === "Timeline" && (
-                  <WorkspaceModule id="tools-the-moments-behind-the-numbers" title="The moments behind the numbers" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass content-panel journal-flow">
+                  <WorkspaceModule id="tools-the-moments-behind-the-numbers" title="The moments behind the numbers" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface content-panel journal-flow">
                     <div className="panel-heading">
                       <div>
                         <h2>The moments behind the numbers</h2>
@@ -1759,7 +1636,7 @@ export default function Dashboard({
                 <>
                   <WorkspaceModule id="tools-manual-csv-import" title="Manual CSV import" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section
                     id="trade-csv"
-                    className="glass import-card csv-import-panel"
+                    className="surface import-card csv-import-panel"
                   >
                     <div>
                       <h2>Manual CSV import</h2>
@@ -1779,7 +1656,7 @@ export default function Dashboard({
                     onImportCsv={() => setModal("csv")}
                   />
                   <div className="connections-grid">
-                    <WorkspaceModule id="tools-whoop" title="WHOOP" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass connection-card">
+                    <WorkspaceModule id="tools-whoop" title="WHOOP" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface connection-card">
                       <div className="connection-top">
                         <span className="connection-logo">
                           <Bluetooth size={26} />
@@ -1840,7 +1717,7 @@ export default function Dashboard({
                       }
                     />
                   </div>
-                  <WorkspaceModule id="tools-optional-wearable-context" title="Optional wearable context" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass connection-note">
+                  <WorkspaceModule id="tools-optional-wearable-context" title="Optional wearable context" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface connection-note">
                     <h3>Optional wearable context</h3>
                     <p>
                       Your journal and trading integrations work without a
@@ -1854,13 +1731,10 @@ export default function Dashboard({
               {tab === "Settings" && (
                 <div className="settings-grid">
                   <WorkspaceModule id="journal-text" title="Journal text size" section="main" order={0}><WorkspaceAppearance settings props={{ pulse: { owner: p.owner }, onPage: next => setTab(next) }} /></WorkspaceModule>
-                  <WorkspaceModule id="wallpaper-glass" title="Wallpaper & glass" section="main" order={-1}><WallpaperSettings /></WorkspaceModule>
-                  <WorkspaceModule id="sharks-appearance" title="Sharks & appearance" section="main" order={0}><SharkSettings /></WorkspaceModule>
-                  <WorkspaceModule id="stage-label-preferences" title="Your stage labels" section="main"><PhaseLabelPreferences
-                    settings={p.settings}
-                    onChange={p.configure}
-                  /></WorkspaceModule>
-                  <WorkspaceModule id="review-reminders" title="Weekly review reminders" section="side" order={20}><section className="glass settings-card"><h2>Weekly review reminders</h2><label className="checkbox-label">
+
+
+
+                  <WorkspaceModule id="review-reminders" title="Weekly review reminders" section="side" order={20}><section className="surface settings-card"><h2>Weekly review reminders</h2><label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={p.settings.weeklyReminders !== false}
@@ -1878,7 +1752,7 @@ export default function Dashboard({
                     history={history}
                     onSave={p.updateBlueprint}
                   /></WorkspaceModule>
-                  <WorkspaceModule id="tools-your-session-preferences" title="Your session preferences" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass settings-card">
+                  <WorkspaceModule id="tools-your-session-preferences" title="Your session preferences" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface settings-card">
                     <h2>Your session preferences</h2>
                     <label className="checkbox-label">
                       <input
@@ -2103,7 +1977,7 @@ export default function Dashboard({
                       Preferences save automatically on this device.
                     </p>
                   </section></WorkspaceModule>
-                  <WorkspaceModule id="tools-your-data-your-control" title="Your data, your control" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="glass settings-card">
+                  <WorkspaceModule id="tools-your-data-your-control" title="Your data, your control" parts={[{id:"description",title:"Supporting description",selector:".ss-module-content > section > p"}]} ><section className="surface settings-card">
                     <h2>Your data, your control</h2>
                     <p>
                       {p.email
@@ -2157,76 +2031,7 @@ export default function Dashboard({
                   </section></WorkspaceModule>
                 </div>
               )}
-              {tab === "Patterns" && (
-                <>
-                  <div className="analysis-explainer">
-                    <Sparkles size={20} />
-                    <div>
-                      <h2>
-                        Observe the connection. Keep the interpretation yours.
-                      </h2>
-                      <p>
-                        These observations use your confirmed labels, recorded
-                        heart rate, and execution history. Open the supporting
-                        moments before drawing a conclusion.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="pattern-summary">
-                    <div>
-                      <span>Confirmed reflections</span>
-                      <strong>{profile.count}</strong>
-                    </div>
-                    <div>
-                      <span>Saved sessions</span>
-                      <strong>{profile.sessionCount}</strong>
-                    </div>
-                    <div>
-                      <span>HR-linked reflections</span>
-                      <strong>
-                        {history.reduce(
-                          (count, session) =>
-                            count +
-                            liveNotes(session.journal).filter(
-                              (n) => n.context?.bpm !== undefined,
-                            ).length,
-                          0,
-                        )}
-                      </strong>
-                    </div>
-                    <div>
-                      <span>Learned sensitivity</span>
-                      <strong>
-                        {profile.suggestedThreshold === null
-                          ? "Building"
-                          : `+${profile.suggestedThreshold} BPM`}
-                      </strong>
-                    </div>
-                  </div>
-                  <JournalInsights
-                    session={{
-                      ...s,
-                      events: visibleEvents,
-                      journal: visibleJournal,
-                    }}
-                    moments={moments.filter((m) => m.t <= viewEnd)}
-                    profile={profile}
-                    hasSamples={shown.length > 0}
-                    onMoment={(t, hrEventId) =>
-                      openReflection({ t, source: "hr-checkin", hrEventId })
-                    }
-                    onEvidence={(id) => {
-                      const target = p.history.find((h) => h.id === id);
-                      if (id === s.id) setTab("Journal");
-                      else if (target)
-                        void act(async () => {
-                          await p.openSession(target);
-                          setTab("Journal");
-                        });
-                    }}
-                  />
-                </>
-              )}
+
               <footer className="app-footer">
                 <span>
                   <Activity size={13} /> Still Signal{" "}
@@ -2434,7 +2239,6 @@ export default function Dashboard({
           <FloatingJournal
             capture={capture}
             historicalBaseline={historicalBaseline}
-            labels={p.settings.phaseLabels}
             key={s.id}
             session={dailyJournalSession(s, p.history)}
             samples={p.samples}
@@ -2471,7 +2275,6 @@ export default function Dashboard({
           }}
         >
           <ReflectionEditor
-            labels={p.settings.phaseLabels}
             session={dailyJournalSession(s, p.history)}
             draft={noteDraft || { t: selected?.t || viewEnd }}
             owner={p.owner}
@@ -2639,6 +2442,6 @@ export default function Dashboard({
           })()}
         </Modal>
       )}
-    </div></PhaseLabelsContext.Provider>
+    </div>
   );
 }

@@ -11,36 +11,6 @@
   display: block;
   min-width: 0;
 }
-.ss-reference-app .ss-space-history {
-  margin: 14px 0 6px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.ss-space-history > summary,
-.ss-space-date-tools > summary {
-  cursor: pointer;
-  width: fit-content;
-}
-.ss-space-history[open] .ss-reference-history {
-  position: static;
-  max-height: 65vh;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  margin: 12px 0;
-}
-.ss-reference-app .ss-space-date-tools {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 8px 0;
-}
-.ss-space-date-tools .ss-week {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin: 12px 0;
-}
 .ss-reference-app .ss-reference-day > .ss-session-controls {
   margin: 10px 0 16px;
   padding: 9px 12px;
@@ -493,11 +463,6 @@
   flex-wrap: wrap;
   margin-top: 10px;
 }
-.ss-reference-app .ss-space-support {
-  margin: 18px 0;
-  color: var(--muted);
-  font-size: 11px;
-}
 .ss-reference-app .ss-space-status {
   font-size: 11px;
   color: var(--green);
@@ -584,17 +549,6 @@
 }
 .ss-reference-app .ss-reference-topbar {
   min-height: 64px;
-}
-.ss-reference-app .ss-reference-top-actions .ss-connection-shortcut,
-.ss-reference-app .ss-reference-top-actions .ss-floating-shortcut {
-  padding: 6px 9px;
-  font-size: 11px;
-}
-@media (max-width: 760px) {
-  .ss-reference-app .ss-reference-top-actions .ss-connection-shortcut,
-  .ss-reference-app .ss-reference-top-actions .ss-floating-shortcut {
-    display: none;
-  }
 }
 @media (min-width: 1650px) {
   .ss-reference-app .ss-journal-space {

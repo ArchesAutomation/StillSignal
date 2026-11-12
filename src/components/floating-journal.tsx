@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useRef, useState, type ClipboardEvent } from "react";
-import type { JournalEntry, Sample, Session } from "@/lib/model";
 import {
   readClipboardScreenshot,
   validateScreenshotFile,
 } from "@/lib/clipboard-screenshot";
-import ReflectionEditor, { type ReflectionDraft } from "./reflection-editor";
+import type { JournalEntry, Sample, Session } from "@/lib/model";
+import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import CapturePanel from "./concept/capture-panel";
 import ModuleWorkspace, { WorkspaceModule } from "./module-workspace";
+import ReflectionEditor, { type ReflectionDraft } from "./reflection-editor";
 export default function FloatingJournal({
   session,
   samples,
@@ -23,7 +23,6 @@ export default function FloatingJournal({
   onPopup,
   prepareScreenshot,
   onSave,
-  labels,
   capture,
   historicalBaseline,
 }: {
@@ -41,7 +40,6 @@ export default function FloatingJournal({
   onClose: () => void;
   onReopen: () => void;
   onPopup?: () => void;
-  labels?: import("@/lib/model").Settings["phaseLabels"];
   prepareScreenshot: (t: number) => Promise<string>;
   onSave: (note: JournalEntry) => Promise<void>;
 }) {
@@ -136,7 +134,6 @@ export default function FloatingJournal({
             customizable
             historicalBaseline={historicalBaseline}
             controller={capture}
-            labels={labels}
             key={session.id}
             session={session}
             samples={samples}
@@ -164,7 +161,6 @@ export default function FloatingJournal({
             {draft ? (
               <div className="ss-popup-editor">
                 <ReflectionEditor
-                  labels={labels}
                   session={session}
                   draft={draft}
                   owner={session.owner}

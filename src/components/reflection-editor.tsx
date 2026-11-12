@@ -1,22 +1,22 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Square, ImagePlus, ClipboardPaste, X } from "lucide-react";
 import {
   readClipboardScreenshot,
   validateScreenshotFile,
 } from "@/lib/clipboard-screenshot";
-import type { JournalEntry, Session } from "@/lib/model";
-import { noteTime, validateDestination } from "@/lib/journal-routing";
-import Destination from "./concept/destination";
-import { clock } from "@/lib/model";
 import { labelsFor } from "@/lib/journal-reference";
-import AudioCapture, { AudioPlayback } from "./reflection-audio";
+import { noteTime, validateDestination } from "@/lib/journal-routing";
+import type { JournalEntry, Session } from "@/lib/model";
+import { clock } from "@/lib/model";
 import { removePrivateFile } from "@/lib/private-files";
 import {
-  uploadScreenshot,
   removeScreenshot,
   screenshotUrl,
+  uploadScreenshot,
 } from "@/lib/screenshots";
+import { ClipboardPaste, ImagePlus, Mic, Square, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Destination from "./concept/destination";
+import AudioCapture, { AudioPlayback } from "./reflection-audio";
 
 type RecognitionEvent = {
   results: {
@@ -112,7 +112,6 @@ export default function ReflectionEditor({
   onCancel,
   compact = false,
   session,
-  labels,
 }: {
   draft: ReflectionDraft;
   owner: string;
@@ -123,7 +122,6 @@ export default function ReflectionEditor({
   onCancel?: () => void;
   compact?: boolean;
   session?: Session;
-  labels?: import("@/lib/model").Settings["phaseLabels"];
 }) {
   const [text, setText] = useState(
       draft.entry?.text || draft.initialText || "",
@@ -408,7 +406,7 @@ export default function ReflectionEditor({
           onChange={(e) => setLabel(e.target.value)}
         >
           {[
-            ...new Set(["Unlabelled", label, ...labelsFor(section, labels)]),
+            ...new Set(["Unlabelled", label, ...labelsFor(section)]),
           ].map((x) => (
             <option key={x}>{x}</option>
           ))}

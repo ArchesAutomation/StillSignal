@@ -1,14 +1,13 @@
 "use client";
-import { useState, useEffect, useRef, type ReactNode } from "react";
-import type { JournalEntry, Sample, Session, Settings } from "@/lib/model";
-import type { SessionBlueprint } from "@/lib/blueprint-schema";
-import type { ReflectionDraft } from "../reflection-editor";
 import { summary } from "@/lib/analytics";
+import type { SessionBlueprint } from "@/lib/blueprint-schema";
+import { labelsFor, stages } from "@/lib/journal-reference";
+import type { JournalEntry, Sample, Session } from "@/lib/model";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { WorkspaceModule } from "../module-workspace";
+import type { ReflectionDraft } from "../reflection-editor";
 import { useMomentCapture, type MomentCapture } from "../use-moment-capture";
 import { cx } from "./shared";
-import { labelsFor, stages } from "@/lib/journal-reference";
-import { usePhaseLabels } from "../phase-label-context";
-import { WorkspaceModule } from "../module-workspace";
 function CaptureWidget({
   enabled,
   id,
@@ -73,9 +72,8 @@ export default function CapturePanel(props: {
   active: boolean;
   recording: boolean;
   shortcut?: string;
-  labels?: Settings["phaseLabels"];
   onPending?: (p: boolean) => void;
-  onClose: () => void;
+  onClose?: () => void;
   onReflect: (d: ReflectionDraft) => void;
   onScreenshot?: () => void;
   onSave: (n: JournalEntry) => Promise<void>;
@@ -85,7 +83,6 @@ export default function CapturePanel(props: {
   customizable?: boolean;
   historicalBaseline?: { bpm: number | null; count: number };
 }) {
-  const sharedLabels = usePhaseLabels();
   const local = useMomentCapture({
     session: props.session,
     active: props.active,
@@ -113,7 +110,7 @@ export default function CapturePanel(props: {
       : null;
   const feelings = [
     ...new Set(
-      stages.flatMap((stage) => labelsFor(stage, props.labels ?? sharedLabels)),
+      stages.flatMap((stage) => labelsFor(stage)),
     ),
   ];
   const counts = new Map<string, number>();
@@ -291,7 +288,7 @@ export default function CapturePanel(props: {
             >
               <h3>How are you feeling?</h3>
               <p>
-                Your saved labels · select a feeling for your next recording.
+                Stage suggestions · select a feeling for your next recording.
               </p>
               <label>
                 Feeling or thought

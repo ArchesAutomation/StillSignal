@@ -1,9 +1,10 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import DashboardCanvas from "../src/components/command-center/dashboard-canvas";
+import { WorkspaceModule } from "../src/components/module-workspace";
+import DashboardCanvas from "../src/components/process/dashboard-canvas";
 import { freshDashboard } from "../src/lib/process/dashboard";
 
 test("the dashboard shares surface dragging, inert previews, eight resize edges and Escape cancellation", async () => {
@@ -49,7 +50,7 @@ test("the dashboard shares surface dragging, inert previews, eight resize edges 
           onInteracting: (value) => {
             interacting = value;
           },
-          renderContent: () => createElement("button", null, "Start session"),
+          children: createElement(WorkspaceModule, { id: "session", title: "Session", children: createElement("button", null, "Start session") }),
         }),
       ),
     );

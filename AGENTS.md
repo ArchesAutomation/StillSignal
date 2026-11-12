@@ -1,6 +1,7 @@
 ## Product continuity
 
-- Preserve the production liquid-glass UI, global ocean, appearance controls and optimized shark renderer. Use the existing GlassProvider, AppearanceProvider and GlassPanel systems for new UI.
+- Preserve the Reading Room Home, Preparation, Daily Journal, Done for the Day and Stillness flows established in PR #85. Use native surfaces in `src/components/ui`; Command Center, Patterns, Liquid Glass/Nordify, ocean/shark animations, refraction and custom stage-label preferences are retired.
+- Keep dashboard customization, CSV import/export, measured heart rate, live/floating session capture, screenshot paste/capture and their shared account-scoped infrastructure working. Keep historical stored records compatible without restoring retired screens.
 - Verify the current production deployment against repository source before UI work or a release. Deployment Git metadata can omit files uploaded directly through the deployment API. See `docs/production-source.md`.
 - Process schemas and domain validation are maintained in `src/lib`. Regenerate their cloud counterparts with `node scripts/prepare-edge.mjs` after changes. Keep saved historical records and pinned definition versions compatible.
 

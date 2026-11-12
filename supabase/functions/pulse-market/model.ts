@@ -168,9 +168,6 @@ export type Settings = {
   startWithStillness?: boolean;
   smallPauses?: boolean;
   weeklyReminders?: boolean;
-  phaseLabels?: Partial<
-    Record<"before" | "entry" | "management" | "exit" | "after", string[]>
-  >;
 };
 export const defaults: Settings = {
   cadence: 30,

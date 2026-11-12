@@ -1,12 +1,12 @@
 "use client";
+import { latest } from "@/lib/process/model";
 import {
   activities,
   activityOf,
   cadences,
   type PreparationStep,
 } from "@/lib/process/preparation-workflow";
-import { latest } from "@/lib/process/model";
-import { Field, type Context } from "../command-center/shared";
+import { Field, type Context } from "../process/shared";
 export default function StepSettings({
   step: s,
   onChange,

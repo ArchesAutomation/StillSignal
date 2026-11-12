@@ -1,6 +1,6 @@
 # Still Signal 0.4.1
 
-The October journal-reference integration adds the supplied journal layout, preparation and dated context, weekly review, confirmed capture and evidence-linked Patterns to this existing application. See [the implementation and rollout notes](docs/OCTOBER_JOURNAL_REFERENCE.md) for scope, verification and the required additive migration/function deployment.
+Still Signal is a mindfulness and stillness workspace built around Home, Preparation, Daily Journal, Done for the Day and Stillness. The Reading Room presentation from [PR #85](https://github.com/ArchesAutomation/StillSignal/pull/85) is the current product baseline. Dashboard customization, optional measured heart rate, CSV uploads and live/floating session capture remain supported. Command Center, Patterns, Liquid Glass/Nordify, shark animations, refraction and custom stage-label preferences are retired. See [the refactor notes](docs/mindfulness-refactor.md) for retained boundaries and verification.
 
 A private, multi-tenant trading journal built with Next.js, React, TypeScript and Supabase. Use TradingView alerts, CSV imports, manual trade entries and reflections without a wearable. WHOOP Bluetooth heart rate is optional context. Every account starts empty; no sample trades, physiological readings or demo sessions are seeded.
 

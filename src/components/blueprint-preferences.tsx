@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
-import type { Session } from "@/lib/model";
 import { noCombination, type SessionBlueprint } from "@/lib/blueprint-schema";
+import type { Session } from "@/lib/model";
 import { cleanPrivateFiles } from "@/lib/private-files";
+import { useState } from "react";
 export default function BlueprintPreferences({
   session,
   onSave,
@@ -41,7 +41,7 @@ export default function BlueprintPreferences({
         b.blueprint!.profile!.measuredAt - a.blueprint!.profile!.measuredAt,
     )[0]?.blueprint?.profile;
   return (
-    <section className="glass settings-card">
+    <section className="surface settings-card">
       <h2>Your data, your choice</h2>
       <p>
         Choose which sources may be combined for this session’s pattern

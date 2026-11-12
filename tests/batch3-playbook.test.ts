@@ -1,13 +1,13 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createElement as h, act } from "react";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, createElement as h } from "react";
 import { createRoot } from "react-dom/client";
 import TradeQuality from "../src/components/trade-quality/workspace";
-import ThesisWorkspace, { emptyThesis } from "../src/components/trading-thesis/workspace";
+
 import PersistentForm from "../src/components/persistent-form";
-import { createRecord, latest, type ProcessRecord } from "../src/lib/process/model";
-import type { Context } from "../src/components/command-center/shared";
+import type { Context } from "../src/components/process/shared";
+import { createRecord, type ProcessRecord } from "../src/lib/process/model";
 
 function setup() {
   const dom = new JSDOM('<button id="opener">Open editor</button><div id="root"></div>', { url: "https://still-signal.test" });
@@ -110,28 +110,7 @@ test("a missing draft source is reported instead of silently creating a new play
   } finally { await ui.close(); }
 });
 
-test("thesis archive feedback is honest and restore retains original versions", async () => {
-  const ui = setup(), tradingDay = day(), thesis = createRecord("thesis", { ...emptyThesis(tradingDay, "daily"), primary: "Keep original evidence" });
-  const c = context([tradingDay, thesis]);
-  c.day = tradingDay;
-  ui.dom.window.confirm = () => true;
-  let fail = true;
-  c.store.save = async batch => { if (fail) return false; c.store.records.push(...batch); return true; };
-  try {
-    await act(async () => ui.root.render(h(ThesisWorkspace, c)));
-    await act(async () => button("Archive mistaken plan").click());
-    assert.match(document.querySelector('[role="alert"]')!.textContent!, /Could not archive/);
-    assert.equal(c.store.records.length, 2);
-    fail = false;
-    await act(async () => button("Archive mistaken plan").click());
-    assert.match(document.querySelector('[role="status"]')!.textContent!, /Archived this plan/);
-    await act(async () => button("Restore plan").click());
-    assert.match(document.querySelector('[role="status"]')!.textContent!, /Restored this plan/);
-    assert.equal(latest(c.store.records, "thesis")[0].revision, 3);
-    assert.equal(thesis.archived, false);
-    assert.equal(thesis.body.primary, "Keep original evidence");
-  } finally { await ui.close(); }
-});
+
 
 test("switching accounts cannot copy an open playbook draft into the next account", async () => {
   const ui = setup(), saved = book(), c = context([saved]);

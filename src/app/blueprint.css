@@ -1,8 +1,7 @@
 .ss-reset,
 .ss-context-panel,
 .ss-pnl-panel,
-.ss-reflection-stream,
-.ss-environment-patterns {
+.ss-reflection-stream {
   margin: 24px 0;
   border: 1px solid var(--line, #2b3438);
   border-radius: 14px;
@@ -215,34 +214,6 @@
   min-width: 82px;
   font-variant-numeric: tabular-nums;
 }
-.ss-provenance-badge {
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  border: 1px solid var(--line, #2b3438);
-  border-radius: 5px;
-  padding: 4px 6px;
-  white-space: nowrap;
-}
-.ss-provenance-badge[data-origin="live"] {
-  color: #a8cbb7;
-}
-.ss-provenance-badge[data-origin="post-session"] {
-  color: #ccb2de;
-}
-.ss-stream-detail {
-  padding: 4px 0 22px 94px;
-  line-height: 1.7;
-}
-.ss-stream-detail > p {
-  white-space: pre-wrap;
-}
-.ss-stream-detail blockquote,
-.ss-journal-phase-note blockquote {
-  border-left: 2px solid var(--accent, #b5d6a5);
-  padding: 8px 14px;
-  margin: 12px 0;
-  color: var(--muted, #8b999a);
-}
 .ss-emotion-summary {
   display: flex;
   flex-wrap: wrap;
@@ -315,23 +286,6 @@
   gap: 8px;
   align-items: center;
 }
-.ss-pattern-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-.ss-pattern-grid > article {
-  border: 1px solid var(--line, #2b3438);
-  padding: 20px;
-  border-radius: 10px;
-}
-.ss-pattern-grid small {
-  display: block;
-}
-.ss-pattern-grid details button {
-  display: block;
-  margin: 8px 0;
-}
 .ss-import-selection {
   margin: 16px 0;
   padding: 18px;
@@ -339,8 +293,7 @@
   border-radius: 10px;
 }
 @media (max-width: 900px) {
-  .ss-context-columns,
-  .ss-pattern-grid {
+  .ss-context-columns {
     grid-template-columns: 1fr;
   }
   .ss-stream-note > summary {
@@ -350,9 +303,6 @@
   .ss-stream-note > summary > span:last-child {
     flex-basis: 100%;
   }
-  .ss-stream-detail {
-    padding-left: 0;
-  }
   .ss-reset {
     padding: 24px 16px;
   }
@@ -361,8 +311,7 @@
   }
   .ss-context-panel,
   .ss-pnl-panel,
-  .ss-reflection-stream,
-  .ss-environment-patterns {
+  .ss-reflection-stream {
     padding: 16px;
   }
   .ss-context-scales {
@@ -392,15 +341,6 @@
   }
 }
 @media (max-width: 650px) {
-  .ss-app .ss-timeline-layout {
-    display: block;
-  }
-  .ss-app .ss-timeline-layout > div,
-  .ss-app .ss-timeline-layout > aside {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
   .ss-app .ss-chartwrap {
     max-width: 100%;
     overflow: hidden;

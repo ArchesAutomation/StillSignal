@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import type { JournalEntry, Sample, Session, Settings } from "@/lib/model";
-import type { ReflectionDraft, Recognition } from "../reflection-editor";
-import AudioCapture, { AudioPlayback } from "../reflection-audio";
-import { keepPrivateFile } from "@/lib/private-files";
 import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
-import { validateDestination } from "@/lib/journal-routing";
 import { journalPhaseLink } from "@/lib/journal-phases";
-import { labelsFor, stages, localInstant } from "@/lib/journal-reference";
+import { labelsFor, localInstant, stages } from "@/lib/journal-reference";
+import { validateDestination } from "@/lib/journal-routing";
+import type { JournalEntry, Sample, Session } from "@/lib/model";
+import { keepPrivateFile } from "@/lib/private-files";
+import { useEffect, useRef, useState } from "react";
+import AudioCapture, { AudioPlayback } from "../reflection-audio";
+import type { Recognition, ReflectionDraft } from "../reflection-editor";
 import { useJournalDraft } from "../use-journal-draft";
 import Destination from "./destination";
 import { cx, time as displayTime } from "./shared";
@@ -35,7 +35,6 @@ export default function Writing({
   onReflect,
   selection,
   samples,
-  labels,
   timezone,
 }: {
   time: number;
@@ -44,7 +43,6 @@ export default function Writing({
   onReflect: (d: ReflectionDraft) => void;
   selection?: { section: JournalEntry["section"]; tradeId: string };
   samples: Sample[];
-  labels?: Settings["phaseLabels"];
   timezone?: string;
   onReview?: () => void;
   sampleNoteIds?: Set<string>;
@@ -126,7 +124,7 @@ export default function Writing({
   };
   const options = [
     ...new Set(
-      ["", ...labelsFor(draft.section, labels), draft.label].filter(
+      ["", ...labelsFor(draft.section), draft.label].filter(
         (v, i) => i === 0 || !!v,
       ),
     ),

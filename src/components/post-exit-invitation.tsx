@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Panel } from "@/components/ui/panel";
 import { dateInZone } from "@/lib/process/model";
 import {
   completedIdeas,
   reviewInvitationKey,
 } from "@/lib/process/session-review";
+import { useEffect, useMemo, useState } from "react";
 import type { Props } from "./concept/shared";
-import { GlassPanel } from "./glassyui/glass-panel";
 export default function PostExitInvitation({ props }: { props: Props }) {
   const owner = props.pulse.owner,
     key = `ss-review-invitations:${owner}`;
@@ -51,9 +51,7 @@ export default function PostExitInvitation({ props }: { props: Props }) {
   if (props.page === "Pre-Market") return null;
   if (!pending.length) return error ? <p role="status">{error}</p> : null;
   return (
-    <GlassPanel
-      lens={false}
-      preset="standard"
+    <Panel
       className="guide-exit-invitation"
       role="status"
       aria-label="Post-exit review invitation"
@@ -94,6 +92,6 @@ export default function PostExitInvitation({ props }: { props: Props }) {
           Open my stillness
         </button>
       </div>
-    </GlassPanel>
+    </Panel>
   );
 }

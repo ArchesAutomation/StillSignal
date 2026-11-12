@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import type { JournalProfile } from "@/lib/process/journal-guide";
 import { keepRoutineAudio, privateFile } from "@/lib/private-files";
-import { Field } from "./command-center/shared";
+import type { JournalProfile } from "@/lib/process/journal-guide";
+import { useEffect, useRef, useState } from "react";
+import { Field } from "./process/shared";
 type Element = JournalProfile["stillness"][number];
 export function RoutineAudio({ path, owner }: { path: string; owner: string }) {
   const [url, setUrl] = useState("");

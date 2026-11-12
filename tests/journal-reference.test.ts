@@ -1,32 +1,31 @@
+import { PGlite } from "@electric-sql/pglite";
 import "fake-indexeddb/auto";
-import { test } from "node:test";
+import { JSDOM } from "jsdom";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { PGlite } from "@electric-sql/pglite";
-import { JSDOM } from "jsdom";
+import { test } from "node:test";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import CapturePanel from "../src/components/concept/capture-panel";
+import { noCombination } from "../src/lib/blueprint-schema";
+import { dailyJournalSession } from "../src/lib/journal-collection";
 import {
+  captureSymbol,
   environmentAt,
-  labelsFor,
   localInstant,
+  momentPnl,
   proximityEvents,
   validQuote,
-  captureSymbol,
-  momentPnl,
   weeklyActuals,
 } from "../src/lib/journal-reference";
-import { sessionSchema } from "../src/lib/validation";
+import type { JournalEntry, Session } from "../src/lib/model";
 import {
   keepPrivateFile,
   privateFile,
   removePrivateFile,
 } from "../src/lib/private-files";
-import type { JournalEntry, Session } from "../src/lib/model";
-import { referenceAnalysis } from "../src/lib/reference-analysis";
-import { noCombination } from "../src/lib/blueprint-schema";
-import { dailyJournalSession } from "../src/lib/journal-collection";
+
+import { sessionSchema } from "../src/lib/validation";
 const owner = "11111111-1111-4111-8111-111111111111",
   t = Date.parse("2026-10-23T14:30:00Z");
 const session = (patch: Partial<Session> = {}): Session => ({
@@ -134,158 +133,8 @@ test("day-level writing follows its latest revision across same-day recordings w
   assert.equal(day.id, current.id);
   assert.equal(day.blueprint?.updatedAt, 500);
 });
-test("note filters do not change the continuous-profit population and account scopes remain separate", () => {
-  const s = session({
-    blueprint: {
-      updatedAt: t,
-      combine: { ...noCombination, hr: true, transcript: true, pnl: true },
-      pnl: [
-        {
-          t: t + 301000,
-          account: "A",
-          symbol: "MNQ",
-          currency: "USD",
-          position: 1,
-          realised: 0,
-          unrealised: 50,
-          source: "csv",
-        },
-        {
-          t: t + 302000,
-          account: "A",
-          symbol: "MNQ",
-          currency: "USD",
-          position: 1,
-          realised: 0,
-          unrealised: 200,
-          source: "csv",
-        },
-        {
-          t: t + 303000,
-          account: "A",
-          symbol: "MNQ",
-          currency: "USD",
-          position: 1,
-          realised: 0,
-          unrealised: 300,
-          source: "csv",
-        },
-        {
-          t: t + 303000,
-          account: "B",
-          symbol: "MNQ",
-          currency: "USD",
-          position: 1,
-          realised: 0,
-          unrealised: 1000,
-          source: "csv",
-        },
-        {
-          t: t + 304000,
-          account: "A",
-          symbol: "MNQ",
-          currency: "USD",
-          realised: 0,
-          unrealised: 5000,
-          source: "csv",
-        },
-      ],
-    },
-    journal: [
-      {
-        id: "live",
-        t: t + 301000,
-        eventTime: t + 301000,
-        label: "Calm",
-        text: "Live words",
-        section: "entry",
-        captureMode: "live",
-      },
-      {
-        id: "later",
-        t: t + 601000,
-        eventTime: t + 301000,
-        label: "Curious",
-        text: "Later words",
-        section: "after",
-        captureMode: "post-session",
-      },
-    ],
-  });
-  const points = Array.from({ length: 620 }, (_, i) => ({
-    t: t + i * 1000,
-    bpm: i < 300 ? 60 : 70,
-  }));
-  const filter = {
-    from: "2026-10-01",
-    to: "2026-10-31",
-    origin: "all",
-    stage: "all",
-    scope: JSON.stringify(["A", "USD", "MNQ"]),
-    baselineSeconds: 300,
-  };
-  const all = referenceAnalysis([s], owner, { [s.id]: points }, filter),
-    live = referenceAnalysis(
-      [s],
-      owner,
-      { [s.id]: points },
-      { ...filter, origin: "live", stage: "entry" },
-    );
-  assert.equal(all.records.length, 2);
-  assert.equal(live.records.length, 1);
-  assert.equal(all.matchedPoints, 3);
-  assert.equal(live.matchedPoints, 3);
-  assert.equal(all.bins[3].points, 1);
-  assert.equal(all.bins[3].delta, 10);
-  const disabled = referenceAnalysis(
-    [{ ...s, blueprint: { ...s.blueprint!, combine: noCombination } }],
-    owner,
-    { [s.id]: points },
-    filter,
-  );
-  assert.equal(disabled.matchedPoints, 0);
-  assert.equal(disabled.labels[0].mean, null);
-});
-test("live/later comparisons require an explicit original link and preserve both texts", () => {
-  const s = session({
-    blueprint: {
-      updatedAt: t,
-      combine: { ...noCombination, transcript: true },
-    },
-    journal: [
-      {
-        id: "original",
-        t,
-        eventTime: t,
-        label: "Focused",
-        text: "Original words",
-        captureMode: "live",
-      },
-      {
-        id: "later",
-        t: t + 60000,
-        eventTime: t,
-        label: "Curious",
-        text: "Later words",
-        captureMode: "post-session",
-      },
-    ],
-  });
-  const filter = {
-    from: "2026-10-01",
-    to: "2026-10-31",
-    origin: "all",
-    stage: "all",
-    scope: "",
-    baselineSeconds: 300,
-  };
-  assert.equal(referenceAnalysis([s], owner, {}, filter).pairs.length, 0);
-  s.journal[1].revisitsId = "original";
-  const data = referenceAnalysis([s], owner, {}, filter);
-  assert.equal(data.pairs.length, 1);
-  assert.equal(data.pairs[0].original.text, "Original words");
-  assert.equal(data.pairs[0].later.text, "Later words");
-});
+
+
 
 test("historical context uses effective and recorded times; a backdated edit cannot rewrite original evidence", () => {
   const base = {
@@ -366,15 +215,6 @@ test("quotes reject future, stale, wrong-symbol and malformed measurements", () 
   assert.equal(validQuote(q, t + 10001, "MNQ"), null);
   assert.equal(validQuote(q, t, "NQ"), null);
   assert.equal(validQuote({ ...q, price: NaN }, t, "MNQ"), null);
-});
-test("per-stage custom vocabularies preserve other stages and allow an empty suggestion list", () => {
-  assert.deepEqual(labelsFor("exit", { exit: ["My exit label"] }), [
-    "My exit label",
-  ]);
-  assert.ok(
-    labelsFor("entry", { exit: [] }).includes("Following plan / model"),
-  );
-  assert.deepEqual(labelsFor("exit", { exit: [] }), []);
 });
 test("weekly rates exclude incomplete or unknown results, deduplicate sessions and isolate owners", () => {
   const s = session();

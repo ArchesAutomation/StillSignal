@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Check, Copy, Link2 } from "lucide-react";
 import { api } from "@/lib/cloud";
 import { tradingViewMessage } from "@/lib/tradingview";
+import { Check, Copy, Link2 } from "lucide-react";
+import { useEffect, useState } from "react";
 type Connection = {
   expiresAt: string;
   lastReceivedAt: string | null;
@@ -67,7 +67,7 @@ export default function TradingViewConnection({
     }
   }
   return (
-    <section id="tradingview-setup" className="glass connection-card">
+    <section id="tradingview-setup" className="surface connection-card">
       <div className="connection-top">
         <span className="connection-logo tv">
           T<span>V</span>

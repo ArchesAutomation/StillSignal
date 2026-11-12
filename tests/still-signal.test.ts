@@ -5,7 +5,6 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import SignalCalendar from "../src/components/signal-calendar";
 import SessionReview from "../src/components/session-review";
-import Stillness from "../src/components/stillness";
 import { sessionSchema } from "../src/lib/validation";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
 import type { JournalEntry, Session } from "../src/lib/model";
@@ -171,57 +170,5 @@ test("review failure keeps the draft and exposes the error instead of claiming s
     assert.doesNotMatch(document.body.textContent!, /Review saved/);
   } finally {
     await ui.close();
-  }
-});
-
-test("Stillness follows elapsed time, pauses and resets without opening the microphone", async (t) => {
-  const ui = setup();
-  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 1000 });
-  try {
-    let captures = 0;
-    await act(async () =>
-      ui.root.render(
-        createElement(Stillness, {
-          time: 1000,
-          onReflect() {
-            captures++;
-          },
-        }),
-      ),
-    );
-    await act(async () => button("Begin").click());
-    await act(async () => t.mock.timers.tick(16000));
-    assert.match(document.body.textContent!, /Notice one physical sensation/);
-    assert.equal(
-      document.querySelector('[role="timer"]')!.textContent,
-      "44s remaining",
-    );
-    await act(async () => button("Pause").click());
-    await act(async () => t.mock.timers.tick(30000));
-    assert.equal(
-      document.querySelector('[role="timer"]')!.textContent,
-      "44s remaining",
-    );
-    await act(async () => button("Continue").click());
-    await act(async () => t.mock.timers.tick(44000));
-    assert.equal(
-      document.querySelector('[role="timer"]')!.textContent,
-      "Practice complete",
-    );
-    assert.equal(captures, 0);
-    await act(async () =>
-      (
-        document.querySelector(
-          '[aria-label="Reset practice"]',
-        ) as HTMLButtonElement
-      ).click(),
-    );
-    assert.equal(
-      document.querySelector('[role="timer"]')!.textContent,
-      "60s remaining",
-    );
-  } finally {
-    await ui.close();
-    t.mock.timers.reset();
   }
 });

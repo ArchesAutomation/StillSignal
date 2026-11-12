@@ -1,22 +1,22 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import { createRecord, latest, type RecordOf } from "@/lib/process/model";
-import {
-  unansweredReflections,
-  activityOf,
-  answerError,
-  activityEvidenceError,
-  preparationResponse,
-  scheduledOn,
-  type PreparationStep,
-} from "@/lib/process/preparation-workflow";
 import { activePreparationSteps } from "@/lib/process/active-preparation";
 import { verificationEvidence } from "@/lib/process/engine";
+import { createRecord, latest, type RecordOf } from "@/lib/process/model";
+import {
+  activityEvidenceError,
+  activityOf,
+  answerError,
+  preparationResponse,
+  scheduledOn,
+  unansweredReflections,
+  type PreparationStep,
+} from "@/lib/process/preparation-workflow";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import { Field, Panel, type Context } from "../process/shared";
 import { useSavedGuide } from "../use-saved-guide";
-import { Panel, Field, type Context } from "../command-center/shared";
-import StepActivity from "./step-activity";
 import PreparationSummary from "./preparation-summary";
+import StepActivity from "./step-activity";
 const draftSchema = z.object({
   selected: z.string().nullable(),
   page: z.number().int().min(0),
@@ -245,8 +245,8 @@ export default function FocusedRun({
             can return to any section to add an answer.
           </p>
           <div className="cc-actions">
-            <button onClick={() => props.onPage("Command Center")}>
-              Open my Command Center
+            <button onClick={() => props.onPage("Preparation")}>
+              Open my Preparation
             </button>
             <button
               className="cc-primary"
@@ -312,7 +312,7 @@ export default function FocusedRun({
                     thesis:
                       "You can keep a saved applicable plan. Use Revise only when something changed; you do not need to create another plan to continue.",
                     checkin:
-                      "This is your own description of how you feel. It will appear in your journal and Command Center; heart rate does not fill in these answers.",
+                      "This is your own description of how you feel. It will appear in your journal and Preparation; heart rate does not fill in these answers.",
                     checklist:
                       "Read these as reminders. Actual rule adherence is reviewed after a trade, separately from its result.",
                     missions:
@@ -521,7 +521,7 @@ export default function FocusedRun({
           >
             Skip this section for today
           </button>
-          <button onClick={() => props.onPage("Command Center")}>
+          <button onClick={() => props.onPage("Preparation")}>
             Save my place & return later
           </button>
         </div>

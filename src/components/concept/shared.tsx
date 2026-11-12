@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import type { JournalEntry, Sample, Session, TradeEvent } from "@/lib/model";
+import type { ReactNode } from "react";
 import type { ReflectionDraft } from "../reflection-editor";
 import type { usePulse } from "../use-pulse";
 export const cx = (...names: (string | false | undefined)[]) =>
@@ -14,19 +14,15 @@ export type Page =
   | "Home"
   | "Preparation"
   | "Done"
-  | "Command Center"
   | "Pre-Market"
-  | "Trading Thesis"
   | "Trade Quality"
   | "Live Session"
   | "Rule Violations"
   | "Audits"
-  | "Missions"
   | "Settings & Variables"
   | "Overview"
   | "Prepare"
   | "Journal"
-  | "Patterns"
   | "Sessions"
   | "Stillness"
   | "Connections"

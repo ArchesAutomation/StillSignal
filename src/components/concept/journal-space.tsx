@@ -1,31 +1,30 @@
 "use client";
-import JournalSelect from "./journal-select";
-import { WorkspaceModule } from "../module-workspace";
-import StageLabelModule from "./stage-label-module";
-import { DayLabelSummary } from "./reflection-stream";
-import JournalTrades from "./journal-trades";
-import { useEffect, useRef, useState } from "react";
-import type { JournalEntry, Sample } from "@/lib/model";
-import { money } from "@/lib/model";
+import { momentPnl } from "@/lib/journal-reference";
+import { noteTime, sectionName, sessionTrades } from "@/lib/journal-routing";
 import {
   filterMoments,
   momentHeartRate,
   type MomentFilters,
 } from "@/lib/journal-space";
-import { noteTime, sectionName, sessionTrades } from "@/lib/journal-routing";
-import { momentPnl } from "@/lib/journal-reference";
+import type { JournalEntry, Sample } from "@/lib/model";
+import { money } from "@/lib/model";
 import { phaseColors } from "@/lib/phase-colors";
 import { detectHrMoments } from "@/lib/smart-journal";
-import InlineMoment from "./inline-moment";
-import Writing from "./writing";
+import { useEffect, useRef, useState } from "react";
+import { WorkspaceModule } from "../module-workspace";
+import { AudioPlayback } from "../reflection-audio";
 import Destination from "./destination";
-import FinalReviewChart from "./final-review-chart";
 import EvidenceImage from "./evidence-image";
+import FinalReviewChart from "./final-review-chart";
 import IdeaGrouping from "./idea-grouping";
+import InlineMoment from "./inline-moment";
+import JournalSelect from "./journal-select";
+import JournalTrades from "./journal-trades";
 import PnlTimeline from "./pnl-timeline";
 import ReferenceContext from "./reference-context";
-import { AudioPlayback } from "../reflection-audio";
-import { cx, time, type Props, type Moment } from "./shared";
+import { DayLabelSummary } from "./reflection-stream";
+import { cx, time, type Moment, type Props } from "./shared";
+import Writing from "./writing";
 
 const empty: MomentFilters = { search: "", trade: "", stage: "", capture: "" };
 export default function JournalSpace({
@@ -263,7 +262,6 @@ export default function JournalSpace({
               session={session}
               time={p.now}
               samples={samples}
-              labels={p.settings.phaseLabels}
               selection={reveal}
               onSave={p.addNote}
               onReflect={props.onReflect}
@@ -357,8 +355,8 @@ export default function JournalSpace({
             )}
             <div className={cx("space-review-links")}>
               <button onClick={onReview}>Mindful trade review →</button>
-              <button onClick={() => props.onPage("Patterns")}>
-                View today in Patterns →
+              <button onClick={() => props.onPage("Journal")}>
+                Return to today’s journal →
               </button>
             </div>
           </section></WorkspaceModule>
@@ -553,7 +551,6 @@ export default function JournalSpace({
             prepare={p.prepareScreenshot}
           /></WorkspaceModule>
           <WorkspaceModule id="label-summary" title="Your day in labels" section="side" initiallyHidden><DayLabelSummary session={session} /></WorkspaceModule>
-          <WorkspaceModule id="stage-labels" title="Your stage suggestions" section="side" initiallyHidden><StageLabelModule onSettings={() => props.onPage("Settings")} /></WorkspaceModule>
           <WorkspaceModule id="trade-activity" title="Trade activity and stage notes" section="main" initiallyHidden><JournalTrades session={session} samples={samples} onReflect={props.onReflect} onEdit={note => props.onReflect({ t: note.t, entry: note })} onSelect={(id, phase, t) => onSelect({ id, t: t ?? session.startedAt, phase: phase.toUpperCase(), label: sectionName(phase), text: "", bpm: null })} onInspect={props.onSelectTrade} onSaveNote={p.saveJournalNote} onSaveBlueprint={p.updateBlueprint} prepareScreenshot={p.prepareScreenshot} /></WorkspaceModule>
         </aside>
       </div>
