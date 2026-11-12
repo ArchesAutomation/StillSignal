@@ -16,6 +16,7 @@ import { useProcess } from "../process/use-process";
 import ProcessWorkspace from "../process/workspace";
 import SavedStillness from "../saved-stillness";
 import { StillnessLibrary, type StillnessBrowse } from "../stillness-library";
+import { ModeSwitch, ThemeController } from "../theme-controls";
 import WorkspaceAppearance from "../workspace-appearance";
 import { Calendar, weekStart } from "./calendar";
 import CapturePanel from "./capture-panel";
@@ -61,6 +62,14 @@ const navigation: [Page, string, string][] = [
   ["Stillness", "◌", "Stillness"],
   ["Settings", "⚙", "Settings"],
 ];
+const sectionOf: Partial<Record<Page, string>> = {
+  Home: "home",
+  Preparation: "prep",
+  Journal: "journal",
+  Done: "done",
+  Stillness: "stillness",
+  Settings: "settings",
+};
 export default function ConceptWorkspace(props: Props) {
   const pageRoot = useRef<HTMLElement>(null);
   const { pulse: p, session: s, history, page } = props;
@@ -278,7 +287,8 @@ export default function ConceptWorkspace(props: Props) {
     </>
   );
   return (
-    <div className={cx("app", "reference-app", quietRoom && "reading-room")}>
+    <div className={cx("app", "reference-app", quietRoom && "reading-room")} data-section={sectionOf[page]}>
+      <ThemeController owner={p.owner} />
       <Panel
         role="banner"
         className={cx("reference-topbar")}
@@ -295,15 +305,32 @@ export default function ConceptWorkspace(props: Props) {
         </button>
         <nav className={cx("reference-nav")} aria-label="Main navigation">
           {navigation.map(([name, , label]) => (
-            <button
-              key={name}
-              aria-label={label}
-              aria-current={page === name ? "page" : undefined}
-              className={cx(page === name && "active")}
-              onClick={() => go(name)}
-            >
-              {label}
-            </button>
+            name === "Stillness" ? (
+              <span key={name} className="ss-nav-stillness">
+                <span className="ss-nav-orbs" aria-hidden="true"><i /><i /><i /></span>
+                <button
+                  aria-label={label}
+                  aria-current={page === name ? "page" : undefined}
+                  className={cx(page === name && "active")}
+                  data-section={sectionOf[name]}
+                  onClick={() => go(name)}
+                >
+                  {label}
+                </button>
+              </span>
+            ) : (
+              <button
+                key={name}
+                aria-label={label}
+                aria-current={page === name ? "page" : undefined}
+                className={cx(page === name && "active")}
+                data-section={sectionOf[name]}
+                onClick={() => go(name)}
+              >
+                {sectionOf[name] !== "settings" && <i className="ss-nav-dot" aria-hidden="true" />}
+                {label}
+              </button>
+            )
           ))}
         </nav>
         <div className={cx("reference-top-actions")}>
@@ -325,6 +352,7 @@ export default function ConceptWorkspace(props: Props) {
               <button onClick={props.onExport}>Export session</button>
             </Panel>
           </details>
+          <ModeSwitch owner={p.owner} />
           <WorkspaceAppearance props={viewProps} />
           <AccountMenu email={p.email} blocked={p.active || capturePending} onSettings={() => go("Settings")} onError={p.setError} />
         </div>
@@ -406,9 +434,9 @@ export default function ConceptWorkspace(props: Props) {
         <>
         {!preparing && !closing && <header className={cx("topbar")}>
           <div className={cx("crumb")}>
-            {quietRoom ? "Reading Room" : "Workspace"}{" "}
+            {!quietRoom && "Workspace "}
             <b>
-              /{" "}
+              {!quietRoom && "/ "}
               {page === "Overview"
                 ? "Performance"
                 : page === "Journal"

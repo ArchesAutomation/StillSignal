@@ -438,9 +438,8 @@ export default function ReferenceRhythm({
                       Math.max(62, x(phaseWindow[0])),
                   )}
                   height="235"
-                  fill={phaseColors[selected] || phaseColors.reflection}
+                  style={{ fill: phaseColors[selected] || phaseColors.reflection, stroke: phaseColors[selected] || phaseColors.reflection }}
                   fillOpacity="0.18"
-                  stroke={phaseColors[selected] || phaseColors.reflection}
                   strokeOpacity="0.65"
                 />
                 {selectedTime !== undefined && inside(selectedTime) && (
@@ -449,7 +448,7 @@ export default function ReferenceRhythm({
                     x2={x(selectedTime)}
                     y1="40"
                     y2="275"
-                    stroke={phaseColors[selected] || phaseColors.reflection}
+                    style={{ stroke: phaseColors[selected] || phaseColors.reflection }}
                     strokeWidth="2"
                     strokeDasharray="4 4"
                   />
@@ -457,7 +456,7 @@ export default function ReferenceRhythm({
                 <text
                   x={Math.min(820, Math.max(68, x(phaseWindow[0]) + 6))}
                   y="56"
-                  fill={phaseColors[selected] || phaseColors.reflection}
+                  style={{ fill: phaseColors[selected] || phaseColors.reflection }}
                   fontSize="11"
                 >
                   {selected[0].toUpperCase() + selected.slice(1)}

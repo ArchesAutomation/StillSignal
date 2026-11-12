@@ -208,7 +208,7 @@ export default function ConceptChart({
           </>}
           {phaseWindow && <rect x={x(Math.max(lo, phaseWindow[0]))} y={showPrice ? 295 : 20}
             width={Math.max(0, x(Math.min(hi, phaseWindow[1])) - x(Math.max(lo, phaseWindow[0])))}
-            height={showPrice ? 185 : 375} fill={phaseColors[selectedPhase || ""] || "#a0aeae"} opacity=".16" />}
+            height={showPrice ? 185 : 375} style={{ fill: phaseColors[selectedPhase || ""] || phaseColors.reflection }} opacity=".16" />}
           {[60, 80, 100, 120].filter((value) => value >= hrMin && value <= hrMax).map((value) => (
             <g key={value}>
               <line x1="42" x2="942" y1={hrY(value)} y2={hrY(value)} stroke="#263236" strokeDasharray="3 7" />
@@ -250,10 +250,10 @@ export default function ConceptChart({
                   }}
                   style={{ cursor: "pointer" }}
                 >
-                  <line x1={x(moment.t)} x2={x(moment.t)} y1={showPrice ? 32 : (moment.bpm !== null ? hrY(moment.bpm) + 9 : 32)} y2={showPrice ? 475 : 395} stroke={color} strokeDasharray="3 7" opacity=".38" />
-                  {showPrice && <circle cx={x(moment.t)} cy={moment.event && priceBars.length ? priceY(moment.event.price) : 289} r={selected === moment.id ? 8 : 5} fill={color} stroke={selected === moment.id ? "#fff" : "#0b1214"} strokeWidth="2" />}
+                  <line x1={x(moment.t)} x2={x(moment.t)} y1={showPrice ? 32 : (moment.bpm !== null ? hrY(moment.bpm) + 9 : 32)} y2={showPrice ? 475 : 395} style={{ stroke: color }} strokeDasharray="3 7" opacity=".38" />
+                  {showPrice && <circle cx={x(moment.t)} cy={moment.event && priceBars.length ? priceY(moment.event.price) : 289} r={selected === moment.id ? 8 : 5} style={{ fill: color, stroke: selected === moment.id ? "var(--theme-heading)" : "var(--theme-surface)" }} strokeWidth="2" />}
                   {moment.bpm !== null && (
-                    <circle cx={x(moment.t)} cy={hrY(moment.bpm)} r={selected === moment.id ? 11 : 6} fill={color} stroke={selected === moment.id ? "white" : "transparent"} strokeWidth="3" />
+                    <circle cx={x(moment.t)} cy={hrY(moment.bpm)} r={selected === moment.id ? 11 : 6} style={{ fill: color, stroke: selected === moment.id ? "var(--theme-heading)" : "transparent" }} strokeWidth="3" />
                   )}
                 </g>
               );

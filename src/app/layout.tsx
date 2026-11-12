@@ -1,3 +1,4 @@
+import "./theme.css";
 import "./legacy.css";
 import "./tailwind.css";
 import "./surfaces.css";
@@ -8,6 +9,7 @@ import "./reading-room.css";
 import "./stillness-library.css";
 import "./reading-room-preparation.css";
 import "./reading-room-done.css";
+import "./theme-ui.css";
 export const metadata: Metadata = {
   title: "Still Signal — Awareness before action.",
   description:
@@ -17,7 +19,10 @@ export const metadata: Metadata = {
   icons: { icon: "/icon.svg" },
 };
 export const viewport: Viewport = {
-  themeColor: "#080c0e",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F6F4EF" },
+    { media: "(prefers-color-scheme: dark)", color: "#1B1922" },
+  ],
   width: "device-width",
   initialScale: 1,
 };

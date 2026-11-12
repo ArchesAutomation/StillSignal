@@ -78,7 +78,8 @@ test("each trade-stage button highlights its own chart range without opening the
         `${stage} must highlight the chart, not only the button`,
       );
       const rect = highlight.querySelector("rect")!;
-      assert.equal(rect.getAttribute("fill"), phaseColors[stage]);
+      // Phase colours are theme tokens, applied through style so CSS variables resolve.
+      assert.match(rect.getAttribute("style") ?? "", new RegExp(`fill:\\s*${phaseColors[stage].replace(/[()]/g, "\\$&")}`));
       assert.ok(Number(rect.getAttribute("width")) > 0);
       positions.add(
         rect.getAttribute("x")! + ":" + rect.getAttribute("width")!,
