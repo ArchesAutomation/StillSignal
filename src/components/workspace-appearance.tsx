@@ -36,9 +36,9 @@ export default function WorkspaceAppearance({ props, settings = false }: { props
       "Journal",
     ],
     [
-      "Review your process",
-      "A fully closed trade offers one invitation. Start with the session overview, then review a trade one rule at a time. Unknown checks are not violations. Stillness is optional.",
-      "Trade Quality",
+      "Close the day",
+      "In Done for the day, name the outcome and choose how you followed your plan: Followed it, Partly or Not today. Everything there is optional, and Stillness is always available.",
+      "Done",
     ],
   ] as const;
   return <div ref={container} className={settings ? "guide-text-settings" : "guide-resources guide-header-resources"}>

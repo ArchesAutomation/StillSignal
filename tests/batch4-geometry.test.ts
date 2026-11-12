@@ -78,22 +78,22 @@ test("saved height mode is optional for legacy dashboards and fixed sizing round
   assert.equal(record.body.panels.find(p => p.id === "thesis")!.heightMode, "fixed");
 });
 
-test("long playbook content reflows its neighbor and closing restores saved spacing", () => {
+test("long card content reflows its neighbor and closing restores saved spacing", () => {
   const layout = emptyModuleLayout();
-  const modules = ["playbook", "quality"].map((id, order) => ({ id, order, section: "main", width: 12, initiallyHidden: false }));
-  layout.modules.playbook = { section: "main", order: 0, width: 12, hidden: false, heightMode: "auto", box: { x: 0, y: 0, w: 1200, h: 300 } };
-  layout.modules.quality = { section: "main", order: 1, width: 12, hidden: false, box: { x: 0, y: 340, w: 1200, h: 200 } };
+  const modules = ["long", "neighbour"].map((id, order) => ({ id, order, section: "main", width: 12, initiallyHidden: false }));
+  layout.modules.long = { section: "main", order: 0, width: 12, hidden: false, heightMode: "auto", box: { x: 0, y: 0, w: 1200, h: 300 } };
+  layout.modules.neighbour = { section: "main", order: 1, width: 12, hidden: false, box: { x: 0, y: 340, w: 1200, h: 200 } };
   const saved = JSON.stringify(layout);
-  const expanded = moduleBoard(layout, modules, { playbook: 3800, quality: 200 });
-  assert.ok(expanded.quality.y >= expanded.playbook.y + expanded.playbook.h + 16);
-  assert.equal(moduleBoard(layout, modules, { playbook: 300, quality: 200 }).quality.y, 340);
+  const expanded = moduleBoard(layout, modules, { long: 3800, neighbour: 200 });
+  assert.ok(expanded.neighbour.y >= expanded.long.y + expanded.long.h + 16);
+  assert.equal(moduleBoard(layout, modules, { long: 300, neighbour: 200 }).neighbour.y, 340);
   assert.equal(JSON.stringify(layout), saved, "content measurements never rewrite the saved template");
 });
 
 test("an unpositioned long editor cannot overlap a neighbor with saved coordinates", () => {
   const layout = emptyModuleLayout();
-  const modules = ["playbook", "quality"].map((id, order) => ({ id, order, section: "main", width: 12, initiallyHidden: false }));
-  layout.modules.quality = { section: "main", order: 1, width: 12, hidden: false, box: { x: 0, y: 340, w: 1200, h: 200 } };
-  const expanded = moduleBoard(layout, modules, { playbook: 3800, quality: 200 });
-  assert.ok(expanded.quality.y >= expanded.playbook.y + 3800 + 16);
+  const modules = ["long", "neighbour"].map((id, order) => ({ id, order, section: "main", width: 12, initiallyHidden: false }));
+  layout.modules.neighbour = { section: "main", order: 1, width: 12, hidden: false, box: { x: 0, y: 340, w: 1200, h: 200 } };
+  const expanded = moduleBoard(layout, modules, { long: 3800, neighbour: 200 });
+  assert.ok(expanded.neighbour.y >= expanded.long.y + 3800 + 16);
 });

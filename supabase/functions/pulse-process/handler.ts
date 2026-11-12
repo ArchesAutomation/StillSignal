@@ -70,10 +70,7 @@ export async function POST(request: Request) {
     ).flat();
     const sessionIds = [
       ...new Set(
-        [
-          ...payload.records,
-          ...records.filter((r) => r.kind === "assessment"),
-        ].flatMap((r) =>
+        payload.records.flatMap((r) =>
           r.kind === "day"
             ? r.body.sessionIds
             : "sessionId" in r.body && r.body.sessionId

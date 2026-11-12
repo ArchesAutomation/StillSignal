@@ -13,11 +13,11 @@ import { activePreparationSteps } from "./active-preparation";
 import {
   createRecord,
   dateInZone,
+  isLiveKind,
   latest,
   type ProcessRecord,
   type RecordOf,
   type Kind,
-  type Rule,
 } from "./model";
 export function requiredRefs(r: ProcessRecord): ProcessRecord["refs"] {
   const refs: ProcessRecord["refs"] = [];
@@ -32,18 +32,18 @@ export function requiredRefs(r: ProcessRecord): ProcessRecord["refs"] {
     add("run", r.body.runId);
     if (r.body.evidenceId) {
       const stepEvidence = r.refs.find((x) => x.id === r.body.evidenceId);
-      if (stepEvidence) add(stepEvidence.kind, stepEvidence.id);
+      if (stepEvidence && isLiveKind(stepEvidence.kind)) add(stepEvidence.kind, stepEvidence.id);
     }
   }
   if (r.kind === "thesis") add("thesis", r.body.weeklyId);
   if (r.kind === "observation") add("variable", r.body.definitionId);
-  if (r.kind === "assessment") add("playbook", r.body.playbookId);
-  if (r.kind === "evaluation") add("assessment", r.body.assessmentId);
   if (r.kind === "progress") add("goal", r.body.goalId);
   if (r.kind === "goal") add("variable", r.body.variableId);
+  // Older records may still point at retired playbooks/assessments; those links are not required.
+  const kept = r.refs.filter((ref) => isLiveKind(ref.kind));
   return [
     ...new Map(
-      [...refs, ...r.refs].map((ref) => [ref.kind + ref.id, ref]),
+      [...refs, ...kept].map((ref) => [ref.kind + ref.id, ref]),
     ).values(),
   ];
 }
@@ -147,122 +147,6 @@ export function thesisAt(
     )
     .sort((a, b) => b.createdAt - a.createdAt || b.revision - a.revision)[0];
 }
-export function processScore(
-  evaluations: RecordOf<"evaluation">[],
-  rules: Rule[],
-) {
-  let numerator = 0,
-    denominator = 0,
-    eligible = 0,
-    known = 0,
-    unknown = 0,
-    excluded = 0,
-    broken = 0;
-  for (const rule of rules) {
-    const e = evaluations.find((x) => x.body.ruleId === rule.id)?.body;
-    if (e?.adherence === "not-applicable") {
-      excluded++;
-      continue;
-    }
-    eligible++;
-    if (!e || e.adherence === "unknown") {
-      unknown++;
-      continue;
-    }
-    known++;
-    denominator += rule.weight;
-    numerator +=
-      rule.weight *
-      (e.adherence === "followed" ? 1 : e.adherence === "partial" ? 0.5 : 0);
-    if (e.adherence === "broken") broken++;
-  }
-  return {
-    score: denominator ? (100 * numerator) / denominator : null,
-    coverage: eligible ? known / eligible : null,
-    known,
-    unknown,
-    excluded,
-    broken,
-  };
-}
-export function evaluateRule(
-  rule: Rule,
-  event: TradeEvent,
-  day: RecordOf<"day">,
-  records: ProcessRecord[],
-) {
-  const result = (
-    adherence: RecordOf<"evaluation">["body"]["adherence"],
-    reason: string,
-    evidenceIds: string[] = [],
-  ) => ({ adherence, reason, evidenceIds });
-  if (rule.verification === "manual")
-    return result("unknown", "Requires the trader's review.");
-  if (!isActualExecution(event))
-    return result("unknown", "No confirmed execution.");
-  if (rule.verification === "max-size")
-    return rule.limit === undefined
-      ? result("unknown", "No size limit.")
-      : result(
-          event.quantity <= rule.limit ? "followed" : "broken",
-          `${event.quantity} execution units; limit ${rule.limit}. Cumulative position size is not inferred.`,
-          [event.id],
-        );
-  if (event.timePrecision === "day" || event.timestampSource === "order-update")
-    return result(
-      "unknown",
-      "Exact execution time is unavailable (date-only or approximate order-update import).",
-    );
-  if (rule.verification === "time-window") {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: day.body.timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(event.t));
-    const minute =
-      Number(parts.find((p) => p.type === "hour")!.value) * 60 +
-      Number(parts.find((p) => p.type === "minute")!.value);
-    if (rule.startMinute === undefined || rule.endMinute === undefined)
-      return result("unknown", "No time window.");
-    const inside =
-      rule.startMinute <= rule.endMinute
-        ? minute >= rule.startMinute && minute <= rule.endMinute
-        : minute >= rule.startMinute || minute <= rule.endMinute;
-    return result(
-      inside ? "followed" : "broken",
-      `Execution checked in ${day.body.timezone}.`,
-      [event.id],
-    );
-  }
-  if (rule.verification === "preparation") {
-    const p = preparation(records, day.rootId, event.t, true);
-    if (!p.runs.length || p.unknown)
-      return result(
-        "unknown",
-        "Preparation evidence is missing or unverified.",
-      );
-    return p.total
-      ? result(
-          p.complete === p.total ? "followed" : "broken",
-          `${p.complete}/${p.total} applicable required steps complete before execution.`,
-          p.runs.map((r) => r.id),
-        )
-      : result("not-applicable", "No applicable required steps.");
-  }
-  const thesis = thesisAt(records, day.rootId, event.symbol, event.t);
-  if (!thesis || event.side === "unknown" || event.kind === "exit")
-    return result("unknown", "No applicable entry-direction evidence.");
-  if (thesis.body.bias === "neutral")
-    return result("not-applicable", "Recorded thesis was neutral.");
-  return result(
-    thesis.body.bias === (event.side === "long" ? "bullish" : "bearish")
-      ? "followed"
-      : "broken",
-    `Compared with thesis revision ${thesis.revision} available at execution.`,
-    [event.id, thesis.id],
-  );
-}
 export function verificationEvidence(
   records: ProcessRecord[],
   run: RecordOf<"run">,
@@ -361,7 +245,7 @@ export function validateAppend(
       );
     if (row.createdAt > Date.now() + 300000)
       throw new Error("Record time is in the future.");
-    for (const ref of requiredRefs(row)) get(ref.kind, ref.id);
+    for (const ref of requiredRefs(row)) if (isLiveKind(ref.kind)) get(ref.kind, ref.id);
     if (row.kind === "day") {
       if (
         previous &&
@@ -483,9 +367,7 @@ export function validateAppend(
     if (row.kind === "thesis" && row.body.scope !== "weekly" && !row.body.dayId)
       throw new Error("Daily and intraday theses require a trading day.");
     if (
-      (row.kind === "assessment" ||
-        row.kind === "observation" ||
-        row.kind === "checkin") &&
+      (row.kind === "observation" || row.kind === "checkin") &&
       row.body.sessionId
     ) {
       const session = sessions.find(
@@ -499,55 +381,6 @@ export function validateAppend(
         )
       )
         throw new Error("Execution is unavailable.");
-      if (row.kind === "assessment") {
-        const event = session.events.find((e) => e.id === row.body.tradeId);
-        const playbook = get("playbook", row.body.playbookId);
-        const linkingOnly =
-          previous?.kind === "assessment" &&
-          !previous.body.tradeId &&
-          JSON.stringify({
-            ...previous.body,
-            sessionId: row.body.sessionId,
-            tradeId: row.body.tradeId,
-          }) === JSON.stringify(row.body);
-        const recordedAt = linkingOnly ? previous!.createdAt : row.createdAt;
-        if (
-          event &&
-          ((playbook.createdAt > event.t && !row.body.retrospective) ||
-            ((row.body.assessedAt > event.t || recordedAt > event.t) &&
-              !row.body.retrospective))
-        )
-          throw new Error(
-            "A review entered after execution must be marked retrospective.",
-          );
-      }
-    }
-    if (row.kind === "assessment" && !row.body.tradeId && !row.body.planned)
-      throw new Error("Record a planned setup or select an execution.");
-    if (row.kind === "assessment" && row.body.tradeId && !row.body.sessionId)
-      throw new Error("An execution requires its session.");
-    if (row.kind === "evaluation") {
-      const assessment = get("assessment", row.body.assessmentId),
-        playbook = get("playbook", assessment.body.playbookId);
-      const rule = playbook.body.rules.find((r) => r.id === row.body.ruleId);
-      if (!rule)
-        throw new Error("Rule does not belong to the pinned playbook.");
-      if (row.body.method === "verified") {
-        const day = latest(records, "day").find(
-          (d) => d.rootId === assessment.body.dayId,
-        )!;
-        const event = sessions
-          .find((s) => s.id === assessment.body.sessionId)
-          ?.events.find((e) => e.id === assessment.body.tradeId);
-        if (!event || !day) throw new Error("Execution evidence unavailable.");
-        const expected = evaluateRule(rule, event, day, records);
-        if (
-          row.body.adherence !== expected.adherence ||
-          JSON.stringify(row.body.evidenceIds) !==
-            JSON.stringify(expected.evidenceIds)
-        )
-          throw new Error("Rule verification does not match evidence.");
-      }
     }
     if (row.kind === "progress" && row.body.method === "verified")
       throw new Error(

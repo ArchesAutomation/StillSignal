@@ -32,7 +32,6 @@ import {
   completedIdeas,
   completedOn,
   reviewInvitationKey,
-  tradeRuleStatuses,
 } from "../src/lib/process/session-review";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
 const day = () =>
@@ -276,80 +275,6 @@ test("partial exits never invite review; a complete closure has a stable key acr
     completedOn([session], "2026-10-13", "America/Denver").length,
     original.length,
   );
-});
-
-test("a broken trade remains visible beside a followed trade, and corrections update mission progress", () => {
-  const session = reviewFixtures().session,
-    ideas = completedIdeas([session]),
-    d = day();
-  const rule = {
-    id: crypto.randomUUID(),
-    name: "My entry rule",
-    description: "I checked my entry conditions",
-    weight: 1,
-    verification: "manual" as const,
-  };
-  const book = createRecord("playbook", {
-    name: "My rules",
-    instrument: "AAPL",
-    entries: "",
-    confirmations: "",
-    sizing: "",
-    risk: "",
-    exits: "",
-    invalid: "",
-    behavioral: "",
-    rules: [rule],
-  });
-  let rows: ProcessRecord[] = [d, book];
-  for (const [i, idea] of ideas.slice(0, 2).entries()) {
-    const a = withRefs(
-      createRecord("assessment", {
-        dayId: d.id,
-        sessionId: session.id,
-        tradeId: idea.entryEventId,
-        playbookId: book.id,
-        retrospective: true,
-        assessedAt: Date.now(),
-        quality: null,
-        notes: "",
-        screenshots: [],
-      }),
-    );
-    const e = withRefs(
-      createRecord("evaluation", {
-        assessmentId: a.id,
-        ruleId: rule.id,
-        adherence: i ? "followed" : "broken",
-        method: "manual",
-        reason: "My confirmation",
-        evidenceIds: [],
-      }),
-    );
-    validateAppend(rows, [a, e], [session]);
-    rows.push(a, e);
-  }
-  assert.equal(tradeRuleStatuses(rows, ideas[0])[0].status, "broken");
-  assert.equal(tradeRuleStatuses(rows, ideas[1])[0].status, "followed");
-  const goal = createRecord("goal", {
-    name: "Practise rule",
-    description: "",
-    source: "rule-adherence",
-    target: 2,
-    start: d.body.date,
-    end: d.body.date,
-    ruleId: rule.id,
-    milestones: [],
-  });
-  assert.equal(goalProgress(goal, rows).value, 1);
-  const e = tradeRuleStatuses(rows, ideas[0])[0].evaluation!;
-  const correction = withRefs(
-    createRecord("evaluation", { ...e.body, adherence: "followed" }, e),
-  );
-  validateAppend(rows, [correction], [session]);
-  rows.push(correction);
-  assert.equal(goalProgress(goal, rows).value, 2);
-  assert.equal(latest(rows, "evaluation").length, 2);
 });
 
 test("content expansion reflows neighbors without changing saved coordinates, and routines retain their own audio", async () => {

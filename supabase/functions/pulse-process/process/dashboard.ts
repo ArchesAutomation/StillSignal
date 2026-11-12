@@ -13,8 +13,8 @@ export const cards: Record<CardId, { title: string; detail: string }> = {
     detail: "Your outlook, levels and trade scenarios.",
   },
   process: {
-    title: "Trade quality",
-    detail: "Preparation, playbook reviews and rule adherence.",
+    title: "Process summary",
+    detail: "Your preparation progress for the day.",
   },
   temperature: {
     title: "Temperature check",

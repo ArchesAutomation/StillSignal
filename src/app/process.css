@@ -299,12 +299,7 @@
   font-size: 11px;
 }
 .cc-thesis,
-.cc-assessment {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--theme-line);
-}
-.cc-thesis:last-child,
-.cc-assessment:last-child {
+.cc-thesis:last-child {
   border-bottom: 0;
 }
 .cc-readiness {

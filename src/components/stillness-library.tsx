@@ -276,7 +276,7 @@ export function StillnessLibrary({
   const daily =
     page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"
-      : page === "Trade Quality" || page === "Done"
+      : page === "Done"
         ? "Done"
         : null;
   if (page !== "Stillness" && !daily) return null;

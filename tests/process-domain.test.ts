@@ -8,9 +8,7 @@ import {
   type ProcessRecord,
 } from "../src/lib/process/model";
 import {
-  evaluateRule,
   preparation,
-  processScore,
   thesisAt,
   validateAppend,
   withRefs,
@@ -171,70 +169,6 @@ test("preparation keeps actual requirement versions and evidence timing", () => 
     1,
     "Later checklist edits do not rewrite a completed run",
   );
-});
-test("thesis and rule evaluations use execution-time history, never HR or P&L", () => {
-  const d = day(),
-    first = withRefs(
-      createRecord("thesis", thesisBody(d.id), undefined, [], now),
-    ),
-    revised = withRefs(
-      createRecord(
-        "thesis",
-        { ...first.body, bias: "bearish", reason: "Changed view" },
-        first,
-        [],
-        now + 20000,
-      ),
-    );
-  const records = [d, first, revised];
-  assert.equal(thesisAt(records, d.id, "ES", event.t)?.id, first.id);
-  const rule = {
-    id: crypto.randomUUID(),
-    name: "Follow thesis",
-    description: "",
-    weight: 1,
-    verification: "thesis-direction" as const,
-  };
-  assert.equal(evaluateRule(rule, event, d, records).adherence, "followed");
-  assert.equal(
-    evaluateRule(rule, { ...event, timePrecision: "day" }, d, records)
-      .adherence,
-    "unknown",
-  );
-  assert.equal(
-    evaluateRule(
-      { ...rule, verification: "manual" },
-      { ...event, pnl: -500 },
-      d,
-      records,
-    ).adherence,
-    "unknown",
-  );
-  const max = {
-    ...rule,
-    id: crypto.randomUUID(),
-    verification: "max-size" as const,
-    limit: 1,
-  };
-  assert.equal(evaluateRule(max, event, d, records).adherence, "broken");
-  const unknown = processScore([], [rule, max]);
-  assert.equal(unknown.score, null);
-  assert.equal(unknown.coverage, 0);
-  const assessmentId = crypto.randomUUID();
-  const evals = [
-    createRecord("evaluation", {
-      assessmentId,
-      ruleId: rule.id,
-      adherence: "followed",
-      method: "manual",
-      reason: "Confirmed",
-      evidenceIds: [],
-    }),
-  ];
-  const score = processScore(evals, [rule, max]);
-  assert.equal(score.score, 100);
-  assert.equal(score.coverage, 0.5);
-  assert.equal(score.unknown, 1);
 });
 test("typed variables preserve numeric unit versions, missing states, corrected values and archives", () => {
   const d = day(),

@@ -60,7 +60,8 @@ test("saved theme settings are validated and fall back to Signature light", () =
 });
 
 test("theme.css is generated from src/lib/theme.ts", () => {
-  assert.equal(readFileSync(new URL("../src/app/theme.css", import.meta.url), "utf8"), themeCss(),
+  // Line endings are normalised: Git may check files out with CRLF on Windows.
+  assert.equal(readFileSync(new URL("../src/app/theme.css", import.meta.url), "utf8").replace(/\r\n/g, "\n"), themeCss(),
     "Run: node --import tsx scripts/generate-theme-css.ts");
 });
 

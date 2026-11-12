@@ -7,7 +7,7 @@ try{
  await page.addInitScript(()=>localStorage.setItem("still-signal-appearance",JSON.stringify({theme:"dark",accent:"#c5d7df",shark:"#87b9ca"})));
  await page.goto(base+"/review");const entry=page.getByRole("button",{name:"Help & learning",exact:true});await entry.click();
  const dialog=page.getByRole("dialog",{name:"Help & learning",exact:true});await dialog.waitFor();
- await dialog.getByRole("searchbox",{name:"Search help"}).fill("first rule");await dialog.getByRole("button",{name:/Create your first rule/}).click();
+ await dialog.getByRole("searchbox",{name:"Search help"}).fill("close the day");await dialog.getByRole("button",{name:/Close the day, with or without trades/}).click();
  await dialog.getByText(/Unknown and unreviewed checks are not confirmed violations/).waitFor();await page.screenshot({path:output+"/learning-dark.png"});
  await page.keyboard.press("Escape");await dialog.waitFor({state:"hidden"});assert.ok(await entry.evaluate(n=>n===document.activeElement));
  await entry.click();await dialog.getByRole("searchbox").fill("unfindablezz123");await dialog.getByRole("status").waitFor();

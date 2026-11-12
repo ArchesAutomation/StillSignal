@@ -95,33 +95,6 @@ export const requirementSchema = z
       .optional(),
   })
   .strict();
-export const ruleSchema = z
-  .object({
-    id,
-    name,
-    description: text,
-    weight: z.number().positive().max(1000),
-    verification: z.enum([
-      "manual",
-      "max-size",
-      "time-window",
-      "preparation",
-      "thesis-direction",
-    ]),
-    limit: z.number().positive().max(1e12).optional(),
-    startMinute: z.number().int().min(0).max(1439).optional(),
-    endMinute: z.number().int().min(0).max(1439).optional(),
-  })
-  .strict()
-  .superRefine((r, ctx) => {
-    if (r.verification === "max-size" && r.limit === undefined)
-      ctx.addIssue({ code: "custom", message: "Maximum size is required" });
-    if (
-      r.verification === "time-window" &&
-      (r.startMinute === undefined || r.endMinute === undefined)
-    )
-      ctx.addIssue({ code: "custom", message: "Time window is required" });
-  });
 export const variableSchema = z
   .object({
     name,
@@ -173,6 +146,12 @@ export const variableSchema = z
         message: "Select variables require unique choices",
       });
   });
+/**
+ * Strategy playbooks, trade assessments and rule evaluations are retired. Their database tables
+ * are kept (unused) and older records may still mention them in `refs`, so references to these
+ * kinds remain readable; they are dropped from validation and never written as records.
+ */
+export const retiredKinds = ["playbook", "assessment", "evaluation"] as const;
 const ref = z
   .object({
     kind: z.enum([
@@ -184,13 +163,11 @@ const ref = z
       "variable",
       "observation",
       "checkin",
-      "playbook",
-      "assessment",
-      "evaluation",
       "goal",
       "progress",
       "audit",
       "layout",
+      ...retiredKinds,
     ]),
     id,
   })
@@ -207,13 +184,6 @@ const common = {
 function entity<K extends string, S extends z.ZodType>(kind: K, body: S) {
   return z.object({ ...common, kind: z.literal(kind), body }).strict();
 }
-export const adherenceSchema = z.enum([
-  "followed",
-  "partial",
-  "broken",
-  "not-applicable",
-  "unknown",
-]);
 export const responseStatus = z.enum([
   "complete",
   "incomplete",
@@ -417,68 +387,6 @@ export const recordSchema = z
         .strict(),
     ),
     entity(
-      "playbook",
-      z
-        .object({
-          name,
-          instrument: z.string().max(40),
-          entries: text,
-          confirmations: text,
-          sizing: text,
-          risk: text,
-          exits: text,
-          invalid: text,
-          behavioral: text,
-          rules: z.array(ruleSchema).min(1).max(100),
-        })
-        .strict(),
-    ),
-    entity(
-      "assessment",
-      z
-        .object({
-          dayId: id,
-          sessionId: id.optional(),
-          tradeId: z.string().min(1).max(160).optional(),
-          planned: z
-            .object({
-              symbol: name,
-              side: z.enum(["long", "short"]),
-              quantity: z.number().positive(),
-              t: timestamp,
-            })
-            .strict()
-            .optional(),
-          playbookId: id,
-          retrospective: z.boolean(),
-          assessedAt: timestamp,
-          quality: z.number().min(1).max(10).nullable(),
-          notes: text,
-          screenshots: z
-            .array(
-              z
-                .string()
-                .max(1000)
-                .regex(/^https:\/\//),
-            )
-            .max(12),
-        })
-        .strict(),
-    ),
-    entity(
-      "evaluation",
-      z
-        .object({
-          assessmentId: id,
-          ruleId: id,
-          adherence: adherenceSchema,
-          method: z.enum(["manual", "verified"]),
-          reason: text,
-          evidenceIds: z.array(z.string().max(160)).max(100),
-        })
-        .strict(),
-    ),
-    entity(
       "goal",
       z
         .object({
@@ -488,14 +396,14 @@ export const recordSchema = z
             "preparation",
             "checkin",
             "audit",
-            "rule-adherence",
+            "rule-adherence", // retired; kept so older goals still load
             "observation",
             "manual",
           ]),
           target: z.number().positive().max(100000),
           start: dateSchema,
           end: dateSchema,
-          ruleId: id.optional(),
+          ruleId: id.optional(), // retired; kept so older goals still load
           variableId: id.optional(),
           milestones: z.array(z.number().positive()).max(12),
         })
@@ -531,6 +439,7 @@ export const recordSchema = z
               sessions: z.number().int().min(0),
               executions: z.number().int().min(0),
               preparationComplete: z.number().int().min(0),
+              // Rule and review counts are retired: kept so older audits still load; new audits store 0.
               knownRules: z.number().int().min(0),
               unknownRules: z.number().int().min(0),
               brokenRules: z.number().int().min(0),
@@ -624,14 +533,12 @@ export const recordSchema = z
           "Record exceeds 200 KB. Use linked screenshots and shorter notes.",
       });
     if (
-      (r.kind === "protocol" &&
-        new Set(r.body.steps.map((s) => s.id)).size !== r.body.steps.length) ||
-      (r.kind === "playbook" &&
-        new Set(r.body.rules.map((s) => s.id)).size !== r.body.rules.length)
+      r.kind === "protocol" &&
+      new Set(r.body.steps.map((s) => s.id)).size !== r.body.steps.length
     )
       ctx.addIssue({
         code: "custom",
-        message: "Duplicate requirement or rule IDs",
+        message: "Duplicate requirement IDs",
       });
     if (
       r.kind === "response" &&
@@ -655,7 +562,6 @@ export type ProcessRecord = z.infer<typeof recordSchema>;
 export type Kind = ProcessRecord["kind"];
 export type RecordOf<K extends Kind> = Extract<ProcessRecord, { kind: K }>;
 export type BodyOf<K extends Kind> = RecordOf<K>["body"];
-export type Rule = z.infer<typeof ruleSchema>;
 export type Variable = z.infer<typeof variableSchema>;
 export const tables: Record<Kind, string> = {
   day: "trading_days",
@@ -666,15 +572,16 @@ export const tables: Record<Kind, string> = {
   variable: "variable_definitions",
   observation: "variable_observations",
   checkin: "temperature_checks",
-  playbook: "strategy_playbooks",
-  assessment: "trade_assessments",
-  evaluation: "rule_evaluations",
+  // strategy_playbooks, trade_assessments and rule_evaluations remain in the database, unused.
   goal: "process_goals",
   progress: "process_progress",
   audit: "session_audits",
   layout: "dashboard_layouts",
 };
 export const kinds = Object.keys(tables) as Kind[];
+/** True for record kinds this app still reads and writes (false for retired kinds in older saved data). */
+export const isLiveKind = (kind: unknown): kind is Kind =>
+  typeof kind === "string" && (kinds as string[]).includes(kind);
 export const processActionSchema = z.discriminatedUnion("action", [
   z
     .object({
@@ -698,7 +605,7 @@ export function createRecord<K extends Kind>(
   body: BodyOf<K>,
   previous?: RecordOf<K>,
   refs: ProcessRecord["refs"] = previous?.refs.filter(
-    (ref) => ref.kind !== kind,
+    (ref) => ref.kind !== kind && isLiveKind(ref.kind),
   ) ?? [],
   now = Date.now(),
 ): RecordOf<K> {

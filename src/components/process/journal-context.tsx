@@ -84,9 +84,6 @@ export default function JournalContext({ store, day, props }: Context) {
         </>
       )}
       <div className="cc-actions">
-        <button onClick={() => props.onPage("Trade Quality")}>
-          Review strategy & rules
-        </button>
         <button onClick={() => props.onPage("Settings & Variables")}>
           Record conditions
         </button>

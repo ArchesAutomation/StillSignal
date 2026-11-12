@@ -7,8 +7,7 @@
 .rr-done .rr-done-outcome .rr-preparation-optional { background: var(--theme-done-tint); color: var(--theme-done-ink); }
 .rr-done .rr-done-outcome .rr-preparation-chips button[aria-pressed="true"] { background: var(--theme-done-tint); border-color: var(--theme-done-ink); }
 .rr-done .rr-done-reflection { background: var(--theme-bg); }
-.rr-done .rr-done-trades { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; border-top: 1px solid var(--rr-line); margin-top: 20px; padding-top: 14px; }
-.rr-done .rr-done-trades p { flex: 1 1 240px; }
+.rr-done .rr-done-process .pnl-export { border-top: 1px solid var(--rr-line); margin-top: 20px; padding-top: 14px; }
 .rr-done .rr-preparation-support-heading { scroll-margin-top: 90px; }
 .rr-done section[id] { scroll-margin-top: 90px; }
 .rr-done-process .cc-panel { margin-top: 14px; }
@@ -16,3 +15,4 @@
 @media (max-width: 760px) {
   .rr-done .rr-preparation-rail { grid-row: auto; }
 }
+html[data-journal-presentation="reading-room"] .ss-reading-room .rr-done .rr-preparation-chips button[aria-pressed="true"] { background: var(--theme-done-tint); border-color: var(--theme-done-ink); color: var(--theme-done-ink) !important; font-weight: 800; }

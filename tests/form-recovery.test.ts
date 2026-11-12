@@ -5,7 +5,6 @@ import { act, createElement as h } from "react";
 import { createRoot } from "react-dom/client";
 import PersistentForm from "../src/components/persistent-form";
 import type { Context } from "../src/components/process/shared";
-import TradeQuality from "../src/components/trade-quality/workspace";
 import GuidedCheckin from "../src/components/variable-builder/guided-checkin";
 import { createRecord } from "../src/lib/process/model";
 
@@ -35,32 +34,6 @@ test("draft recovery retains unchecked boxes and all selected choices after leav
     await act(async () => root.render(null));
     await act(async () => root.render(form()));
     assert.equal(document.querySelector("select")!.selectedOptions.length, 0);
-  } finally {
-    await act(async () => root.unmount());
-    dom.window.close();
-  }
-});
-
-
-
-test("an unfinished playbook rule is restored before it is ready for final validation", async () => {
-  const dom = new JSDOM('<div id="root"></div>', { url: "https://still-signal.test" });
-  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, FormData: dom.window.FormData, localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true }))
-    Object.defineProperty(globalThis, key, { value, configurable: true });
-  Object.assign(dom.window.HTMLElement.prototype, { attachEvent() {}, detachEvent() {} });
-  const day = createRecord("day", { date: "2026-11-03", timezone: "UTC", status: "preparing", instrument: "ES", account: "", timeframes: [], sessionIds: [], goal: "" });
-  const body = { name: "My unfinished playbook", instrument: "ES", entries: "", confirmations: "", sizing: "", risk: "", exits: "", invalid: "", behavioral: "", rules: [{ id: crypto.randomUUID(), name: "My unfinished time window", description: "Keep this criterion", weight: 0, verification: "time-window", startMinute: 540 }] };
-  localStorage.setItem("ss-playbook-editor:local", JSON.stringify({ body }));
-  const book = createRecord("playbook", { ...body, rules: [{ ...body.rules[0], weight: 1, verification: "manual" }] } as never);
-  const context = { day, props: { history: [], onPage() {} }, store: { records: [day, book], busy: false } } as unknown as Context;
-  const root = createRoot(document.getElementById("root")!);
-  try {
-    await act(async () => root.render(h(TradeQuality, context)));
-    assert.equal(document.querySelector<HTMLInputElement>('[name="name"]')?.value, "My unfinished playbook");
-    assert.ok([...document.querySelectorAll("input")].some(input => input.value === "My unfinished time window"));
-    assert.ok([...document.querySelectorAll("input")].some(input => input.value === "Keep this criterion"));
-    assert.equal(document.querySelector<HTMLInputElement>('input[type="number"]')?.value, "0");
-    assert.equal(document.querySelectorAll('input[type="time"]').length, 2);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

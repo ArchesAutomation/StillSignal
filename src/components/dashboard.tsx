@@ -218,7 +218,7 @@ export default function Dashboard({
     if (initialSession) return;
     try {
       const saved = localStorage.getItem(`ss-workflow-page:${p.owner}`);
-      if (["Pre-Market", "Trade Quality", "Audits", "Rule Violations", "Settings & Variables"].includes(saved ?? "")) setTab(saved as Tab);
+      if (["Pre-Market", "Audits", "Settings & Variables"].includes(saved ?? "")) setTab(saved as Tab);
     } catch {}
   }, [p.owner, initialSession]);
   useEffect(() => {
