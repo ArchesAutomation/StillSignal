@@ -50,7 +50,10 @@ function auditContrast() {
     if (!el.childNodes.length || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
     const r = el.getBoundingClientRect();
     const s = getComputedStyle(el);
-    if (!r.width || !r.height || s.visibility === "hidden" || +s.opacity === 0 || el.closest("[hidden],[inert],[aria-hidden=true],.ss-free-board-editing .ss-module-surface")) continue;
+    if (!r.width || !r.height || s.visibility === "hidden" || +s.opacity === 0 || el.closest("[hidden],[aria-hidden=true]")) continue;
+    // Cards on a board being edited are inert (view-only) but still shown, so they are audited too.
+    const inert = el.closest("[inert]");
+    if (inert && !inert.closest(".ss-module-editing")) continue;
     if (el.closest("button:disabled, [aria-disabled=true], input:disabled")) continue;
     if (el.closest(".ss-review-banner, [class*=review-banner]")) continue;
     let opacity = 1; for (let e = el; e; e = e.parentElement) opacity *= +getComputedStyle(e).opacity;
@@ -96,8 +99,11 @@ try {
         await settle();
       }
     }
-    for (const [slug, label] of [["daily-journal", "Daily journal"], ["done-for-the-day", "Done for the day"]]) {
+    for (const [slug, label] of [["daily-journal", "Daily journal"], ["done-for-the-day", "Done for the day"], ["stillness", "Stillness"]]) {
       await go(label);
+      // Stillness keeps its personal routines board in a collapsed section.
+      const routines = page.locator("details.rr-stillness-routines:not([open]) > summary");
+      if (await routines.count()) { await routines.first().click(); await settle(); }
       const edit = page.getByRole("button", { name: /^(Edit dashboard|Customize workspace|Edit board)$/ }).first();
       if (await edit.count()) {
         await edit.click();

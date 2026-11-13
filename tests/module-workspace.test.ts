@@ -247,3 +247,110 @@ test("free board movement, custom modules, hiding and adding preserve state acro
     dom.window.close();
   }
 });
+
+test("cards keep showing their content while the board is edited, but it is view-only", async () => {
+  const dom = new JSDOM('<div id="root"></div>', {
+    url: "https://still-signal.test",
+  });
+  for (const [key, value] of Object.entries({
+    window: dom.window,
+    document: dom.window.document,
+    localStorage: dom.window.localStorage,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }))
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+  const root = createRoot(document.getElementById("root")!);
+  let presses = 0;
+  const render = () =>
+    createElement(ModuleWorkspace, {
+      owner: "visible-cards",
+      page: "Journal",
+      children: [
+        createElement(WorkspaceModule, {
+          key: "notes",
+          id: "notes",
+          title: "Notes",
+          children: createElement(
+            "section",
+            null,
+            createElement("h2", null, "Your notes"),
+            createElement(
+              "button",
+              { type: "button", onClick: () => presses++ },
+              "Add a note",
+            ),
+          ),
+        }),
+        createElement(WorkspaceModule, {
+          key: "chart",
+          id: "chart",
+          title: "Chart",
+          children: createElement("p", null, "Heart rate chart"),
+        }),
+      ],
+    });
+  const button = (name: string) =>
+    [...document.querySelectorAll("button")].find(
+      (b) =>
+        b.textContent?.trim() === name || b.getAttribute("aria-label") === name,
+    )!;
+  try {
+    await act(async () => root.render(render()));
+    await act(async () => button("Customize workspace").click());
+    assert.ok(document.querySelector(".ss-free-board-editing"), "board is in editing mode");
+    for (const [id, text] of [
+      ["notes", "Your notes"],
+      ["chart", "Heart rate chart"],
+    ]) {
+      const card = document.querySelector<HTMLElement>(
+        `.ss-free-board [data-module-id="${id}"]`,
+      )!;
+      assert.ok(card.classList.contains("ss-module-editing"), id);
+      const content = card.querySelector<HTMLElement>(".ss-module-content")!;
+      assert.ok(content, `${id} still renders its content`);
+      assert.match(content.textContent!, new RegExp(text), `${id} content is shown`);
+      assert.equal(content.closest("[hidden]"), null, `${id} content is not hidden`);
+      assert.ok(content.hasAttribute("inert"), `${id} content is view-only`);
+      assert.ok(
+        card.querySelector(".ss-module-surface")!.hasAttribute("inert"),
+        `${id} surface is view-only`,
+      );
+      assert.ok(
+        card.querySelector(".ss-module-move-surface"),
+        `${id} can still be moved`,
+      );
+    }
+    const inner = button("Add a note");
+    assert.ok(inner.closest("[inert]"), "buttons inside cards cannot be used while editing");
+    await act(async () => button("Cancel").click());
+    assert.equal(document.querySelector(".ss-module-move-surface"), null);
+    assert.equal(
+      document.querySelector('[data-module-id="notes"] [inert]'),
+      null,
+      "leaving editing restores interactivity",
+    );
+    await act(async () => button("Add a note").click());
+    assert.equal(presses, 1);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
+});
+
+test("the move surface stays see-through above app-wide button colours", async () => {
+  const { readFile } = await import("node:fs/promises");
+  // surfaces.css is unlayered, so it outranks the "legacy" layer that holds
+  // module-layout.css. Its generic button colour once painted the move surface
+  // solid and hid every card while editing.
+  const surfaces = await readFile(
+    new URL("../src/app/surfaces.css", import.meta.url),
+    "utf8",
+  );
+  const rule = surfaces.match(
+    /html \.ss-app :is\(\.ss-module-move-surface, \.ss-module-resize\)\s*\{([^}]*)\}/,
+  );
+  assert.ok(rule, "surfaces.css keeps the move surface and resize handle rule");
+  assert.match(rule[1], /background:\s*transparent/);
+  const generic = surfaces.indexOf("html .ss-app :is(button, summary)");
+  assert.ok(generic >= 0 && generic < rule.index!, "the rule follows the generic button colour");
+});

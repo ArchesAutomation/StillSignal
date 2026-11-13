@@ -82,6 +82,20 @@ html .ss-app :is(button, summary) {
   color: var(--signal-text);
   border-color: var(--signal-line);
 }
+/* While a board is being edited, each card is covered by a full-size move
+   button so it can be dragged. This file is unlayered, so the button rule
+   above outranks the move surface's own transparent style in the "legacy"
+   layer (module-layout.css) and painted it solid over the card's content.
+   The same happened to the resize handles along each edge, which hid the
+   first letters of text. Keep the drag layer and handles see-through; the
+   content underneath stays inert. */
+html .ss-app :is(.ss-module-move-surface, .ss-module-resize) {
+  background: transparent;
+  border: 0;
+}
+html .ss-app .ss-module-resize:is(:hover, :focus-visible) {
+  background: var(--signal-recess);
+}
 html .ss-app button[aria-current="page"] {
   background: var(--theme-bg);
 }
