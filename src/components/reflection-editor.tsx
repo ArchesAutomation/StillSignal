@@ -49,6 +49,10 @@ export type ReflectionDraft = {
   tradeId?: string;
   initialText?: string;
   initialLabel?: string;
+  // A question the trader chose to bring with them, shown in place of the usual one. It is not saved with the entry.
+  prompt?: string;
+  // Context the trader brought with the prompt, such as their intention or a detail chosen on Done. Shown only; not saved.
+  promptContext?: string[];
   entry?: JournalEntry;
   source?: JournalEntry["source"];
   origin?: JournalEntry["origin"];
@@ -387,6 +391,9 @@ export default function ReflectionEditor({
       <p className="form-intro">
         {timed ? clock(draft.t) : "Untimed"} · {question}
       </p>
+      {draft.promptContext?.map((line) => (
+        <p key={line} className="form-intro reflection-context">{line}</p>
+      ))}
       {error && (
         <div className="banner error" role="alert">
           {error}

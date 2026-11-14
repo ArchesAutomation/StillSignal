@@ -115,4 +115,78 @@ export const catalogue = [
     ],
     question: "What happened, described without judging who you are?",
   },
+  // Draft content from the support rubric scenarios, pending review. Appended so existing
+  // Home-topic matches keep their current order.
+  {
+    id: "arrive",
+    name: "Arrive with what’s here",
+    kind: "Practice",
+    duration: "2 min",
+    tags: ["Fear", "Impatience"],
+    color: "green",
+    desc: "For sitting down with something already on your mind, from earlier today, a past session, or outside trading.",
+    steps: [
+      [
+        "You’ve sat down",
+        "Feel the chair and the floor. Nothing needs to start yet.",
+      ],
+      [
+        "Notice what came with you",
+        "Notice anything already on your mind. You don’t need to name it, explain it or solve it. Let it be here for a moment.",
+      ],
+      [
+        "A line to return to",
+        "“I can notice what I’m carrying and still choose how I begin.”",
+      ],
+    ],
+    question: "What did you notice you brought with you?",
+  },
+  {
+    id: "after-decision",
+    name: "Settle after a charged decision",
+    kind: "Practice",
+    duration: "2 min",
+    tags: ["Fear", "Impulsiveness"],
+    color: "purple",
+    desc: "For the moments after acting, holding back or changing course, before you start replaying it.",
+    steps: [
+      [
+        "Let your body catch up",
+        "Feel your feet on the floor. Let your breathing find its own pace. The decision has already been made.",
+      ],
+      [
+        "Notice what’s still moving",
+        "Notice any replaying, relief, regret or pull to act again. Let it be there without deciding what it means yet.",
+      ],
+      [
+        "A line to return to",
+        "“That moment has passed. I can look at it when I’m ready.”",
+      ],
+    ],
+    question: "What was still moving in you after the decision?",
+  },
+  {
+    id: "wider-view",
+    name: "One day in a longer practice",
+    kind: "Practice",
+    duration: "1 min",
+    tags: ["Fear", "Greed"],
+    color: "pink",
+    desc: "For when one result feels bigger than the day it belongs to.",
+    steps: [
+      [
+        "Let the result be what happened",
+        "Name the result plainly: a number, a flat day, or no trade. It happened. It doesn’t have to become a verdict about you.",
+      ],
+      [
+        "Widen the view",
+        "Picture today as one session among the many you’ve had and will have. Notice what changes when you look at it from there.",
+      ],
+      [
+        "A line to return to",
+        "“This is one day in a longer trading practice.”",
+      ],
+    ],
+    question: "What looks different when you see today as one day among many?",
+  },
 ];

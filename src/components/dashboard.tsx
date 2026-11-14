@@ -2282,13 +2282,14 @@ export default function Dashboard({
             owner={p.owner}
             prepareScreenshot={p.prepareScreenshot}
             question={
-              p.settings.personalize
+              noteDraft?.prompt ??
+              (p.settings.personalize
                 ? personalQuestion(
                     profile,
                     s.events,
                     noteDraft?.t || selected?.t || viewEnd,
                   )
-                : "What is happening? What are you feeling?"
+                : "What is happening? What are you feeling?")
             }
             onSave={p.addNote}
             onDone={() => {

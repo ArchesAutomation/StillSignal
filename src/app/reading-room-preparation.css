@@ -79,3 +79,13 @@
 .rr-preparation-back { margin: 18px 0 0; }
 @media (max-width: 760px) { .rr-preparation { padding: 20px 0 30px; } }
 @media (max-width: 490px) { .rr-preparation-fields { grid-template-columns: minmax(0, 1fr); } }
+/* Adaptive guidance: one optional suggestion beside the answer that prompted it. */
+.rr-preparation .rr-guidance { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--theme-link); border-radius: 10px; background: var(--theme-bg); }
+.rr-guidance p { margin: 0; }
+.rr-guidance .rr-guidance-because { color: var(--rr-muted); font-size: 14px; }
+.rr-guidance .rr-guidance-prompt { margin-top: 4px; font: 400 19px/1.4 Georgia, "Times New Roman", serif; color: var(--rr-text); }
+.rr-guidance .rr-guidance-note { margin-top: 6px; color: var(--rr-muted); font-size: 14px; }
+.rr-guidance .rr-guidance-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rr-guidance .rr-guidance-then { margin-top: 6px; color: var(--rr-text); }
+.rr-done .rr-done-detail { margin-top: 12px; }
+.rr-done .rr-done-detail > p { margin: 0 0 6px; color: var(--rr-muted); font-size: 14px; }

@@ -12,8 +12,10 @@ import {
 import { readProcess } from "@/lib/process/storage";
 import { tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
-import { useRef, useState, type ReactNode } from "react";
+import { intentionExample, preparationGuidance } from "@/lib/adaptive-guidance";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ProcessStore } from "../process/use-process";
+import GuidanceCard from "./guidance-card";
 
 export function preparationSupport(records: ProcessRecord[], date: string, timezone: string) {
   const day = tradingDayFor(records, date, timezone);
@@ -23,7 +25,7 @@ export function preparationSupport(records: ProcessRecord[], date: string, timez
 }
 
 export default function ReadingRoomPreparation({
-  active, owner, now, store, sessionActive, capturePending, onSetup, onStart, onJournal, children,
+  active, owner, now, store, sessionActive, capturePending, onSetup, onStart, onJournal, onPreview, onGuidance, children,
 }: {
   active: boolean;
   owner: string;
@@ -34,6 +36,8 @@ export default function ReadingRoomPreparation({
   onSetup: () => void;
   onStart: () => Promise<void>;
   onJournal: () => void;
+  onPreview: (itemId: string) => void;
+  onGuidance: (key?: string) => void;
   children: ReactNode;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -44,7 +48,6 @@ export default function ReadingRoomPreparation({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [example, setExample] = useState(false);
   // A section opens itself when it holds a saved answer, then stays however the trader left it.
   const [opened, setOpened] = useState<{ arrival?: boolean; intention?: boolean }>({});
   const busy = useRef(false);
@@ -54,8 +57,18 @@ export default function ReadingRoomPreparation({
   const boundary = edits.boundary ?? day?.body.boundary ?? "";
   const dirty = Object.keys(edits).length > 0;
   const unavailable = !store.loaded || store.busy || saving;
+  // Reads the current selection, saved or not, so the offer follows each change.
+  const guidance = preparationGuidance({ arrival });
+  const [dismissed, setDismissed] = useState<string>();
+  const shown = active && guidance && dismissed !== `${date}:${guidance.key}` ? guidance : undefined;
+  const example = intentionExample({ arrival });
+  const previewId = shown?.practice?.itemId;
+  const added = !!previewId && !!day?.body.stillness?.some((choice) =>
+    choice.destination === "Preparation" && choice.itemId === previewId && choice.piece === undefined);
+  useEffect(() => onGuidance(shown?.key), [shown?.key, onGuidance]);
 
   function update(change: Partial<DailyPreparation>) {
+    if (change.arrival) setDismissed(undefined);
     setDraft({ date, edits: { ...edits, ...change } });
     setMessage("");
     setError("");
@@ -119,6 +132,10 @@ export default function ReadingRoomPreparation({
                 >{feeling}</button>
               ))}
             </div>
+            {shown && <GuidanceCard guidance={shown}
+              note={added ? "It’s already in today’s support below." : undefined}
+              onPractice={onPreview}
+              onDismiss={() => setDismissed(`${date}:${shown.key}`)} />}
           </details>
           <details className="rr-preparation-card rr-preparation-more" open={opened.intention ?? !!(intention || boundary)} onToggle={(event) => { const open = event.currentTarget.open; setOpened((state) => ({ ...state, intention: open })); }}>
             <summary>Set an intention</summary>
@@ -127,8 +144,9 @@ export default function ReadingRoomPreparation({
               <label>Intention<textarea rows={2} maxLength={8000} disabled={unavailable} value={intention} onChange={(event) => update({ intention: event.target.value })} /></label>
               <label>Boundary<textarea rows={2} maxLength={8000} disabled={unavailable} value={boundary} onChange={(event) => update({ boundary: event.target.value })} /></label>
             </div>
-            <button className="rr-preparation-example" aria-expanded={example} onClick={() => setExample(!example)}>{example ? "Hide the example" : "Show me an example"}</button>
-            {example && <p className="rr-preparation-example-text">Intention: “If I feel pressure to act, I’ll take a moment to notice it.” Boundary: “I’ll step away if I catch myself chasing.”</p>}
+            {/* Follows the current arrival selection. The trader's own words are never replaced. */}
+            <p className="rr-preparation-example-text" data-intention-example>An example, if it helps: “{example}”</p>
+            {!intention.trim() && <button className="rr-preparation-example" disabled={unavailable} onClick={() => update({ intention: example })}>Use this example</button>}
           </details>
         </>
       )}

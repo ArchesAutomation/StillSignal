@@ -79,6 +79,7 @@ export function StillnessLibrary({
   preparation,
   closing,
   closingBrowse,
+  previewRequest,
   onPage,
   onOpenDay,
   onReflect,
@@ -90,6 +91,8 @@ export function StillnessLibrary({
   preparation?: { tags: string[]; suggestion?: Item; onBrowse: () => void };
   closing?: { onBrowse: () => void };
   closingBrowse?: boolean;
+  // Opens the existing preview for one item. Previewing adds nothing to the day.
+  previewRequest?: { itemId: string; n: number };
   onPage: (page: Page) => void;
   onOpenDay: (destination: Destination) => void;
   onReflect: () => Promise<void>;
@@ -150,8 +153,14 @@ export function StillnessLibrary({
     return () => clearInterval(timer);
   }, [panel, paused]);
 
+  const previewed = useRef(0);
+  useEffect(() => {
+    if (!previewRequest || previewRequest.n === previewed.current) return;
+    previewed.current = previewRequest.n;
+    if (known({ itemId: previewRequest.itemId })) run({ itemId: previewRequest.itemId }, true);
+  }, [previewRequest]);
   function add(choice: Choice) {
-    setDestination(closingBrowse ? "Done" : "Preparation");
+    setDestination(closingBrowse || page === "Done" ? "Done" : "Preparation");
     setKeep(false);
     setPanel({ type: "add", choice });
   }
@@ -692,7 +701,7 @@ export function StillnessLibrary({
                   )}
                   <button onClick={() => setPanel(null)}>
                     {panel.preview
-                      ? "Back to library"
+                      ? page === "Stillness" ? "Back to library" : "Close preview"
                       : "Finish without reflection"}
                   </button>
                 </div>
