@@ -23,7 +23,7 @@ export function preparationSupport(records: ProcessRecord[], date: string, timez
 }
 
 export default function ReadingRoomPreparation({
-  active, owner, now, store, sessionActive, capturePending, onBrowse, onSetup, onStart, onJournal, children,
+  active, owner, now, store, sessionActive, capturePending, onSetup, onStart, onJournal, children,
 }: {
   active: boolean;
   owner: string;
@@ -31,7 +31,6 @@ export default function ReadingRoomPreparation({
   store: ProcessStore;
   sessionActive: boolean;
   capturePending: boolean;
-  onBrowse: () => void;
   onSetup: () => void;
   onStart: () => Promise<void>;
   onJournal: () => void;
@@ -41,14 +40,18 @@ export default function ReadingRoomPreparation({
   const date = dateInZone(now, timezone);
   const day = tradingDayFor(store.records, date, timezone);
   const savedArrival = arrivalCheckin(store.records, day?.rootId)?.body.arrival ?? [];
-  const support = day?.body.stillness?.filter((choice) => choice.destination === "Preparation") ?? [];
   const [draft, setDraft] = useState<{ date: string; edits: Partial<DailyPreparation> }>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [example, setExample] = useState(false);
+  // A section opens itself when it holds a saved answer, then stays however the trader left it.
+  const [opened, setOpened] = useState<{ arrival?: boolean; intention?: boolean }>({});
   const busy = useRef(false);
   const edits = draft?.date === date ? draft.edits : {};
   const arrival = edits.arrival ?? savedArrival;
+  const intention = edits.intention ?? day?.body.goal ?? "";
+  const boundary = edits.boundary ?? day?.body.boundary ?? "";
   const dirty = Object.keys(edits).length > 0;
   const unavailable = !store.loaded || store.busy || saving;
 
@@ -85,28 +88,24 @@ export default function ReadingRoomPreparation({
       {active && (
         <>
           <header className="rr-preparation-heading">
-            <div>
-              <p className="rr-preparation-kicker">Preparation / Arrive</p>
-              <h1>Before the next decision.</h1>
-              <p>A little support for the person making the decisions.</p>
-            </div>
-            <button onClick={onBrowse}>+ Find support</button>
+            <p className="rr-preparation-kicker">Preparation</p>
+            <h1>Take a quiet moment as you sit down. Notice what’s already there.</h1>
           </header>
-          <aside className="rr-preparation-rail" aria-label="Today’s path">
-            <p className="rr-preparation-kicker">Today’s path</p>
-            <ol>
-              <li><a href="#preparation-arrive">Check in with yourself<small>A few words is enough</small></a></li>
-              <li><a href="#preparation-support">Your chosen support<small>{support.length} {support.length === 1 ? "experience" : "experiences"}</small></a></li>
-              <li><a href="#preparation-intention">Intention and boundary<small>Always optional</small></a></li>
-            </ol>
-            <div className="rr-preparation-setup">
-              <p>Set up your process when it changes. There’s no need to repeat it each morning.</p>
-              <button onClick={onSetup}>Initial setup <span aria-hidden="true">↗</span></button>
+          <section className="rr-preparation-start" aria-label="Session controls">
+            <div>
+              <strong>{sessionActive ? "Session in progress" : "Ready when you are"}</strong>
+              <p>{capturePending ? "Confirm or discard your capture draft before starting." : "Everything below is optional."}</p>
+              {message && <p role="status">{message}</p>}
+              {(error || store.error) && <p role="alert">{error || store.error}</p>}
             </div>
-          </aside>
-          <section className="rr-preparation-card rr-preparation-arrive" id="preparation-arrive" aria-labelledby="preparation-arrive-title">
-            <div className="rr-preparation-label"><span className="rr-preparation-kicker">01 / Arrive</span><span className="rr-preparation-optional">Optional</span></div>
-            <h2 id="preparation-arrive-title">How are you arriving?</h2>
+            {dirty && <button disabled={unavailable} onClick={() => void submit(false)}>Save for today</button>}
+            {sessionActive
+              ? <button className="ss-primary" onClick={onJournal}>Open Daily journal →</button>
+              : <button className="ss-primary" disabled={unavailable || capturePending} onClick={() => void submit(true)}>Start session →</button>}
+          </section>
+          {/* Closed until used, so the invitation and Start stay in view. A saved answer opens its section. */}
+          <details className="rr-preparation-card rr-preparation-more" open={opened.arrival ?? arrival.length > 0} onToggle={(event) => { const open = event.currentTarget.open; setOpened((state) => ({ ...state, arrival: open })); }}>
+            <summary>Name how you’re arriving</summary>
             <p>Choose anything that fits. Your saved check-in appears in the Journal’s Daily reference.</p>
             <div className="rr-preparation-chips" role="group" aria-label="How are you arriving?">
               {arrivalFeelings.map((feeling) => (
@@ -120,37 +119,25 @@ export default function ReadingRoomPreparation({
                 >{feeling}</button>
               ))}
             </div>
-          </section>
-          <div className="rr-preparation-support-heading" id="preparation-support">
-            <h2>02 / Your support for today</h2>
-          </div>
+          </details>
+          <details className="rr-preparation-card rr-preparation-more" open={opened.intention ?? !!(intention || boundary)} onToggle={(event) => { const open = event.currentTarget.open; setOpened((state) => ({ ...state, intention: open })); }}>
+            <summary>Set an intention</summary>
+            <p>Something to return to during the session, and a limit that helps you protect it.</p>
+            <div className="rr-preparation-fields">
+              <label>Intention<textarea rows={2} maxLength={8000} disabled={unavailable} value={intention} onChange={(event) => update({ intention: event.target.value })} /></label>
+              <label>Boundary<textarea rows={2} maxLength={8000} disabled={unavailable} value={boundary} onChange={(event) => update({ boundary: event.target.value })} /></label>
+            </div>
+            <button className="rr-preparation-example" aria-expanded={example} onClick={() => setExample(!example)}>{example ? "Hide the example" : "Show me an example"}</button>
+            {example && <p className="rr-preparation-example-text">Intention: “If I feel pressure to act, I’ll take a moment to notice it.” Boundary: “I’ll step away if I catch myself chasing.”</p>}
+          </details>
         </>
       )}
       {children}
       {active && (
-        <>
-          <section className="rr-preparation-card" id="preparation-intention" aria-labelledby="preparation-intention-title">
-            <div className="rr-preparation-label"><span className="rr-preparation-kicker">03 / Intention and boundary</span><span className="rr-preparation-optional">Optional</span></div>
-            <h2 id="preparation-intention-title">What would you like to return to?</h2>
-            <p>A direction for the session and a limit that helps you protect it.</p>
-            <div className="rr-preparation-fields">
-              <label>Intention<textarea rows={2} maxLength={8000} disabled={unavailable} value={edits.intention ?? day?.body.goal ?? ""} onChange={(event) => update({ intention: event.target.value })} placeholder="I want to wait for my setup before acting." /></label>
-              <label>Boundary<textarea rows={2} maxLength={8000} disabled={unavailable} value={edits.boundary ?? day?.body.boundary ?? ""} onChange={(event) => update({ boundary: event.target.value })} placeholder="I’ll step away if I catch myself chasing." /></label>
-            </div>
-          </section>
-          <footer className="rr-preparation-start">
-            <div>
-              <strong>{sessionActive ? "Session in progress" : "Ready when you are"}</strong>
-              <p>{capturePending ? "Confirm or discard your capture draft before starting." : "Everything above is optional."}</p>
-              {message && <p role="status">{message}</p>}
-              {(error || store.error) && <p role="alert">{error || store.error}</p>}
-            </div>
-            <button disabled={!dirty || unavailable} onClick={() => void submit(false)}>Save for today</button>
-            {sessionActive
-              ? <button className="ss-primary" onClick={onJournal}>Open Daily journal →</button>
-              : <button className="ss-primary" disabled={unavailable || capturePending} onClick={() => void submit(true)}>Start session →</button>}
-          </footer>
-        </>
+        <p className="rr-preparation-setup">
+          Set up your process when it changes. There’s no need to repeat it each morning.
+          <button onClick={onSetup}>Initial setup <span aria-hidden="true">↗</span></button>
+        </p>
       )}
     </div>
   );

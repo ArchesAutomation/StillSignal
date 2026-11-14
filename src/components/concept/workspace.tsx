@@ -591,7 +591,6 @@ export default function ConceptWorkspace(props: Props) {
           store={process}
           sessionActive={p.active}
           capturePending={capturePending}
-          onBrowse={browseFromPreparation}
           onSetup={openPreparationSetup}
           onStart={async () => { await p.start(); go("Journal"); }}
           onJournal={() => go("Journal")}
@@ -601,7 +600,6 @@ export default function ConceptWorkspace(props: Props) {
           store={process}
           props={viewProps}
           onEnd={p.stop}
-          onBrowse={browseFromDone}
           onReflect={() => reflectForToday("done")}
         >
           <StillnessLibrary

@@ -123,8 +123,20 @@ export default function ReflectionEditor({
   compact?: boolean;
   session?: Session;
 }) {
+  // A new, unsaved reflection is kept on this device so closing the editor or visiting another page does not lose it.
+  const draftKey =
+    compact || draft.entry || draft.initialText
+      ? ""
+      : `ss-reflection-draft:${owner}:${session?.id ?? "day"}`;
+  const [restored] = useState(() => {
+    try {
+      return (draftKey && localStorage.getItem(draftKey)) || "";
+    } catch {
+      return "";
+    }
+  });
   const [text, setText] = useState(
-      draft.entry?.text || draft.initialText || "",
+      draft.entry?.text || draft.initialText || restored,
     ),
     [label, setLabel] = useState(
       draft.entry?.label || draft.initialLabel || "Unlabelled",
@@ -158,6 +170,13 @@ export default function ReflectionEditor({
   const [timed, setTimed] = useState(
     (draft.entry ? noteTime(draft.entry) : draft.eventTime) !== null,
   );
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      if (text) localStorage.setItem(draftKey, text);
+      else localStorage.removeItem(draftKey);
+    } catch {}
+  }, [draftKey, text]);
   const stableId = useRef(draft.entry?.id || crypto.randomUUID());
   const capturedAt = useRef(draft.entry?.capturedAt ?? Date.now());
   const [preview, setPreview] = useState("");
@@ -341,6 +360,11 @@ export default function ReflectionEditor({
           };
           if (session) validateDestination(note, session);
           await onSave(note);
+          if (draftKey) {
+            try {
+              localStorage.removeItem(draftKey);
+            } catch {}
+          }
           committedAudio.current = note.audio?.path;
           if (
             draft.entry?.screenshot &&
@@ -461,6 +485,12 @@ export default function ReflectionEditor({
           placeholder="What is happening? What are you feeling?"
         />
       </label>
+      {restored && (
+        <p className="form-intro" role="status">
+          Your unsaved words from earlier are back. Clear the box to discard
+          them.
+        </p>
+      )}
       {interim && (
         <p className="form-intro" aria-live="polite">
           {interim}
