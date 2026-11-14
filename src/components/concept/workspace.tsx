@@ -4,7 +4,7 @@ import { pullSessions } from "@/lib/cloud";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { journalDateValue } from "@/lib/journal-day";
 import { dateInZone } from "@/lib/process/model";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import AccountMenu from "../account-menu";
 import ModuleWorkspace, {
   ModuleScope,
@@ -76,6 +76,9 @@ export default function ConceptWorkspace(props: Props) {
   const process = useProcess(p.owner, [s, ...history]);
   const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
   const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
+  const [previewRequest, setPreviewRequest] = useState<{ itemId: string; n: number }>();
+  const [preparationGuidance, setPreparationGuidance] = useState<string>();
+  const previewItem = useCallback((itemId: string) => setPreviewRequest((request) => ({ itemId, n: (request?.n ?? 0) + 1 })), []);
   const [readingRoom, setReadingRoom] = useState(true);
   const [journalEntry, setJournalEntry] = useState(0);
   const reading = page === "Journal" && readingRoom;
@@ -213,7 +216,7 @@ export default function ConceptWorkspace(props: Props) {
     go("Stillness");
     setReturnToDone(true);
   };
-  const reflectForToday = async (from: "stillness" | "done") => {
+  const reflectForToday = async (from: "stillness" | "done", prompt?: string, promptContext?: string[]) => {
     if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
     const now = Date.now();
     const date = journalDateValue(now);
@@ -221,7 +224,7 @@ export default function ConceptWorkspace(props: Props) {
       throw new Error("Today’s Journal could not open. Try again.");
     }
     go("Journal");
-    props.onReflect({ t: now, eventTime: null, ...(from === "stillness" ? { origin: "stillness" } : { section: "day-review" }) });
+    props.onReflect({ t: now, eventTime: null, ...(from === "stillness" ? { origin: "stillness" } : { section: "day-review" }), ...(prompt ? { prompt } : {}), ...(promptContext?.length ? { promptContext } : {}) });
   };
   const goFromHome = (next: Page) => {
     if (next === "Pre-Market") {
@@ -594,20 +597,25 @@ export default function ConceptWorkspace(props: Props) {
           onSetup={openPreparationSetup}
           onStart={async () => { await p.start(); go("Journal"); }}
           onJournal={() => go("Journal")}
+          onPreview={previewItem}
+          onGuidance={setPreparationGuidance}
         >
         <ReadingRoomDone
           active={closing}
           store={process}
           props={viewProps}
           onEnd={p.stop}
-          onReflect={() => reflectForToday("done")}
+          onReflect={(prompt, context) => reflectForToday("done", prompt, context)}
+          onPreview={previewItem}
         >
           <StillnessLibrary
             owner={p.owner}
             store={process}
             page={page}
             browse={stillnessBrowse}
-            preparation={support && { tags: support.tags, suggestion: support.suggestion, onBrowse: browseFromPreparation }}
+            // One suggestion per screen: an answer-based suggestion takes the place of the Home-topic preview link.
+            preparation={support && { tags: support.tags, suggestion: preparationGuidance ? undefined : support.suggestion, onBrowse: browseFromPreparation }}
+            previewRequest={preparing || closing ? previewRequest : undefined}
             closing={closing ? { onBrowse: browseFromDone } : undefined}
             closingBrowse={returnToDone}
             onPage={go}

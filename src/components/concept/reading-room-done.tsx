@@ -10,7 +10,9 @@ import {
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { closingDetailChoices, closingDetails, closingGuidance, detailProcesses, type ClosingDetail } from "@/lib/adaptive-guidance";
 import PnlSnapshot from "../pnl-snapshot";
+import GuidanceCard from "./guidance-card";
 import type { ProcessStore } from "../process/use-process";
 import type { Props } from "./shared";
 
@@ -24,12 +26,13 @@ const processes = {
   followed: "Followed it", partial: "Partly", broken: "Not today",
 } satisfies Record<(typeof processChoices)[number], string>;
 
-export default function ReadingRoomDone({ active, store, props, onEnd, onReflect, children }: {
+export default function ReadingRoomDone({ active, store, props, onEnd, onReflect, onPreview, children }: {
   active: boolean;
   store: ProcessStore;
   props: Props;
   onEnd: () => Promise<void>;
-  onReflect: () => Promise<void>;
+  onReflect: (prompt?: string, context?: string[]) => Promise<void>;
+  onPreview: (itemId: string) => void;
   children: ReactNode;
 }) {
   const p = props.pulse;
@@ -53,6 +56,32 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onReflect
   // The optional P&L image only needs today's date and timezone; nothing is saved by showing it.
   const snapshotDay = useMemo(() => day ?? createRecord("day", emptyTradingDay(date, timezone)), [day, date, timezone]);
   const unavailable = !store.loaded || store.busy || writing;
+  // One optional suggestion, from today's current closing answers only. Changing an answer re-evaluates it.
+  const outcome = day?.body.closeout?.outcome;
+  const process = day?.body.closeout?.process;
+  // "What changed?" stays on this screen for today only. It is not saved, and only counts after Partly or Not today.
+  const [chosenDetail, setChosenDetail] = useState<{ date: string; value: ClosingDetail }>();
+  const askWhatChanged = detailProcesses.includes(process);
+  const detail = askWhatChanged && chosenDetail?.date === date ? chosenDetail.value : undefined;
+  const guidance = closingGuidance({ outcome, process, detail });
+  const [dismissed, setDismissed] = useState<string>();
+  const shown = guidance && dismissed !== `${date}:${guidance.key}` ? guidance : undefined;
+  const intention = day?.body.goal?.trim();
+
+  function reflect(prompt?: string) {
+    setReflectionError("");
+    const context = prompt ? [
+      ...(intention ? [`Your intention: “${intention}”`] : []),
+      ...(detail ? [`What changed: ${closingDetails[detail].label}`] : []),
+    ] : undefined;
+    void onReflect(prompt, context).catch((cause: Error) => setReflectionError(cause.message));
+  }
+
+  // The saved intention already sits above both questions on this page; it travels with the question into the Journal.
+  const card = shown && <GuidanceCard guidance={shown} disabled={pending || ending}
+    onPractice={onPreview}
+    onReflect={reflect}
+    onDismiss={() => setDismissed(`${date}:${shown.key}`)} />;
 
   async function end() {
     setEnding(true);
@@ -73,6 +102,9 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onReflect
   }
 
   function choose<K extends keyof DayCloseout>(field: K, value: DayCloseout[K]) {
+    setDismissed(undefined);
+    // "What changed?" belongs to the plan answer it was chosen under; changing or clearing that answer clears it.
+    if (field === "process") setChosenDetail(undefined);
     void write(async (records) => {
       const saved = tradingDayFor(records, date, timezone)?.body.closeout?.[field];
       const change = dayCloseoutChange(records, date, timezone, { [field]: saved === value ? undefined : value });
@@ -122,10 +154,7 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onReflect
           <h2 id="done-reflection-title">Anything you want to keep?</h2>
           <p>Open today’s Journal to write or speak a reflection. Your intention and how you arrived are there beside the page.</p>
           <div className="rr-home-actions">
-            <button disabled={pending || ending} onClick={() => {
-              setReflectionError("");
-              void onReflect().catch((cause: Error) => setReflectionError(cause.message));
-            }}>Reflect in Daily journal ↗</button>
+            <button disabled={pending || ending} onClick={() => reflect()}>Reflect in Daily journal ↗</button>
           </div>
           {reflectionError && <p role="alert">{reflectionError}</p>}
         </section>
@@ -133,6 +162,16 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onReflect
           <h2 id="done-process-title">How did you follow your plan?</h2>
           <p>Think about your choices, including any decision to sit out.</p>
           {chips("process", "How you followed your plan", processChoices, processes)}
+          {askWhatChanged && <div className="rr-done-detail">
+            <p>What changed? Optional, kept on this screen only</p>
+            <div className="rr-preparation-chips" role="group" aria-label="What changed">
+              {closingDetailChoices.map((key) => <button key={key} aria-pressed={detail === key} onClick={() => {
+                setDismissed(undefined);
+                setChosenDetail(detail === key ? undefined : { date, value: key });
+              }}>{detail === key && <span aria-hidden="true">✓ </span>}{closingDetails[key].label}</button>)}
+            </div>
+          </div>}
+          {card}
           {error && <p role="alert">{error}</p>}
           <PnlSnapshot store={store} day={snapshotDay} props={props} />
         </section>
