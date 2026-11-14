@@ -391,3 +391,48 @@ test("unsupported browser offers typing; live HR check-ins never prompt from sta
     false,
   );
 });
+
+test("an unsaved reflection survives closing the editor and clears once saved", async (t) => {
+  const { dom, root } = setup();
+  const saved: JournalEntry[] = [];
+  const editor = (extra: object = {}) =>
+    createElement(ReflectionEditor, {
+      draft: { t: Date.now(), eventTime: null },
+      owner: "draft-owner",
+      question: "What is happening?",
+      prepareScreenshot: async () => "",
+      onSave: async (n: JournalEntry) => {
+        saved.push(n);
+      },
+      onDone: () => {},
+      ...extra,
+    });
+  const box = () => document.querySelector("textarea") as HTMLTextAreaElement;
+  t.after(async () => {
+    await act(async () => root.unmount());
+    dom.window.close();
+  });
+  await act(async () => root.render(editor()));
+  // Call the field's change handler directly: JSDOM input events do not reach this controlled textarea.
+  await act(async () => {
+    const node = box() as unknown as Record<string, { onChange: (event: unknown) => void }>;
+    node[Object.keys(node).find((key) => key.startsWith("__reactProps"))!].onChange({ target: { value: "I waited, then doubted it." } });
+  });
+  await act(async () => root.render(createElement("div")));
+  await act(async () => root.render(editor()));
+  assert.equal(box().value, "I waited, then doubted it.");
+  assert.match(document.body.textContent!, /unsaved words from earlier are back/);
+  // The floating recorder keeps its own drafts and must not pick this one up.
+  await act(async () => root.render(createElement("div")));
+  await act(async () => root.render(editor({ compact: true })));
+  assert.equal(box().value, "");
+  await act(async () => root.render(createElement("div")));
+  await act(async () => root.render(editor()));
+  await act(async () => {
+    document.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+  });
+  assert.equal(saved.at(-1)?.text, "I waited, then doubted it.");
+  await act(async () => root.render(createElement("div")));
+  await act(async () => root.render(editor()));
+  assert.equal(box().value, "");
+});

@@ -24,12 +24,11 @@ const processes = {
   followed: "Followed it", partial: "Partly", broken: "Not today",
 } satisfies Record<(typeof processChoices)[number], string>;
 
-export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse, onReflect, children }: {
+export default function ReadingRoomDone({ active, store, props, onEnd, onReflect, children }: {
   active: boolean;
   store: ProcessStore;
   props: Props;
   onEnd: () => Promise<void>;
-  onBrowse: () => void;
   onReflect: () => Promise<void>;
   children: ReactNode;
 }) {
@@ -50,7 +49,6 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
     : [];
   const ended = sessions.some((session) => !session.demo && session.id !== "workspace" &&
     session.endedAt && session.endedAt <= p.now && dateInZone(session.endedAt, timezone) === date);
-  const count = day?.body.stillness?.filter((choice) => choice.destination === "Done").length ?? 0;
   const pending = props.capture?.pendingCapture;
   // The optional P&L image only needs today's date and timezone; nothing is saved by showing it.
   const snapshotDay = useMemo(() => day ?? createRecord("day", emptyTradingDay(date, timezone)), [day, date, timezone]);
@@ -97,61 +95,49 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onBrowse,
     <div className={active ? "rr-preparation rr-done" : "rr-done-bridge"}>
       {active && <>
         <header className="rr-preparation-heading">
-          <div>
-            <p className="rr-preparation-kicker">Done for the day / Let go</p>
-            <h1>You can put the day down.</h1>
-            <p>The result is part of your day. It isn’t all of it.</p>
-          </div>
-          <button onClick={onBrowse}>+ Find closing support</button>
+          <p className="rr-preparation-kicker">Done for the day</p>
+          <h1>You can put the day down.</h1>
+          <p>Take a moment before anything else. This is one day in a longer trading practice.</p>
         </header>
-        <aside className="rr-preparation-rail" aria-label="Today’s path">
-          <p className="rr-preparation-kicker">Today’s path</p>
-          <ol>
-            <li><a href="#done-outcome">Name the day<small>Record the outcome</small></a></li>
-            <li><a href="#done-process">Review your process<small>How you followed your plan</small></a></li>
-            <li><a href="#done-support">Closing support<small>{count} {count === 1 ? "choice" : "choices"} for today</small></a></li>
-            <li><a href="#done-reflection">Reflect, if you want<small>Open your Journal</small></a></li>
-          </ol>
-          <div className="rr-preparation-setup">A trade, a recording and a completed checklist are all optional.</div>
-        </aside>
         <section className="rr-preparation-start rr-done-session" aria-label="Session controls">
           <div>
             <strong role="status"><i aria-hidden="true" />{ending ? "Ending session…" : p.active ? "Session in progress" : ended ? "Session ended" : "No session running"}</strong>
-            <p>{pending ? "Confirm or discard your capture draft before ending." : p.active ? "End the session when you’re ready. Everything below is optional." : "You can leave now or take a moment to close the day."}</p>
+            <p>{pending ? "Confirm or discard your capture draft before ending." : p.active ? "End the session when you’re ready. Nothing below is needed to finish." : "You can leave now. Nothing below is needed to finish."}</p>
           </div>
           {(p.active || ending) && <button className="ss-primary" disabled={ending || pending} onClick={() => void end()}>End session</button>}
           {!p.active && !ending && <button onClick={() => props.onPage("Home")}>Back to Home</button>}
           {sessionError && <p role="alert">{sessionError}</p>}
         </section>
+        <p className="rr-done-continue">Continue, if you want</p>
+        {day?.body.goal && <section className="rr-preparation-card rr-done-intention" aria-labelledby="done-intention-title">
+          <h2 id="done-intention-title">Your intention this session</h2>
+          <blockquote>{day.body.goal}</blockquote>
+        </section>}
         <section className="rr-preparation-card rr-done-outcome" id="done-outcome" aria-labelledby="done-outcome-title">
-          <div className="rr-preparation-label"><span className="rr-preparation-kicker">01 / Your outcome</span><span className="rr-preparation-optional">Optional</span></div>
           <h2 id="done-outcome-title">How did today turn out?</h2>
-          <p>Choose the result that fits your day.</p>
+          <p>Record the result if you’d like to. How the day felt is yours to say.</p>
           {chips("outcome", "Day outcome", dayOutcomes, outcomes)}
         </section>
+        <section className="rr-preparation-card rr-done-reflection" id="done-reflection" aria-labelledby="done-reflection-title">
+          <h2 id="done-reflection-title">Anything you want to keep?</h2>
+          <p>Open today’s Journal to write or speak a reflection. Your intention and how you arrived are there beside the page.</p>
+          <div className="rr-home-actions">
+            <button disabled={pending || ending} onClick={() => {
+              setReflectionError("");
+              void onReflect().catch((cause: Error) => setReflectionError(cause.message));
+            }}>Reflect in Daily journal ↗</button>
+          </div>
+          {reflectionError && <p role="alert">{reflectionError}</p>}
+        </section>
         <section className="rr-preparation-card rr-done-process" id="done-process" aria-labelledby="done-process-title">
-          <div className="rr-preparation-label"><span className="rr-preparation-kicker">02 / Your process</span><span className="rr-preparation-optional">Optional</span></div>
           <h2 id="done-process-title">How did you follow your plan?</h2>
           <p>Think about your choices, including any decision to sit out.</p>
           {chips("process", "How you followed your plan", processChoices, processes)}
           {error && <p role="alert">{error}</p>}
           <PnlSnapshot store={store} day={snapshotDay} props={props} />
         </section>
-        <div className="rr-preparation-support-heading" id="done-support"><h2>03 / Your support for today</h2></div>
       </>}
       {children}
-      {active && <section className="rr-preparation-card rr-done-reflection" id="done-reflection" aria-labelledby="done-reflection-title">
-        <div className="rr-preparation-label"><span className="rr-preparation-kicker">04 / A little perspective</span><span className="rr-preparation-optional">Optional</span></div>
-        <h2 id="done-reflection-title">Anything you want to keep?</h2>
-        <p>Open today’s Journal to write or speak a reflection, or leave it here.</p>
-        <div className="rr-home-actions">
-          <button className="ss-primary" disabled={pending || ending} onClick={() => {
-            setReflectionError("");
-            void onReflect().catch((cause: Error) => setReflectionError(cause.message));
-          }}>Reflect in Daily journal ↗</button>
-        </div>
-        {reflectionError && <p role="alert">{reflectionError}</p>}
-      </section>}
     </div>
   );
 }
