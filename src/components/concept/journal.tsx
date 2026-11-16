@@ -2,6 +2,7 @@
 import { nearest, summary } from "@/lib/analytics";
 import { demoCandles, isDemoSession } from "@/lib/demo-market";
 import { dailyJournalSession } from "@/lib/journal-collection";
+import { isBookEntry, isJournalMarker } from "@/lib/journal-book";
 import { isTradeSection, noteTime, sessionTrades } from "@/lib/journal-routing";
 import { money } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
@@ -11,19 +12,25 @@ import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import { useJournalSamples } from "../use-journal-samples";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
+import JournalBook, { type BookRequest } from "./journal-book";
 import JournalSelect from "./journal-select";
 import JournalSpace from "./journal-space";
 import ReferenceRhythm from "./reference-rhythm";
 import Review from "./review";
 import { cx, type Moment, type Props } from "./shared";
+export type JournalMode = "action" | "book";
 export default function Journal(
   props: Props & {
     view: "story" | "review";
     setView: (v: "story" | "review") => void;
     focusTime?: number;
+    mode?: JournalMode;
+    bookRequest?: BookRequest;
   },
 ) {
   const { pulse: p, session: s, history, view, setView } = props;
+  const mode = props.mode ?? "action";
+  const story = view === "story" && mode === "action";
   const daySession = useMemo(
     () => dailyJournalSession(s, history),
     [s, history],
@@ -116,11 +123,14 @@ export default function Journal(
     () => p.samples.filter((x) => x.t <= cutoff),
     [p.samples, cutoff],
   );
-  const notes = liveNotes(s.journal).filter(
+  const visible = liveNotes(s.journal).filter(
     (n) =>
       (noteTime(n) === null || noteTime(n)! <= cutoff) &&
       (position === 100 || (n.updatedAt || n.t) <= cutoff),
   );
+  // Journal (book) pages are not session moments; mid-session writing is shown only as a marker.
+  const notes = visible.filter((n) => !isBookEntry(n));
+  const journalMarkers = visible.filter(isJournalMarker);
   const events = s.events.filter(e=>!e.voided && e.t<=cutoff);
   const rows: Moment[] = [
     ...events.map((e) => ({
@@ -131,6 +141,15 @@ export default function Journal(
       text: `${e.symbol} · ${e.side} · ${e.quantity} at ${e.price}${e.pnl === undefined ? "" : ` · ${money(e.pnl, e.currency || "USD")}`}`,
       event: e,
       bpm: nearest(samples, e.t)?.bpm ?? null,
+    })),
+    // Writing in the Journal mid-session shows as a marker only; the words stay in the book.
+    ...journalMarkers.map((n) => ({
+      id: `journal-marker-${n.id}`,
+      t: noteTime(n)!,
+      phase: "REFLECTION",
+      label: "Journal",
+      text: "Wrote in journal",
+      bpm: nearest(samples, noteTime(n)!)?.bpm ?? null,
     })),
     ...notes
       .filter(
@@ -284,7 +303,14 @@ export default function Journal(
       {view === "review" && (
         <button onClick={() => setView("story")}>← Continue to journal</button>
       )}
-      <ModuleScope active={view === "story"}><section hidden={view !== "story"} className={cx("journal-story")}>
+      {view === "story" && mode === "book" && (
+        <ModuleScope active><section className={cx("journal-book-view")}>
+          <WorkspaceModule id="journal-book" title="Journal" order={0}>
+            <JournalBook props={props} session={daySession} request={props.bookRequest} />
+          </WorkspaceModule>
+        </section></ModuleScope>
+      )}
+      <ModuleScope active={story}><section hidden={!story} className={cx("journal-story")}>
         <WorkspaceModule id="journal-heading" title="Journal heading" order={3} parts={[{id:"context",title:"Date and environment detail",selector:".ss-space-title p"},{id:"zone",title:"Timezone selector",selector:".ss-space-title > label"}]}><div className={cx("space-title")}>
           <div>
             <div className={cx("eyebrow")}>A record you can return to</div>

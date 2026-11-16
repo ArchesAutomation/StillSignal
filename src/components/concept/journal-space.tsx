@@ -1,4 +1,5 @@
 "use client";
+import { isBookEntry } from "@/lib/journal-book";
 import { momentPnl } from "@/lib/journal-reference";
 import { noteTime, sectionName, sessionTrades } from "@/lib/journal-routing";
 import {
@@ -67,7 +68,7 @@ export default function JournalSpace({
     if (reveal || selected?.note) setFilters(empty);
   }, [reveal, selected?.id]);
   const notes = filterMoments(session, filters);
-  const all = session.journal.filter((n) => !n.deletedAt);
+  const all = session.journal.filter((n) => !n.deletedAt && !isBookEntry(n));
   const highlighted = new Set(reveal ? all.filter(n=>{
     const trade=trades.find(t=>t.id===reveal.tradeId);
     return n.section===reveal.section && (n.tradeId===reveal.tradeId || (!!n.tradeId && !!trade?.entryIds.includes(n.tradeId)));
@@ -156,11 +157,21 @@ export default function JournalSpace({
               </small>
             </div>
             <button
-              onClick={() =>
-                document
-                  .getElementById("guided-reflection")
-                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
-              }
+              onClick={() => {
+                // The inline writer is parked in "More tools" by the Reading
+                // Room layout. Scroll to it only when it is actually shown;
+                // otherwise open the reflection editor for this day.
+                const writer = document.getElementById("guided-reflection");
+                if (writer && !writer.closest("[hidden],[inert]")) {
+                  writer.scrollIntoView({ behavior: "smooth", block: "center" });
+                  return;
+                }
+                props.onReflect({
+                  t: p.active && !session.endedAt
+                    ? p.now
+                    : session.endedAt || session.startedAt,
+                });
+              }}
             >
               ＋ Add moment
             </button>

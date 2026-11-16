@@ -46,7 +46,7 @@ test("Reading Room is a non-default Journal starter compatible with existing sna
 
 test("secondary journal widgets remain registered but hidden; core IDs stay intact", () => {
   const layout = readingRoomDashboard().workspace!;
-  assert.deepEqual(Object.entries(layout.modules).filter(([,p]) => !p.hidden).map(([id]) => id), ["daily-reference", "timeline", "moments", "evidence"]);
+  assert.deepEqual(Object.entries(layout.modules).filter(([,p]) => !p.hidden).map(([id]) => id), ["daily-reference", "journal-book", "timeline", "moments", "evidence"]);
   for (const id of ["calendar", "dates", "writing", "session-controls", "process-context", "review-chart", "observations"]) assert.equal(layout.modules[id].hidden, true);
   const another = readingRoomDashboard();
   another.workspace!.modules.timeline.hidden = true;

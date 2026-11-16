@@ -6,6 +6,7 @@ import "./workflow-fixes.css";
 import type { Metadata, Viewport } from "next";
 import "./journal-guide.css";
 import "./reading-room.css";
+import "./journal-book.css";
 import "./stillness-library.css";
 import "./reading-room-preparation.css";
 import "./reading-room-done.css";

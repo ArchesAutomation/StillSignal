@@ -19,7 +19,7 @@ export function readingRoomDashboard(): DashboardLayout {
   const hidden = ["dates", "calendar", "journal-heading", "session-controls", "day-summary", "writing", "intentions", "observations", "review-chart", "weekly-reflection", "post-exit-review", "process-context", "linked-preparation", "linked-variables", "linked-quality", "session-context", "execution-grouping", "pnl-timeline", "previous-writing", "label-summary", "stage-labels", "trade-activity"];
   for (const [order, id] of hidden.entries()) workspace.modules[id] = { section: "more", order, width: 12, hidden: true };
   workspace.modules["daily-reference"] = { section: READING_ROOM_SECTION, order: 0, width: 12, hidden: false };
-  for (const [order, id] of ["timeline", "moments", "evidence"].entries()) {
+  for (const [order, id] of ["journal-book", "timeline", "moments", "evidence"].entries()) {
     workspace.modules[id] = { section: "main", order, width: 12, hidden: false };
   }
   return { ...freshDashboard(), name: "Reading Room", page: "Journal", isDefault: false, statusWidgets: [], showMarket: false, workspace };

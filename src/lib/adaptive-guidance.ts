@@ -161,7 +161,7 @@ const processPhrases: Record<Exclude<ProcessColumn, "skipped">, string> = {
   followed: "followed your plan", partial: "partly followed your plan", broken: "moved away from your plan today",
 };
 const readBack = (...parts: (string | undefined)[]) => `You ${parts.filter(Boolean).join(" and ")}.`;
-const reflectLabel = "Reflect in Daily journal";
+const reflectLabel = "Take this to your journal";
 
 export function closingGuidance({ outcome, process, detail }: ClosingAnswers): Guidance | undefined {
   const row: OutcomeRow = !outcome || outcome === "rather-not-say" ? "unsaid" : outcome;

@@ -20,7 +20,8 @@ import { ModeSwitch, ThemeController } from "../theme-controls";
 import WorkspaceAppearance from "../workspace-appearance";
 import { Calendar, weekStart } from "./calendar";
 import CapturePanel from "./capture-panel";
-import Journal from "./journal";
+import Journal, { type JournalMode } from "./journal";
+import type { BookRequest } from "./journal-book";
 import JournalDayPicker from "./journal-day-picker";
 import Overview from "./overview";
 import ReadingRoomDone from "./reading-room-done";
@@ -161,6 +162,20 @@ export default function ConceptWorkspace(props: Props) {
     [whisper, setWhisper] = useState(""),
     [openingDay, setOpeningDay] = useState(false),
     [focusTime, setFocusTime] = useState<number | undefined>();
+  // Day in Action is the live record; Journal is the free-writing page.
+  const [journalMode, setJournalModeState] = useState<JournalMode>(() => {
+    try {
+      return localStorage.getItem("ss-journal-mode") === "book" ? "book" : "action";
+    } catch {
+      return "action";
+    }
+  });
+  const setJournalMode = (mode: JournalMode) => {
+    setJournalModeState(mode);
+    try {
+      localStorage.setItem("ss-journal-mode", mode);
+    } catch {}
+  };
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
@@ -225,6 +240,19 @@ export default function ConceptWorkspace(props: Props) {
     }
     go("Journal");
     props.onReflect({ t: now, eventTime: null, ...(from === "stillness" ? { origin: "stillness" } : { section: "day-review" }), ...(prompt ? { prompt } : {}), ...(promptContext?.length ? { promptContext } : {}) });
+  };
+  // Done for the Day hands its writing step to the Journal: open the book on today's page.
+  const [bookRequest, setBookRequest] = useState<BookRequest>();
+  const openJournalBook = async (prompt?: string) => {
+    if (capturePending) throw new Error("Confirm or discard your capture draft before opening your journal.");
+    const date = journalDateValue(Date.now());
+    if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
+      throw new Error("Today’s Journal could not open. Try again.");
+    }
+    setJournalMode("book");
+    setView("story");
+    go("Journal");
+    setBookRequest({ n: Date.now(), prompt });
   };
   const goFromHome = (next: Page) => {
     if (next === "Pre-Market") {
@@ -446,6 +474,16 @@ export default function ConceptWorkspace(props: Props) {
                   ? "Daily journal"
                   : page}
             </b>
+            {page === "Journal" && view === "story" && (
+              <div className="ss-journal-mode" role="group" aria-label="Journal view">
+                <button aria-pressed={journalMode === "action"} onClick={() => setJournalMode("action")}>
+                  Day in Action
+                </button>
+                <button aria-pressed={journalMode === "book"} onClick={() => setJournalMode("book")}>
+                  Journal
+                </button>
+              </div>
+            )}
           </div>
           <div className={cx("topactions")}>
             {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => {
@@ -605,7 +643,7 @@ export default function ConceptWorkspace(props: Props) {
           store={process}
           props={viewProps}
           onEnd={p.stop}
-          onReflect={(prompt, context) => reflectForToday("done", prompt, context)}
+          onReflect={(prompt) => openJournalBook(prompt)}
           onPreview={previewItem}
         >
           <StillnessLibrary
@@ -911,6 +949,8 @@ export default function ConceptWorkspace(props: Props) {
                     <Journal
                       {...viewProps}
                       focusTime={focusTime}
+                      mode={journalMode}
+                      bookRequest={bookRequest}
                       view={view}
                       setView={(v) => {
                         setView(v);
