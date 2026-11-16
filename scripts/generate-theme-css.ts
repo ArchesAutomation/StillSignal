@@ -2,7 +2,7 @@
 // tests/theme.test.ts fails if the file is out of date.
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { PRESETS, TOKEN_NAMES, cssName, type Palette } from "../src/lib/theme";
+import { BOOK_TOKENS, PRESETS, TOKEN_NAMES, cssName, type Palette } from "../src/lib/theme";
 
 const block = (selector: string, p: Palette, scheme: string) =>
   `${selector} {\n  color-scheme: ${scheme};\n${TOKEN_NAMES.map(t => `  ${cssName(t)}: ${p[t]};`).join("\n")}\n}\n`;
@@ -16,6 +16,7 @@ export function themeCss() {
     block(':root[data-palette="berry"]', PRESETS.berry.light, "light"),
     block(':root[data-palette="berry"][data-mode="dark"]', PRESETS.berry.dark, "dark"),
     `:root[data-palette="custom"] { color-scheme: light; }\n:root[data-palette="custom"][data-mode="dark"] { color-scheme: dark; }\n`,
+    `/* Journal book materials (same in every palette) */\n:root {\n${Object.entries(BOOK_TOKENS).map(([k, v]) => `  ${k}: ${v};`).join("\n")}\n}\n`,
   ].join("\n");
 }
 

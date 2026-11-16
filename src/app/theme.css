@@ -112,3 +112,23 @@
 
 :root[data-palette="custom"] { color-scheme: light; }
 :root[data-palette="custom"][data-mode="dark"] { color-scheme: dark; }
+
+/* Journal book materials (same in every palette) */
+:root {
+  --book-cover-base: #1b1824;
+  --book-cover-paper-ink: #f3eee4;
+  --book-cover-button-ink: #2a2433;
+  --book-ribbon: #8c2f39;
+  --book-ribbon-light: #b24452;
+  --book-spine: rgba(0, 0, 0, 0.09);
+  --book-spine-strong: rgba(0, 0, 0, 0.12);
+  --book-cover-edge: rgba(0, 0, 0, 0.25);
+  --book-cover-hinge: rgba(0, 0, 0, 0.28);
+  --book-turn-shadow: rgba(20, 16, 30, 0.35);
+  --book-drop: rgba(20, 16, 30, 0.45);
+  --book-drop-strong: rgba(20, 16, 30, 0.6);
+  --book-cover-rule: rgba(243, 238, 228, 0.32);
+  --book-cover-outline: rgba(243, 238, 228, 0.5);
+  --book-cover-gloss: rgba(255, 255, 255, 0.05);
+  --book-cover-sheen: rgba(255, 255, 255, 0.08);
+}

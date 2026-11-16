@@ -3,6 +3,7 @@ import { nearest } from "./analytics";
 import { noteTime } from "./journal-routing";
 import { captureMode } from "./session-timeline";
 import { localInstant } from "./journal-reference";
+import { isBookEntry } from "./journal-book";
 
 export type MomentFilters = {
   search: string;
@@ -13,6 +14,8 @@ export type MomentFilters = {
 export function filterMoments(session: Session, filters: MomentFilters) {
   return session.journal
     .filter((n) => {
+      // Journal (book) pages live in the Journal view, not Day in Action.
+      if (isBookEntry(n)) return false;
       if (n.deletedAt && Date.now() - n.deletedAt > 600000) return false;
       if (
         filters.search &&

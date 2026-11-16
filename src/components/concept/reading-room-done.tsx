@@ -152,9 +152,9 @@ export default function ReadingRoomDone({ active, store, props, onEnd, onReflect
         </section>
         <section className="rr-preparation-card rr-done-reflection" id="done-reflection" aria-labelledby="done-reflection-title">
           <h2 id="done-reflection-title">Anything you want to keep?</h2>
-          <p>Open today’s Journal to write or speak a reflection. Your intention and how you arrived are there beside the page.</p>
+          <p>Your journal opens on today’s page. Write whatever is here; your intention sits beside it.</p>
           <div className="rr-home-actions">
-            <button disabled={pending || ending} onClick={() => reflect()}>Reflect in Daily journal ↗</button>
+            <button disabled={pending || ending} onClick={() => reflect()}>Open your journal ↗</button>
           </div>
           {reflectionError && <p role="alert">{reflectionError}</p>}
         </section>
