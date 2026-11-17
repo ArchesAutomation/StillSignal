@@ -36,6 +36,12 @@ export default function SessionReset({
   const [elapsed, setElapsed] = useState(0),
     [running, setRunning] = useState(false);
   useEffect(() => {
+    if (!active) {
+      setRunning(false);
+      setElapsed(0);
+    }
+  }, [active]);
+  useEffect(() => {
     if (!running || !active) return;
     let previous = Date.now();
     const timer = setInterval(() => {

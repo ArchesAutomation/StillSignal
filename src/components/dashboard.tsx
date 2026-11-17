@@ -565,6 +565,7 @@ export default function Dashboard({
   return (
     <div className="dashboard-shell">
       <ConceptWorkspace
+        key={p.owner}
         capture={capture}
         pulse={p}
         session={s}
