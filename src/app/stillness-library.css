@@ -303,6 +303,62 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   width: auto;
   accent-color: var(--accent);
 }
+.ss-stillness-personal { margin-bottom: 24px; }
+.ss-stillness-quote {
+  margin: 0 0 14px;
+  padding: clamp(18px, 3vw, 30px);
+  border-left: 3px solid var(--accent);
+  background: var(--paper);
+  border-radius: 0 14px 14px 0;
+  overflow-wrap: anywhere;
+}
+.ss-stillness-quote blockquote {
+  margin: 0 0 12px;
+  font: 400 clamp(21px, 2.2vw, 29px)/1.45 Georgia, serif;
+  color: var(--ink);
+}
+.ss-stillness-quote figcaption { color: var(--quiet); margin-bottom: 14px; }
+.ss-stillness-preferences, .ss-understanding, .ss-practice-resume, .ss-quote-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--paper);
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.ss-understanding summary, .ss-stillness-preferences summary { cursor: pointer; font-weight: 600; }
+.ss-support-root .ss-understanding p, .ss-support-dialog .ss-understanding p,
+.ss-stillness-preferences p { margin-top: 12px; }
+.ss-understanding a { color: var(--accent); text-decoration: underline; }
+.ss-understanding ul { padding-left: 20px; }
+.ss-understanding li + li { margin-top: 8px; }
+.ss-support-root .ss-guidance-language, .ss-support-dialog .ss-guidance-language,
+.ss-stillness-preferences > label, .ss-quote-editor label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0;
+}
+.ss-quote-editor label { display: grid; }
+.ss-quote-editor textarea, .ss-quote-editor input, .ss-guidance-language select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--base);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  max-width: 100%;
+  min-width: 0;
+}
+.ss-quote-editor textarea { min-height: 130px; width: 100%; resize: vertical; }
+.ss-practice-copy { white-space: pre-line; }
+.ss-practice-resume p { margin-bottom: 10px; }
+.ss-support-root :is(summary, select, textarea, input):focus-visible,
+.ss-support-dialog :is(summary, select, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 @media (max-width: 900px) {
   .ss-support-layout {
     grid-template-columns: minmax(0, 1fr) minmax(230px, 0.8fr);

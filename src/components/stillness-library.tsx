@@ -15,6 +15,7 @@ import { catalogue } from "@/lib/stillness-catalogue";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./process/use-process";
+import { LanguageChoice, StillnessPreferences, Understanding, useStillnessDraft, useStillnessPreferences } from "./stillness-personal";
 
 type Item = (typeof catalogue)[number];
 export type StillnessBrowse = { tags: string[]; itemId: Item["id"] };
@@ -71,7 +72,7 @@ function Art({ item }: { item: Item }) {
   );
 }
 
-export function StillnessLibrary({
+function StillnessLibraryForOwner({
   owner,
   store,
   page,
@@ -99,6 +100,8 @@ export function StillnessLibrary({
   onOpenDay: (destination: Destination) => void;
   onReflect: () => Promise<void>;
 }) {
+  const preferences = useStillnessPreferences(owner);
+  const draft = useStillnessDraft(owner);
   const [selected, setSelected] = useState(catalogue[0]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
@@ -112,8 +115,8 @@ export function StillnessLibrary({
   }, [browse]);
   const [panel, setPanel] = useState<Panel | null>(null);
   useEffect(() => {
-    if (!active) setPanel(null);
-  }, [active]);
+    setPanel(null);
+  }, [active, page]);
   const [destination, setDestination] = useState<Destination>("Preparation");
   const [keep, setKeep] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -170,9 +173,11 @@ export function StillnessLibrary({
     setPanel({ type: "add", choice });
   }
   function run(choice: Choice, preview = false) {
+    if (!draft.loaded) return;
     setPaused(false);
     setElapsed(0);
     setPanel({ type: "player", choice, preview, step: 0 });
+    if (find(choice).guidance) draft.update({ choice, preview, step: 0 });
   }
   async function write(action: (records: ProcessRecord[]) => Promise<void>) {
     if (writeLock.current) return;
@@ -297,10 +302,18 @@ export function StillnessLibrary({
   const current = panel && "choice" in panel ? panel.choice : null;
   const ordered = current ? steps(current) : [];
   const index = panel && "step" in panel ? (panel.step ?? 0) : 0;
+  const currentItem = current ? find(current) : null;
+  const absoluteStep = current?.piece ?? index;
+  const away = panel?.type === "player" && currentItem?.guidance?.awayStep === absoluteStep;
+  const languageChoice = <LanguageChoice value={preferences.value.language} disabled={!preferences.loaded}
+    onChange={language => preferences.update(previous => ({ ...previous, language }))} />;
   const next = () => {
     if (panel?.type !== "player") return;
     setElapsed(0);
     setPaused(false);
+    if (find(panel.choice).guidance) {
+      draft.update(index === ordered.length - 1 ? null : { choice: panel.choice, step: index + 1, preview: !!panel.preview });
+    }
     setPanel({
       ...panel,
       type: index === ordered.length - 1 ? "finish" : "player",
@@ -310,8 +323,21 @@ export function StillnessLibrary({
 
   return (
     <section className={page === "Stillness" ? "ss-support-root ss-support-page" : "ss-support-root"} aria-label="Stillness support">
+      {!panel && draft.loaded && draft.value && <div className="ss-practice-resume">
+        <p>Continue {title(draft.value.choice)} when you choose. Progress is kept for this account on this device.</p>
+        <div className="ss-support-actions">
+          <button onClick={() => {
+            const saved = draft.value!;
+            setPaused(false); setElapsed(0);
+            setPanel({ type: "player", ...saved });
+          }}>Resume practice</button>
+          <button onClick={() => draft.update(null)}>Discard</button>
+        </div>
+      </div>}
+      {draft.storageError && <p role="status">Practice progress could not be restored or saved on this device. You can continue here, but it may not be available after leaving.</p>}
       {page === "Stillness" ? (
         <>
+          <StillnessPreferences preferences={preferences} />
           <div className="ss-support-heading">
             <div>
               <small>STILLNESS / SUPPORT LIBRARY</small>
@@ -412,6 +438,7 @@ export function StillnessLibrary({
               </small>
               <h2>{selected.name}</h2>
               <p>{selected.desc}</p>
+              {selected.guidance && <>{languageChoice}<Understanding item={selected} /></>}
               <ol>
                 {selected.steps.map(([label], step) => (
                   <li key={label}>
@@ -437,6 +464,7 @@ export function StillnessLibrary({
               <div className="ss-support-actions">
                 <button
                   className="ss-support-primary"
+                  disabled={!draft.loaded}
                   onClick={() => run({ itemId: selected.id }, true)}
                 >
                   Try {selected.kind.toLowerCase()}
@@ -503,6 +531,7 @@ export function StillnessLibrary({
                   </div>
                   <button
                     className="ss-support-primary"
+                    disabled={!draft.loaded}
                     onClick={() => run(choice)}
                   >
                     Begin {title(choice)}
@@ -627,7 +656,11 @@ export function StillnessLibrary({
               <>
                 <small>PREVIEW / INDIVIDUAL PIECE</small>
                 <h2>{title(panel.choice)}</h2>
-                <p>{ordered[0][1]}</p>
+                <p className="ss-practice-copy">{ordered[0][1]}</p>
+                {currentItem?.guidance && <>{languageChoice}
+                  {preferences.value.language === "spiritual" && <p>{currentItem.guidance.context[current?.piece ?? 0]}</p>}
+                  <Understanding item={currentItem} />
+                </>}
                 <div className="ss-support-actions">
                   <button onClick={() => setPanel(null)}>
                     Back to preview
@@ -647,9 +680,14 @@ export function StillnessLibrary({
                   {index + 1} OF {ordered.length}
                 </small>
                 <h2>{ordered[index][0]}</h2>
-                <p>{ordered[index][1]}</p>
+                <p className="ss-practice-copy">{ordered[index][1]}</p>
+                {currentItem?.guidance && <>{languageChoice}
+                  {preferences.value.language === "spiritual" && <p>{currentItem.guidance.context[absoluteStep]}</p>}
+                  <Understanding item={currentItem} />
+                </>}
                 <p className="ss-support-count">
-                  {paused
+                  {away ? "Take the time you need. Continue here when you return."
+                    : paused
                     ? "Paused"
                     : elapsed
                       ? elapsed + "s · continue at your pace"
@@ -661,9 +699,15 @@ export function StillnessLibrary({
                   </button>
                   <button onClick={next}>Skip this step</button>
                   <button className="ss-support-primary" onClick={next}>
-                    {index === ordered.length - 1 ? "Finish" : "Continue"}
+                    {away ? "I’m back" : index === ordered.length - 1 ? "Finish" : "Continue"}
                   </button>
+                  {currentItem?.id === "fix-a-loss" && absoluteStep === 1 && <button onClick={() => {
+                    const saved = { choice: { itemId: panel.choice.itemId }, step: 0, preview: !!panel.preview };
+                    draft.update(saved); setPanel({ type: "player", ...saved }); setElapsed(0); setPaused(false);
+                  }}>Take more time away</button>}
                 </div>
+                {draft.storageError && <p role="status">Progress is available here but could not be saved on this device. Keep this page open to continue.</p>}
+                {preferences.storageError && <p role="status">This language choice could not be saved on this device.</p>}
               </>
             ) : (
               <>
@@ -678,6 +722,7 @@ export function StillnessLibrary({
                     ? "Nothing was added to your day."
                     : find(panel.choice).question}
                 </p>
+                {panel.preview && currentItem?.guidance && <p>{currentItem.question}</p>}
                 <div className="ss-support-actions">
                   {panel.preview ? (
                     <button
@@ -717,4 +762,9 @@ export function StillnessLibrary({
       </dialog>
     </section>
   );
+}
+
+// Reset all transient UI on account changes before it can show another account's draft.
+export function StillnessLibrary(props: Parameters<typeof StillnessLibraryForOwner>[0]) {
+  return <StillnessLibraryForOwner key={props.owner} {...props} />;
 }
