@@ -83,6 +83,30 @@ test("new practice language and deeper understanding preserve the current step; 
   } finally { await ui.close(); }
 });
 
+test("library shows every card without a sidebar; a card opens the complete overview without starting a draft", async () => {
+  const ui = await setup();
+  try {
+    assert.equal(document.querySelectorAll(".ss-support-card").length, catalogue.length);
+    assert.equal(document.querySelector('[aria-label="Support preview"]'), null);
+    assert.equal(document.querySelector("dialog[open]"), null);
+    await ui.choose("fix-a-loss");
+    assert.ok(ui.player().classList.contains("ss-support-overview"));
+    assert.equal(ui.player().querySelectorAll(".ss-support-overview-steps li").length, 5);
+    assert.match(ui.player().textContent!, /The question can remain unanswered while you are away/);
+    assert.match(ui.player().textContent!, /A factual review can have its own time later/);
+    await ui.language("direct");
+    assert.doesNotMatch(ui.player().textContent!, /Presence can begin/);
+    assert.equal(localStorage.getItem(`ss-stillness-practice:${ui.owner()}`), null);
+    await act(async () => ui.player().querySelector<HTMLButtonElement>(".ss-support-overview-steps button")!.click());
+    assert.match(ui.player().textContent!, /PREVIEW \/ INDIVIDUAL PIECE/);
+    await ui.click("Back to preview");
+    assert.equal(ui.player().querySelectorAll(".ss-support-overview-steps li").length, 5);
+    await ui.click("Back to library");
+    assert.equal(document.querySelectorAll(".ss-support-card").length, catalogue.length);
+    assert.equal(ui.writes(), 0);
+  } finally { await ui.close(); }
+});
+
 test("drafts survive navigation and reload without reopening or writing daily records, finish and discard clear them", async () => {
   const ui = await setup();
   try {

@@ -23,7 +23,7 @@ type Destination = StillnessSelection["destination"];
 type Choice = Pick<StillnessSelection, "itemId" | "piece">;
 type Panel =
   | {
-      type: "piece" | "add" | "player" | "finish";
+      type: "overview" | "piece" | "add" | "player" | "finish";
       choice: Choice;
       step?: number;
       preview?: boolean;
@@ -102,21 +102,20 @@ function StillnessLibraryForOwner({
 }) {
   const preferences = useStillnessPreferences(owner);
   const draft = useStillnessDraft(owner);
-  const [selected, setSelected] = useState(catalogue[0]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [tags, setTags] = useState<string[]>([]);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  useEffect(() => {
+    setPanel(null);
+  }, [active, page]);
   useEffect(() => {
     if (!browse) return;
     setSearch("");
     setFilter("All");
     setTags(browse.tags);
-    setSelected(catalogue.find((item) => item.id === browse.itemId) ?? catalogue[0]);
+    if (known({ itemId: browse.itemId })) setPanel({ type: "overview", choice: { itemId: browse.itemId } });
   }, [browse]);
-  const [panel, setPanel] = useState<Panel | null>(null);
-  useEffect(() => {
-    setPanel(null);
-  }, [active, page]);
   const [destination, setDestination] = useState<Destination>("Preparation");
   const [keep, setKeep] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -404,7 +403,7 @@ function StillnessLibraryForOwner({
                 ))}
               </div>
               <p className="ss-support-count">
-                {results.length} ways to make a little space
+                {results.length} {results.length === 1 ? "way" : "ways"} to make a little space
               </p>
               <div className="ss-support-cards">
                 {results.map((item) => (
@@ -412,8 +411,8 @@ function StillnessLibraryForOwner({
                     type="button"
                     key={item.id}
                     className="ss-support-card"
-                    aria-pressed={item.id === selected.id}
-                    onClick={() => setSelected(item)}
+                    aria-haspopup="dialog"
+                    onClick={() => setPanel({ type: "overview", choice: { itemId: item.id } })}
                   >
                     <Art item={item} />
                     <div>
@@ -423,61 +422,13 @@ function StillnessLibraryForOwner({
                       <h3>{item.name}</h3>
                       <p>{item.desc}</p>
                       <small>{item.tags.join(" · ")}</small>
+                      <span className="ss-support-card-link">Take a closer look <span aria-hidden="true">↗</span></span>
                     </div>
                   </button>
                 ))}
               </div>
               {!results.length && <p>No support matches those filters.</p>}
             </div>
-            <aside className="ss-support-preview" aria-label="Support preview">
-              <small>A CLOSER LOOK</small>
-              <Art item={selected} />
-              <small>
-                {selected.kind} · {selected.duration} · {selected.steps.length}{" "}
-                {selected.steps.length === 1 ? "piece" : "pieces"}
-              </small>
-              <h2>{selected.name}</h2>
-              <p>{selected.desc}</p>
-              {selected.guidance && <>{languageChoice}<Understanding item={selected} /></>}
-              <ol>
-                {selected.steps.map(([label], step) => (
-                  <li key={label}>
-                    <button
-                      onClick={() =>
-                        setPanel({
-                          type: "piece",
-                          choice: {
-                            itemId: selected.id,
-                            ...(selected.steps.length > 1
-                              ? { piece: step }
-                              : {}),
-                          },
-                        })
-                      }
-                    >
-                      <span>{step + 1}</span> {label}{" "}
-                      <b aria-hidden="true">↗</b>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-              <div className="ss-support-actions">
-                <button
-                  className="ss-support-primary"
-                  disabled={!draft.loaded}
-                  onClick={() => run({ itemId: selected.id }, true)}
-                >
-                  Try {selected.kind.toLowerCase()}
-                </button>
-                <button onClick={() => add({ itemId: selected.id })}>
-                  Add to my day
-                </button>
-              </div>
-              <p className="ss-support-count">
-                Previewing adds nothing. Add for today, with the option to keep
-                a copy for later.
-              </p>
-            </aside>
           </div>
         </>
       ) : (
@@ -569,7 +520,7 @@ function StillnessLibraryForOwner({
         </div>
       )}
       <dialog
-        className="ss-support-dialog"
+        className={`ss-support-dialog${panel?.type === "overview" ? " ss-support-overview" : ""}`}
         ref={dialog}
         aria-label="Stillness support"
         onCancel={() => setPanel(null)}
@@ -583,7 +534,29 @@ function StillnessLibraryForOwner({
             >
               ×
             </button>
-            {panel.type === "saved" ? (
+            {panel.type === "overview" ? (
+              <>
+                <small>A CLOSER LOOK / {find(panel.choice).kind.toUpperCase()} · {find(panel.choice).duration}</small>
+                <h2>{title(panel.choice)}</h2>
+                <p>{find(panel.choice).desc}</p>
+                {currentItem?.guidance && languageChoice}
+                <ol className="ss-support-overview-steps">
+                  {ordered.map(([label, text], step) => <li key={step}>
+                    <h3>{label}</h3>
+                    <p className="ss-practice-copy">{text}</p>
+                    {preferences.value.language === "spiritual" && currentItem?.guidance && <p className="ss-step-context">{currentItem.guidance.context[step]}</p>}
+                    <button onClick={() => setPanel({ type: "piece", choice: { itemId: panel.choice.itemId, ...(ordered.length > 1 ? { piece: step } : {}) } })}>Use this piece</button>
+                  </li>)}
+                </ol>
+                {currentItem && <Understanding item={currentItem} />}
+                <p className="ss-support-count">Previewing adds nothing. Add for today, with the option to keep a copy for later.</p>
+                <div className="ss-support-overview-actions ss-support-actions">
+                  <button className="ss-support-primary" disabled={!draft.loaded} onClick={() => run(panel.choice, true)}>Try {find(panel.choice).kind.toLowerCase()}</button>
+                  <button onClick={() => add(panel.choice)}>Add to my day</button>
+                  <button onClick={() => setPanel(null)}>Back to library</button>
+                </div>
+              </>
+            ) : panel.type === "saved" ? (
               <>
                 <small>AVAILABLE WHEN YOU CHOOSE</small>
                 <h2>Saved support</h2>
@@ -662,7 +635,7 @@ function StillnessLibraryForOwner({
                   <Understanding item={currentItem} />
                 </>}
                 <div className="ss-support-actions">
-                  <button onClick={() => setPanel(null)}>
+                  <button onClick={() => setPanel({ type: "overview", choice: { itemId: panel.choice.itemId } })}>
                     Back to preview
                   </button>
                   <button

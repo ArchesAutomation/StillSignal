@@ -139,14 +139,11 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   gap: 7px;
 }
 .ss-support-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
-  gap: 20px;
-  align-items: start;
+  width: 100%;
 }
 .ss-support-cards {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .ss-support-root .ss-support-card {
@@ -165,6 +162,12 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 }
 .ss-support-card small:last-child {
   margin-top: 10px;
+}
+.ss-support-card-link {
+  display: block;
+  margin-top: 14px;
+  color: var(--accent);
+  font-size: 13px;
 }
 .ss-support-art {
   display: grid;
@@ -203,43 +206,6 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 }
 .ss-support-art span {
   font-size: 20px;
-}
-.ss-support-preview {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 17px;
-  padding: 18px;
-}
-.ss-support-preview .ss-support-art {
-  margin: 10px 0;
-  border-radius: 9px;
-}
-.ss-support-preview ol {
-  display: grid;
-  gap: 5px;
-  padding: 0;
-  list-style: none;
-  margin: 15px 0;
-}
-.ss-support-preview li button {
-  width: 100%;
-  text-align: left;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.ss-support-preview li button b {
-  margin-left: auto;
-  color: var(--accent);
-}
-.ss-support-preview li span {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--lavender);
 }
 .ss-support-root .ss-support-count,
 .ss-support-dialog .ss-support-count {
@@ -303,6 +269,46 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   width: auto;
   accent-color: var(--accent);
 }
+.ss-support-dialog.ss-support-overview {
+  width: min(1000px, calc(100vw - 24px));
+  padding: clamp(20px, 3vw, 40px);
+}
+.ss-support-overview h2 { max-width: 28ch; font-size: clamp(28px, 3.5vw, 42px); }
+.ss-support-overview h3 { margin: 0 0 8px; font: 400 23px/1.25 Georgia, serif; }
+.ss-support-overview-steps {
+  list-style: none;
+  counter-reset: practice-step;
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 0;
+}
+.ss-support-overview-steps li {
+  counter-increment: practice-step;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 20px 20px 62px;
+  background: var(--paper);
+}
+.ss-support-overview-steps li::before {
+  content: counter(practice-step);
+  position: absolute;
+  left: 18px;
+  top: 20px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ss-support-overview-steps button { margin-top: 12px; }
+.ss-support-overview-steps .ss-step-context { margin-top: 10px; }
+.ss-support-dialog .ss-support-overview-actions {
+  position: sticky;
+  bottom: -1px;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--line);
+  background: var(--base);
+}
 .ss-stillness-personal { margin-bottom: 24px; }
 .ss-stillness-quote {
   margin: 0 0 14px;
@@ -360,26 +366,14 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   outline-offset: 3px;
 }
 @media (max-width: 900px) {
-  .ss-support-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(230px, 0.8fr);
-  }
-  .ss-support-cards {
-    grid-template-columns: 1fr;
-  }
-}
-@media (max-width: 650px) {
-  .ss-support-layout {
-    grid-template-columns: 1fr;
-  }
   .ss-support-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .ss-support-preview {
-    grid-row: 1;
-  }
 }
-@media (max-width: 400px) {
+@media (max-width: 650px) {
   .ss-support-cards {
     grid-template-columns: 1fr;
   }
+  .ss-support-overview-steps li { padding: 16px 16px 16px 42px; }
+  .ss-support-overview-steps li::before { left: 14px; top: 18px; }
 }
