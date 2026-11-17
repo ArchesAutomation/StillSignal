@@ -3,6 +3,9 @@ const config: NextConfig = {
   distDir: process.env.STILL_SIGNAL_QA_DIST || ".next",
   poweredByHeader: false,
   devIndicators: false,
+  experimental: {
+    agentUpgrade: "security",
+  },
   async headers() {
     const configured = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const url = configured ? new URL(configured) : null;
