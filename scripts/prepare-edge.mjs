@@ -138,7 +138,7 @@ for (const [name, source] of [
       if (
         !file.endsWith(".ts") ||
         (source === "process" &&
-          ["storage.ts", "session-review.ts"].includes(file))
+          ["storage.ts", "session-review.ts", "preparation-status.ts", "support-history.ts"].includes(file))
       )
         continue;
       await writeFile(
@@ -160,4 +160,29 @@ for (const [name, source] of [
     ) + "\n",
   );
 }
-console.log("Prepared seven source-generated Supabase Edge Functions.");
+// Local assistant prototype. Serve only with the local Supabase stack; its handler
+// refuses to run unless SUPABASE_URL is local and STILL_SIGNAL_ASSISTANT_LOCAL=true.
+{
+  const directory = "supabase/functions/pulse-assistant";
+  await mkdir(directory, { recursive: true });
+  const edge = (text) =>
+    text
+      .replace(/from ["']@\/lib\/([^"']+)["']/g, (_, path) => 'from "./' + path + '.ts"')
+      .replace(/from ["'](\.\/[^"']+)["']/g, (_, path) => 'from "' + (path.endsWith(".ts") ? path : path + ".ts") + '"')
+      .replace(/process\.env\.([A-Z_]+)/g, (_, key) => 'Deno.env.get("' + key + '")')
+      .replace('from "zod"', 'from "npm:zod@4.6.7"')
+      .replace('from "ai"', 'from "npm:ai@7.0.163"')
+      .replace('from "@openrouter/ai-sdk-provider"', 'from "npm:@openrouter/ai-sdk-provider@3.1.0"');
+  await writeFile(directory + "/handler.ts", edge(await readFile("src/lib/handlers/assistant.ts", "utf8")));
+  for (const file of ["assistant-tool.ts", "validation.ts", "blueprint-schema.ts"])
+    await writeFile(directory + "/" + file, edge(await readFile("src/lib/" + file, "utf8")));
+  await writeFile(
+    directory + "/index.ts",
+    'import { POST } from "./handler.ts";\nDeno.serve((request:Request)=>request.method==="POST"?POST(request):Response.json({error:"Method not allowed."},{status:405,headers:{Allow:"POST"}}));\n',
+  );
+  await writeFile(
+    directory + "/deno.json",
+    JSON.stringify({ compilerOptions: { strict: true }, nodeModulesDir: "auto" }, null, 2) + "\n",
+  );
+}
+console.log("Prepared eight source-generated Supabase Edge Functions.");
