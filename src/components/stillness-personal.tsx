@@ -5,6 +5,7 @@ import { z } from "zod";
 import { catalogue } from "@/lib/stillness-catalogue";
 import { defaultStillnessQuote, type StillnessItem } from "@/lib/stillness-practices";
 import { useSavedGuide } from "./use-saved-guide";
+import JournalSelect from "./concept/journal-select";
 
 export type GuidanceLanguage = "direct" | "spiritual";
 const preferencesSchema = z.object({
@@ -34,12 +35,12 @@ export function useStillnessDraft(owner: string) {
 export function LanguageChoice({ value, onChange, disabled }: {
   value: GuidanceLanguage; onChange: (value: GuidanceLanguage) => void; disabled?: boolean;
 }) {
-  return <label className="ss-guidance-language">Practice language{" "}
-    <select value={value} disabled={disabled} onChange={event => onChange(event.target.value as GuidanceLanguage)}>
+  return <div className="ss-guidance-language"><span>Practice language</span>
+    <JournalSelect aria-label="Practice language" value={value} disabled={disabled} onChange={event => onChange(event.target.value as GuidanceLanguage)}>
       <option value="direct">Direct</option>
       <option value="spiritual">With spiritual context</option>
-    </select>
-  </label>;
+    </JournalSelect>
+  </div>;
 }
 
 export function Understanding({ item }: { item: StillnessItem }) {

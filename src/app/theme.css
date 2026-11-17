@@ -26,6 +26,10 @@
   --theme-danger-tint: #F4E5DE;
   --theme-warning: #8A5A00;
   --theme-shadow: #1F1A2B;
+  --theme-focus-impulse: #8C4A00;
+  --theme-focus-wait: #215B97;
+  --theme-focus-fear: #A33942;
+  --theme-focus-greed: #216B3C;
 }
 
 :root[data-mode="dark"],
@@ -54,6 +58,10 @@
   --theme-danger-tint: #554248;
   --theme-warning: #F2CC72;
   --theme-shadow: #000000;
+  --theme-focus-impulse: #FFBF73;
+  --theme-focus-wait: #94C7FF;
+  --theme-focus-fear: #FFA8AD;
+  --theme-focus-greed: #9EDBB1;
 }
 
 :root[data-palette="berry"] {
@@ -81,6 +89,10 @@
   --theme-danger-tint: #F4E7E4;
   --theme-warning: #8A5A00;
   --theme-shadow: #1F1A2B;
+  --theme-focus-impulse: #985000;
+  --theme-focus-wait: #215B97;
+  --theme-focus-fear: #A33942;
+  --theme-focus-greed: #216B3C;
 }
 
 :root[data-palette="berry"][data-mode="dark"] {
@@ -108,6 +120,10 @@
   --theme-danger-tint: #583D41;
   --theme-warning: #F2CC72;
   --theme-shadow: #000000;
+  --theme-focus-impulse: #FFBF73;
+  --theme-focus-wait: #94C7FF;
+  --theme-focus-fear: #FFA8AD;
+  --theme-focus-greed: #9EDBB1;
 }
 
 :root[data-palette="custom"] { color-scheme: light; }

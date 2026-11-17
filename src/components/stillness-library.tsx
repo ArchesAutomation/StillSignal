@@ -12,7 +12,7 @@ import {
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./process/use-process";
 import { LanguageChoice, StillnessPreferences, Understanding, useStillnessDraft, useStillnessPreferences } from "./stillness-personal";
@@ -60,6 +60,23 @@ const known = (choice: Choice) => {
   );
 };
 const todayIn = (timezone: string) => dateInZone(Date.now(), timezone);
+const focusColours: Record<string, string> = {
+  Impulsiveness: "var(--theme-focus-impulse)",
+  Impatience: "var(--theme-focus-wait)",
+  Fear: "var(--theme-focus-fear)",
+  Greed: "var(--theme-focus-greed)",
+};
+const focusStyle = (tag: string) => ({ "--ss-focus": focusColours[tag] ?? "var(--theme-link)" }) as CSSProperties;
+
+function FocusBadges({ item }: { item: Item }) {
+  return <div className="ss-focus-badges">{item.tags.map(tag =>
+    <span className="ss-focus-badge" data-focus={tag} style={focusStyle(tag)} key={tag}><i aria-hidden="true" />{tag}</span>,
+  )}</div>;
+}
+
+function FocusRail({ item }: { item: Item }) {
+  return <div className="ss-focus-rail" aria-hidden="true">{item.tags.map(tag => <span key={tag} data-focus={tag} style={focusStyle(tag)} />)}</div>;
+}
 
 function Art({ item }: { item: Item }) {
   return (
@@ -370,6 +387,9 @@ function StillnessLibraryForOwner({
                 return (
                   <button
                     key={focus}
+                    className="ss-focus-filter"
+                    data-focus={title}
+                    style={focusStyle(title)}
                     aria-pressed={tags.includes(title)}
                     onClick={() =>
                       setTags((previous) =>
@@ -379,7 +399,7 @@ function StillnessLibraryForOwner({
                       )
                     }
                   >
-                    {title}
+                    <i aria-hidden="true" />{title}
                   </button>
                 );
               })}
@@ -414,14 +434,14 @@ function StillnessLibraryForOwner({
                     aria-haspopup="dialog"
                     onClick={() => setPanel({ type: "overview", choice: { itemId: item.id } })}
                   >
-                    <Art item={item} />
+                    <FocusRail item={item} />
                     <div>
                       <small>
                         {item.kind} · {item.duration}
                       </small>
                       <h3>{item.name}</h3>
                       <p>{item.desc}</p>
-                      <small>{item.tags.join(" · ")}</small>
+                      <FocusBadges item={item} />
                       <span className="ss-support-card-link">Take a closer look <span aria-hidden="true">↗</span></span>
                     </div>
                   </button>
@@ -474,6 +494,7 @@ function StillnessLibraryForOwner({
                   {(preparation || closing) && <Art item={find(choice)} />}
                   <div>
                     <strong>{title(choice)}</strong>
+                    <FocusBadges item={find(choice)} />
                     <p>
                       {steps(choice)
                         .map(([name]) => name)
@@ -539,6 +560,7 @@ function StillnessLibraryForOwner({
                 <small>A CLOSER LOOK / {find(panel.choice).kind.toUpperCase()} · {find(panel.choice).duration}</small>
                 <h2>{title(panel.choice)}</h2>
                 <p>{find(panel.choice).desc}</p>
+                <FocusBadges item={find(panel.choice)} />
                 {currentItem?.guidance && languageChoice}
                 <ol className="ss-support-overview-steps">
                   {ordered.map(([label, text], step) => <li key={step}>

@@ -12,6 +12,19 @@ text, optional spiritual context, deeper understanding, individual-piece preview
 and Try / Add to my day actions. Closing it preserves the current search and filters.
 Opening the overview does not start a practice or create an unfinished draft.
 
+Category colours have stable meanings across Signature, Berry Sky and custom
+palettes: fear is red, impatience blue, impulsiveness orange, and greed green.
+New semantic theme tokens adjust their shade for light/dark contrast, without
+changing those meanings. Each card has a split colour rail and readable category
+badges; overview/daily-support badges and filter hover/selection use the same map.
+The card surfaces and ordinary controls retain the chosen account theme. Labels
+keep the meaning available without relying on colour alone.
+
+Practice language uses the existing JournalSelect component: a compact rounded
+trigger, keyboard navigation and a themed popover. Its menu is portalled within
+the active native dialog so it remains visible above the modal. Escape closes
+the language menu first. The existing device-local language preference is unchanged.
+
 ## Try it
 
 1. Open Stillness → Support library. The opening ICT quote appears above browsing.
@@ -64,11 +77,19 @@ Baseline: main `6250627a20e4b80c881daa537c00b2777425e39a` had successful Workers
 Builds and Production smoke checks; the live `/api/health` responded successfully.
 
 - `node --import ./tests/browser-environment.mjs --import tsx --test tests/stillness-guidance.test.ts`
-  — passed, 6 behavioural tests (full library/card-to-overview navigation,
+  — passed, 7 behavioural tests (matching rails and labels, keyboard selection
+  within the native dialog, full library/card-to-overview navigation,
   language/deeper explanation, away stage, navigation
   and restoration, quote preferences/account isolation, daily destinations/saved
   support, and invalid/unavailable storage).
-- `npm run check` — passed: type checking, all 310 tests, production Vite build.
+- `node --import ./tests/browser-environment.mjs --import tsx --test tests/stillness-guidance.test.ts tests/theme.test.ts`
+  — passed, 15 tests. Theme tests cover category hue consistency, contrast on
+  badges/selected filters in both presets and extreme custom palettes, existing
+  custom-theme generation, and generated CSS consistency.
+- `node --import tsx scripts/generate-theme-css.ts` — regenerated theme.css from
+  the shared theme definitions, adding four semantic tokens without changing
+  saved theme settings.
+- `npm run check` — passed: type checking, all 312 tests, production Vite build.
 - `git diff --check` — passed.
 - Browser review used synthetic `/review` data at desktop size and 390×844.
   Verified quote edit/save/hide/default restoration, switching language without
@@ -78,6 +99,11 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
   13 cards are present, all five loss-sequence steps are in the overview, mobile
   has no horizontal overflow, language switching preserves the overview, and
   Try sequence still enters the explicit away/return player.
+  Colour rails, badges and filtering were also checked in Signature and Berry Sky
+  light/dark. The Journal-style picker opens above the modal, changes language
+  without resetting steps, and Escape closes just the menu. At 390×844 its menu
+  stays within the viewport. The original Signature dark appearance and Direct
+  language preference were restored after the browser checks.
 - The default development server attempted remote AI binding access without a
   Cloudflare token. Browser review instead used a temporary, uncommitted Vite
   configuration with `plugins: [vinext()]`, `APP_ENV=staging`,
@@ -96,8 +122,10 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
 
 ![Desktop library, quote, and selected loss sequence](stillness-guidance/library-desktop.jpg)
 
-![Wide sequence overview](stillness-guidance/overview-desktop.jpg)
+![Wide sequence overview and Journal-style language picker](stillness-guidance/overview-desktop.jpg)
 
-![Phone-sized sequence overview](stillness-guidance/overview-mobile.jpg)
+![Phone-sized sequence overview and language picker in dark mode](stillness-guidance/overview-mobile.jpg)
+
+![Colour rails and badges in Signature dark](stillness-guidance/library-dark.jpg)
 
 ![Phone-sized away stage](stillness-guidance/away-mobile.jpg)

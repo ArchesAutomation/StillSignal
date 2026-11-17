@@ -163,6 +163,35 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 .ss-support-card small:last-child {
   margin-top: 10px;
 }
+.ss-focus-rail { display: flex; width: 100%; height: 6px; flex: 0 0 6px; }
+.ss-focus-rail > span { flex: 1; background: var(--ss-focus); }
+.ss-focus-badges { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.ss-focus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ss-focus);
+  background: color-mix(in srgb, var(--ss-focus) 10%, var(--paper));
+}
+.ss-focus-badge i, .ss-focus-filter i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--ss-focus);
+}
+.ss-support-root .ss-focus-filter { display: inline-flex; align-items: center; gap: 8px; }
+.ss-support-root .ss-focus-filter:hover, .ss-support-root .ss-focus-filter[aria-pressed="true"] {
+  border-color: var(--ss-focus);
+  background: color-mix(in srgb, var(--ss-focus) 18%, var(--paper));
+}
+.ss-support-root .ss-focus-filter[aria-pressed="true"] { color: var(--ss-focus); }
 .ss-support-card-link {
   display: block;
   margin-top: 14px;
@@ -338,7 +367,6 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 .ss-understanding a { color: var(--accent); text-decoration: underline; }
 .ss-understanding ul { padding-left: 20px; }
 .ss-understanding li + li { margin-top: 8px; }
-.ss-support-root .ss-guidance-language, .ss-support-dialog .ss-guidance-language,
 .ss-stillness-preferences > label, .ss-quote-editor label {
   display: flex;
   flex-wrap: wrap;
@@ -346,8 +374,18 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   align-items: center;
   margin: 14px 0;
 }
+.ss-support-root .ss-guidance-language, .ss-support-dialog .ss-guidance-language {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  margin: 16px 0;
+}
+.ss-guidance-language > span:first-child { font-size: 12px; color: var(--quiet); }
+.ss-guidance-language .ss-journal-select { width: min(100%, 290px); }
+.ss-support-root .ss-guidance-language .ss-select-trigger,
+.ss-support-dialog .ss-guidance-language .ss-select-trigger { font-size: 13px; min-height: 40px; }
 .ss-quote-editor label { display: grid; }
-.ss-quote-editor textarea, .ss-quote-editor input, .ss-guidance-language select {
+.ss-quote-editor textarea, .ss-quote-editor input {
   font: inherit;
   color: var(--ink);
   background: var(--base);

@@ -16,6 +16,7 @@ async function setup() {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   dom.window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+  dom.window.HTMLElement.prototype.scrollIntoView = function () {};
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(document.getElementById("root")!);
   let owner = crypto.randomUUID();
@@ -103,6 +104,29 @@ test("library shows every card without a sidebar; a card opens the complete over
     assert.equal(ui.player().querySelectorAll(".ss-support-overview-steps li").length, 5);
     await ui.click("Back to library");
     assert.equal(document.querySelectorAll(".ss-support-card").length, catalogue.length);
+    assert.equal(ui.writes(), 0);
+  } finally { await ui.close(); }
+});
+
+test("focus rails match readable labels and the Journal language picker works by keyboard inside the dialog", async () => {
+  const ui = await setup();
+  try {
+    const card = [...document.querySelectorAll(".ss-support-card")].find(card => card.textContent?.includes("Make room for waiting"))!;
+    assert.deepEqual([...card.querySelectorAll(".ss-focus-rail span")].map(node => node.getAttribute("data-focus")), ["Impatience", "Impulsiveness"]);
+    assert.deepEqual([...card.querySelectorAll(".ss-focus-badge")].map(node => node.textContent), ["Impatience", "Impulsiveness"]);
+    await ui.choose("fix-a-loss");
+    const trigger = ui.player().querySelector<HTMLButtonElement>('[role="combobox"]')!;
+    await act(async () => trigger.click());
+    assert.ok(ui.player().querySelector('[role="listbox"]'), "menu stays within the native dialog top layer");
+    await act(async () => trigger.dispatchEvent(new ui.dom.window.KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })));
+    await act(async () => trigger.dispatchEvent(new ui.dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    assert.equal(trigger.textContent?.trim(), "Direct");
+    assert.equal(ui.player().querySelectorAll(".ss-step-context").length, 0);
+    assert.ok(ui.player().classList.contains("ss-support-overview"));
+    await act(async () => trigger.click());
+    await act(async () => trigger.dispatchEvent(new ui.dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    assert.equal(ui.player().querySelector('[role="listbox"]'), null);
+    assert.ok(ui.player().classList.contains("ss-support-overview"));
     assert.equal(ui.writes(), 0);
   } finally { await ui.close(); }
 });
