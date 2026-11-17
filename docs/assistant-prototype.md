@@ -10,6 +10,8 @@ A small chat panel beside the synthetic `/review` workspace. It answers "What's 
 
 A second read-only tool, `support_history`, answers "What support did I choose yesterday?" and "…last week?" (the previous Monday to Sunday, in the same day timezone as the screens). The browser reads only the review account's records for those dates through `supportHistory` (`src/lib/process/support-history.ts`), which uses the app's day lookup (`tradingDayFor`), Home focus titles and Stillness catalogue names. Each day keeps Home focuses (`day.body.supportFocuses`) apart from practices added to Preparation or Done for the Day (`day.body.stillness` by destination). Still Signal saves additions, not completion, so the card and the reply say so. An empty range, a read failure (shown as an error) and an unchecked cloud sync (`sync: "not-checked"`, only when a cloud account exists) are reported differently. A follow-up such as "And last week?" keeps the topic because the earlier tool call stays in the conversation.
 
+Both tools take the same period, which the browser resolves (`resolvePeriod`, `src/lib/process/periods.ts`) in the screens' day timezone; the model only names it. Supported: today (the default), yesterday, this or last week (last week is the previous Monday to Sunday), this or last month, a weekday (the most recent one on or before today, or "this"/"last" week's), a day and month (the most recent one), or a full date. "This" periods end today. Future dates, ranges over 31 days and dates more than 366 days back are refused with a message, which is reported apart from a read failure. `preparation_status` for a past date or range returns each day's arrival, intention, boundary, Home focus and Preparation support (`preparationForPeriod`); for just today it returns exactly what the Preparation screen shows.
+
 When the prototype is enabled, `/review` adds synthetic Preparation records for today (arrival, intention, boundary, Home focus and one Stillness item), but only when today has no Preparation yet. It also adds support history for yesterday and last week (saved, support-free and empty days) to dates that have no day yet. They are saved to the browser's local review store and are never synced.
 
 ## Run it (Windows PowerShell)
@@ -48,7 +50,9 @@ Never run `supabase link`, `supabase functions deploy` or `supabase secrets set`
 
 ## Checks
 
-`node --import ./tests/browser-environment.mjs --import tsx --test tests/assistant-prototype.test.ts tests/assistant-support-history.test.ts` covers:
+`node --import ./tests/browser-environment.mjs --import tsx --test tests/assistant-prototype.test.ts tests/assistant-support-history.test.ts tests/assistant-dated-reads.test.ts` covers:
+
+- period resolution (month, year and daylight-saving boundaries, weekdays, refused periods), Preparation and support for past periods, the range card, account isolation, and explicit day-of-month and full-date requests through the handler;
 
 - support ranges across a local date boundary, last week as Monday to Sunday, Home versus Preparation versus Done, additions without completion, empty versus failed reads, account isolation and the follow-up context;
 

@@ -16,15 +16,16 @@ import {
   type UIMessage,
 } from "ai";
 import { useRef, useState } from "react";
-import {
-  PREPARATION_TOOL,
-  SUPPORT_HISTORY_TOOL,
-  SUPPORT_RANGES,
-  type SupportRange,
-} from "@/lib/assistant-tool";
+import { PREPARATION_TOOL, SUPPORT_HISTORY_TOOL } from "@/lib/assistant-tool";
 import { cloudConfigured } from "@/lib/cloud";
 import { dateInZone } from "@/lib/process/model";
-import { preparationStatus, type PreparationStatus } from "@/lib/process/preparation-status";
+import { PeriodError, resolvePeriod } from "@/lib/process/periods";
+import {
+  preparationForPeriod,
+  type PreparationDay,
+  type PreparationHistory,
+  type PreparationStatus,
+} from "@/lib/process/preparation-status";
 import { readProcess } from "@/lib/process/storage";
 import {
   supportHistory,
@@ -36,29 +37,82 @@ import "./preparation-assistant.css";
 
 // The day timezone the app's screens use when they save and look up a day.
 const dayTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-
-/** Runs in the browser: the same local records and helper as the Preparation screen. Read-only. */
-export async function readPreparationStatus(owner: string, now = Date.now()) {
-  const timezone = dayTimezone();
-  return preparationStatus(await readProcess(owner), dateInZone(now, timezone), timezone);
-}
+// Reads never sync, so a cloud account is reported as "not-checked".
+const sync = () => (cloudConfigured ? "not-checked" : "local-only");
 
 /**
- * Runs in the browser: only this account's records on this device, for the requested dates.
- * Read-only: it never syncs, so a cloud account is reported as "not-checked".
+ * Runs in the browser: only this account's records on this device, for the resolved dates.
+ * The period is checked before anything is read, so a bad period never looks like a read failure.
  */
-export async function readSupportHistory(
+export async function readPreparation(
   owner: string,
-  range: SupportRange,
+  input: unknown = {},
   now = Date.now(),
   timezone = dayTimezone(),
 ) {
-  return supportHistory(
-    await readProcess(owner),
-    range,
-    now,
-    timezone,
-    cloudConfigured ? "not-checked" : "local-only",
+  resolvePeriod(input, dateInZone(now, timezone));
+  return preparationForPeriod(await readProcess(owner), input, now, timezone, sync());
+}
+
+export async function readSupportHistory(
+  owner: string,
+  input: unknown = {},
+  now = Date.now(),
+  timezone = dayTimezone(),
+) {
+  resolvePeriod(input, dateInZone(now, timezone));
+  return supportHistory(await readProcess(owner), input, now, timezone, sync());
+}
+
+const periodSpan = (history: { from: string; to: string; label: string }) =>
+  `${history.label.toUpperCase()} · ${history.from === history.to ? history.from : `${history.from} to ${history.to}`}`;
+
+function Rows({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function PreparationDayRows({ day }: { day: PreparationDay }) {
+  const rows: [string, string][] = [];
+  if (day.arrival.length) rows.push(["Arriving", day.arrival.join(" · ")]);
+  if (day.intention) rows.push(["Intention", day.intention]);
+  if (day.boundary) rows.push(["Boundary", day.boundary]);
+  if (day.homeFocus.length) rows.push(["Support you chose on Home", day.homeFocus.join(" · ")]);
+  if (day.support.length) rows.push(["Stillness support for Preparation", day.support.map((item) => item.title).join(" · ")]);
+  return (
+    <li data-preparation-day={day.date}>
+      <strong>
+        {day.weekday} · {day.date}
+      </strong>
+      {rows.length ? <Rows rows={rows} /> : (
+        <p>{day.recorded ? "Day saved · nothing recorded in Preparation." : "Nothing saved."}</p>
+      )}
+    </li>
+  );
+}
+
+export function PreparationHistoryCard({ history }: { history: PreparationHistory }) {
+  return (
+    <section className="ss-assistant-card" aria-label="Preparation history" data-preparation-history>
+      <small>PREPARATION · {periodSpan(history)}</small>
+      {history.result === "empty" && <p>No Preparation was saved for these dates.</p>}
+      {history.sync === "not-checked" && (
+        <p>Read from this device without syncing. Days saved on another device may be missing.</p>
+      )}
+      <ol>
+        {history.days.map((day) => (
+          <PreparationDayRows key={day.date} day={day} />
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -75,16 +129,7 @@ function SupportDayRows({ day }: { day: SupportDay }) {
       <strong>
         {day.weekday} · {day.date}
       </strong>
-      {rows.length ? (
-        <dl>
-          {rows.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
+      {rows.length ? <Rows rows={rows} /> : (
         <p>{day.saved ? "Day saved · no support chosen." : "Nothing saved."}</p>
       )}
     </li>
@@ -92,14 +137,9 @@ function SupportDayRows({ day }: { day: SupportDay }) {
 }
 
 export function SupportHistoryCard({ history }: { history: SupportHistory }) {
-  const span =
-    history.from === history.to ? history.from : `${history.from} to ${history.to}`;
-  const label = history.range === "yesterday" ? "YESTERDAY" : "LAST WEEK";
   return (
     <section className="ss-assistant-card" aria-label="Support history" data-support-history>
-      <small>
-        SUPPORT · {label} · {span}
-      </small>
+      <small>SUPPORT · {periodSpan(history)}</small>
       {history.result === "empty" && <p>No support was saved for these dates.</p>}
       {history.sync === "not-checked" && (
         <p>Read from this device without syncing. Days saved on another device may be missing.</p>
@@ -146,8 +186,10 @@ export function PreparationStatusCard({ status }: { status: PreparationStatus })
 function PreparationTool({ result, status, isError }: ToolCallMessagePartProps) {
   if (isError) return <p className="ss-assistant-error" role="alert">{String(result)}</p>;
   if (status.type === "running" || result === undefined)
-    return <p className="ss-assistant-note">Reading today’s Preparation…</p>;
-  return <PreparationStatusCard status={result as PreparationStatus} />;
+    return <p className="ss-assistant-note">Reading saved Preparation…</p>;
+  return "days" in (result as object)
+    ? <PreparationHistoryCard history={result as PreparationHistory} />
+    : <PreparationStatusCard status={result as PreparationStatus} />;
 }
 
 function SupportHistoryTool({ result, status, isError }: ToolCallMessagePartProps) {
@@ -224,33 +266,31 @@ type ToolAnswer =
   | { tool: string; output: unknown }
   | { state: "output-error"; tool: string; errorText: string };
 
-/** Answers a read-only tool call from this device's records. Unknown tools are left unanswered. */
+/**
+ * Answers a read-only tool call from this device's records. Unknown tools are left unanswered.
+ * An unsupported period, a failed read and an empty result are reported differently.
+ */
 export async function answerTool(
   owner: string,
   tool: string,
   input: unknown,
-  read = { preparation: readPreparationStatus, support: readSupportHistory },
+  read = { preparation: readPreparation, support: readSupportHistory },
 ): Promise<ToolAnswer | undefined> {
-  if (tool === PREPARATION_TOOL) {
-    try {
-      return { tool, output: await read.preparation(owner) };
-    } catch {
-      return { state: "output-error", tool, errorText: "Today’s Preparation could not be read on this device." };
-    }
-  }
-  if (tool === SUPPORT_HISTORY_TOOL) {
-    const range = (input as { range?: unknown } | undefined)?.range;
-    if (!SUPPORT_RANGES.includes(range as SupportRange))
-      return { state: "output-error", tool, errorText: "Support history covers yesterday or last week." };
-    try {
-      return { tool, output: await read.support(owner, range as SupportRange) };
-    } catch {
-      return {
-        state: "output-error",
-        tool,
-        errorText: "Saved support could not be read on this device, so this is not an empty result. Try again.",
-      };
-    }
+  const reader =
+    tool === PREPARATION_TOOL ? read.preparation : tool === SUPPORT_HISTORY_TOOL ? read.support : undefined;
+  if (!reader) return;
+  try {
+    return { tool, output: await reader(owner, input) };
+  } catch (error) {
+    if (error instanceof PeriodError) return { state: "output-error", tool, errorText: error.message };
+    return {
+      state: "output-error",
+      tool,
+      errorText:
+        tool === PREPARATION_TOOL
+          ? "Preparation could not be read on this device, so this is not an empty result. Try again."
+          : "Saved support could not be read on this device, so this is not an empty result. Try again.",
+    };
   }
 }
 

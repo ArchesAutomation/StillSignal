@@ -1,8 +1,8 @@
 import type { Session, Sample, Instrument } from "./model";
 import { preparationChanges } from "./process/daily-preparation";
 import { validateAppend, withRefs } from "./process/engine";
-import { createRecord, recordSchema, weekOf, type BodyOf, type ProcessRecord } from "./process/model";
-import { shiftDate } from "./process/support-history";
+import { createRecord, recordSchema, weekOf, type arrivalFeelings, type BodyOf, type ProcessRecord } from "./process/model";
+import { shiftDate } from "./process/periods";
 import { emptyTradingDay, tradingDayFor } from "./process/trading-day";
 import type { Candle } from "./market/model";
 export const reviewOwner = "88888888-8888-4888-8888-888888888888";
@@ -167,8 +167,9 @@ export function reviewPreparationRecords(
 }
 
 /**
- * Synthetic support history for the local assistant prototype: yesterday has two Home focuses,
- * a Preparation practice and a Done practice; last week mixes saved, support-free and empty days.
+ * Synthetic history for the local assistant prototype: yesterday has two Home focuses, a
+ * Preparation practice, a Done practice and Preparation answers; last week mixes saved,
+ * support-free, Preparation-free and empty days; last month has one saved day.
  * Dates that already have a day are left alone. None of these records hold a completion event,
  * because Still Signal does not record one.
  */
@@ -186,23 +187,31 @@ export function reviewSupportHistoryRecords(
     ...(piece === undefined ? {} : { piece }),
     destination,
   });
-  const plan: [string, Partial<BodyOf<"day">>][] = [
+  const lastMonth = shiftDate(today.slice(0, 8) + "01", -10);
+  const plan: [string, Partial<BodyOf<"day">>, (typeof arrivalFeelings)[number][]?][] = [
     [yesterday, {
+      goal: "Let the first setup pass if it feels rushed.",
       supportFocuses: ["impatience", "fear"],
       stillness: [pick("waiting", "Preparation"), pick("awareness", "Done")],
-    }],
-    [monday, { supportFocuses: ["impulsiveness"], stillness: [pick("body", "Preparation")] }],
-    [shiftDate(monday, 2), { supportFocuses: ["greed"] }],
+    }, ["Tired"]],
+    [monday, {
+      goal: "Enter only after a pullback to the level.",
+      boundary: "Stop after three trades.",
+      supportFocuses: ["impulsiveness"],
+      stillness: [pick("body", "Preparation")],
+    }, ["Settled", "Uncertain"]],
+    [shiftDate(monday, 2), { boundary: "No trades in the last half hour.", supportFocuses: ["greed"] }],
     [shiftDate(monday, 3), { stillness: [pick("release", "Done", 0)] }],
     [shiftDate(monday, 4), { goal: "Trade only the opening range." }],
+    [lastMonth, { goal: "Sit out the first ten minutes.", supportFocuses: ["fear"] }],
   ];
   const seen = new Set<string>();
-  const seeded = plan.flatMap(([date, body]) => {
+  const seeded = plan.flatMap(([date, body, arrival]) => {
     if (seen.has(date) || tradingDayFor(records, date, timezone)) return [];
     seen.add(date);
-    return [withRefs(recordSchema.parse(
-      createRecord("day", { ...emptyTradingDay(date, timezone), ...body }, undefined, [], now),
-    ))];
+    const day = createRecord("day", { ...emptyTradingDay(date, timezone), ...body }, undefined, [], now);
+    const checkin = arrival ? preparationChanges([day], date, timezone, { arrival }, now) : [];
+    return [day, ...checkin].map((row) => withRefs(recordSchema.parse(row)));
   });
   validateAppend(records, seeded, []);
   return seeded;

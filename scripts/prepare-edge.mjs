@@ -138,7 +138,7 @@ for (const [name, source] of [
       if (
         !file.endsWith(".ts") ||
         (source === "process" &&
-          ["storage.ts", "session-review.ts", "preparation-status.ts", "support-history.ts"].includes(file))
+          ["storage.ts", "session-review.ts", "preparation-status.ts", "support-history.ts", "periods.ts"].includes(file))
       )
         continue;
       await writeFile(

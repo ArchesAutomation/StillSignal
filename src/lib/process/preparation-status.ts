@@ -1,7 +1,8 @@
 import { catalogue } from "../stillness-catalogue";
 import { arrivalCheckin } from "./daily-preparation";
 import { supportFocus } from "./journal-guide";
-import type { arrivalFeelings, ProcessRecord, StillnessSelection } from "./model";
+import { dateInZone, type arrivalFeelings, type ProcessRecord, type StillnessSelection } from "./model";
+import { resolvePeriod, weekdayOf, type RecordSync } from "./periods";
 import { tradingDayFor } from "./trading-day";
 
 type Choice = Pick<StillnessSelection, "itemId" | "piece">;
@@ -54,5 +55,49 @@ export function preparationStatus(
     support: (day?.body.stillness ?? [])
       .filter((choice) => choice.destination === "Preparation" && knownStillnessChoice(choice))
       .map(stillnessChoiceSummary),
+  };
+}
+
+export type PreparationDay = Omit<PreparationStatus, "timezone"> & { weekday: string };
+export type PreparationHistory = {
+  label: string;
+  from: string;
+  to: string;
+  timezone: string;
+  sync: RecordSync;
+  result: "found" | "empty";
+  days: PreparationDay[];
+};
+
+const hasPreparation = (day: PreparationDay) =>
+  !!(day.arrival.length || day.intention || day.boundary || day.homeFocus.length || day.support.length);
+
+/**
+ * Preparation for a period, using the screen's helper for each date. When the period is just
+ * today (no period, "today", or today's weekday or date) it returns exactly what the Preparation
+ * screen shows. Read-only. Throws PeriodError.
+ */
+export function preparationForPeriod(
+  records: ProcessRecord[],
+  input: unknown,
+  now: number,
+  timezone: string,
+  sync: RecordSync,
+): PreparationStatus | PreparationHistory {
+  const today = dateInZone(now, timezone);
+  const period = resolvePeriod(input, today);
+  if (period.dates.length === 1 && period.from === today) return preparationStatus(records, today, timezone);
+  const days = period.dates.map((date) => {
+    const { timezone: _timezone, ...status } = preparationStatus(records, date, timezone);
+    return { ...status, weekday: weekdayOf(date) };
+  });
+  return {
+    label: period.label,
+    from: period.from,
+    to: period.to,
+    timezone,
+    sync,
+    result: days.some(hasPreparation) ? "found" : "empty",
+    days,
   };
 }
