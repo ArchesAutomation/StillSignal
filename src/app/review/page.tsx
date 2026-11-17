@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import StagingWorkspace from "@/components/staging-workspace";
+import { assistantPrototypeEnabled } from "@/lib/assistant-prototype";
 export default function Review() {
   // This review route is unavailable in production and cannot run against a cloud account.
   if (
@@ -8,5 +9,5 @@ export default function Review() {
     process.env.NEXT_PUBLIC_SUPABASE_URL
   )
     notFound();
-  return <StagingWorkspace />;
+  return <StagingWorkspace assistant={assistantPrototypeEnabled()} />;
 }

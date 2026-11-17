@@ -1,4 +1,9 @@
 import type { Session, Sample, Instrument } from "./model";
+import { preparationChanges } from "./process/daily-preparation";
+import { validateAppend, withRefs } from "./process/engine";
+import { createRecord, recordSchema, weekOf, type arrivalFeelings, type BodyOf, type ProcessRecord } from "./process/model";
+import { shiftDate } from "./process/periods";
+import { emptyTradingDay, tradingDayFor } from "./process/trading-day";
 import type { Candle } from "./market/model";
 export const reviewOwner = "88888888-8888-4888-8888-888888888888";
 export const reviewSessionId = "99999999-9999-4999-8999-999999999999";
@@ -135,4 +140,79 @@ export function reviewFixtures() {
     ],
   };
   return { session, samples, candles };
+}
+
+/**
+ * Synthetic Preparation for today, used only by the local assistant prototype in /review.
+ * Returns nothing when today already has a Preparation, so a reviewer's own edits are kept.
+ */
+export function reviewPreparationRecords(
+  records: ProcessRecord[],
+  date: string,
+  timezone: string,
+  now = Date.now(),
+): ProcessRecord[] {
+  if (tradingDayFor(records, date, timezone)) return [];
+  const day = createRecord("day", {
+    ...emptyTradingDay(date, timezone),
+    goal: "Wait for the level I wrote down before entering.",
+    boundary: "Stop after two trades or one rushed exit.",
+    supportFocuses: ["impatience"],
+    stillness: [{ id: crypto.randomUUID(), itemId: "waiting", destination: "Preparation" }],
+  }, undefined, [], now);
+  const checkin = preparationChanges([day], date, timezone, { arrival: ["Restless", "Hopeful"] }, now);
+  const prepared = [day, ...checkin].map((row) => withRefs(recordSchema.parse(row)));
+  validateAppend(records, prepared, []);
+  return prepared;
+}
+
+/**
+ * Synthetic history for the local assistant prototype: yesterday has two Home focuses, a
+ * Preparation practice, a Done practice and Preparation answers; last week mixes saved,
+ * support-free, Preparation-free and empty days; last month has one saved day.
+ * Dates that already have a day are left alone. None of these records hold a completion event,
+ * because Still Signal does not record one.
+ */
+export function reviewSupportHistoryRecords(
+  records: ProcessRecord[],
+  today: string,
+  timezone: string,
+  now = Date.now(),
+): ProcessRecord[] {
+  const yesterday = shiftDate(today, -1);
+  const monday = shiftDate(weekOf(today), -7);
+  const pick = (itemId: string, destination: "Preparation" | "Done", piece?: number) => ({
+    id: crypto.randomUUID(),
+    itemId,
+    ...(piece === undefined ? {} : { piece }),
+    destination,
+  });
+  const lastMonth = shiftDate(today.slice(0, 8) + "01", -10);
+  const plan: [string, Partial<BodyOf<"day">>, (typeof arrivalFeelings)[number][]?][] = [
+    [yesterday, {
+      goal: "Let the first setup pass if it feels rushed.",
+      supportFocuses: ["impatience", "fear"],
+      stillness: [pick("waiting", "Preparation"), pick("awareness", "Done")],
+    }, ["Tired"]],
+    [monday, {
+      goal: "Enter only after a pullback to the level.",
+      boundary: "Stop after three trades.",
+      supportFocuses: ["impulsiveness"],
+      stillness: [pick("body", "Preparation")],
+    }, ["Settled", "Uncertain"]],
+    [shiftDate(monday, 2), { boundary: "No trades in the last half hour.", supportFocuses: ["greed"] }],
+    [shiftDate(monday, 3), { stillness: [pick("release", "Done", 0)] }],
+    [shiftDate(monday, 4), { goal: "Trade only the opening range." }],
+    [lastMonth, { goal: "Sit out the first ten minutes.", supportFocuses: ["fear"] }],
+  ];
+  const seen = new Set<string>();
+  const seeded = plan.flatMap(([date, body, arrival]) => {
+    if (seen.has(date) || tradingDayFor(records, date, timezone)) return [];
+    seen.add(date);
+    const day = createRecord("day", { ...emptyTradingDay(date, timezone), ...body }, undefined, [], now);
+    const checkin = arrival ? preparationChanges([day], date, timezone, { arrival }, now) : [];
+    return [day, ...checkin].map((row) => withRefs(recordSchema.parse(row)));
+  });
+  validateAppend(records, seeded, []);
+  return seeded;
 }

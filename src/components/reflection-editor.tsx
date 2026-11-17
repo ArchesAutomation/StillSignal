@@ -35,7 +35,8 @@ export type Recognition = {
   stop: () => void;
   abort: () => void;
 };
-type SpeechWindow = Window & {
+// Omit the global declarations so dependency typings cannot narrow this local constructor type.
+type SpeechWindow = Omit<Window, "SpeechRecognition" | "webkitSpeechRecognition"> & {
   SpeechRecognition?: new () => Recognition;
   webkitSpeechRecognition?: new () => Recognition;
 };

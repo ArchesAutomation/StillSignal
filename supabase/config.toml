@@ -27,3 +27,8 @@ verify_jwt = false
 
 [functions.pulse-process]
 verify_jwt = false
+
+[functions.pulse-assistant]
+# Local prototype only. The handler returns 404 unless SUPABASE_URL is local and
+# STILL_SIGNAL_ASSISTANT_LOCAL=true is set in supabase/functions/.env. Do not deploy.
+verify_jwt = false

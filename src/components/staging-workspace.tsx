@@ -1,11 +1,24 @@
 "use client";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Dashboard from "./dashboard";
 import { saveSession, appendSamples } from "@/lib/storage";
-import { reviewFixtures, reviewOwner } from "@/lib/staging-fixtures";
+import {
+  reviewFixtures,
+  reviewOwner,
+  reviewPreparationRecords,
+  reviewSupportHistoryRecords,
+} from "@/lib/staging-fixtures";
+import { dateInZone } from "@/lib/process/model";
+import { readProcess, saveProcess } from "@/lib/process/storage";
+// Loaded only when the local prototype is enabled.
+const PreparationAssistant = lazy(() => import("./assistant/preparation-assistant"));
 import { keepPrivateFile } from "@/lib/private-files";
 import { sessionTrades } from "@/lib/journal-routing";
-export default function StagingWorkspace() {
+export default function StagingWorkspace({
+  assistant = false,
+}: {
+  assistant?: boolean;
+}) {
   const [data] = useState(reviewFixtures);
   const [ready, setReady] = useState(false),
     [error, setError] = useState("");
@@ -53,6 +66,17 @@ export default function StagingWorkspace() {
       }));
       await saveSession(data.session);
       await appendSamples(data.session.id, data.samples, reviewOwner, false);
+      if (assistant) {
+        // Local assistant prototype only: synthetic Preparation for today, never synced.
+        const timezone =
+          Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        const today = dateInZone(Date.now(), timezone);
+        const existing = await readProcess(reviewOwner);
+        const seed = reviewPreparationRecords(existing, today, timezone);
+        const history = reviewSupportHistoryRecords([...existing, ...seed], today, timezone);
+        if (seed.length || history.length)
+          await saveProcess(reviewOwner, [...seed, ...history], false);
+      }
       if (active) setReady(true);
     })().catch(() => {
       if (active) setError("Review storage could not be initialized.");
@@ -68,10 +92,17 @@ export default function StagingWorkspace() {
         No broker or wearable is connected.
       </div>
       {ready ? (
-        <Dashboard
-          initialSession={data.session}
-          user={{ id: reviewOwner, email: "review@example.test" }}
-        />
+        <>
+          <Dashboard
+            initialSession={data.session}
+            user={{ id: reviewOwner, email: "review@example.test" }}
+          />
+          {assistant && (
+            <Suspense fallback={null}>
+              <PreparationAssistant owner={reviewOwner} />
+            </Suspense>
+          )}
+        </>
       ) : (
         <div className="loading">
           {error || "Preparing isolated review data…"}
