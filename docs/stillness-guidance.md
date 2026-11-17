@@ -11,6 +11,10 @@ Selecting a card opens a wide, scrollable overview containing every step's full
 text, optional spiritual context, deeper understanding, individual-piece previews,
 and Try / Add to my day actions. Closing it preserves the current search and filters.
 Opening the overview does not start a practice or create an unfinished draft.
+Steps and deeper explanations sit directly on the modal surface, with no nested
+shaded boxes, outlines or drop shadows. Numbering, headings and spacing establish
+the reading order. The language trigger/menu and quote-editor fields are also
+shadow-free; keyboard focus indicators remain visible.
 
 Category colours have stable meanings across Signature, Berry Sky and custom
 palettes: fear is red, impatience blue, impulsiveness orange, and greed green.
@@ -104,6 +108,10 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
   without resetting steps, and Escape closes just the menu. At 390×844 its menu
   stays within the viewport. The original Signature dark appearance and Direct
   language preference were restored after the browser checks.
+  Flat reading sections were additionally checked in light/dark and at 390×844:
+  step and explanation backgrounds are transparent, borders are zero, and their
+  computed box shadows are none. The language trigger and open menu also report
+  no shadow. Expanded explanations remain usable on mobile without horizontal overflow.
 - The default development server attempted remote AI binding access without a
   Cloudflare token. Browser review instead used a temporary, uncommitted Vite
   configuration with `plugins: [vinext()]`, `APP_ENV=staging`,
@@ -122,9 +130,9 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
 
 ![Desktop library, quote, and selected loss sequence](stillness-guidance/library-desktop.jpg)
 
-![Wide sequence overview and Journal-style language picker](stillness-guidance/overview-desktop.jpg)
+![Flat reminder overview in light mode](stillness-guidance/overview-desktop.jpg)
 
-![Phone-sized sequence overview and language picker in dark mode](stillness-guidance/overview-mobile.jpg)
+![Flat reminder and expanded explanation on mobile](stillness-guidance/overview-mobile.jpg)
 
 ![Colour rails and badges in Signature dark](stillness-guidance/library-dark.jpg)
 

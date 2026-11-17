@@ -315,16 +315,17 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 .ss-support-overview-steps li {
   counter-increment: practice-step;
   position: relative;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 20px 20px 20px 62px;
-  background: var(--paper);
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0 12px 34px;
+  background: transparent;
+  box-shadow: none;
 }
 .ss-support-overview-steps li::before {
   content: counter(practice-step);
   position: absolute;
-  left: 18px;
-  top: 20px;
+  left: 0;
+  top: 10px;
   color: var(--accent);
   font-weight: 700;
 }
@@ -362,6 +363,19 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   overflow-wrap: anywhere;
 }
 .ss-understanding summary, .ss-stillness-preferences summary { cursor: pointer; font-weight: 600; }
+.ss-support-dialog .ss-understanding {
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ss-support-dialog .ss-understanding :is(details, summary) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .ss-support-root .ss-understanding p, .ss-support-dialog .ss-understanding p,
 .ss-stillness-preferences p { margin-top: 12px; }
 .ss-understanding a { color: var(--accent); text-decoration: underline; }
@@ -383,7 +397,9 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 .ss-guidance-language > span:first-child { font-size: 12px; color: var(--quiet); }
 .ss-guidance-language .ss-journal-select { width: min(100%, 290px); }
 .ss-support-root .ss-guidance-language .ss-select-trigger,
-.ss-support-dialog .ss-guidance-language .ss-select-trigger { font-size: 13px; min-height: 40px; }
+.ss-support-dialog .ss-guidance-language .ss-select-trigger { font-size: 13px; min-height: 40px; box-shadow: none; }
+.ss-support-dialog .ss-journal-select-menu,
+.ss-support-root .ss-journal-select-menu { box-shadow: none; }
 .ss-quote-editor label { display: grid; }
 .ss-quote-editor textarea, .ss-quote-editor input {
   font: inherit;
@@ -394,6 +410,7 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   padding: 10px;
   max-width: 100%;
   min-width: 0;
+  box-shadow: none;
 }
 .ss-quote-editor textarea { min-height: 130px; width: 100%; resize: vertical; }
 .ss-practice-copy { white-space: pre-line; }
@@ -412,6 +429,4 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   .ss-support-cards {
     grid-template-columns: 1fr;
   }
-  .ss-support-overview-steps li { padding: 16px 16px 16px 42px; }
-  .ss-support-overview-steps li::before { left: 14px; top: 18px; }
 }
