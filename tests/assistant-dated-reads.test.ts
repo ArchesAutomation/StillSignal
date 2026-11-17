@@ -272,3 +272,24 @@ test("explicit day-of-month and full-date requests pass the handler's schema, li
     for (const [key, value] of Object.entries(env)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
 });
+
+test("the instructions apply the agreed weekday default and keep weekday names out of replies", async () => {
+  const env = Object.fromEntries(Object.keys(local).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, local);
+  const original = globalThis.fetch;
+  let system = "";
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const content = JSON.parse(String(init!.body)).messages[0].content;
+    system = typeof content === "string" ? content : content.map((p: { text: string }) => p.text).join("");
+    return new Response("data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } });
+  }) as typeof fetch;
+  try {
+    await (await handler(new Request("http://kong:8000/f", { method: "POST",
+      body: JSON.stringify({ messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "What was my intention on Monday?" }] }] }) }))).text();
+    assert.match(system, /A weekday on its own means the most recent one, so call the tool rather than asking which/);
+    assert.match(system, /Do not name weekdays in your reply; the card shows them/);
+  } finally {
+    globalThis.fetch = original;
+    for (const [key, value] of Object.entries(env)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  }
+});
