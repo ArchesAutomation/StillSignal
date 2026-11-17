@@ -77,8 +77,14 @@ the language menu first. The existing device-local language preference is unchan
 
 ## Verification
 
-Baseline: main `6250627a20e4b80c881daa537c00b2777425e39a` had successful Workers
+Baseline: main `478aabf3f18fd4617785978f485152d97bce9fa5` (including merged PRs
+#97 and #98) had successful Workers
 Builds and Production smoke checks; the live `/api/health` responded successfully.
+Main was merged into this feature branch without a conflict. The shared Stillness
+title/validation helpers from #98 are preserved. Against current main, this PR
+still changes only its Stillness content, presentation, preferences, theme tokens,
+tests, and documentation; the assistant dependencies and local runtime configuration
+are already in main and are not additions in this PR's diff.
 
 - `node --import ./tests/browser-environment.mjs --import tsx --test tests/stillness-guidance.test.ts`
   — passed, 7 behavioural tests (matching rails and labels, keyboard selection
@@ -93,7 +99,10 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
 - `node --import tsx scripts/generate-theme-css.ts` — regenerated theme.css from
   the shared theme definitions, adding four semantic tokens without changing
   saved theme settings.
-- `npm run check` — passed: type checking, all 312 tests, production Vite build.
+- `npm ci --no-audit --no-fund` — passed after stopping this checkout's preview to
+  release a Windows native-module file lock. Dependencies match main's lockfile.
+- `npm run check` — passed: type checking, all 339 tests (including the assistant
+  tests from #98), production Vite build.
 - `git diff --check` — passed.
 - Browser review used synthetic `/review` data at desktop size and 390×844.
   Verified quote edit/save/hide/default restoration, switching language without
@@ -112,6 +121,12 @@ Builds and Production smoke checks; the live `/api/health` responded successfull
   step and explanation backgrounds are transparent, borders are zero, and their
   computed box shadows are none. The language trigger and open menu also report
   no shadow. Expanded explanations remain usable on mobile without horizontal overflow.
+  After integrating main, the browser confirmed all 13 cards, the new loss
+  sequence's explicit return/resume, and a new reminder's add-to-Preparation,
+  shared title/step rendering, optional Journal action, and Undo. The synthetic
+  test addition was undone. Our preview remains on port 3195 with the assistant
+  prototype disabled; Claude's separate assistant preview/runtime was not changed.
+  No live-provider assistant conversation was repeated for this integration.
 - The default development server attempted remote AI binding access without a
   Cloudflare token. Browser review instead used a temporary, uncommitted Vite
   configuration with `plugins: [vinext()]`, `APP_ENV=staging`,
