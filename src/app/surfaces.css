@@ -82,12 +82,23 @@ html .ss-app :is(button, summary) {
   color: var(--signal-text);
   border-color: var(--signal-line);
 }
-/* Disclosure headings read as part of their card, not as filled buttons:
-   "Name how you're arriving", "Set an intention", "Find another date". */
-html .ss-app :is(.rr-preparation-more, .rr-date-picker) > summary {
+/* Text and icons that belong to their surface, not filled buttons:
+   disclosure headings ("Name how you're arriving", "Set an intention",
+   "Find another date", "Personal routines and practices", the P&L
+   snapshot), the top bar's "⋯" session tools and the logo. */
+html .ss-app :is(.rr-preparation-more, .rr-date-picker, .rr-stillness-routines, .pnl-export, .ss-reference-tools) > summary,
+html .ss-app .ss-reference-brand {
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+html .ss-app .ss-reference-tools > summary {
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+html .ss-app .ss-reference-tools > summary:is(:hover, :focus-visible),
+html .ss-app .ss-reference-tools[open] > summary {
+  background: var(--signal-recess);
 }
 /* While a board is being edited, each card is covered by a full-size move
    button so it can be dragged. This file is unlayered, so the button rule
