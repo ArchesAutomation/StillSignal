@@ -47,8 +47,11 @@ export function Understanding({ item }: { item: StillnessItem }) {
   return <details className="ss-understanding" key={item.id}>
     <summary>Understand this practice</summary>
     {item.guidance.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
-    <p>Influences and further reading</p>
-    <ul>{item.guidance.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li>)}</ul>
+    <details>
+      <summary>Inspiration and further reading</summary>
+      <p>These teachers are among the inspirations for exploring presence and stillness. The exercises here were written for StillSignal.</p>
+      <ul>{item.guidance.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li>)}</ul>
+    </details>
   </details>;
 }
 

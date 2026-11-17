@@ -16,9 +16,9 @@ export type StillnessItem = {
   };
 };
 
-const tolle = { title: "Eckhart Tolle: presence and body awareness", url: "https://eckharttolle.com/free-resources/" };
-const singer = { title: "Michael Singer: witnessing and releasing", url: "https://tou.org/michael-singer-interviews/" };
-const watts = { title: "Alan Watts: meditation and non-striving", url: "https://alanwatts.com/collections/eastern-wisdom-collection/products/buddhist-taoist-meditation-remastered-audio-series" };
+const tolle = { title: "Eckhart Tolle", url: "https://eckharttolle.com/free-resources/" };
+const singer = { title: "Michael Singer", url: "https://tou.org/michael-singer-interviews/" };
+const watts = { title: "Alan Watts", url: "https://alanwatts.com/collections/eastern-wisdom-collection/products/buddhist-taoist-meditation-remastered-audio-series" };
 
 // Original practices. Spiritual context adds understanding, never a different action.
 export const personalPractices: StillnessItem[] = [
@@ -34,7 +34,6 @@ export const personalPractices: StillnessItem[] = [
         "This reminder invites two observations: what you feel, and what you believe caused it. Questioning the explanation does not make the feeling wrong or require it to disappear.",
         "In the language of presence, identification is becoming so absorbed in a thought that it seems like the whole truth. Witnessing offers a little room to examine it. These are spiritual teachings, rather than a claim about a proven mechanism.",
         "After a loss, you might notice disappointment alongside the thought ‘my entry must be wrong’. The disappointment is present; the explanation can be investigated later, rather than accepted or dismissed immediately.",
-        "This original wording draws on Tolle’s teachings about presence and Singer’s discussion of witnessing. It is not a quotation or a reproduction of their exercises.",
       ], sources: [tolle, singer],
     },
   },
@@ -61,7 +60,7 @@ export const personalPractices: StillnessItem[] = [
       ],
       paragraphs: [
         "This sequence separates a pause from technical review. It does not establish that a loss was random or that a trading model is valid. Evidence can still be reviewed later.",
-        "Singer’s witnessing and Tolle’s presence offer ways to notice inner activity without immediately following it. Watts’ non-striving is a reminder that calm is not a performance requirement. These are spiritual perspectives, not guaranteed effects.",
+        "Witnessing means noticing inner activity without immediately following it. Presence invites attention to what is happening now. Non-striving is a reminder that calm is not a performance requirement. These are perspectives to explore through your own experience.",
         "For example, after a loss you may repeatedly adjust an imagined stop placement. First leave the charts. On returning, notice the tension, the explanation ‘that stop was the problem’, and the urge to change it. None needs an immediate verdict.",
         "The break has no readiness score. Five minutes is an invitation, and you can take longer or end the practice. The practice never asks you to place a trade.",
       ], sources: [tolle, singer, watts],
@@ -87,7 +86,7 @@ export const personalPractices: StillnessItem[] = [
       ],
       paragraphs: [
         "This is an original reflection about applying the same standards to wins and losses. Use it after the immediate intensity has eased, not as another demand to analyse while heated.",
-        "It connects to Tolle’s presence and Singer’s distinction between awareness and passing thoughts. Those spiritual teachings provide context; this outcome-comparison exercise is not attributed to either teacher.",
+        "Witnessing invites a distinction between your awareness and the thoughts passing through it. You can notice the judgment of a decision as it appears, without accepting it as the whole picture.",
         "A rule-breaking entry may win. Imagine it losing with exactly the same decisions: would you suddenly recognise the broken rule? Conversely, a loss need not erase the parts of a decision that followed your plan.",
         "The aim is consistent assessment, not identical emotions, proof of a valid model, or a requirement to feel proud.",
       ], sources: [tolle, singer],
@@ -113,7 +112,7 @@ export const personalPractices: StillnessItem[] = [
       ],
       paragraphs: [
         "This practice invites you to distinguish a remembered experience from current observations. It does not erase memory or tell you to disregard useful information from the past.",
-        "It draws on Tolle’s body-awareness practices and Singer’s witnessing perspective. In this spiritual language, presence means attending to the current experience rather than being wholly absorbed in a remembered story.",
+        "Body awareness offers a way to attend to the present. In this spiritual language, presence means attending to the current experience rather than being wholly absorbed in a remembered story.",
         "For example, yesterday’s loss may appear when you see a similar situation today. Notice the memory and tension, then return to what you can actually observe. This practice does not establish whether the situation meets your model.",
         "No action is required. Hesitation is not proof you should enter, and finishing is not a declaration of readiness.",
       ], sources: [tolle, singer],

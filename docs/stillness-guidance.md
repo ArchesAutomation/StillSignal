@@ -42,6 +42,9 @@ support, and optional Journal flows.
 - Practice text and spiritual explanations are original. Sources describe influences,
   not endorsement or evidence of guaranteed effects. The practices do not validate
   trading models, classify a loss as random, or instruct a user to enter a trade.
+  Explanations describe the ideas in their own right; author names appear only in
+  an optional, collapsed Inspiration and further reading section, rather than
+  attaching ownership of presence, witnessing, or non-striving to an author.
 - The default ICT quotation and attribution are Caleb’s supplied wording, associated
   with The Perspective From Above, 14 November 2026. The dated recording page is
   https://edgeofict.com/learn/ict-spaces/the-perspective-from-above . The exact wording
