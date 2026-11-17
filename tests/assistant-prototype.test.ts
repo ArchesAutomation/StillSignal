@@ -9,6 +9,7 @@ import { PreparationStatusCard } from "../src/components/assistant/preparation-a
 import ReadingRoomPreparation from "../src/components/concept/reading-room-preparation";
 import { POST as route } from "../src/app/api/assistant/route";
 import { ASSISTANT_MODEL, PREPARATION_TOOL, SUPPORT_HISTORY_TOOL } from "../src/lib/assistant-tool";
+import { APICallError } from "ai";
 import { POST as handler, providerMessage } from "../src/lib/handlers/assistant";
 import { dateInZone } from "../src/lib/process/model";
 import { preparationStatus } from "../src/lib/process/preparation-status";
@@ -184,6 +185,7 @@ test("the Edge Function streams the free model's text and leaves the read-only t
       assert.equal(sent.model, ASSISTANT_MODEL);
       assert.equal(sent.models, undefined, "no fallback model list");
       assert.equal(sent.provider.allow_fallbacks, false);
+      assert.deepEqual(sent.reasoning, { exclude: true }, "reasoning is left out of the response");
       assert.deepEqual(sent.tools.map((t: { function: { name: string } }) => t.function.name), [PREPARATION_TOOL, SUPPORT_HISTORY_TOOL]);
       assert.equal(new Headers(calls[0].init.headers).get("authorization"), "Bearer sk-or-test-secret");
       assert.match(text, /"type":"tool-input-available"[^\n]*"toolName":"preparation_status"/);
@@ -211,5 +213,24 @@ test("the Edge Function streams the free model's text and leaves the read-only t
     console.log = log; console.error = error; console.warn = warn;
   }
   assert.ok(!logged.some((line) => line.includes("sk-or-test-secret")), "the key never reaches logs");
-  assert.match(providerMessage(new Error("other")), /could not reach OpenRouter/);
+  assert.match(
+    providerMessage(new APICallError({ message: "Cannot connect to API", url: "https://openrouter.ai/api/v1/chat/completions", requestBodyValues: {} })),
+    /could not reach OpenRouter/,
+    "no HTTP answer is a connection problem",
+  );
+  for (const broken of [new TypeError("terminated"), Object.assign(new Error("aborted"), { name: "AbortError" }), "unknown"])
+    assert.equal(providerMessage(broken), "The answer stopped before it finished. Ask again.", "a stream cut short is not blamed on OpenRouter");
+});
+
+test("streamed reasoning never reaches the browser", async () => {
+  await withEnv(local, () => withOpenRouter(() => sse([
+    chunk({ role: "assistant", content: "", reasoning: "Thinking about the records" }),
+    chunk({ reasoning: " for today." }),
+    chunk({ content: "You arrived restless." }),
+    chunk({}, "stop"),
+  ]), async () => {
+    const text = await (await handler(question())).text();
+    assert.doesNotMatch(text, /reasoning/);
+    assert.match(text, /"type":"text-delta"[^\n]*"delta":"You arrived restless\."/);
+  }));
 });

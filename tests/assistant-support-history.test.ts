@@ -227,7 +227,7 @@ test("a follow-up sends the earlier support answer so the model can keep the top
     assert.equal(system.role, "system");
     const instructions = typeof system.content === "string" ? system.content : system.content.map((p) => p.text).join("");
     assert.match(instructions, /And last week\?.*same tool as before with the new period/);
-    assert.match(instructions, /If only the topic changes.*keep the previous period/);
+    assert.match(instructions, /If only the topic changes.*period from the trader's previous question/);
     assert.match(instructions, /Never work out dates yourself/);
     assert.match(instructions, /completion wasn't recorded/);
     assert.match(instructions, /Use preparation_status for preparation, arrival, intention or boundary/, "Preparation questions keep their tool");
