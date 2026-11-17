@@ -139,14 +139,11 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   gap: 7px;
 }
 .ss-support-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
-  gap: 20px;
-  align-items: start;
+  width: 100%;
 }
 .ss-support-cards {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .ss-support-root .ss-support-card {
@@ -165,6 +162,41 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 }
 .ss-support-card small:last-child {
   margin-top: 10px;
+}
+.ss-focus-rail { display: flex; width: 100%; height: 6px; flex: 0 0 6px; }
+.ss-focus-rail > span { flex: 1; background: var(--ss-focus); }
+.ss-focus-badges { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.ss-focus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ss-focus);
+  background: color-mix(in srgb, var(--ss-focus) 10%, var(--paper));
+}
+.ss-focus-badge i, .ss-focus-filter i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--ss-focus);
+}
+.ss-support-root .ss-focus-filter { display: inline-flex; align-items: center; gap: 8px; }
+.ss-support-root .ss-focus-filter:hover, .ss-support-root .ss-focus-filter[aria-pressed="true"] {
+  border-color: var(--ss-focus);
+  background: color-mix(in srgb, var(--ss-focus) 18%, var(--paper));
+}
+.ss-support-root .ss-focus-filter[aria-pressed="true"] { color: var(--ss-focus); }
+.ss-support-card-link {
+  display: block;
+  margin-top: 14px;
+  color: var(--accent);
+  font-size: 13px;
 }
 .ss-support-art {
   display: grid;
@@ -203,43 +235,6 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
 }
 .ss-support-art span {
   font-size: 20px;
-}
-.ss-support-preview {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 17px;
-  padding: 18px;
-}
-.ss-support-preview .ss-support-art {
-  margin: 10px 0;
-  border-radius: 9px;
-}
-.ss-support-preview ol {
-  display: grid;
-  gap: 5px;
-  padding: 0;
-  list-style: none;
-  margin: 15px 0;
-}
-.ss-support-preview li button {
-  width: 100%;
-  text-align: left;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.ss-support-preview li button b {
-  margin-left: auto;
-  color: var(--accent);
-}
-.ss-support-preview li span {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--lavender);
 }
 .ss-support-root .ss-support-count,
 .ss-support-dialog .ss-support-count {
@@ -303,26 +298,134 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   width: auto;
   accent-color: var(--accent);
 }
-@media (max-width: 900px) {
-  .ss-support-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(230px, 0.8fr);
-  }
-  .ss-support-cards {
-    grid-template-columns: 1fr;
-  }
+.ss-support-dialog.ss-support-overview {
+  width: min(1000px, calc(100vw - 24px));
+  padding: clamp(20px, 3vw, 40px);
 }
-@media (max-width: 650px) {
-  .ss-support-layout {
-    grid-template-columns: 1fr;
-  }
+.ss-support-overview h2 { max-width: 28ch; font-size: clamp(28px, 3.5vw, 42px); }
+.ss-support-overview h3 { margin: 0 0 8px; font: 400 23px/1.25 Georgia, serif; }
+.ss-support-overview-steps {
+  list-style: none;
+  counter-reset: practice-step;
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 0;
+}
+.ss-support-overview-steps li {
+  counter-increment: practice-step;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0 12px 34px;
+  background: transparent;
+  box-shadow: none;
+}
+.ss-support-overview-steps li::before {
+  content: counter(practice-step);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ss-support-overview-steps button { margin-top: 12px; }
+.ss-support-overview-steps .ss-step-context { margin-top: 10px; }
+.ss-support-dialog .ss-support-overview-actions {
+  position: sticky;
+  bottom: -1px;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--line);
+  background: var(--base);
+}
+.ss-stillness-personal { margin-bottom: 24px; }
+.ss-stillness-quote {
+  margin: 0 0 14px;
+  padding: clamp(18px, 3vw, 30px);
+  border-left: 3px solid var(--accent);
+  background: var(--paper);
+  border-radius: 0 14px 14px 0;
+  overflow-wrap: anywhere;
+}
+.ss-stillness-quote blockquote {
+  margin: 0 0 12px;
+  font: 400 clamp(21px, 2.2vw, 29px)/1.45 Georgia, serif;
+  color: var(--ink);
+}
+.ss-stillness-quote figcaption { color: var(--quiet); margin-bottom: 14px; }
+.ss-stillness-preferences, .ss-understanding, .ss-practice-resume, .ss-quote-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--paper);
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.ss-understanding summary, .ss-stillness-preferences summary { cursor: pointer; font-weight: 600; }
+.ss-support-dialog .ss-understanding {
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ss-support-dialog .ss-understanding :is(details, summary) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ss-support-root .ss-understanding p, .ss-support-dialog .ss-understanding p,
+.ss-stillness-preferences p { margin-top: 12px; }
+.ss-understanding a { color: var(--accent); text-decoration: underline; }
+.ss-understanding ul { padding-left: 20px; }
+.ss-understanding li + li { margin-top: 8px; }
+.ss-stillness-preferences > label, .ss-quote-editor label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0;
+}
+.ss-support-root .ss-guidance-language, .ss-support-dialog .ss-guidance-language {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  margin: 16px 0;
+}
+.ss-guidance-language > span:first-child { font-size: 12px; color: var(--quiet); }
+.ss-guidance-language .ss-journal-select { width: min(100%, 290px); }
+.ss-support-root .ss-guidance-language .ss-select-trigger,
+.ss-support-dialog .ss-guidance-language .ss-select-trigger { font-size: 13px; min-height: 40px; box-shadow: none; }
+.ss-support-dialog .ss-journal-select-menu,
+.ss-support-root .ss-journal-select-menu { box-shadow: none; }
+.ss-quote-editor label { display: grid; }
+.ss-quote-editor textarea, .ss-quote-editor input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--base);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  max-width: 100%;
+  min-width: 0;
+  box-shadow: none;
+}
+.ss-quote-editor textarea { min-height: 130px; width: 100%; resize: vertical; }
+.ss-practice-copy { white-space: pre-line; }
+.ss-practice-resume p { margin-bottom: 10px; }
+.ss-support-root :is(summary, select, textarea, input):focus-visible,
+.ss-support-dialog :is(summary, select, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
   .ss-support-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .ss-support-preview {
-    grid-row: 1;
-  }
 }
-@media (max-width: 400px) {
+@media (max-width: 650px) {
   .ss-support-cards {
     grid-template-columns: 1fr;
   }

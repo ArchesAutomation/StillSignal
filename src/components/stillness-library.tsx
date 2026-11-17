@@ -13,9 +13,10 @@ import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/prep
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./process/use-process";
+import { LanguageChoice, StillnessPreferences, Understanding, useStillnessDraft, useStillnessPreferences } from "./stillness-personal";
 
 type Item = (typeof catalogue)[number];
 export type StillnessBrowse = { tags: string[]; itemId: Item["id"] };
@@ -23,7 +24,7 @@ type Destination = StillnessSelection["destination"];
 type Choice = Pick<StillnessSelection, "itemId" | "piece">;
 type Panel =
   | {
-      type: "piece" | "add" | "player" | "finish";
+      type: "overview" | "piece" | "add" | "player" | "finish";
       choice: Choice;
       step?: number;
       preview?: boolean;
@@ -52,6 +53,23 @@ const steps = (choice: Choice) =>
     : [find(choice).steps[choice.piece]];
 const known = knownStillnessChoice;
 const todayIn = (timezone: string) => dateInZone(Date.now(), timezone);
+const focusColours: Record<string, string> = {
+  Impulsiveness: "var(--theme-focus-impulse)",
+  Impatience: "var(--theme-focus-wait)",
+  Fear: "var(--theme-focus-fear)",
+  Greed: "var(--theme-focus-greed)",
+};
+const focusStyle = (tag: string) => ({ "--ss-focus": focusColours[tag] ?? "var(--theme-link)" }) as CSSProperties;
+
+function FocusBadges({ item }: { item: Item }) {
+  return <div className="ss-focus-badges">{item.tags.map(tag =>
+    <span className="ss-focus-badge" data-focus={tag} style={focusStyle(tag)} key={tag}><i aria-hidden="true" />{tag}</span>,
+  )}</div>;
+}
+
+function FocusRail({ item }: { item: Item }) {
+  return <div className="ss-focus-rail" aria-hidden="true">{item.tags.map(tag => <span key={tag} data-focus={tag} style={focusStyle(tag)} />)}</div>;
+}
 
 function Art({ item }: { item: Item }) {
   return (
@@ -64,7 +82,7 @@ function Art({ item }: { item: Item }) {
   );
 }
 
-export function StillnessLibrary({
+function StillnessLibraryForOwner({
   owner,
   store,
   page,
@@ -92,21 +110,22 @@ export function StillnessLibrary({
   onOpenDay: (destination: Destination) => void;
   onReflect: () => Promise<void>;
 }) {
-  const [selected, setSelected] = useState(catalogue[0]);
+  const preferences = useStillnessPreferences(owner);
+  const draft = useStillnessDraft(owner);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [tags, setTags] = useState<string[]>([]);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  useEffect(() => {
+    setPanel(null);
+  }, [active, page]);
   useEffect(() => {
     if (!browse) return;
     setSearch("");
     setFilter("All");
     setTags(browse.tags);
-    setSelected(catalogue.find((item) => item.id === browse.itemId) ?? catalogue[0]);
+    if (known({ itemId: browse.itemId })) setPanel({ type: "overview", choice: { itemId: browse.itemId } });
   }, [browse]);
-  const [panel, setPanel] = useState<Panel | null>(null);
-  useEffect(() => {
-    if (!active) setPanel(null);
-  }, [active]);
   const [destination, setDestination] = useState<Destination>("Preparation");
   const [keep, setKeep] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -163,9 +182,11 @@ export function StillnessLibrary({
     setPanel({ type: "add", choice });
   }
   function run(choice: Choice, preview = false) {
+    if (!draft.loaded) return;
     setPaused(false);
     setElapsed(0);
     setPanel({ type: "player", choice, preview, step: 0 });
+    if (find(choice).guidance) draft.update({ choice, preview, step: 0 });
   }
   async function write(action: (records: ProcessRecord[]) => Promise<void>) {
     if (writeLock.current) return;
@@ -290,10 +311,18 @@ export function StillnessLibrary({
   const current = panel && "choice" in panel ? panel.choice : null;
   const ordered = current ? steps(current) : [];
   const index = panel && "step" in panel ? (panel.step ?? 0) : 0;
+  const currentItem = current ? find(current) : null;
+  const absoluteStep = current?.piece ?? index;
+  const away = panel?.type === "player" && currentItem?.guidance?.awayStep === absoluteStep;
+  const languageChoice = <LanguageChoice value={preferences.value.language} disabled={!preferences.loaded}
+    onChange={language => preferences.update(previous => ({ ...previous, language }))} />;
   const next = () => {
     if (panel?.type !== "player") return;
     setElapsed(0);
     setPaused(false);
+    if (find(panel.choice).guidance) {
+      draft.update(index === ordered.length - 1 ? null : { choice: panel.choice, step: index + 1, preview: !!panel.preview });
+    }
     setPanel({
       ...panel,
       type: index === ordered.length - 1 ? "finish" : "player",
@@ -303,8 +332,21 @@ export function StillnessLibrary({
 
   return (
     <section className={page === "Stillness" ? "ss-support-root ss-support-page" : "ss-support-root"} aria-label="Stillness support">
+      {!panel && draft.loaded && draft.value && <div className="ss-practice-resume">
+        <p>Continue {title(draft.value.choice)} when you choose. Progress is kept for this account on this device.</p>
+        <div className="ss-support-actions">
+          <button onClick={() => {
+            const saved = draft.value!;
+            setPaused(false); setElapsed(0);
+            setPanel({ type: "player", ...saved });
+          }}>Resume practice</button>
+          <button onClick={() => draft.update(null)}>Discard</button>
+        </div>
+      </div>}
+      {draft.storageError && <p role="status">Practice progress could not be restored or saved on this device. You can continue here, but it may not be available after leaving.</p>}
       {page === "Stillness" ? (
         <>
+          <StillnessPreferences preferences={preferences} />
           <div className="ss-support-heading">
             <div>
               <small>STILLNESS / SUPPORT LIBRARY</small>
@@ -338,6 +380,9 @@ export function StillnessLibrary({
                 return (
                   <button
                     key={focus}
+                    className="ss-focus-filter"
+                    data-focus={title}
+                    style={focusStyle(title)}
                     aria-pressed={tags.includes(title)}
                     onClick={() =>
                       setTags((previous) =>
@@ -347,7 +392,7 @@ export function StillnessLibrary({
                       )
                     }
                   >
-                    {title}
+                    <i aria-hidden="true" />{title}
                   </button>
                 );
               })}
@@ -371,7 +416,7 @@ export function StillnessLibrary({
                 ))}
               </div>
               <p className="ss-support-count">
-                {results.length} ways to make a little space
+                {results.length} {results.length === 1 ? "way" : "ways"} to make a little space
               </p>
               <div className="ss-support-cards">
                 {results.map((item) => (
@@ -379,70 +424,24 @@ export function StillnessLibrary({
                     type="button"
                     key={item.id}
                     className="ss-support-card"
-                    aria-pressed={item.id === selected.id}
-                    onClick={() => setSelected(item)}
+                    aria-haspopup="dialog"
+                    onClick={() => setPanel({ type: "overview", choice: { itemId: item.id } })}
                   >
-                    <Art item={item} />
+                    <FocusRail item={item} />
                     <div>
                       <small>
                         {item.kind} · {item.duration}
                       </small>
                       <h3>{item.name}</h3>
                       <p>{item.desc}</p>
-                      <small>{item.tags.join(" · ")}</small>
+                      <FocusBadges item={item} />
+                      <span className="ss-support-card-link">Take a closer look <span aria-hidden="true">↗</span></span>
                     </div>
                   </button>
                 ))}
               </div>
               {!results.length && <p>No support matches those filters.</p>}
             </div>
-            <aside className="ss-support-preview" aria-label="Support preview">
-              <small>A CLOSER LOOK</small>
-              <Art item={selected} />
-              <small>
-                {selected.kind} · {selected.duration} · {selected.steps.length}{" "}
-                {selected.steps.length === 1 ? "piece" : "pieces"}
-              </small>
-              <h2>{selected.name}</h2>
-              <p>{selected.desc}</p>
-              <ol>
-                {selected.steps.map(([label], step) => (
-                  <li key={label}>
-                    <button
-                      onClick={() =>
-                        setPanel({
-                          type: "piece",
-                          choice: {
-                            itemId: selected.id,
-                            ...(selected.steps.length > 1
-                              ? { piece: step }
-                              : {}),
-                          },
-                        })
-                      }
-                    >
-                      <span>{step + 1}</span> {label}{" "}
-                      <b aria-hidden="true">↗</b>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-              <div className="ss-support-actions">
-                <button
-                  className="ss-support-primary"
-                  onClick={() => run({ itemId: selected.id }, true)}
-                >
-                  Try {selected.kind.toLowerCase()}
-                </button>
-                <button onClick={() => add({ itemId: selected.id })}>
-                  Add to my day
-                </button>
-              </div>
-              <p className="ss-support-count">
-                Previewing adds nothing. Add for today, with the option to keep
-                a copy for later.
-              </p>
-            </aside>
           </div>
         </>
       ) : (
@@ -488,6 +487,7 @@ export function StillnessLibrary({
                   {(preparation || closing) && <Art item={find(choice)} />}
                   <div>
                     <strong>{title(choice)}</strong>
+                    <FocusBadges item={find(choice)} />
                     <p>
                       {steps(choice)
                         .map(([name]) => name)
@@ -496,6 +496,7 @@ export function StillnessLibrary({
                   </div>
                   <button
                     className="ss-support-primary"
+                    disabled={!draft.loaded}
                     onClick={() => run(choice)}
                   >
                     Begin {title(choice)}
@@ -533,7 +534,7 @@ export function StillnessLibrary({
         </div>
       )}
       <dialog
-        className="ss-support-dialog"
+        className={`ss-support-dialog${panel?.type === "overview" ? " ss-support-overview" : ""}`}
         ref={dialog}
         aria-label="Stillness support"
         onCancel={() => setPanel(null)}
@@ -547,7 +548,30 @@ export function StillnessLibrary({
             >
               ×
             </button>
-            {panel.type === "saved" ? (
+            {panel.type === "overview" ? (
+              <>
+                <small>A CLOSER LOOK / {find(panel.choice).kind.toUpperCase()} · {find(panel.choice).duration}</small>
+                <h2>{title(panel.choice)}</h2>
+                <p>{find(panel.choice).desc}</p>
+                <FocusBadges item={find(panel.choice)} />
+                {currentItem?.guidance && languageChoice}
+                <ol className="ss-support-overview-steps">
+                  {ordered.map(([label, text], step) => <li key={step}>
+                    <h3>{label}</h3>
+                    <p className="ss-practice-copy">{text}</p>
+                    {preferences.value.language === "spiritual" && currentItem?.guidance && <p className="ss-step-context">{currentItem.guidance.context[step]}</p>}
+                    <button onClick={() => setPanel({ type: "piece", choice: { itemId: panel.choice.itemId, ...(ordered.length > 1 ? { piece: step } : {}) } })}>Use this piece</button>
+                  </li>)}
+                </ol>
+                {currentItem && <Understanding item={currentItem} />}
+                <p className="ss-support-count">Previewing adds nothing. Add for today, with the option to keep a copy for later.</p>
+                <div className="ss-support-overview-actions ss-support-actions">
+                  <button className="ss-support-primary" disabled={!draft.loaded} onClick={() => run(panel.choice, true)}>Try {find(panel.choice).kind.toLowerCase()}</button>
+                  <button onClick={() => add(panel.choice)}>Add to my day</button>
+                  <button onClick={() => setPanel(null)}>Back to library</button>
+                </div>
+              </>
+            ) : panel.type === "saved" ? (
               <>
                 <small>AVAILABLE WHEN YOU CHOOSE</small>
                 <h2>Saved support</h2>
@@ -620,9 +644,13 @@ export function StillnessLibrary({
               <>
                 <small>PREVIEW / INDIVIDUAL PIECE</small>
                 <h2>{title(panel.choice)}</h2>
-                <p>{ordered[0][1]}</p>
+                <p className="ss-practice-copy">{ordered[0][1]}</p>
+                {currentItem?.guidance && <>{languageChoice}
+                  {preferences.value.language === "spiritual" && <p>{currentItem.guidance.context[current?.piece ?? 0]}</p>}
+                  <Understanding item={currentItem} />
+                </>}
                 <div className="ss-support-actions">
-                  <button onClick={() => setPanel(null)}>
+                  <button onClick={() => setPanel({ type: "overview", choice: { itemId: panel.choice.itemId } })}>
                     Back to preview
                   </button>
                   <button
@@ -640,9 +668,14 @@ export function StillnessLibrary({
                   {index + 1} OF {ordered.length}
                 </small>
                 <h2>{ordered[index][0]}</h2>
-                <p>{ordered[index][1]}</p>
+                <p className="ss-practice-copy">{ordered[index][1]}</p>
+                {currentItem?.guidance && <>{languageChoice}
+                  {preferences.value.language === "spiritual" && <p>{currentItem.guidance.context[absoluteStep]}</p>}
+                  <Understanding item={currentItem} />
+                </>}
                 <p className="ss-support-count">
-                  {paused
+                  {away ? "Take the time you need. Continue here when you return."
+                    : paused
                     ? "Paused"
                     : elapsed
                       ? elapsed + "s · continue at your pace"
@@ -654,9 +687,15 @@ export function StillnessLibrary({
                   </button>
                   <button onClick={next}>Skip this step</button>
                   <button className="ss-support-primary" onClick={next}>
-                    {index === ordered.length - 1 ? "Finish" : "Continue"}
+                    {away ? "I’m back" : index === ordered.length - 1 ? "Finish" : "Continue"}
                   </button>
+                  {currentItem?.id === "fix-a-loss" && absoluteStep === 1 && <button onClick={() => {
+                    const saved = { choice: { itemId: panel.choice.itemId }, step: 0, preview: !!panel.preview };
+                    draft.update(saved); setPanel({ type: "player", ...saved }); setElapsed(0); setPaused(false);
+                  }}>Take more time away</button>}
                 </div>
+                {draft.storageError && <p role="status">Progress is available here but could not be saved on this device. Keep this page open to continue.</p>}
+                {preferences.storageError && <p role="status">This language choice could not be saved on this device.</p>}
               </>
             ) : (
               <>
@@ -671,6 +710,7 @@ export function StillnessLibrary({
                     ? "Nothing was added to your day."
                     : find(panel.choice).question}
                 </p>
+                {panel.preview && currentItem?.guidance && <p>{currentItem.question}</p>}
                 <div className="ss-support-actions">
                   {panel.preview ? (
                     <button
@@ -710,4 +750,9 @@ export function StillnessLibrary({
       </dialog>
     </section>
   );
+}
+
+// Reset all transient UI on account changes before it can show another account's draft.
+export function StillnessLibrary(props: Parameters<typeof StillnessLibraryForOwner>[0]) {
+  return <StillnessLibraryForOwner key={props.owner} {...props} />;
 }

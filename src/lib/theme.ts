@@ -6,6 +6,7 @@ export const TOKEN_NAMES = [
   "bg", "surface", "recess", "heading", "text", "muted", "link", "accent", "onAccent", "line",
   "prepTint", "prepInk", "journalTint", "journalInk", "doneTint", "doneInk",
   "prepDot", "journalDot", "doneDot", "danger", "dangerTint", "warning", "shadow",
+  "focusImpulse", "focusWait", "focusFear", "focusGreed",
 ] as const;
 export type TokenName = (typeof TOKEN_NAMES)[number];
 export type Palette = Record<TokenName, string>;
@@ -41,13 +42,18 @@ function until(colour: string, target: string, against: string[], min: number) {
 }
 export const isHex = (s: unknown): s is string => typeof s === "string" && /^#[0-9a-fA-F]{6}$/.test(s);
 
-type Core = Omit<Palette, "recess" | "prepDot" | "journalDot" | "doneDot" | "danger" | "dangerTint" | "warning" | "shadow">;
+type Core = Omit<Palette, "recess" | "prepDot" | "journalDot" | "doneDot" | "danger" | "dangerTint" | "warning" | "shadow" | "focusImpulse" | "focusWait" | "focusFear" | "focusGreed">;
 function complete(c: Core, mode: Mode): Palette {
   const dark = mode === "dark";
   const dot = (tint: string, ink: string) => (dark ? ink : mix(tint, ink, 0.45));
   const dangerBase = dark ? "#FFB4A6" : "#A3361F";
   const dangerTint = mix(c.surface, dangerBase, dark ? 0.22 : 0.12);
   const danger = until(dangerBase, dark ? "#FFFFFF" : "#000000", [c.surface, c.bg, dangerTint], 4.6);
+  // Support meanings retain their hue across palettes; shade follows mode and contrast.
+  const focus = (light: string, night: string) => {
+    const base = dark ? night : light;
+    return until(base, dark ? "#FFFFFF" : "#000000", [c.surface, c.bg, mix(c.surface, base, 0.18)], 4.6);
+  };
   return {
     ...c,
     recess: mix(c.bg, c.surface, 0.5),
@@ -58,6 +64,10 @@ function complete(c: Core, mode: Mode): Palette {
     dangerTint,
     warning: until(dark ? "#F2CC72" : "#8A5A00", dark ? "#FFFFFF" : "#000000", [c.surface, c.bg], 4.6),
     shadow: dark ? "#000000" : "#1F1A2B",
+    focusImpulse: focus("#985000", "#FFBF73"),
+    focusWait: focus("#215B97", "#94C7FF"),
+    focusFear: focus("#A33942", "#FFA8AD"),
+    focusGreed: focus("#216B3C", "#9EDBB1"),
   };
 }
 
@@ -128,6 +138,10 @@ export const TEXT_PAIRS: [TokenName, TokenName][] = [
   ["text", "doneTint"], ["danger", "surface"], ["danger", "bg"], ["danger", "dangerTint"], ["warning", "surface"],
   ["muted", "prepTint"], ["muted", "journalTint"], ["muted", "doneTint"],
   ["link", "prepTint"], ["link", "journalTint"], ["link", "doneTint"],
+  ["focusImpulse", "surface"], ["focusImpulse", "bg"],
+  ["focusWait", "surface"], ["focusWait", "bg"],
+  ["focusFear", "surface"], ["focusFear", "bg"],
+  ["focusGreed", "surface"], ["focusGreed", "bg"],
 ];
 
 export const themeKey = (owner: string) => `ss-theme:${owner}`;

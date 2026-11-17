@@ -1,3 +1,5 @@
+import { personalPractices, type StillnessItem } from "./stillness-practices";
+
 export const openAwareness = [
   "Notice contact with the chair and floor.",
   "Notice a thought without solving it.",
@@ -6,7 +8,7 @@ export const openAwareness = [
 ];
 
 // Persisted choices refer to catalogue IDs and step indexes. Keep both stable.
-export const catalogue = [
+export const catalogue: StillnessItem[] = [
   {
     id: "waiting",
     name: "Make room for waiting",
@@ -189,4 +191,5 @@ export const catalogue = [
     ],
     question: "What looks different when you see today as one day among many?",
   },
+  ...personalPractices,
 ];

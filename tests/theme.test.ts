@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { themeCss } from "../scripts/generate-theme-css";
 import {
-  PRESETS, TEXT_PAIRS, TOKEN_NAMES, contrast, derive, parseTheme, palette,
+  PRESETS, TEXT_PAIRS, TOKEN_NAMES, contrast, derive, parseTheme, palette, mix,
   type CustomColours, type Mode, type Palette,
 } from "../src/lib/theme";
 
@@ -30,6 +30,22 @@ test("approved mockup colours are used exactly for both presets", () => {
   assert.equal(PRESETS.signature.dark.bg, "#1B1922");
   assert.equal(PRESETS.berry.light.doneInk, "#1F4F8C");
   assert.equal(PRESETS.berry.dark.onAccent, "#1C1219");
+});
+
+test("Stillness category hues remain consistent and readable on badges and selected filters across themes", () => {
+  const colours = ["#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#A3326E"];
+  const themes = [...Object.values(PRESETS), ...colours.map(accent => derive({ accent, prep: accent, journal: accent, done: accent }))];
+  const tokens = ["focusImpulse", "focusWait", "focusFear", "focusGreed"] as const;
+  for (const theme of themes) for (const mode of modes) {
+    const p = theme[mode];
+    for (const token of tokens) for (const tint of [0, 0.1, 0.18])
+      assert.ok(contrast(p[token], mix(p.surface, p[token], tint)) >= AA, `${mode} ${token}, tint ${tint}`);
+    const rgb = (token: typeof tokens[number]) => [1, 3, 5].map(index => parseInt(p[token].slice(index, index + 2), 16));
+    const [red, green, blue] = rgb("focusFear"); assert.ok(red > green && red > blue, "fear remains red");
+    const [ir, ig, ib] = rgb("focusImpulse"); assert.ok(ir > ig && ig > ib, "impulsiveness remains orange");
+    const [br, bg, bb] = rgb("focusWait"); assert.ok(bb > br && bb > bg, "impatience remains blue");
+    const [gr, gg, gb] = rgb("focusGreed"); assert.ok(gg > gr && gg > gb, "greed remains green");
+  }
 });
 
 test("custom colours always produce readable text, including extreme picks", () => {
