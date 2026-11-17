@@ -82,6 +82,13 @@ html .ss-app :is(button, summary) {
   color: var(--signal-text);
   border-color: var(--signal-line);
 }
+/* Disclosure headings read as part of their card, not as filled buttons:
+   "Name how you're arriving", "Set an intention", "Find another date". */
+html .ss-app :is(.rr-preparation-more, .rr-date-picker) > summary {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
 /* While a board is being edited, each card is covered by a full-size move
    button so it can be dragged. This file is unlayered, so the button rule
    above outranks the move surface's own transparent style in the "legacy"
