@@ -283,7 +283,7 @@ export default function Writing({
                 recognition.current?.stop();
                 return;
               }
-              const Speech = window as Window & {
+              const Speech = window as Omit<Window, "SpeechRecognition" | "webkitSpeechRecognition"> & {
                 SpeechRecognition?: new () => Recognition;
                 webkitSpeechRecognition?: new () => Recognition;
               };

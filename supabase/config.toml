@@ -1,5 +1,12 @@
 project_id = "TraderPulse"
 
+[edge_runtime]
+# Each request runs in a fresh worker. With the default per_worker policy a worker is
+# reused until its lifetime CPU budget (1 s soft, 2 s hard locally) runs out, and a
+# streaming answer still in flight when it is ended is cut off. Edits to function
+# source still apply on the next request.
+policy = "oneshot"
+
 [functions.pulse-data]
 verify_jwt = false
 
@@ -19,4 +26,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pulse-process]
+verify_jwt = false
+
+[functions.pulse-assistant]
+# Local prototype only. The handler returns 404 unless SUPABASE_URL is local and
+# STILL_SIGNAL_ASSISTANT_LOCAL=true is set in supabase/functions/.env. Do not deploy.
 verify_jwt = false

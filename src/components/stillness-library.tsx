@@ -9,6 +9,7 @@ import {
   type ProcessRecord,
   type StillnessSelection,
 } from "@/lib/process/model";
+import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/preparation-status";
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
@@ -45,20 +46,12 @@ const find = (choice: Choice) =>
   catalogue.find((entry) => entry.id === choice.itemId)!;
 const same = (a: Choice, b: Choice) =>
   a.itemId === b.itemId && a.piece === b.piece;
-const title = (choice: Choice) =>
-  choice.piece === undefined
-    ? find(choice).name
-    : find(choice).steps[choice.piece][0];
+const title = (choice: Choice) => stillnessChoiceSummary(choice).title;
 const steps = (choice: Choice) =>
   choice.piece === undefined
     ? find(choice).steps
     : [find(choice).steps[choice.piece]];
-const known = (choice: Choice) => {
-  const item = catalogue.find((entry) => entry.id === choice.itemId);
-  return (
-    item && (choice.piece === undefined || choice.piece < item.steps.length)
-  );
-};
+const known = knownStillnessChoice;
 const todayIn = (timezone: string) => dateInZone(Date.now(), timezone);
 const focusColours: Record<string, string> = {
   Impulsiveness: "var(--theme-focus-impulse)",

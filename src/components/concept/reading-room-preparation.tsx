@@ -1,9 +1,8 @@
 import {
-  arrivalCheckin,
   preparationChanges,
   type DailyPreparation,
 } from "@/lib/process/daily-preparation";
-import { supportFocus } from "@/lib/process/journal-guide";
+import { preparationStatus } from "@/lib/process/preparation-status";
 import {
   arrivalFeelings,
   dateInZone,
@@ -19,7 +18,7 @@ import GuidanceCard from "./guidance-card";
 
 export function preparationSupport(records: ProcessRecord[], date: string, timezone: string) {
   const day = tradingDayFor(records, date, timezone);
-  const tags: string[] = day?.body.supportFocuses?.map((focus) => supportFocus[focus].title) ?? [];
+  const tags = preparationStatus(records, date, timezone).homeFocus;
   const suggestion = catalogue.find((item) => item.id !== "release" && item.tags.some((tag) => tags.includes(tag)));
   return { day, tags, suggestion, browse: { tags, itemId: suggestion?.id ?? catalogue[0].id } };
 }
@@ -43,7 +42,9 @@ export default function ReadingRoomPreparation({
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const date = dateInZone(now, timezone);
   const day = tradingDayFor(store.records, date, timezone);
-  const savedArrival = arrivalCheckin(store.records, day?.rootId)?.body.arrival ?? [];
+  // Saved values come from the same helper as the assistant's read-only preparation_status tool.
+  const saved = preparationStatus(store.records, date, timezone);
+  const savedArrival = saved.arrival;
   const [draft, setDraft] = useState<{ date: string; edits: Partial<DailyPreparation> }>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -53,8 +54,8 @@ export default function ReadingRoomPreparation({
   const busy = useRef(false);
   const edits = draft?.date === date ? draft.edits : {};
   const arrival = edits.arrival ?? savedArrival;
-  const intention = edits.intention ?? day?.body.goal ?? "";
-  const boundary = edits.boundary ?? day?.body.boundary ?? "";
+  const intention = edits.intention ?? saved.intention;
+  const boundary = edits.boundary ?? saved.boundary;
   const dirty = Object.keys(edits).length > 0;
   const unavailable = !store.loaded || store.busy || saving;
   // Reads the current selection, saved or not, so the offer follows each change.
