@@ -75,6 +75,7 @@ export function StillnessLibrary({
   owner,
   store,
   page,
+  active = true,
   browse,
   preparation,
   closing,
@@ -87,6 +88,7 @@ export function StillnessLibrary({
   owner: string;
   store: ProcessStore;
   page: Page;
+  active?: boolean;
   browse?: StillnessBrowse;
   preparation?: { tags: string[]; suggestion?: Item; onBrowse: () => void };
   closing?: { onBrowse: () => void };
@@ -109,6 +111,9 @@ export function StillnessLibrary({
     setSelected(catalogue.find((item) => item.id === browse.itemId) ?? catalogue[0]);
   }, [browse]);
   const [panel, setPanel] = useState<Panel | null>(null);
+  useEffect(() => {
+    if (!active) setPanel(null);
+  }, [active]);
   const [destination, setDestination] = useState<Destination>("Preparation");
   const [keep, setKeep] = useState(false);
   const [paused, setPaused] = useState(false);

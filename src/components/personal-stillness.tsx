@@ -4,7 +4,11 @@ import type { JournalProfile } from "@/lib/process/journal-guide";
 import { useEffect, useRef, useState } from "react";
 import { Field } from "./process/shared";
 type Element = JournalProfile["stillness"][number];
-export function RoutineAudio({ path, owner }: { path: string; owner: string }) {
+export function RoutineAudio({ path, owner, active = true }: { path: string; owner: string; active?: boolean }) {
+  const player = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (!active) player.current?.pause();
+  }, [active]);
   const [url, setUrl] = useState("");
   const [loadedFor, setLoadedFor] = useState("");
   const identity = JSON.stringify([owner, path]);
@@ -30,7 +34,7 @@ export function RoutineAudio({ path, owner }: { path: string; owner: string }) {
     };
   }, [path, owner]);
   return url && loadedFor === identity ? (
-    <audio controls src={url} aria-label="Your saved message" />
+    <audio ref={player} controls src={url} aria-label="Your saved message" />
   ) : (
     <p role="status">{error || "Loading your recording…"}</p>
   );
@@ -39,10 +43,12 @@ export function StillnessBuilder({
   value,
   onChange,
   owner,
+  active = true,
 }: {
   value: Element[];
   onChange: (value: Element[]) => void;
   owner: string;
+  active?: boolean;
 }) {
   const [recording, setRecording] = useState(false),
     [requesting, setRequesting] = useState(false),
@@ -53,6 +59,14 @@ export function StillnessBuilder({
     alive = useRef(true),
     current = useRef(value);
   const requestingRef = useRef(false);
+  const visible = useRef(active);
+  visible.current = active;
+  useEffect(() => {
+    if (!active) {
+      if (recorder.current?.state === "recording") recorder.current.stop();
+      stream.current?.getTracks().forEach((track) => track.stop());
+    }
+  }, [active]);
   current.current = value;
   useEffect(() => {
     alive.current = true;
@@ -77,7 +91,7 @@ export function StillnessBuilder({
           "Recording is unavailable in this browser. You can save your own words instead.",
         );
       const input = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!alive.current) {
+      if (!alive.current || !visible.current) {
         input.getTracks().forEach((t) => t.stop());
         return;
       }
@@ -170,7 +184,7 @@ export function StillnessBuilder({
             </select>
           </Field>
           {item.audioPath && (
-            <RoutineAudio path={item.audioPath} owner={owner} />
+            <RoutineAudio path={item.audioPath} owner={owner} active={active} />
           )}
           <div className="cc-actions">
             <button
@@ -249,13 +263,21 @@ export function StillnessBuilder({
 export default function PersonalStillness({
   elements,
   owner,
+  active = true,
 }: {
   elements: Element[];
   owner: string;
+  active?: boolean;
 }) {
   const [context, setContext] = useState<Element["context"]>("any"),
     [index, setIndex] = useState(0),
     [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setRunning(false);
+      setIndex(0);
+    }
+  }, [active]);
   const selected = elements.filter(
     (el) => el.context === "any" || el.context === context,
   );

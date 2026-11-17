@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { Props } from "./concept/shared";
 import PersonalStillness, { StillnessBuilder } from "./personal-stillness";
 import type { ProcessStore } from "./process/use-process";
-export default function SavedStillness({ props, store }: { props: Props; store: ProcessStore }) {
+export default function SavedStillness({ props, store, active = true }: { props: Props; store: ProcessStore; active?: boolean }) {
   const routine = latest(store.records, "protocol").sort(
     (a, b) => b.createdAt - a.createdAt,
   )[0];
@@ -31,6 +31,7 @@ export default function SavedStillness({ props, store }: { props: Props; store: 
           {editing ? (
             <>
               <StillnessBuilder
+                active={active}
                 owner={props.pulse.owner}
                 value={elements}
                 onChange={setElements}
@@ -61,6 +62,7 @@ export default function SavedStillness({ props, store }: { props: Props; store: 
             </>
           ) : routine.body.profile?.stillness.length ? (
             <PersonalStillness
+              active={active}
               owner={props.pulse.owner}
               elements={routine.body.profile.stillness}
             />

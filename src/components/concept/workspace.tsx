@@ -46,12 +46,7 @@ function PageBoard({ owner, page, sessions, children, onPresentationChange }: { 
         {children}
       </PageDashboard>
     );
-    return page === "Stillness" ? (
-      <details key={owner} className="rr-stillness-routines">
-        <summary>Personal routines and practices</summary>
-        {dashboard}
-      </details>
-    ) : dashboard;
+    return dashboard;
   }
   return <ModuleWorkspace owner={owner} page={page} enabled={page !== "Preparation" && page !== "Pre-Market"}>{children}</ModuleWorkspace>;
 }
@@ -77,6 +72,7 @@ export default function ConceptWorkspace(props: Props) {
   const process = useProcess(p.owner, [s, ...history]);
   const [supportDay, setSupportDay] = useState<{ date: string; page: Page }>();
   const [stillnessBrowse, setStillnessBrowse] = useState<StillnessBrowse>();
+  const [stillnessView, setStillnessView] = useState<"personal" | "library">("personal");
   const [previewRequest, setPreviewRequest] = useState<{ itemId: string; n: number }>();
   const [preparationGuidance, setPreparationGuidance] = useState<string>();
   const previewItem = useCallback((itemId: string) => setPreviewRequest((request) => ({ itemId, n: (request?.n ?? 0) + 1 })), []);
@@ -218,6 +214,7 @@ export default function ConceptWorkspace(props: Props) {
   const browseFromPreparation = () => {
     if (!support) return;
     setStillnessBrowse(support.browse);
+    setStillnessView("library");
     go("Stillness");
     setReturnToPreparation("Stillness");
   };
@@ -228,6 +225,7 @@ export default function ConceptWorkspace(props: Props) {
   };
   const browseFromDone = () => {
     setStillnessBrowse({ tags: [], itemId: "release" });
+    setStillnessView("library");
     go("Stillness");
     setReturnToDone(true);
   };
@@ -458,7 +456,7 @@ export default function ConceptWorkspace(props: Props) {
             now={p.now}
             store={process}
             onPage={goFromHome}
-            onBrowse={(browse) => { setStillnessBrowse(browse); go("Stillness"); }}
+            onBrowse={(browse) => { setStillnessBrowse(browse); setStillnessView("library"); go("Stillness"); }}
             onWeek={() => { go("Journal"); setReviewWeek(undefined); setWeekly(true); }}
           />
         ) : (
@@ -482,6 +480,12 @@ export default function ConceptWorkspace(props: Props) {
                 <button aria-pressed={journalMode === "book"} onClick={() => setJournalMode("book")}>
                   Journal
                 </button>
+              </div>
+            )}
+            {stillness && (
+              <div className="ss-journal-mode" role="group" aria-label="Stillness view">
+                <button aria-pressed={stillnessView === "personal"} onClick={() => setStillnessView("personal")}>Personal routine</button>
+                <button aria-pressed={stillnessView === "library"} onClick={() => setStillnessView("library")}>Support library</button>
               </div>
             )}
           </div>
@@ -646,10 +650,12 @@ export default function ConceptWorkspace(props: Props) {
           onReflect={(prompt) => openJournalBook(prompt)}
           onPreview={previewItem}
         >
+          <div hidden={stillness && stillnessView !== "library"}>
           <StillnessLibrary
             owner={p.owner}
             store={process}
             page={page}
+            active={!stillness || stillnessView === "library"}
             browse={stillnessBrowse}
             // One suggestion per screen: an answer-based suggestion takes the place of the Home-topic preview link.
             preparation={support && { tags: support.tags, suggestion: preparationGuidance ? undefined : support.suggestion, onBrowse: browseFromPreparation }}
@@ -660,9 +666,10 @@ export default function ConceptWorkspace(props: Props) {
             onOpenDay={(destination) => go(destination === "Preparation" ? "Preparation" : "Done")}
             onReflect={() => reflectForToday("stillness")}
           />
+          </div>
         </ReadingRoomDone>
         </ReadingRoomPreparation>
-        {!preparing && !closing && <PageBoard key={page === "Journal" ? journalEntry : undefined} owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
+        {!preparing && !closing && <div hidden={stillness && stillnessView !== "personal"}><PageBoard key={page === "Journal" ? journalEntry : undefined} owner={p.owner} page={page} sessions={[s, ...history]} onPresentationChange={setReadingRoom}>
           {!stillness && workspaceNotices}
           {<WorkspaceModule id="post-exit-review" title="A moment to review" order={40} width={6} initiallyHidden={page === "Journal"}>
             <PostExitInvitation props={viewProps} />
@@ -1117,7 +1124,10 @@ export default function ConceptWorkspace(props: Props) {
                 id="personal-stillness"
                 title="My stillness routine"
               >
-                {page === "Stillness" && <SavedStillness props={viewProps} store={process} />}
+                {page === "Stillness" && <>
+                  <button onClick={() => setStillnessView("library")}>Browse support library</button>
+                  <SavedStillness props={viewProps} store={process} active={stillnessView === "personal"} />
+                </>}
               </WorkspaceModule>
               <WorkspaceModule
                 id="stillness"
@@ -1137,13 +1147,13 @@ export default function ConceptWorkspace(props: Props) {
               >
                 <SessionReset
                   key={s.id}
-                  active={page === "Stillness"}
+                  active={page === "Stillness" && stillnessView === "personal"}
                   onChoice={finishReset}
                 />
               </WorkspaceModule>
             </div>
           </ModuleScope>
-        </PageBoard>}
+        </PageBoard></div>}
         </>
         )}
       </main>
