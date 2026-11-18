@@ -15,13 +15,13 @@ Records are read in the browser from this device, for the dates asked about. The
 
 Pilot requests set `data_collection: "deny"` and `zdr: true`, so OpenRouter may only use endpoints that meet those rules. If the model has no such endpoint, the assistant reports that and sends no records.
 
-**Current blocker:** on 18 November 2026 OpenRouter rejected the configured model, `nvidia/nemotron-3.5-lightning:free`, with "No endpoints found matching your data policy (Zero data retention)". `ASSISTANT_MODEL` must change to a model with a zero-retention endpoint before the pilot can answer.
+The configured model is `inclusionai/ling-3.2-flash:free`. OpenRouter lists its only endpoint, Ant Digital, as zero data retention. If that listing changes, requests fail and no records are sent.
 
 Reads do not sync first. Days saved on another device and not yet downloaded may be missing, and the card says so.
 
 ## Enable (needs Caleb's approval)
 
-1. Choose a model with a zero-retention endpoint that supports tools, set `ASSISTANT_MODEL`, and confirm with a synthetic prompt that it accepts `provider: { data_collection: "deny", zdr: true, allow_fallbacks: false }`.
+1. Confirm with a synthetic prompt that `ASSISTANT_MODEL` still accepts `provider: { data_collection: "deny", zdr: true, allow_fallbacks: false }`.
 2. Set the Edge Function secrets `OPENROUTER_API_KEY`, `STILL_SIGNAL_ASSISTANT_PILOT=true` and `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS=<your Supabase user ID>`.
 3. Deploy the function: `npx --yes supabase@2.122.1 functions deploy pulse-assistant --no-verify-jwt`.
 4. Add the Cloudflare build variable `STILL_SIGNAL_ASSISTANT_PILOT=true` and rebuild main.

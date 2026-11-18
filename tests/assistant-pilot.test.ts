@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { POST as route } from "../src/app/api/assistant/route";
 import { assistantPilotAccess, assistantPilotHeaders } from "../src/components/assistant/assistant-pilot";
+import { continueAfterTools } from "../src/components/assistant/preparation-assistant";
 import { ASSISTANT_MODEL, PREPARATION_TOOL } from "../src/lib/assistant-tool";
 import { POST as handler, providerMessage } from "../src/lib/handlers/assistant";
 import { APICallError } from "ai";
@@ -192,6 +193,43 @@ test("the browser only uses the workspace owner's session and hides the pilot on
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("the pilot uses the model with a zero-retention endpoint", () => {
+  assert.equal(ASSISTANT_MODEL, "inclusionai/ling-3.2-flash:free");
+});
+
+const modelReply = (delta: object, finish: string) => () => new Response(
+  `data: ${JSON.stringify({ id: "gen-1", object: "chat.completion.chunk", created: 1, model: ASSISTANT_MODEL, choices: [{ index: 0, delta: { role: "assistant", ...delta }, finish_reason: finish }] })}\n\ndata: [DONE]\n\n`,
+  { headers: { "Content-Type": "text/event-stream" } },
+);
+const errorsFrom = async (openrouter: () => Response) => {
+  let text = "";
+  await withEnv(pilot, () => withServices({ openrouter }, async () => { text = await (await handler(ask("invited-token"))).text(); }));
+  return [...text.matchAll(/"type":"error","errorText":"([^"]+)"/g)].map((match) => match[1]);
+};
+
+test("a reply without a usable answer is reported instead of ending silently", async () => {
+  assert.deepEqual(await errorsFrom(modelReply({ content: "" }, "stop")), ["The model returned no answer. Ask again."]);
+  assert.deepEqual(await errorsFrom(modelReply({ content: "You arrived restless and" }, "length")), ["The answer was cut off. Ask again, or ask about fewer days."]);
+  assert.deepEqual(await errorsFrom(modelReply({ content: "You arrived calm." }, "stop")), [], "a complete answer");
+  const invalid = (name: string, args: string) => modelReply({ tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name, arguments: args } }] }, "tool_calls");
+  assert.deepEqual(await errorsFrom(invalid(PREPARATION_TOOL, "{}")), [], "a valid tool call");
+  for (const [name, args] of [[PREPARATION_TOOL, '{"period":"next-fortnight"}'], ["delete_records", "{}"]])
+    assert.ok((await errorsFrom(invalid(name, args))).includes("The assistant could not read that request. Ask again."), name);
+});
+
+test("a declined provider request does not describe the local prototype to a pilot account", () => {
+  const declined = new APICallError({ message: "failed", url: "https://openrouter.ai/api/v1/chat/completions", requestBodyValues: {}, statusCode: 402 });
+  assert.equal(providerMessage(declined, true), "The assistant is not available right now.");
+});
+
+test("the browser stops asking after a rejected tool call or too many reads", () => {
+  const done = (index: number) => ({ type: `tool-${PREPARATION_TOOL}`, toolCallId: `call_${index}`, state: "output-available", input: {}, output: {} });
+  const after = (parts: unknown[]) => continueAfterTools({ messages: [{ id: "a1", role: "assistant", parts }] as never });
+  assert.equal(after([{ type: "step-start" }, done(1)]), true, "one read");
+  assert.equal(after([{ type: "step-start" }, { type: "dynamic-tool", toolName: "delete_records", toolCallId: "call_1", state: "output-error", input: {}, errorText: "rejected" }]), false, "rejected call");
+  assert.equal(after([1, 2, 3, 4].flatMap((index) => [{ type: "step-start" }, done(index)])), false, "repeated reads");
 });
 
 test("the generated Edge Function carries the pilot's account checks", async () => {

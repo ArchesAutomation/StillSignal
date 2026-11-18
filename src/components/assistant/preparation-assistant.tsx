@@ -294,6 +294,19 @@ export async function answerTool(
   }
 }
 
+// A question needs one read. The allowance covers a model correcting itself, without letting it loop.
+const MAX_TOOL_CALLS = 3;
+
+/** Continues after a tool answer, but never after a call the server rejected. */
+export function continueAfterTools(options: Parameters<typeof lastAssistantMessageIsCompleteWithToolCalls>[0]) {
+  const parts = options.messages.at(-1)?.parts ?? [];
+  return (
+    lastAssistantMessageIsCompleteWithToolCalls(options) &&
+    !parts.some((part) => part.type === "dynamic-tool") &&
+    parts.filter((part) => part.type.startsWith("tool-")).length <= MAX_TOOL_CALLS
+  );
+}
+
 export default function PreparationAssistant({
   owner,
   pilotHeaders,
@@ -306,7 +319,7 @@ export default function PreparationAssistant({
   const output = useRef<ReturnType<typeof useChat>["addToolOutput"]>(undefined);
   const chat = useChat({
     transport: new DefaultChatTransport({ api: "/api/assistant", headers: pilotHeaders }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    sendAutomaticallyWhen: continueAfterTools,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
       const answer = await answerTool(owner, toolCall.toolName, toolCall.input);

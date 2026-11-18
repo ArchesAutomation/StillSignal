@@ -287,7 +287,7 @@ test("the instructions apply the agreed weekday default and keep weekday names o
     await (await handler(new Request("http://kong:8000/f", { method: "POST",
       body: JSON.stringify({ messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "What was my intention on Monday?" }] }] }) }))).text();
     assert.match(system, /A weekday on its own means the most recent one, so call the tool rather than asking which/);
-    assert.match(system, /Do not name weekdays in your reply; the card shows them/);
+    assert.match(system, /Do not name weekdays in your reply, even if the trader used one; the card shows them/);
   } finally {
     globalThis.fetch = original;
     for (const [key, value] of Object.entries(env)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
