@@ -1,12 +1,12 @@
 # Signed-in assistant pilot
 
-Lets invited accounts use Ask Still Signal on the live site. It reuses the local prototype's panel, tools and Edge Function. **Merging this code enables nothing.** The pilot stays off until every step below is done.
+Lets invited accounts use Ask Still Signal on the live site. It reuses the local prototype's panel, tools and Edge Function. The site route is always deployed, and **Supabase Edge Function secrets decide who can use it**. No Cloudflare variable or redeploy is needed to give access or turn the pilot off.
 
 ## How access is decided
 
-1. The Cloudflare route `/api/assistant` forwards requests only when `STILL_SIGNAL_ASSISTANT_PILOT=true` is set for the Worker.
+1. The Cloudflare route `/api/assistant` is on in every deployment, set in `cloudflare.config.ts`. It holds no model key and makes no account decision. It refuses requests without a session token and forwards the rest.
 2. The `pulse-assistant` Edge Function verifies the Supabase session on every request.
-3. The function requires `STILL_SIGNAL_ASSISTANT_PILOT=true` and the account's user ID in `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS`. Anyone else receives 404, and the panel never loads.
+3. The function requires the secret `STILL_SIGNAL_ASSISTANT_PILOT=true` and the account's user ID in `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS`. Anyone else receives 404, and the panel never loads.
 4. Each account is limited to 12 requests a minute through the existing `pulse_rate_limit` function.
 
 ## What leaves the app
@@ -21,17 +21,28 @@ Reads do not sync first. Days saved on another device and not yet downloaded may
 
 Daily Journal and Done for the Day have their own opt-in. See [assistant-journal-reads.md](assistant-journal-reads.md).
 
-## Enable (needs Caleb's approval)
+## Manage access (needs Caleb's approval)
+
+Change these under Edge Function secrets in the Supabase dashboard. Each change applies on the next request, with no deployment.
+
+| To do this | Set this secret |
+| --- | --- |
+| Give an account access | Add its Supabase user ID to `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS`, separated by commas |
+| Remove one account | Remove its user ID from `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS` |
+| Turn the pilot off for everyone | `STILL_SIGNAL_ASSISTANT_PILOT=false` |
+| Turn the pilot back on | `STILL_SIGNAL_ASSISTANT_PILOT=true` |
+
+An empty or missing allowlist means no account has access. An account without access receives 404. The panel does not appear on its next page load, and a panel that is already open fails on its next question.
+
+## First-time setup
 
 1. Confirm with a synthetic prompt that `ASSISTANT_MODEL` still accepts `provider: { data_collection: "deny", zdr: true, allow_fallbacks: false }`.
 2. Set the Edge Function secrets `OPENROUTER_API_KEY`, `STILL_SIGNAL_ASSISTANT_PILOT=true` and `STILL_SIGNAL_ASSISTANT_PILOT_USER_IDS=<your Supabase user ID>`.
-3. Deploy the function: `npx --yes supabase@2.122.1 functions deploy pulse-assistant --no-verify-jwt`.
-4. Add the Cloudflare build variable `STILL_SIGNAL_ASSISTANT_PILOT=true` and rebuild main.
-5. Signed in, ask "What's my preparation status?" and compare the card with Preparation. Confirm a second account sees no assistant.
+3. Signed in, ask "What's my preparation status?" and compare the card with Preparation. Confirm a second account sees no assistant.
 
-## Turn off
+## Check after a deployment
 
-Set the Edge Function secret `STILL_SIGNAL_ASSISTANT_PILOT=false`. This takes effect on the next request without a deployment. Then set the Cloudflare build variable to `false` and rebuild.
+An anonymous `POST /api/assistant` should return 401, which shows the site route is on. A 404 means the route is off. This does not show whether an account has access, so also ask a question from an allowlisted account.
 
 ## Checks
 
