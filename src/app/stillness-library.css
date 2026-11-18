@@ -269,7 +269,8 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   inset: 0;
 }
 .ss-support-dialog::backdrop {
-  background: color-mix(in srgb, var(--theme-heading) 67%, transparent);
+  /* Heading text becomes pale in dark mode; a backdrop must keep darkening the page. */
+  background: color-mix(in srgb, var(--theme-shadow) 67%, transparent);
 }
 .ss-support-dialog .ss-support-close {
   position: absolute;
