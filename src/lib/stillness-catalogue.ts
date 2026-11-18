@@ -193,3 +193,16 @@ export const catalogue: StillnessItem[] = [
   },
   ...personalPractices,
 ];
+
+/** The Stillness library's type, focus and search filters. */
+export function stillnessLibraryResults({ filter = "All", tags = [], search = "" }: { filter?: string; tags?: string[]; search?: string }) {
+  return catalogue.filter(
+    (item) =>
+      (filter === "All" || item.kind === filter) &&
+      (!tags.length || item.tags.some((tag) => tags.includes(tag))) &&
+      [item.name, item.desc, ...item.tags]
+        .join(" ")
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
+  );
+}

@@ -1,4 +1,4 @@
-import type { JournalLink } from "./assistant-links";
+import type { AssistantLink, JournalLink } from "./assistant-links";
 import { BOOK_PAGE, BOOK_SILVER_LINING, bookPassages, bookText, isBookEntry } from "./journal-book";
 import { noteTime } from "./journal-routing";
 import type { JournalEntry, Session } from "./model";
@@ -50,6 +50,8 @@ export type DoneDay = {
   process: string | null;
   practices: SupportPractice[];
   writing: JournalReadEntry[];
+  /** Today opens Done for the Day. Past days have no Done screen, so they open that day's Journal. */
+  link: AssistantLink;
 };
 export type DoneHistory = {
   label: string;
@@ -253,7 +255,8 @@ export function doneHistory(
   timezone: string,
   sync: RecordSync,
 ): DoneHistory {
-  const period = resolvePeriod(input, dateInZone(now, timezone));
+  const today = dateInZone(now, timezone);
+  const period = resolvePeriod(input, today);
   const support = supportHistory(records, input, now, timezone, sync);
   const byDate = sessionsByDate(sessions, owner, timezone);
   const { kept, omitted } = withinLimits(period.dates.flatMap((date) =>
@@ -270,6 +273,7 @@ export function doneHistory(
       process: processes[closeout?.process ?? ""] ?? null,
       practices: support.days[index].done,
       writing: kept.get(date) ?? [],
+      link: date === today ? ({ page: "Done" } as const) : { date },
     };
     return day.outcome || day.process || day.practices.length || day.writing.length ? [day] : [];
   });

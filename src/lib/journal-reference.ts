@@ -1,6 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import type { JournalEntry, Session } from "./model";
-import { sessionIdeas } from "./position-ideas";
+import { sessionIdeas, type TradeIdea } from "./position-ideas";
 import { journalDateValue } from "./journal-day";
 
 export const stages = [
@@ -100,6 +100,30 @@ export function weekKey(t: number) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return journalDateValue(d.getTime());
 }
+/** Completed trades with a recorded P&L, and the win rate the weekly review shows for them. */
+export function ideaStats(ideas: TradeIdea[]) {
+  const eligible = ideas.filter(
+    (i) =>
+      i.exit !== undefined && i.pnl !== undefined && Number.isFinite(i.pnl),
+  );
+  const currencies = [...new Set(eligible.map((i) => i.currency))];
+  return {
+    eligible,
+    completed: eligible.length,
+    winRate: eligible.length
+      ? (eligible.filter((i) => i.pnl! > 0).length / eligible.length) * 100
+      : null,
+    pnl: currencies.map(
+      (currency) =>
+        [
+          currency,
+          eligible
+            .filter((i) => i.currency === currency)
+            .reduce((sum, i) => sum + i.pnl!, 0),
+        ] as const,
+    ),
+  };
+}
 export function weeklyActuals(
   sessions: Session[],
   selected: Session,
@@ -114,28 +138,12 @@ export function weeklyActuals(
         .map((s) => [s.id, s]),
     ).values(),
   ];
-  const eligible = rows.flatMap((s) =>
-    sessionIdeas(s).filter(
-      (i) =>
-        i.exit !== undefined && i.pnl !== undefined && Number.isFinite(i.pnl),
-    ),
-  );
-  const currencies = [...new Set(eligible.map((i) => i.currency))];
+  const { completed, winRate, pnl } = ideaStats(rows.flatMap(sessionIdeas));
   return {
     sessions: rows.length,
-    completed: eligible.length,
-    winRate: eligible.length
-      ? (eligible.filter((i) => i.pnl! > 0).length / eligible.length) * 100
-      : null,
-    pnl: currencies.map(
-      (currency) =>
-        [
-          currency,
-          eligible
-            .filter((i) => i.currency === currency)
-            .reduce((sum, i) => sum + i.pnl!, 0),
-        ] as const,
-    ),
+    completed,
+    winRate,
+    pnl,
     demo: rows.some((s) => s.demo),
   };
 }

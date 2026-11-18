@@ -148,6 +148,28 @@
   text-decoration: underline;
   cursor: pointer;
 }
+.ss-assistant-source {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--theme-line);
+  color: var(--theme-muted);
+  font-size: 12px;
+}
+.ss-assistant-card li > .ss-assistant-link {
+  display: block;
+}
+.ss-assistant-trades {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.ss-assistant-trades li {
+  display: grid;
+  gap: 1px;
+  font-size: 13px;
+}
 [data-assistant-focus] {
   outline: 2px solid var(--theme-link);
   outline-offset: 2px;

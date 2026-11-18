@@ -21,7 +21,7 @@ import {
   topicStems,
 } from "../src/lib/assistant-journal";
 import { JOURNAL_LINK_EVENT, type JournalLink } from "../src/lib/assistant-links";
-import { ASSISTANT_MODEL, DONE_TOOL, JOURNAL_TOOL, PREPARATION_TOOL } from "../src/lib/assistant-tool";
+import { ASSISTANT_MODEL, DONE_TOOL, JOURNAL_TOOL, NO_READS, PREPARATION_TOOL } from "../src/lib/assistant-tool";
 import { POST as handler } from "../src/lib/handlers/assistant";
 import type { JournalEntry, Session } from "../src/lib/model";
 import { createRecord } from "../src/lib/process/model";
@@ -163,13 +163,13 @@ test("the browser reads only the signed-in account and only when journal reading
     assert.match((refused as { errorText: string }).errorText, /isn.t turned on/);
   }
   assert.equal(reads, 0, "a refused tool call reads nothing");
-  await answerTool(owner, JOURNAL_TOOL, {}, counting, true);
+  await answerTool(owner, JOURNAL_TOOL, {}, counting, { ...NO_READS, journal: true });
   assert.equal(reads, 1);
 
   const failing = { ...counting, journal: async () => { throw new Error("IndexedDB unavailable"); } };
-  const failed = await answerTool(owner, JOURNAL_TOOL, {}, failing, true);
+  const failed = await answerTool(owner, JOURNAL_TOOL, {}, failing, { ...NO_READS, journal: true });
   assert.match((failed as { errorText: string }).errorText, /could not be read.*not an empty result/);
-  const period = await answerTool(owner, JOURNAL_TOOL, { period: "last-year" }, undefined, true);
+  const period = await answerTool(owner, JOURNAL_TOOL, { period: "last-year" }, undefined, { ...NO_READS, journal: true });
   assert.match((period as { errorText: string }).errorText, /isn.t supported/);
 });
 
@@ -243,7 +243,7 @@ const offered = (body: Record<string, any>) => (body.tools as { function: { name
 test("a pilot account gets no journal tools until it is listed for them", async () => {
   for (const list of [undefined, "", "33333333-3333-4333-8333-333333333333"])
     await hosted(list, async (bodies) => {
-      assert.deepEqual(await (await handler(post({ action: "access" }))).json(), { enabled: true, journal: false });
+      assert.deepEqual(await (await handler(post({ action: "access" }))).json(), { enabled: true, journal: false, trades: false, stillness: false });
       await (await handler(post({ messages: [question] }))).text();
       assert.ok(!offered(bodies[0]).includes(JOURNAL_TOOL) && !offered(bodies[0]).includes(DONE_TOOL));
       assert.ok(offered(bodies[0]).includes(PREPARATION_TOOL));
@@ -255,7 +255,7 @@ test("a pilot account gets no journal tools until it is listed for them", async 
 
 test("a listed account gets both tools, zero retention, and the model never sees entry links", async () => {
   await hosted(` ${invited} `, async (bodies) => {
-    assert.deepEqual(await (await handler(post({ action: "access" }))).json(), { enabled: true, journal: true });
+    assert.deepEqual(await (await handler(post({ action: "access" }))).json(), { enabled: true, journal: true, trades: false, stillness: false });
     const output = read({ period: "last-week", topic: "rushing" });
     await (await handler(post({ messages: [question, { id: "a1", role: "assistant", parts: [
       { type: `tool-${JOURNAL_TOOL}`, toolCallId: "c1", state: "output-available", input: { period: "last-week", topic: "rushing" }, output },
