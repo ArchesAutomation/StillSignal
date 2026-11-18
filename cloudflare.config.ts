@@ -20,6 +20,8 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: bindings.text(process.env.NEXT_PUBLIC_SUPABASE_URL || ""),
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: bindings.text(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || ""),
       APP_ORIGIN: bindings.text("https://still-signal.archesautomation.workers.dev"),
+      // Off unless the Cloudflare build sets it. See docs/assistant-pilot.md.
+      STILL_SIGNAL_ASSISTANT_PILOT: bindings.text(process.env.STILL_SIGNAL_ASSISTANT_PILOT === "true" ? "true" : "false"),
     },
   }),
 });

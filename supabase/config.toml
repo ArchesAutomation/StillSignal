@@ -29,6 +29,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pulse-assistant]
-# Local prototype only. The handler returns 404 unless SUPABASE_URL is local and
-# STILL_SIGNAL_ASSISTANT_LOCAL=true is set in supabase/functions/.env. Do not deploy.
+# The handler verifies the session itself and returns 404 unless the local prototype or the
+# allowlisted pilot is enabled. Deploy only by following docs/assistant-pilot.md.
 verify_jwt = false

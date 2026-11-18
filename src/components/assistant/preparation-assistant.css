@@ -12,6 +12,15 @@
   max-width: calc(100vw - 32px);
   color: var(--theme-heading);
 }
+/* The capture control sits higher on narrow screens; keep its record button uncovered. */
+@media (max-width: 760px) {
+  .ss-assistant {
+    bottom: 136px;
+  }
+  .ss-assistant-panel {
+    height: min(560px, calc(100dvh - 240px));
+  }
+}
 .ss-assistant-toggle {
   padding: 9px 16px;
   border: 1px solid var(--theme-line);

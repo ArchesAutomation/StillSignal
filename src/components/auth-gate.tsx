@@ -7,6 +7,7 @@ import { authClient, clearSyncCache, cloudConfigured } from "@/lib/cloud";
 import type { User } from "@supabase/supabase-js";
 import { Activity, ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import AssistantPilot from "./assistant/assistant-pilot";
 import Dashboard from "./dashboard";
 export default function AuthGate() {
   const openSignup = process.env.NEXT_PUBLIC_OPEN_SIGNUP === "true";
@@ -62,7 +63,10 @@ export default function AuthGate() {
     );
   if (user && mode !== "new-password")
     return (
-      <Dashboard key={user.id} user={{ id: user.id, email: user.email }} />
+      <>
+        <Dashboard key={user.id} user={{ id: user.id, email: user.email }} />
+        <AssistantPilot key={`assistant-${user.id}`} owner={user.id} />
+      </>
     );
   async function submit(e: React.FormEvent) {
     e.preventDefault();

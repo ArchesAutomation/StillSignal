@@ -160,8 +160,8 @@ for (const [name, source] of [
     ) + "\n",
   );
 }
-// Local assistant prototype. Serve only with the local Supabase stack; its handler
-// refuses to run unless SUPABASE_URL is local and STILL_SIGNAL_ASSISTANT_LOCAL=true.
+// Assistant: the local prototype, or the signed-in pilot for allowlisted accounts. Its handler
+// returns 404 unless one of those modes is explicitly enabled. See docs/assistant-pilot.md.
 {
   const directory = "supabase/functions/pulse-assistant";
   await mkdir(directory, { recursive: true });
@@ -174,6 +174,7 @@ for (const [name, source] of [
       .replace('from "ai"', 'from "npm:ai@7.0.163"')
       .replace('from "@openrouter/ai-sdk-provider"', 'from "npm:@openrouter/ai-sdk-provider@3.1.0"');
   await writeFile(directory + "/handler.ts", edge(await readFile("src/lib/handlers/assistant.ts", "utf8")));
+  await writeServer(directory + "/server.ts", edgeServer);
   for (const file of ["assistant-tool.ts", "validation.ts", "blueprint-schema.ts"])
     await writeFile(directory + "/" + file, edge(await readFile("src/lib/" + file, "utf8")));
   await writeFile(

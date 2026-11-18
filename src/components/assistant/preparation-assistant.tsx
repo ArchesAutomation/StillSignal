@@ -294,11 +294,18 @@ export async function answerTool(
   }
 }
 
-export default function PreparationAssistant({ owner }: { owner: string }) {
+export default function PreparationAssistant({
+  owner,
+  pilotHeaders,
+}: {
+  owner: string;
+  /** Present only for a signed-in pilot account. Supplies a current session token per request. */
+  pilotHeaders?: () => Promise<Record<string, string>>;
+}) {
   const [open, setOpen] = useState(false);
   const output = useRef<ReturnType<typeof useChat>["addToolOutput"]>(undefined);
   const chat = useChat({
-    transport: new DefaultChatTransport({ api: "/api/assistant" }),
+    transport: new DefaultChatTransport({ api: "/api/assistant", headers: pilotHeaders }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
@@ -327,8 +334,17 @@ export default function PreparationAssistant({ owner }: { owner: string }) {
         <AssistantRuntimeProvider runtime={runtime}>
           <aside className="ss-assistant-panel" aria-label="Still Signal assistant">
             <header>
-              <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
-              <p>Reads today’s Preparation and recent support on this device. It can’t change anything.</p>
+              {pilotHeaders ? (
+                <>
+                  <small>PRIVATE PILOT</small>
+                  <p>Reads Preparation and support saved on this device, and sends what it reads to OpenRouter to write the answer. It can’t change anything.</p>
+                </>
+              ) : (
+                <>
+                  <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
+                  <p>Reads today’s Preparation and recent support on this device. It can’t change anything.</p>
+                </>
+              )}
             </header>
             <ThreadPrimitive.Root className="ss-assistant-thread">
               <ThreadPrimitive.Viewport className="ss-assistant-viewport">

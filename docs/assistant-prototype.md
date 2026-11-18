@@ -1,6 +1,6 @@
 # Local assistant prototype
 
-A small chat panel beside the synthetic `/review` workspace. It answers "What's my preparation status?" with a streamed reply and a card that reads today's Preparation. Local only: it never runs with a cloud account or on a deployment.
+A small chat panel beside the synthetic `/review` workspace. It answers "What's my preparation status?" with a streamed reply and a card that reads today's Preparation. This local mode never runs with a cloud account or on a deployment. The separate allowlisted signed-in mode is described in [assistant-pilot.md](assistant-pilot.md).
 
 ## How it fits together
 
@@ -46,7 +46,7 @@ node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3190
 
 Open `http://127.0.0.1:3190/review`, choose **Preparation**, then **Ask Still Signal** and ask "What's my preparation status?".
 
-Never run `supabase link`, `supabase functions deploy` or `supabase secrets set` for this prototype. They would touch the hosted project. Stop the local stack with `npx --yes supabase@2.122.1 stop`. Restore Next's generated `tsconfig.json` and `next-env.d.ts` changes before committing.
+Never run `supabase link`, `supabase functions deploy` or `supabase secrets set` for this local prototype. They would touch the hosted project. Stop the local stack with `npx --yes supabase@2.122.1 stop`. Restore Next's generated `tsconfig.json` and `next-env.d.ts` changes before committing.
 
 ## Checks
 

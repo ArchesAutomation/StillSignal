@@ -109,6 +109,14 @@ export default function Privacy() {
         in Settings. No separate generative AI model is trained on your records.
       </p>
       <p>
+        Ask Still Signal is a private pilot, available only to accounts invited
+        to it. When you ask a question, the Preparation and support records it
+        reads for the dates you asked about are sent through OpenRouter to a
+        hosted AI model to write the answer. Requests are limited to endpoints
+        OpenRouter lists as not collecting or retaining them. The conversation
+        is not saved, and the assistant cannot change your records.
+      </p>
+      <p>
         Export the selected session as JSON from Settings. Deleting it removes
         its cloud records and its local records on this device. Copies on other
         offline devices and prior exports must be removed separately. Sign-out
