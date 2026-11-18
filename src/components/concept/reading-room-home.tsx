@@ -9,6 +9,7 @@ import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { ProcessStore } from "../process/use-process";
 import { ColoursButton } from "../theme-controls";
 import type { StillnessBrowse } from "../stillness-library";
@@ -21,7 +22,7 @@ const destinations = [
 ] as const;
 
 export default function ReadingRoomHome({
-  owner, now, store, onPage, onBrowse, onWeek,
+  owner, now, store, onPage, onBrowse, onWeek, dayAwayChoice,
 }: {
   owner: string;
   now: number;
@@ -29,6 +30,7 @@ export default function ReadingRoomHome({
   onPage: (page: Page) => void;
   onBrowse: (browse: StillnessBrowse) => void;
   onWeek: () => void;
+  dayAwayChoice?: ReactNode;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const date = dateInZone(now, timezone);
@@ -84,6 +86,7 @@ export default function ReadingRoomHome({
             <button className="ss-primary" onClick={() => onPage("Preparation")}>Begin preparation <span aria-hidden="true">↗</span></button>
             <button onClick={browse}>Explore Stillness <span aria-hidden="true">→</span></button>
           </div>
+          {dayAwayChoice}
         </div>
         <div className="rr-home-art">
           <button type="button" className={`rr-home-sphere${lit ? " lit" : ""}`} aria-label="Glowing sphere. Press to light it up" onClick={light} />

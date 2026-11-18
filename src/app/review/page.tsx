@@ -9,5 +9,8 @@ export default function Review() {
     process.env.NEXT_PUBLIC_SUPABASE_URL
   )
     notFound();
-  return <StagingWorkspace assistant={assistantPrototypeEnabled()} />;
+  return <StagingWorkspace
+    assistant={assistantPrototypeEnabled()}
+    dayAwayReview={process.env.STILL_SIGNAL_DAY_AWAY_REVIEW === "true"}
+  />;
 }

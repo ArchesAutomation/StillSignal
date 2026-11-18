@@ -1,9 +1,13 @@
 "use client";
 import { Panel } from "@/components/ui/panel";
+import { Button } from "@/components/ui/button";
 import { pullSessions } from "@/lib/cloud";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { journalDateValue } from "@/lib/journal-day";
 import { dateInZone } from "@/lib/process/model";
+import { shiftDate } from "@/lib/process/periods";
+import { preparationStatus } from "@/lib/process/preparation-status";
+import { isActualExecution } from "@/lib/trade-context";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import AccountMenu from "../account-menu";
 import ModuleWorkspace, {
@@ -20,6 +24,7 @@ import { ModeSwitch, ThemeController } from "../theme-controls";
 import WorkspaceAppearance from "../workspace-appearance";
 import { Calendar, weekStart } from "./calendar";
 import CapturePanel from "./capture-panel";
+import DayAwayReview, { CarriedThoughts, useDayAwayReview } from "./day-away-review";
 import Journal, { type JournalMode } from "./journal";
 import type { BookRequest } from "./journal-book";
 import JournalDayPicker from "./journal-day-picker";
@@ -88,6 +93,18 @@ export default function ConceptWorkspace(props: Props) {
   const quietRoom = reading || home || preparing || closing || stillness;
   const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const preparationDate = dateInZone(p.now, preparationTimezone);
+  const away = useDayAwayReview(p.owner, !!props.dayAwayReview);
+  const [awayJournalDate, setAwayJournalDate] = useState<string>();
+  const [awayEntry, setAwayEntry] = useState<{ date: string; id: string }>();
+  const awayToday = !!away.days[preparationDate]?.away;
+  const awayDate = (page === "Journal" ? awayJournalDate : undefined) || preparationDate;
+  const awayView = props.dayAwayReview && (page === "Journal" && awayJournalDate ? "journal"
+    : awayToday && home ? "home" : awayToday && preparing ? "prep" : awayToday && closing ? "done" : undefined);
+  const awayPreparation = awayView ? preparationStatus(process.records, awayDate, preparationTimezone) : undefined;
+  const savedPreparation = awayPreparation && [awayPreparation.intention, awayPreparation.boundary,
+    awayPreparation.arrival.join(", "), ...awayPreparation.support.map(item => item.title)].filter(Boolean).join("\n");
+  const activitySession = awayView && [s, ...history].find(session => session.events.some(event =>
+    isActualExecution(event) && journalDateValue(event.t) === awayDate));
   const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
   useLayoutEffect(() => {
     if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
@@ -197,9 +214,12 @@ export default function ConceptWorkspace(props: Props) {
   }
   async function startPreparedSession() {
     await p.start();
+    if (props.dayAwayReview) away.write(preparationDate, day => ({ ...day, away: false, started: true }));
     props.onPage("Preparation");
   }
   const go = (next: Page) => {
+    setAwayEntry(undefined);
+    setAwayJournalDate(next === "Journal" && awayToday ? preparationDate : undefined);
     setWeekly(false);
     setReturnToPreparation(undefined);
     setReturnToDone(false);
@@ -253,6 +273,7 @@ export default function ConceptWorkspace(props: Props) {
     setBookRequest({ n: Date.now(), prompt });
   };
   const goFromHome = (next: Page) => {
+    if (props.dayAwayReview && next === "Preparation") away.beginPreparation(preparationDate);
     if (next === "Pre-Market") {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       setSupportDay({ date: dateInZone(Date.now(), timezone), page: next });
@@ -269,17 +290,35 @@ export default function ConceptWorkspace(props: Props) {
       p.setError("Confirm or discard your capture draft before changing days.");
       return;
     }
+    if (props.dayAwayReview && away.days[date] && (away.days[date]?.away || away.days[date]?.reason || away.days[date]?.notes.length || away.entries.some(entry => entry.note.followups.some(followup => followup.date === date)))) {
+      go("Journal");
+      setAwayJournalDate(date);
+      return;
+    }
     setOpeningDay(true);
     try {
       await act(async () => {
         if (!(await p.openJournalDay(date))) return;
         setFocusTime(undefined);
         go("Journal");
+        setAwayJournalDate(undefined);
       });
     } finally {
       setOpeningDay(false);
     }
   };
+  function openAwayJournal(date: string) {
+    go("Journal");
+    setAwayJournalDate(date);
+  }
+  function showAwayExample() {
+    const date = shiftDate(preparationDate, -1);
+    if (away.write(date, day => day.started || day.away || day.reason || day.notes.length ? day : {
+      ...day, away: true,
+      reason: { text: "I traded the day before. I wanted a little room before coming back.", recordedAt: new Date(`${date}T08:12:00`).getTime() },
+      notes: [{ id: crypto.randomUUID(), text: "I kept reaching for the charts. After a walk, I realised I was looking for reassurance that taking the day off was the right call.", images: [], followups: [], reminder: { text: "Before I open the charts, I want to take a breath and notice whether I feel like I have something to prove." } }],
+    })) openAwayJournal(date);
+  }
   const quiet = () => {
     setWhisper(reflections[Math.floor(Math.random() * reflections.length)]);
     clearTimeout(timer.current);
@@ -449,7 +488,21 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
-        {home ? (
+        {awayView ? <DayAwayReview
+          key={`${awayDate}:${awayView}`}
+          owner={p.owner} date={awayDate} today={preparationDate} view={awayView}
+          review={away} openEntry={awayEntry}
+          onEntry={entry => setAwayEntry(entry && { date: entry.date, id: entry.note.id })}
+          onHome={() => go("Home")} onJournal={() => openAwayJournal(awayDate)}
+          onStillness={() => go("Stillness")} onDate={date => void openDay(date)}
+          savedPreparation={savedPreparation || undefined}
+          onActivity={activitySession ? () => void act(async () => {
+            if (await p.openSession(activitySession)) { go("Journal"); setAwayJournalDate(undefined); }
+          }) : undefined}
+          onReturn={() => {
+            if (away.setAway(awayDate, false) && awayView !== "journal") go(awayView === "prep" ? "Preparation" : "Home");
+          }}
+        /> : home ? (
           <ReadingRoomHome
             key={p.owner}
             owner={p.owner}
@@ -458,6 +511,16 @@ export default function ConceptWorkspace(props: Props) {
             onPage={goFromHome}
             onBrowse={(browse) => { setStillnessBrowse(browse); setStillnessView("library"); go("Stillness"); }}
             onWeek={() => { go("Journal"); setReviewWeek(undefined); setWeekly(true); }}
+            dayAwayChoice={props.dayAwayReview && <div className="rr-away-choice">
+              {!p.active && !capturePending && !away.days[preparationDate]?.started && <Button disabled={!away.ready} onClick={() => away.setAway(preparationDate, true)}>Day away from charts</Button>}
+              <Button disabled={!away.ready || p.active || capturePending} onClick={showAwayExample}>Open a saved example</Button>
+              <details><summary>Mark another date</summary><form onSubmit={event => {
+                event.preventDefault();
+                const date = String(new FormData(event.currentTarget).get("date"));
+                if (!away.days[date]?.started && away.setAway(date, true)) openAwayJournal(date);
+              }}><label>Journal date <input name="date" type="date" defaultValue={preparationDate} max={preparationDate} required /></label><Button type="submit" disabled={!away.ready || p.active || capturePending}>Mark as day away</Button></form></details>
+              {away.message && <p role="status">{away.message}</p>}
+            </div>}
           />
         ) : (
         <>
@@ -637,7 +700,16 @@ export default function ConceptWorkspace(props: Props) {
           sessionActive={p.active}
           capturePending={capturePending}
           onSetup={openPreparationSetup}
-          onStart={async () => { await p.start(); go("Journal"); }}
+          onStart={async () => {
+            await p.start();
+            if (props.dayAwayReview) away.write(preparationDate, day => ({ ...day, away: false, started: true }));
+            go("Journal");
+          }}
+          carriedThoughts={props.dayAwayReview && preparing && <CarriedThoughts
+            entries={away.entries.filter(entry => entry.note.reminder?.preparation === preparationDate)}
+            onOpen={entry => { openAwayJournal(entry.date); setAwayEntry({ date: entry.date, id: entry.note.id }); }}
+            onSeen={entry => away.writeNote(entry, note => ({ ...note, reminder: undefined }))}
+          />}
           onJournal={() => go("Journal")}
           onPreview={previewItem}
           onGuidance={setPreparationGuidance}

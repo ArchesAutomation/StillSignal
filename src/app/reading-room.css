@@ -87,6 +87,31 @@ html[data-journal-presentation="reading-room"] :is(.ss-journal-select-menu,.refl
 .ss-reading-room :focus-visible { outline: 2px solid var(--theme-accent) !important; outline-offset: 3px; }
 .ss-reading-room button:disabled { opacity: .5; }
 
+.rr-away-choice { margin-top: 12px; }
+.rr-away-choice > button { background: transparent; border-color: transparent; }
+.rr-away-choice details, .rr-away-links { margin-top: 12px; }
+.rr-away-choice form, .rr-away-links form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 8px 0; }
+.rr-away-choice summary, .rr-away-review summary { cursor: pointer; }
+.rr-away-review .rr-journal-heading { padding: 4px 0 14px; }
+.rr-away-card { padding: clamp(16px, 3vw, 30px); margin-bottom: 14px; }
+.rr-away-card h2 { margin-bottom: 8px; }
+.rr-away-review blockquote, .rr-away-thought blockquote { margin: 10px 0; font: 400 clamp(20px, 3vw, 28px)/1.4 Georgia, serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rr-away-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 22px; }
+.rr-away-writing, .rr-away-images { display: grid; gap: 10px; min-width: 0; }
+.rr-away-writing textarea { width: 100%; padding: 10px; resize: vertical; border: 1px solid var(--rr-line); }
+.rr-away-writing p, .rr-away-links p, .rr-away-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.rr-away-images img, .rr-away-zoom img { display: block; width: 100%; height: auto; object-fit: contain; border-radius: 8px; }
+.rr-away-images img { max-height: 360px; }
+.rr-away-images .rr-home-actions { margin-top: 0; }
+.rr-away-images button[aria-pressed="true"] { border-color: var(--theme-link); }
+.rr-away-note { border-top: 1px solid var(--rr-line); margin-top: 12px; padding: 12px 0; }
+.rr-away-note button { margin-top: 8px; }
+.rr-away-thought { background: var(--theme-journal-tint) !important; }
+.rr-away-zoom { width: min(94vw, 1280px); max-height: 92vh; overflow: auto; padding: 16px; background: var(--theme-surface); color: var(--rr-text); border: 1px solid var(--rr-line); border-radius: 12px; }
+.rr-away-zoom::backdrop { background: color-mix(in srgb, var(--theme-shadow) 70%, transparent); }
+.rr-away-zoom img { margin-top: 10px; max-height: 78vh; }
+@media (max-width: 700px) { .rr-away-columns { grid-template-columns: minmax(0, 1fr); } }
+
 .rr-home {
   max-width: 1180px;
   margin: 0 auto;

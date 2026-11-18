@@ -12,6 +12,25 @@ Use a Vercel **preview** project/environment with no Supabase URL, publishable k
 
 Open /review. A persistent banner labels synthetic market, execution, and HR data. Local storage belongs to a fixed synthetic review account on the preview origin. The root still shows authentication. The review route returns 404 without both server gates or whenever a Supabase URL is configured.
 
+### Day away from charts proposal
+
+Set `STILL_SIGNAL_DAY_AWAY_REVIEW=true` alongside the review flags above. On Windows, run the real app locally with these settings:
+
+```powershell
+$env:APP_ENV='staging'
+$env:TRADERPULSE_UI_REVIEW='true'
+$env:NEXT_PUBLIC_UI_REVIEW='true'
+$env:STILL_SIGNAL_DAY_AWAY_REVIEW='true'
+$env:NEXT_PUBLIC_SUPABASE_URL=''
+$env:NEXT_PUBLIC_SUPABASE_ANON_KEY=''
+$env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=''
+node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3193
+```
+
+Open `http://127.0.0.1:3193/review`. From Home, choose **Day away from charts**. Reload to see that marking alone was saved. Add a reason, write a reflection or attach screenshots, and open **Daily journal** to find them again. Preparation and Done for the day show the away state. To preview a carry-forward immediately, return to a trading day, choose **Open a saved example**, then go back to Home and select **Begin preparation**.
+
+Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. The proposal uses browser-local drafts and private files for the synthetic owner. Account sync, dictation and production schema changes are outside this review build.
+
 ## Connected staging
 
 Use a new empty Supabase project/branch with the baseline migrations/storage policies. Configure staging Auth redirects separately. Turn synthetic review flags off. Register the exact staging /api/brokers/callback URL at each OAuth provider.
