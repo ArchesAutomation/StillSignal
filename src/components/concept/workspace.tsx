@@ -322,6 +322,7 @@ export default function ConceptWorkspace(props: Props) {
         setFocusTime(undefined);
         go("Journal");
         setAwayJournalDate(undefined);
+        setWeek(0);
       });
     } finally {
       setOpeningDay(false);

@@ -33,6 +33,8 @@ Open `http://127.0.0.1:3193/review`. On Home, **Day away from charts** sits belo
 
 The week strip in **Daily reference** uses **Away**, **Prep**, **Session**, and **Trade** for recorded activity. **Prep** comes from saved preparation, **Session** from an explicit start with no trade recorded, and **Trade** from an execution. A date with no evidence stays blank. If a trade arrives on a date marked away, the strip shows **Trade** and the selected date shows both facts.
 
+To inspect a **Trade** example through the ordinary Journal, start a second isolated review server with `STILL_SIGNAL_DAY_AWAY_REVIEW=false` and a different port. Open `/review` there to see the seeded trades on 13 October 2026. The regular Journal uses recorded activity directly. For the extra browser check that enters a manual trade, set `REGULAR_JOURNAL_REVIEW_URL` to the second server’s loopback origin before running `node scripts/verify-day-away-review.mjs`.
+
 Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. The proposal uses browser-local drafts and private files for the synthetic owner. Account sync, dictation and production schema changes are outside this review build.
 
 ## Connected staging

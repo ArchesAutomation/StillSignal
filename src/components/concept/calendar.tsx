@@ -175,7 +175,7 @@ export function Calendar({
                   {weekdays[i]}
                   <strong>
                     {d.getDate()}{" "}
-                    {!dayLabels && rows.some((s) => liveNotes(s.journal).length > 0) && (
+                    {!label && rows.some((s) => liveNotes(s.journal).length > 0) && (
                       <i className={cx("dotevent")} />
                     )}
                   </strong>

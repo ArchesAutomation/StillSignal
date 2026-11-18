@@ -212,6 +212,45 @@ try {
   await dailyReference.locator('[data-status="Session"]').getByText("Session", { exact: true }).waitFor();
   await nav("Done for the day").click();
   await button("End session").click();
+  if (process.env.REGULAR_JOURNAL_REVIEW_URL) {
+    const regular = new URL("/review", process.env.REGULAR_JOURNAL_REVIEW_URL);
+    assert.equal(regular.hostname, "127.0.0.1", "Use an isolated loopback instance with the away flag off.");
+    const regularPage = await browser.newPage();
+    regularPage.on("pageerror", error => errors.push(error.message));
+    await regularPage.goto(regular.href);
+    const reference = regularPage.getByRole("region", { name: "Daily reference", exact: true });
+    await reference.getByText("Trade recorded", { exact: true }).waitFor();
+    assert.equal(await regularPage.getByRole("button", { name: "Mark another date", exact: true }).count(), 0);
+
+    const { date: yesterday, label: dateLabel, weekOffset } = await regularPage.evaluate(() => {
+      const localDate = day => `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      const day = new Date();
+      day.setDate(day.getDate() - 1);
+      if (day.getDay() === 0) day.setDate(day.getDate() - 2);
+      if (day.getDay() === 6) day.setDate(day.getDate() - 1);
+      const utcDate = Date.parse(`${localDate(day)}T12:00:00Z`);
+      return {
+        date: localDate(day), label: day.toLocaleDateString("en-US", { dateStyle: "full" }),
+        weekOffset: Math.floor((utcDate - Date.parse("2026-10-12T12:00:00Z")) / 604800000),
+      };
+    });
+    assert.notEqual(yesterday, "2026-10-13", "Use an unseeded date for manual trade entry.");
+    for (let index = 0; index < Math.abs(weekOffset); index++) {
+      await reference.getByRole("button", { name: weekOffset < 0 ? "Previous reference week" : "Next reference week" }).click();
+    }
+    await reference.getByRole("button", { name: dateLabel, exact: true }).click();
+    await reference.getByText("No preparation or trade recorded", { exact: true }).waitFor();
+    const tools = regularPage.locator(".ss-topbar .ss-tools");
+    await tools.locator("summary").press("Enter");
+    await tools.getByRole("button", { name: "Add trade", exact: true }).click();
+    await regularPage.getByLabel("Instrument", { exact: true }).fill("AAPL");
+    await regularPage.getByLabel("Price", { exact: true }).fill("200.25");
+    await regularPage.getByLabel("Time · your local timezone", { exact: true }).fill(`${yesterday}T12:00`);
+    await regularPage.getByRole("button", { name: "Save event", exact: true }).click();
+    await reference.locator('[data-status="Trade"]').getByText("Trade", { exact: true }).waitFor();
+    await reference.getByText("Trade recorded", { exact: true }).waitFor();
+    console.log("Regular Journal passed: a newly entered trade immediately labels its date with the away prototype off.");
+  }
   assert.deepEqual(errors, []);
   console.log("Real review app passed: Away, Prep, Session and Trade labels, saved preparation, independent away widgets, regular Journal book, screenshots, follow-up, and next-preparation reminder.");
 } finally {
