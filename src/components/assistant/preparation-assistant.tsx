@@ -530,7 +530,7 @@ export default function PreparationAssistant({
               {error && <p className="ss-assistant-error" role="alert">{error}</p>}
               <ComposerPrimitive.Root className="ss-assistant-composer">
                 <ComposerPrimitive.Input
-                  aria-label="Ask about today"
+                  aria-label="Ask Still Signal"
                   placeholder="What’s my preparation status?"
                   rows={1}
                 />

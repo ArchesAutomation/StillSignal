@@ -134,7 +134,7 @@ function noteSource(note: JournalEntry, sessionId: string, timezone: string): So
     text: note.text.trim(),
     at: at ?? note.t,
     dayReview: note.section === "day-review",
-    link: { sessionId, noteId: note.id },
+    link: { sessionId, noteId: note.id, at: at ?? note.t },
   };
 }
 

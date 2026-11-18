@@ -288,7 +288,8 @@ export default function ConceptWorkspace(props: Props) {
       const target = link.sessionId === s.id ? s : history.find((item) => item.id === link.sessionId);
       if (!target) throw new Error("That entry isn’t on this device any more.");
       if (target.id !== s.id && !(await p.openSession(target))) return;
-      setFocusTime(undefined);
+      // Selecting the moment also clears any Journal filters that would hide it.
+      setFocusTime(link.at);
       setJournalMode(link.book ? "book" : "action");
       setView("story");
       go("Journal");

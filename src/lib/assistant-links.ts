@@ -1,6 +1,6 @@
 // How an answer card opens the entry it quotes. The panel sits outside the workspace, so the
 // two only share this browser event. It navigates and never changes a record.
-export type JournalLink = { sessionId: string; noteId?: string; book?: boolean };
+export type JournalLink = { sessionId: string; noteId?: string; at?: number; book?: boolean };
 
 export const JOURNAL_LINK_EVENT = "still-signal:open-journal-entry";
 
