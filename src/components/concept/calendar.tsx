@@ -5,6 +5,7 @@ import { pnlByCurrency } from "@/lib/trade-context";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, dateKey } from "./shared";
 import { journalDateValue } from "@/lib/journal-day";
+import type { ReferenceDayLabel } from "@/lib/reading-room";
 export const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 export function weekStart(t: number, offset = 0) {
   const d = new Date(t);
@@ -22,6 +23,7 @@ export function Calendar({
   onEmptyDay,
   selectedDate,
   awayDates,
+  dayLabels,
   disabled,
 }: {
   sessions: Session[];
@@ -33,6 +35,7 @@ export function Calendar({
   onEmptyDay?: (date: string) => void;
   selectedDate?: number;
   awayDates?: string[];
+  dayLabels?: Record<string, ReferenceDayLabel>;
   disabled: boolean;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
@@ -102,6 +105,7 @@ export function Calendar({
           );
           const date = journalDateValue(d.getTime());
           const away = awayDates?.includes(date);
+          const label = dayLabels?.[date];
           const active = dateKey(selectedAt) === dateKey(d.getTime());
           const target =
             rows.find((s) => s.id === selected.id) ||
@@ -128,12 +132,13 @@ export function Calendar({
               }
               aria-label={
                 d.toLocaleDateString("en-US", { dateStyle: "full" }) +
-                (away ? " · Day away from charts" : rows.length
+                (dayLabels ? (label ? ` · ${label.detail}` : "") : away ? " · Day away from charts" : rows.length
                   ? ` · ${rows.length} sessions`
                   : onEmptyDay
                     ? " · Start a journal"
                     : " · No session")
               }
+              aria-current={dayLabels && active ? "date" : undefined}
               onClick={() =>
                 away && onEmptyDay ? onEmptyDay(date) : target
                   ? onOpen(target)
@@ -170,11 +175,12 @@ export function Calendar({
                   {weekdays[i]}
                   <strong>
                     {d.getDate()}{" "}
-                    {rows.some((s) => liveNotes(s.journal).length > 0) && (
+                    {!dayLabels && rows.some((s) => liveNotes(s.journal).length > 0) && (
                       <i className={cx("dotevent")} />
                     )}
                   </strong>
-                  {away && <small className="rr-away-week-marker">Away</small>}
+                  {label ? <small className="rr-reference-week-label" data-status={label.short}>{label.short}</small> :
+                    !dayLabels && away && <small className="rr-away-week-marker">Away</small>}
                 </>
               )}
             </button>

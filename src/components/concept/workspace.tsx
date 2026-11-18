@@ -9,7 +9,7 @@ import { preparationStatus } from "@/lib/process/preparation-status";
 import { isActualExecution } from "@/lib/trade-context";
 import { mergeNotes } from "@/lib/smart-journal";
 import type { JournalEntry, Session } from "@/lib/model";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AccountMenu from "../account-menu";
 import ModuleWorkspace, {
   ModuleScope,
@@ -346,7 +346,8 @@ export default function ConceptWorkspace(props: Props) {
   const latest = p.samples.at(-1);
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
-  const awayDates = props.dayAwayReview ? Object.keys(away.days).filter(date => away.days[date]?.away) : undefined;
+  const awayDates = useMemo(() => props.dayAwayReview ? Object.keys(away.days).filter(date => away.days[date]?.away) : undefined, [props.dayAwayReview, away.days]);
+  const startedDates = useMemo(() => props.dayAwayReview ? Object.keys(away.days).filter(date => away.days[date]?.started) : undefined, [props.dayAwayReview, away.days]);
   // Provide date context to the existing book without opening or saving a trading session.
   const bookContext: Session | undefined = awayView && (!awaySession || awayRecord?.bookNotes?.length) ? {
     id: `dated-book:${awayDate}`, owner: p.owner, name: "Daily journal", source: "journal",
@@ -890,7 +891,7 @@ export default function ConceptWorkspace(props: Props) {
             <div hidden={!journal} className={cx("reference-journal-grid")}>
               <WorkspaceModule id="daily-reference" title="Daily reference" section="side" initiallyHidden>
                 <ReadingRoomReference props={viewProps} week={week} onWeek={setWeek} onOpen={openDay}
-                  selectedDate={awayView ? journalTimestamp : undefined} awayDates={awayDates} />
+                  selectedDate={awayView ? journalTimestamp : undefined} awayDates={awayDates} startedDates={startedDates} />
               </WorkspaceModule>
               <WorkspaceModule
                 id="dates"

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readingRoomDashboard, readingRoomReference, isReadingRoom } from "../src/lib/reading-room";
+import { readingRoomDashboard, readingRoomDayLabels, readingRoomReference, isReadingRoom } from "../src/lib/reading-room";
 import { dashboardRecords, dashboardSnapshot, readDashboardSnapshot, freshDashboard } from "../src/lib/process/dashboard";
 import { createRecord, recordSchema } from "../src/lib/process/model";
 import { reviewFixtures } from "../src/lib/staging-fixtures";
@@ -72,6 +72,9 @@ test("daily reference reads the selected timezone date and current check-in with
   assert.equal(readingRoomReference([...earlier, ...beforeSession], session).arrival, "Tired");
   const cleared = preparationChanges([...earlier, ...beforeSession], day.body.date, day.body.timezone, { arrival: [] }, session.startedAt);
   assert.equal(readingRoomReference([...earlier, ...beforeSession, ...cleared], session).arrival, "Energy: 6/10");
+  const preparation = createRecord("checkin", { ...first.body, phase: "pre-market", answers: [{ question: "Energy", value: 7 }] });
+  const laterCheckin = createRecord("checkin", { ...first.body, phase: "post-session", observedAt: session.startedAt });
+  assert.equal(readingRoomReference([...rows, preparation, laterCheckin], session, true).arrival, "Energy: 7/10");
 });
 
 test("empty and ambiguous process days do not borrow another day's context", () => {
@@ -83,4 +86,23 @@ test("empty and ambiguous process days do not borrow another day's context", () 
   const day = createRecord("day", { date, timezone: "Europe/London", status: "preparing", instrument: "", account: "", timeframes: [], sessionIds: [], goal: "Wrong timezone" });
   const other = createRecord("day", { ...day.body, timezone: "Asia/Tokyo" });
   assert.match(readingRoomReference([day, other], session).intention, /No intention recorded/);
+});
+
+test("Daily reference labels recorded activity without mistaking blank journal rows or observations for sessions or trades", () => {
+  const zone = "Europe/London";
+  const empty = createRecord("day", { ...emptyTradingDay("2026-11-09", zone), supportFocuses: ["impulsiveness"] });
+  const prepared = preparationChanges([empty], "2026-11-10", zone, { arrival: ["Tired"] }, Date.now());
+  const stamp = (day: number) => new Date(2026, 10, day, 12).getTime();
+  const fixture = { ...reviewFixtures().session, startedAt: stamp(9), blueprint: undefined };
+  const event = fixture.events[0];
+  const observed = { ...event, t: stamp(9), provenance: "alert" as const };
+  const imported = { ...event, t: stamp(13) };
+  const labels = readingRoomDayLabels([empty, ...prepared], [{ ...fixture, events: [observed, imported] }],
+    ["2026-11-11", "2026-11-13"], ["2026-11-12"]);
+  assert.deepEqual(labels, {
+    "2026-11-10": { short: "Prep", detail: "Preparation saved · No trade recorded" },
+    "2026-11-11": { short: "Away", detail: "Day away from charts" },
+    "2026-11-12": { short: "Session", detail: "Session started · No trade recorded" },
+    "2026-11-13": { short: "Trade", detail: "Day away from charts · Trade recorded" },
+  });
 });

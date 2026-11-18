@@ -68,6 +68,7 @@ try {
   await page.getByRole("heading", { name: "Space between sessions.", exact: true }).waitFor();
   const dailyReference = page.getByRole("region", { name: "Daily reference", exact: true });
   await dailyReference.getByText("Day away from charts", { exact: true }).waitFor();
+  await dailyReference.locator('[data-status="Away"]').getByText("Away", { exact: true }).waitFor();
   assert.equal(await dailyReference.getByRole("heading", { name: "Your intention" }).count(), 0);
   assert.equal(await dailyReference.getByRole("heading", { name: "How you arrived" }).count(), 0);
   await button("+ Add reflection").click();
@@ -154,17 +155,30 @@ try {
   await page.getByText("Name how you’re arriving", { exact: true }).waitFor();
   await button("Mark as seen").click();
   await button("Mark as seen").waitFor({ state: "hidden" });
+  await page.getByText("Set an intention", { exact: true }).click();
+  await page.getByRole("textbox", { name: "Intention", exact: true }).fill("Give myself time before acting.");
+  await button("Save for today").click();
+  await page.getByText("Saved for today.", { exact: true }).waitFor();
   await nav("Daily journal").click();
   await actionTab.click();
   await page.getByText(/October 2026.+Your reflections/).waitFor();
   await page.getByRole("heading", { name: "Your day, in your words.", exact: true }).first().waitFor();
-  await dailyReference.getByRole("heading", { name: "Your intention" }).waitFor();
-  await dailyReference.getByRole("heading", { name: "How you arrived" }).waitFor();
+  await dailyReference.getByText("Trade recorded", { exact: true }).waitFor();
+  await dailyReference.locator('[data-status="Trade"]').getByText("Trade", { exact: true }).waitFor();
+  assert.equal(await dailyReference.getByRole("heading", { name: "Your intention" }).count(), 0);
   assert.equal(await button("Review charts").count(), 0);
   assert.equal(await reasonWidget.count(), 0);
   assert.equal(await reflectionWidget.count(), 0);
 
   await page.setViewportSize({ width: 1440, height: 950 });
+  await nav("Home").click();
+  await button("Day away from charts").click();
+  await button("Open in Daily journal").click();
+  await reflectionWidget.getByRole("button", { name: "Return to trading day" }).click();
+  await dailyReference.getByText("Preparation saved · No trade recorded", { exact: true }).waitFor();
+  await dailyReference.locator('[data-status="Prep"]').getByText("Prep", { exact: true }).waitFor();
+  await dailyReference.getByText("Give myself time before acting.", { exact: true }).waitFor();
+  assert.equal(await dailyReference.getByRole("heading", { name: "How you arrived" }).count(), 0);
   await nav("Home").click();
   await button("Day away from charts").click();
   await button("Open in Daily journal").click();
@@ -190,8 +204,16 @@ try {
   await shortcut.getByRole("textbox", { name: "Reflection", exact: true }).waitFor();
   await shortcut.getByRole("button", { name: "Cancel", exact: true }).click();
   assert.equal(await sessions(), baseline);
+  await nav("Home").click();
+  await button("Return to trading day").click();
+  await button("Begin preparation").click();
+  await page.getByRole("button", { name: /^Start session/ }).click();
+  await dailyReference.getByText("Session started · No trade recorded", { exact: true }).waitFor();
+  await dailyReference.locator('[data-status="Session"]').getByText("Session", { exact: true }).waitFor();
+  await nav("Done for the day").click();
+  await button("End session").click();
   assert.deepEqual(errors, []);
-  console.log("Real review app passed: independent away widgets and saved customization, away-only headline, regular Journal book, no new session, screenshots, follow-up, and next-preparation reminder.");
+  console.log("Real review app passed: Away, Prep, Session and Trade labels, saved preparation, independent away widgets, regular Journal book, screenshots, follow-up, and next-preparation reminder.");
 } finally {
   await browser?.close();
   await rm(profile, { recursive: true, force: true });

@@ -31,6 +31,8 @@ Open `http://127.0.0.1:3193/review`. On Home, **Day away from charts** sits belo
 
 **Mark another date** opens a compact dialog in Daily journal. To try carry-forward immediately, mark an earlier date, write a reflection, and choose **Show at my next preparation**. Return to Home and use **Begin preparation** on an ordinary trading day. On another away date, **Continue a thought** identifies the date of the original Day in Action reflection.
 
+The week strip in **Daily reference** uses **Away**, **Prep**, **Session**, and **Trade** for recorded activity. **Prep** comes from saved preparation, **Session** from an explicit start with no trade recorded, and **Trade** from an execution. A date with no evidence stays blank. If a trade arrives on a date marked away, the strip shows **Trade** and the selected date shows both facts.
+
 Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. The proposal uses browser-local drafts and private files for the synthetic owner. Account sync, dictation and production schema changes are outside this review build.
 
 ## Connected staging
