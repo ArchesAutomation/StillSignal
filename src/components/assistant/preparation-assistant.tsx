@@ -294,12 +294,32 @@ export async function answerTool(
   }
 }
 
-export default function PreparationAssistant({ owner }: { owner: string }) {
+// A question needs one read. The allowance covers a model correcting itself, without letting it loop.
+const MAX_TOOL_CALLS = 3;
+
+/** Continues after a tool answer, but never after a call the server rejected. */
+export function continueAfterTools(options: Parameters<typeof lastAssistantMessageIsCompleteWithToolCalls>[0]) {
+  const parts = options.messages.at(-1)?.parts ?? [];
+  return (
+    lastAssistantMessageIsCompleteWithToolCalls(options) &&
+    !parts.some((part) => part.type === "dynamic-tool") &&
+    parts.filter((part) => part.type.startsWith("tool-")).length <= MAX_TOOL_CALLS
+  );
+}
+
+export default function PreparationAssistant({
+  owner,
+  pilotHeaders,
+}: {
+  owner: string;
+  /** Present only for a signed-in pilot account. Supplies a current session token per request. */
+  pilotHeaders?: () => Promise<Record<string, string>>;
+}) {
   const [open, setOpen] = useState(false);
   const output = useRef<ReturnType<typeof useChat>["addToolOutput"]>(undefined);
   const chat = useChat({
-    transport: new DefaultChatTransport({ api: "/api/assistant" }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    transport: new DefaultChatTransport({ api: "/api/assistant", headers: pilotHeaders }),
+    sendAutomaticallyWhen: continueAfterTools,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
       const answer = await answerTool(owner, toolCall.toolName, toolCall.input);
@@ -327,8 +347,17 @@ export default function PreparationAssistant({ owner }: { owner: string }) {
         <AssistantRuntimeProvider runtime={runtime}>
           <aside className="ss-assistant-panel" aria-label="Still Signal assistant">
             <header>
-              <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
-              <p>Reads today’s Preparation and recent support on this device. It can’t change anything.</p>
+              {pilotHeaders ? (
+                <>
+                  <small>PRIVATE PILOT</small>
+                  <p>Reads Preparation and support saved on this device, and sends what it reads to OpenRouter to write the answer. It can’t change anything.</p>
+                </>
+              ) : (
+                <>
+                  <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
+                  <p>Reads today’s Preparation and recent support on this device. It can’t change anything.</p>
+                </>
+              )}
             </header>
             <ThreadPrimitive.Root className="ss-assistant-thread">
               <ThreadPrimitive.Viewport className="ss-assistant-viewport">
