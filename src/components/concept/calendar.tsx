@@ -20,6 +20,8 @@ export function Calendar({
   weekdaysOnly = false,
   onOpen,
   onEmptyDay,
+  selectedDate,
+  awayDates,
   disabled,
 }: {
   sessions: Session[];
@@ -29,15 +31,18 @@ export function Calendar({
   weekdaysOnly?: boolean;
   onOpen: (s: Session) => void;
   onEmptyDay?: (date: string) => void;
+  selectedDate?: number;
+  awayDates?: string[];
   disabled: boolean;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
-  const anchor = new Date(selected.startedAt);
+  const selectedAt = selectedDate ?? selected.startedAt;
+  const anchor = new Date(selectedAt);
   anchor.setDate(1);
   anchor.setMonth(anchor.getMonth() + monthOffset);
   const start = month
     ? weekStart(anchor.getTime())
-    : weekStart(selected.startedAt, offset);
+    : weekStart(selectedAt, offset);
   const count = month
     ? Math.ceil(
         (((anchor.getDay() + 6) % 7) +
@@ -95,7 +100,9 @@ export function Calendar({
           const rows = sessions.filter(
             (s) => dateKey(s.startedAt) === dateKey(d.getTime()),
           );
-          const active = dateKey(selected.startedAt) === dateKey(d.getTime());
+          const date = journalDateValue(d.getTime());
+          const away = awayDates?.includes(date);
+          const active = dateKey(selectedAt) === dateKey(d.getTime());
           const target =
             rows.find((s) => s.id === selected.id) ||
             rows.sort((a, b) => b.startedAt - a.startedAt)[0];
@@ -121,16 +128,16 @@ export function Calendar({
               }
               aria-label={
                 d.toLocaleDateString("en-US", { dateStyle: "full" }) +
-                (rows.length
+                (away ? " · Day away from charts" : rows.length
                   ? ` · ${rows.length} sessions`
                   : onEmptyDay
                     ? " · Start a journal"
                     : " · No session")
               }
               onClick={() =>
-                target
+                away && onEmptyDay ? onEmptyDay(date) : target
                   ? onOpen(target)
-                  : onEmptyDay?.(journalDateValue(d.getTime()))
+                  : onEmptyDay?.(date)
               }
             >
               {month ? (
@@ -153,7 +160,7 @@ export function Calendar({
                     <span className={cx("daypnl")}>—</span>
                   )}
                   <small>
-                    {rows.length
+                    {away ? "Away" : rows.length
                       ? `${rows.length} session${rows.length === 1 ? "" : "s"}`
                       : "No session"}
                   </small>
@@ -167,6 +174,7 @@ export function Calendar({
                       <i className={cx("dotevent")} />
                     )}
                   </strong>
+                  {away && <small className="rr-away-week-marker">Away</small>}
                 </>
               )}
             </button>

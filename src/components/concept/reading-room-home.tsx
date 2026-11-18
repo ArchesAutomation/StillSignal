@@ -22,7 +22,7 @@ const destinations = [
 ] as const;
 
 export default function ReadingRoomHome({
-  owner, now, store, onPage, onBrowse, onWeek, dayAwayChoice,
+  owner, now, store, onPage, onBrowse, onWeek, dayAwayChoice, away = false,
 }: {
   owner: string;
   now: number;
@@ -31,6 +31,7 @@ export default function ReadingRoomHome({
   onBrowse: (browse: StillnessBrowse) => void;
   onWeek: () => void;
   dayAwayChoice?: ReactNode;
+  away?: boolean;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const date = dateInZone(now, timezone);
@@ -83,18 +84,18 @@ export default function ReadingRoomHome({
           <h1>A little room for you.</h1>
           <p>Less noise. More space to notice what matters.</p>
           <div className="rr-home-actions">
-            <button className="ss-primary" onClick={() => onPage("Preparation")}>Begin preparation <span aria-hidden="true">↗</span></button>
+            <button className="ss-primary" onClick={() => onPage(away ? "Journal" : "Preparation")}>{away ? "Open Daily journal" : "Begin preparation"} <span aria-hidden="true">↗</span></button>
             <button onClick={browse}>Explore Stillness <span aria-hidden="true">→</span></button>
           </div>
-          {dayAwayChoice}
         </div>
         <div className="rr-home-art">
           <button type="button" className={`rr-home-sphere${lit ? " lit" : ""}`} aria-label="Glowing sphere. Press to light it up" onClick={light} />
         </div>
         <ColoursButton owner={owner} />
       </section>
+      {dayAwayChoice}
 
-      <section className="rr-home-focus" aria-labelledby="rr-home-focus">
+      {!away && <><section className="rr-home-focus" aria-labelledby="rr-home-focus">
         <h2 id="rr-home-focus">What would you like support with during trading?</h2>
         <p>Choose any of the Big 4 you’d like to keep in mind today.</p>
         <div className="rr-home-actions" role="group" aria-label="Big 4 support for today">
@@ -106,7 +107,6 @@ export default function ReadingRoomHome({
         </div>
         {store.error && <p role="alert">{store.error}</p>}
       </section>
-
       <section className="rr-home-day" aria-labelledby="rr-home-day">
         <h2 id="rr-home-day">A rhythm for your day</h2>
         <div className="rr-home-grid">
@@ -123,6 +123,7 @@ export default function ReadingRoomHome({
           ))}
         </div>
       </section>
+      </>}
 
       <div className="rr-home-lower">
         <section className="rr-home-feature">

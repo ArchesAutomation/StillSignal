@@ -27,7 +27,13 @@ $env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=''
 node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3193
 ```
 
-Open `http://127.0.0.1:3193/review`. From Home, choose **Day away from charts**. Reload to see that marking alone was saved. Add a reason, write a reflection or attach screenshots, and open **Daily journal** to find them again. Preparation and Done for the day show the away state. To preview a carry-forward immediately, return to a trading day, choose **Open a saved example**, then go back to Home and select **Begin preparation**.
+Open `http://127.0.0.1:3193/review`. Use the review-only **Review layout** picker to compare the same date and notes in three layouts:
+
+- **Journal first** leaves the trader on Home after saving the choice. The reason and reflection tools live together on one Journal page.
+- **Quick note on Home** also offers a short reason on Home. Longer writing, chart review and follow-ups live in Journal.
+- **Two-page spread** opens Daily journal after marking. The reason sits on the facing page and the writing tools sit beside it. The chart editor uses the full page width.
+
+On Home, **Day away from charts** sits below the hero. Open **Daily journal** to find the marked date in the existing Daily reference, **Day in Action**, and **Journal**. **Mark another date** opens a compact dialog from the Journal toolbar. The **Continue a thought** list shows the original Journal date and labels the seeded example. Preparation and Done for the day show the away state. To preview a carry-forward immediately, return to a trading day, choose **Open a saved example**, then go back to Home and select **Begin preparation**.
 
 Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. The proposal uses browser-local drafts and private files for the synthetic owner. Account sync, dictation and production schema changes are outside this review build.
 

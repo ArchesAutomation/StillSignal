@@ -61,6 +61,18 @@ html .ss-app .ss-journal-mode button[aria-pressed="true"] {
 }
 .ss-book-volume.is-open { transform: translateX(0); }
 
+.ss-away-book { overflow: visible; }
+.ss-away-book-spread { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+.ss-away-book-spread[hidden] { display: none; }
+.ss-away-book-spread:has(.ss-away-book-facing) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); }
+.ss-away-book-spread:has(.rr-away-in-book[data-wide="true"]) { grid-template-columns: minmax(0, 1fr); }
+.ss-away-book-spread:has(.rr-away-in-book[data-wide="true"]) .ss-away-book-facing { display: none; }
+.ss-away-book .ss-away-book-spread .ss-book-sheet { position: relative; inset: auto; width: auto; min-width: 0; padding: clamp(16px, 3vw, 32px); }
+.ss-away-book-facing { border-radius: 12px 2px 2px 12px; background: linear-gradient(to left, var(--book-spine), transparent 7%), var(--book-paper); }
+.ss-away-book .ss-away-book-cover { position: relative; inset: auto; width: min(480px, 100%); }
+.ss-away-book .ss-book-foot { margin-top: 20px; }
+@container book (max-width: 560px) { .ss-away-book-spread:has(.ss-away-book-facing) { grid-template-columns: minmax(0, 1fr); } }
+
 .ss-book-right,
 .ss-book-leaf,
 .ss-book-flip {

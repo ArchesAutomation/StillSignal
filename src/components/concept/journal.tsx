@@ -8,26 +8,47 @@ import { money } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { timelinePhase } from "@/lib/timeline-phase";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import { useJournalSamples } from "../use-journal-samples";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
-import JournalBook, { type BookRequest } from "./journal-book";
+import JournalBook, { AwayJournalBook, type BookRequest } from "./journal-book";
 import JournalSelect from "./journal-select";
 import JournalSpace from "./journal-space";
 import ReferenceRhythm from "./reference-rhythm";
 import Review from "./review";
 import { cx, type Moment, type Props } from "./shared";
 export type JournalMode = "action" | "book";
-export default function Journal(
-  props: Props & {
+type JournalProps = Props & {
     view: "story" | "review";
     setView: (v: "story" | "review") => void;
     focusTime?: number;
     mode?: JournalMode;
     bookRequest?: BookRequest;
-  },
-) {
+    awayPage?: { date: string; content: ReactNode; facingPage?: ReactNode; hasActivity: boolean; onOpenBook: () => void };
+};
+
+export default function Journal(props: JournalProps) {
+  const away = props.awayPage;
+  if (!away || (props.mode !== "book" && away.hasActivity)) return <SessionJournal {...props} />;
+  if (props.mode === "book") return <ModuleScope active><section className={cx("journal-book-view")}>
+    <WorkspaceModule id="journal-book" title="Journal" order={0}>
+      <AwayJournalBook key={away.date} date={away.date} facingPage={away.facingPage}>{away.content}</AwayJournalBook>
+    </WorkspaceModule>
+  </section></ModuleScope>;
+  return <ModuleScope active><section className={cx("journal-story")}>
+    <WorkspaceModule id="timeline" title="Session timeline" order={1}>
+      <div className="rr-away-card">
+        <h2>Day in Action</h2>
+        <p>No trading session was started for this date.</p>
+        <div className="rr-home-actions"><button className="ui-button" onClick={away.onOpenBook}>Open Journal</button></div>
+      </div>
+    </WorkspaceModule>
+  </section></ModuleScope>;
+}
+
+function SessionJournal(props: JournalProps) {
   const { pulse: p, session: s, history, view, setView } = props;
   const mode = props.mode ?? "action";
   const story = view === "story" && mode === "action";
