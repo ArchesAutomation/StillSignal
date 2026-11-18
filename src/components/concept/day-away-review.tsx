@@ -5,6 +5,8 @@ import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import { keepPrivateFile, privateFile, removePrivateFile } from "@/lib/private-files";
 import type { JournalEntry } from "@/lib/model";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { WorkspaceModule } from "../module-workspace";
 
 type Image = { path: string; name: string; timeframe: string; caption: string };
 type Note = {
@@ -82,11 +84,10 @@ export function useDayAwayReview(owner: string, enabled: boolean) {
 type Review = ReturnType<typeof useDayAwayReview>;
 
 function AwayReason({ reason }: { reason: NonNullable<Day["reason"]> }) {
-  return <div className="rr-away-reason">
-    <p className="rr-away-kicker">Why I stayed away</p>
-    <h2>{reason.text}</h2>
+  return <>
+    <blockquote>{reason.text}</blockquote>
     <small>Recorded {new Date(reason.recordedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</small>
-  </div>;
+  </>;
 }
 
 function SetupPrompt() {
@@ -145,6 +146,8 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [quickEditor, setQuickEditor] = useState(false);
+  const quickDialog = useRef<HTMLDialogElement>(null);
   const enlarged = useRef<HTMLDialogElement>(null);
   const day = review.days[date] ?? emptyDay();
   const entry = review.entries.find(item => item.date === openEntry?.date && item.note.id === openEntry.id);
@@ -152,15 +155,22 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
   const gallery = editor === "charts" ? images : entry?.note.images ?? [];
   const selected = gallery[index];
   const otherNotes = review.entries.filter(item => item.date < date).sort((a, b) => b.date.localeCompare(a.date));
-  const title = entry ? "Reflection" : "Day away from charts";
 
   useEffect(() => {
     if (!reflectionRequested) return;
-    if (!editor) edit("reflection");
+    if (!editor) {
+      edit("reflection");
+      setQuickEditor(true);
+    }
     onReflectionOpened();
   }, [reflectionRequested]);
 
+  useEffect(() => {
+    if (quickEditor) quickDialog.current?.showModal();
+  }, [quickEditor]);
+
   function edit(next: typeof editor) {
+    setQuickEditor(false);
     setEditor(next);
     setText("");
     setImages([]);
@@ -236,57 +246,61 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
     <Button onClick={() => { setContinuing(false); edit(undefined); onEntry(item); }}>{item.note.images.length ? "Open reflection and charts" : "Open reflection"}</Button>
   </div>);
 
-  return <article className="rr-away-review" aria-label={title}>
-    <header className="rr-away-writing-title"><h2>{entry ? "Reflection" : day.away ? title : "Earlier reflection"}</h2>
-      {entry && <p>From Day in Action · {formatDate(entry.date)}{entry.note.example ? " · Example reflection" : ""}</p>}
-    </header>
-    {(shownDay?.reason || (!editor && !entry && day.away)) && <section className="rr-away-reason-area">
-      {shownDay?.reason ? <AwayReason reason={shownDay.reason} /> : <>
-        <p>Anything you’d like to remember about why you stayed away?</p>
-        <div className="rr-home-actions"><Button onClick={() => edit("reason")}>Add a reason</Button></div>
-      </>}
-    </section>}
-    {editor ? <section className="rr-away-card">
-      <form onSubmit={event => { event.preventDefault(); if (!uploading) save(); }}>
-        <div className={editor === "charts" ? "rr-away-columns" : undefined}>
-          <div className="rr-away-writing">
-            <label htmlFor="rr-away-writing">{{reason: "Why I stayed away", reflection: "Reflection", charts: "Reflection (optional)", reminder: "What would you like to bring back to mind?", followup: "Follow-up"}[editor]}</label>
-            <textarea id="rr-away-writing" value={text} onChange={event => setText(event.target.value)} rows={5} autoFocus />
-            {editor === "charts" && <SetupPrompt />}
-          </div>
-          {editor === "charts" && <div className="rr-away-writing">{screenshots}<Input label="Add screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={uploading} onChange={event => { void attach(Array.from(event.target.files ?? [])); event.target.value = ""; }} /></div>}
-        </div>
-        {error && <p role="alert">{error}</p>}
-        <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading} onClick={() => { void Promise.allSettled(images.map(image => removePrivateFile(image.path, owner))); edit(undefined); }}>Cancel</Button></div>
-      </form>
-    </section> : entry ? <section className="rr-away-card">
-      <div className={gallery.length ? "rr-away-columns" : undefined}>
-        <div className="rr-away-writing">
-          {entry.note.text && <p>{entry.note.text}</p>}
-          {entry.note.followups.map((followup, position) => <div className="rr-away-note" key={position}><small>{formatDate(followup.date)}</small><p>{followup.text}</p></div>)}
-          {entry.note.reminder && <div className="rr-away-note"><small>At your next preparation</small><p>{entry.note.reminder.text || entry.note.text || "Saved chart review"}</p></div>}
-          <div className="rr-home-actions">
-            {entry.note.reminder ? <Button onClick={() => review.writeNote(entry, note => ({ ...note, reminder: undefined }), "Reminder removed.")}>Remove reminder</Button> : <Button onClick={() => edit("reminder")}>Show at my next preparation</Button>}
-            {day.away && entry.date < date && <Button onClick={() => edit("followup")}>Add a follow-up</Button>}
-            <Button onClick={() => { setIndex(0); onEntry(); }}>Back to the day</Button>
-          </div>
-        </div>
-        {screenshots}
+  const editorForm = editor && <form onSubmit={event => { event.preventDefault(); if (!uploading) save(); }}>
+    <div className={editor === "charts" ? "rr-away-columns" : undefined}>
+      <div className="rr-away-writing">
+        <label htmlFor="rr-away-writing">{{reason: "Why I stayed away", reflection: "Reflection", charts: "Reflection (optional)", reminder: "What would you like to bring back to mind?", followup: "Follow-up"}[editor]}</label>
+        <textarea id="rr-away-writing" value={text} onChange={event => setText(event.target.value)} rows={5} autoFocus />
+        {editor === "charts" && <SetupPrompt />}
       </div>
-    </section> : <>
-      {day.away && <section className="rr-away-card">
-        <h2 className="rr-away-section-title">A little room to reflect</h2>
-        <div className="rr-home-actions"><Button className="ss-primary" onClick={() => edit("reflection")}>Write a reflection</Button><Button onClick={() => edit("charts")}>Review charts</Button><Button onClick={() => setContinuing(!continuing)} aria-expanded={continuing}>Continue a thought</Button></div>
-        {continuing && <div className="rr-away-earlier"><h3>Earlier journal reflections</h3>{otherNotes.length ? entryList(otherNotes, true) : <p>When you save a reflection on an earlier date, you can carry it on here.</p>}</div>}
-      </section>}
-      {entryList(review.entries.filter(item => item.date === date || item.note.followups.some(followup => followup.date === date)))}
-    </>}
-    {savedPreparation && <details className="rr-away-links"><summary>View saved preparation</summary><p>{savedPreparation}</p></details>}
-    {onActivity && <div className="rr-away-links"><p>Trades were recorded for this date.</p><Button onClick={onActivity}>View trading activity</Button></div>}
-    <div className="rr-home-actions">
-      {day.away && <Button disabled={uploading} onClick={onReturn}>Return to trading day</Button>}
+      {editor === "charts" && <div className="rr-away-writing">{screenshots}<Input label="Add screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={uploading} onChange={event => { void attach(Array.from(event.target.files ?? [])); event.target.value = ""; }} /></div>}
     </div>
-    {review.message && <p className="rr-away-links" role="status">{review.message}</p>}
-    <dialog className="rr-away-zoom" ref={enlarged} aria-label="Enlarged screenshot"><Button onClick={() => enlarged.current?.close()}>Close screenshot</Button>{selected && <ChartImage key={selected.path} image={selected} owner={owner} />}</dialog>
-  </article>;
+    {error && <p role="alert">{error}</p>}
+    <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading} onClick={() => { void Promise.allSettled(images.map(image => removePrivateFile(image.path, owner))); edit(undefined); }}>Cancel</Button></div>
+  </form>;
+
+  return <>
+    {(shownDay?.reason || day.away) && <WorkspaceModule id="away-reason" title="Why I stayed away" order={1}>
+      <section className="rr-away-reason">
+        <h2 className="rr-away-widget-label">Why I stayed away</h2>
+        {editor === "reason" ? editorForm : shownDay?.reason ? <AwayReason reason={shownDay.reason} /> : <>
+          <p>Anything you’d like to remember about why you stayed away?</p>
+          <div className="rr-home-actions"><Button onClick={() => edit("reason")} disabled={!!editor}>Add a reason</Button></div>
+        </>}
+      </section>
+    </WorkspaceModule>}
+    <WorkspaceModule id="away-reflection" title="Reflection" order={2}>
+      <section className="rr-away-review">
+        <h2 className="rr-away-widget-label">Reflection</h2>
+        {entry && <p>From Day in Action · {formatDate(entry.date)}{entry.note.example ? " · Example reflection" : ""}</p>}
+        {!quickEditor && editor && editor !== "reason" ? editorForm : entry ? <div className="rr-away-card">
+          <div className={gallery.length ? "rr-away-columns" : undefined}>
+            <div className="rr-away-writing">
+              {entry.note.text && <p>{entry.note.text}</p>}
+              {entry.note.followups.map((followup, position) => <div className="rr-away-note" key={position}><small>{formatDate(followup.date)}</small><p>{followup.text}</p></div>)}
+              {entry.note.reminder && <div className="rr-away-note"><small>At your next preparation</small><p>{entry.note.reminder.text || entry.note.text || "Saved chart review"}</p></div>}
+              <div className="rr-home-actions">
+                {entry.note.reminder ? <Button onClick={() => review.writeNote(entry, note => ({ ...note, reminder: undefined }), "Reminder removed.")}>Remove reminder</Button> : <Button onClick={() => edit("reminder")}>Show at my next preparation</Button>}
+                {day.away && entry.date < date && <Button onClick={() => edit("followup")}>Add a follow-up</Button>}
+                <Button onClick={() => { setIndex(0); onEntry(); }}>Back to the day</Button>
+              </div>
+            </div>
+            {screenshots}
+          </div>
+        </div> : <>
+          {day.away && <div className="rr-away-card">
+            <div className="rr-home-actions"><Button className="ss-primary" onClick={() => edit("reflection")} disabled={!!editor}>Write a reflection</Button><Button onClick={() => edit("charts")} disabled={!!editor}>Review charts</Button><Button onClick={() => setContinuing(!continuing)} aria-expanded={continuing} disabled={!!editor}>Continue a thought</Button></div>
+            {continuing && <div className="rr-away-earlier"><h3>Earlier journal reflections</h3>{otherNotes.length ? entryList(otherNotes, true) : <p>When you save a reflection on an earlier date, you can carry it on here.</p>}</div>}
+          </div>}
+          {entryList(review.entries.filter(item => item.date === date || item.note.followups.some(followup => followup.date === date)))}
+        </>}
+        {savedPreparation && <details className="rr-away-links"><summary>View saved preparation</summary><p>{savedPreparation}</p></details>}
+        {onActivity && <div className="rr-away-links"><p>Trades were recorded for this date.</p><Button onClick={onActivity}>View trading activity</Button></div>}
+        {day.away && <div className="rr-home-actions"><Button disabled={uploading} onClick={onReturn}>Return to trading day</Button></div>}
+        <p className="sr-only" role="status">{review.message}</p>
+        <dialog className="rr-away-zoom" ref={enlarged} aria-label="Enlarged screenshot"><Button onClick={() => enlarged.current?.close()}>Close screenshot</Button>{selected && <ChartImage key={selected.path} image={selected} owner={owner} />}</dialog>
+      </section>
+    </WorkspaceModule>
+    {quickEditor && createPortal(<dialog className="rr-away-date-dialog" ref={quickDialog} aria-label="Write a reflection" onCancel={() => edit(undefined)}>{editorForm}</dialog>, document.body)}
+  </>;
 }

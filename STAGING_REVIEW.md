@@ -27,7 +27,7 @@ $env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=''
 node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3193
 ```
 
-Open `http://127.0.0.1:3193/review`. On Home, **Day away from charts** sits below the hero. The normal Home and Preparation screens are available throughout. Choose **Open in Daily journal** to see the marked date under **Day in Action**. That tab holds the reason, reflections, optional chart review, and earlier thoughts. Switch to **Journal** for the regular book. Its writing is separate and saves in the review’s browser storage on a date without a session.
+Open `http://127.0.0.1:3193/review`. On Home, **Day away from charts** sits below the hero. The normal Home and Preparation screens are available throughout. Choose **Open in Daily journal** to see **Space between sessions.** above **Day in Action** for that date. Use **Edit dashboard** to arrange **Why I stayed away** and **Reflection** independently. The Reflection widget holds optional chart review and earlier thoughts. Switch to **Journal** for the regular book. Its writing is separate and saves in the review’s browser storage on a date without a session.
 
 **Mark another date** opens a compact dialog in Daily journal. To try carry-forward immediately, mark an earlier date, write a reflection, and choose **Show at my next preparation**. Return to Home and use **Begin preparation** on an ordinary trading day. On another away date, **Continue a thought** identifies the date of the original Day in Action reflection.
 

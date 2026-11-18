@@ -98,20 +98,15 @@ html[data-journal-presentation="reading-room"] :is(.ss-journal-select-menu,.refl
 .rr-away-date-dialog[open] { animation: rr-away-appear 240ms cubic-bezier(.16,1,.3,1) both; }
 .rr-away-date-dialog label { display: grid; gap: 8px; margin: 14px 0; }
 .rr-away-date-dialog input { padding: 8px; }
-.rr-away-review { padding: clamp(12px, 2vw, 22px); }
-.rr-away-card { padding: 18px 0 0; margin: 0 0 15px; border-top: 1px solid var(--rr-line); }
-.rr-away-card h2 { margin-bottom: 8px; }
-.rr-away-reason-area { margin: 0 0 20px; }
+.rr-away-card { margin: 12px 0 15px; }
 .rr-away-reason { overflow-wrap: anywhere; }
-.rr-away-reason .rr-away-kicker { margin: 0 0 6px; font: 600 11px/1.5 Arial, sans-serif; letter-spacing: .04em; }
-.rr-away-reason h2 { margin: 0 0 8px; font-size: clamp(25px, 3vw, 40px); line-height: 1.18; white-space: pre-wrap; }
-.rr-away-writing-title { margin-bottom: 22px; }
-.rr-away-writing-title h2 { margin: 0 0 5px; font-size: clamp(21px, 2.4vw, 30px); }
-.rr-away-section-title { font-size: clamp(26px, 3vw, 36px); }
+.ss-reading-room .ss-module-content .rr-away-widget-label { margin: 0 0 12px; color: var(--theme-link) !important; font: 700 10px/1.5 Arial, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; }
+.rr-away-reason blockquote { margin: 0 0 8px; font: 400 clamp(18px, 2vw, 25px)/1.4 Georgia, serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rr-away-card > .rr-home-actions:first-child { margin-top: 0; }
 .rr-away-earlier { margin-top: 18px; }
 .rr-away-earlier h3 { margin-bottom: 5px; }
 .rr-away-week-marker { color: var(--theme-link); }
-.rr-away-review blockquote, .rr-away-thought blockquote { margin: 10px 0; font: 400 clamp(20px, 3vw, 28px)/1.4 Georgia, serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rr-away-thought blockquote { margin: 10px 0; font: 400 clamp(20px, 3vw, 28px)/1.4 Georgia, serif; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rr-away-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 22px; }
 .rr-away-writing, .rr-away-images { display: grid; gap: 10px; min-width: 0; }
 .rr-away-writing textarea { width: 100%; padding: 10px; resize: vertical; border: 1px solid var(--rr-line); }

@@ -39,7 +39,7 @@ export default function Journal(props: JournalProps) {
     </WorkspaceModule>
   </section></ModuleScope>;
   if (away?.showInAction && props.mode !== "book") return <ModuleScope active><section className={cx("journal-story")}>
-    <WorkspaceModule id="timeline" title="Day in Action" order={1}>{away.content}</WorkspaceModule>
+    {away.content}
   </section></ModuleScope>;
   return <SessionJournal {...props} />;
 }

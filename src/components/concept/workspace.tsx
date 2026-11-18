@@ -737,7 +737,7 @@ export default function ConceptWorkspace(props: Props) {
             </div>
           )}
         </header>}
-        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{awayView ? formatAwayDate(awayDate) : new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · {awayView && awayRecord?.away ? "Day away from charts" : "Your reflections, recordings and available evidence, together."}</p></div>}
+        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>{awayView && awayRecord?.away ? "Space between sessions." : "Your day, in your words."}</h1><p>{awayView ? formatAwayDate(awayDate) : new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · {awayView && awayRecord?.away ? "Day away from charts" : "Your reflections, recordings and available evidence, together."}</p></div>}
         {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
         {page === "Stillness" && returnToDone && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Done")}>← Back to Done for the day</button></div>}
         {stillness && workspaceNotices}
