@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/panel";
 import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import { keepPrivateFile, privateFile, removePrivateFile } from "@/lib/private-files";
+import type { JournalEntry } from "@/lib/model";
 import { useEffect, useId, useRef, useState } from "react";
 
 type Image = { path: string; name: string; timeframe: string; caption: string };
@@ -14,7 +15,7 @@ type Note = {
   reminder?: { text: string; preparation?: string };
   example?: boolean;
 };
-type Day = { away: boolean; reason?: { text: string; recordedAt: number }; notes: Note[]; started?: boolean };
+type Day = { away: boolean; reason?: { text: string; recordedAt: number }; notes: Note[]; bookNotes?: JournalEntry[]; started?: boolean };
 type Days = Record<string, Day | undefined>;
 type Entry = { date: string; note: Note };
 
@@ -23,13 +24,6 @@ export const formatAwayDate = (date: string) => new Intl.DateTimeFormat("en-GB",
   dateStyle: "full", timeZone: "UTC",
 }).format(new Date(`${date}T12:00:00Z`));
 const formatDate = formatAwayDate;
-
-export const awayLayouts = [
-  { id: "page", label: "Journal first" },
-  { id: "note", label: "Quick note on Home" },
-  { id: "spread", label: "Two-page spread" },
-] as const;
-export type AwayLayout = (typeof awayLayouts)[number]["id"];
 
 // The synthetic review account keeps its proposal drafts apart from process and session storage.
 export function useDayAwayReview(owner: string, enabled: boolean) {
@@ -87,28 +81,12 @@ export function useDayAwayReview(owner: string, enabled: boolean) {
 
 type Review = ReturnType<typeof useDayAwayReview>;
 
-export function AwayReason({ reason }: { reason: NonNullable<Day["reason"]> }) {
+function AwayReason({ reason }: { reason: NonNullable<Day["reason"]> }) {
   return <div className="rr-away-reason">
     <p className="rr-away-kicker">Why I stayed away</p>
     <h2>{reason.text}</h2>
     <small>Recorded {new Date(reason.recordedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</small>
   </div>;
-}
-
-export function QuickAwayNote({ date, review }: { date: string; review: Review }) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState("");
-  const reason = review.days[date]?.reason;
-  return <Panel className="rr-away-quick">
-    {reason ? <AwayReason reason={reason} /> : editing ? <form className="rr-away-writing" onSubmit={event => {
-      event.preventDefault();
-      if (text.trim() && review.write(date, day => ({ ...day, reason: { text: text.trim(), recordedAt: Date.now() } }), "Reason saved.")) setEditing(false);
-    }}>
-      <label htmlFor="rr-away-quick-note">Anything you’d like to remember about why you stayed away?</label>
-      <textarea id="rr-away-quick-note" rows={2} value={text} onChange={event => setText(event.target.value)} autoFocus />
-      <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={!text.trim()}>Save reason</Button><Button onClick={() => setEditing(false)}>Cancel</Button></div>
-    </form> : <Button onClick={() => setEditing(true)}>Add a reason</Button>}
-  </Panel>;
 }
 
 function SetupPrompt() {
@@ -154,10 +132,9 @@ function ChartImage({ image, owner }: { image: Image; owner: string }) {
   return url ? <img src={url} alt={image.timeframe ? `${image.timeframe} chart screenshot` : image.name} /> : <p>Loading screenshot…</p>;
 }
 
-export default function DayAwayReview({ owner, date, view, review, openEntry, onEntry, onHome, onJournal, layout, savedPreparation, onActivity, onReturn, reflectionRequested, onReflectionOpened }: {
-  owner: string; date: string; view: "journal" | "prep" | "done";
+export default function DayAwayReview({ owner, date, review, openEntry, onEntry, savedPreparation, onActivity, onReturn, reflectionRequested, onReflectionOpened }: {
+  owner: string; date: string;
   review: Review; openEntry?: { date: string; id: string }; onEntry: (entry?: Entry) => void;
-  onHome: () => void; onJournal: () => void; layout: AwayLayout;
   savedPreparation?: string; onActivity?: () => void; onReturn: () => void;
   reflectionRequested: boolean; onReflectionOpened: () => void;
 }) {
@@ -176,8 +153,6 @@ export default function DayAwayReview({ owner, date, view, review, openEntry, on
   const selected = gallery[index];
   const otherNotes = review.entries.filter(item => item.date < date).sort((a, b) => b.date.localeCompare(a.date));
   const title = entry ? "Reflection" : "Day away from charts";
-  const insideBook = view === "journal";
-  const Surface = insideBook ? "section" : Panel;
 
   useEffect(() => {
     if (!reflectionRequested) return;
@@ -256,23 +231,22 @@ export default function DayAwayReview({ owner, date, view, review, openEntry, on
   </div>;
 
   const entryList = (entries: Entry[], earlier = false) => entries.map(item => <div key={item.note.id} className="rr-away-note">
-    <small>{earlier || item.date !== date ? `From Daily journal · ${formatDate(item.date)}` : formatDate(item.date)}{item.note.example ? " · Example reflection" : ""}</small>
+    <small>{earlier || item.date !== date ? `From Day in Action · ${formatDate(item.date)}` : formatDate(item.date)}{item.note.example ? " · Example reflection" : ""}</small>
     <p>{item.note.text || "Saved chart review"}</p>
     <Button onClick={() => { setContinuing(false); edit(undefined); onEntry(item); }}>{item.note.images.length ? "Open reflection and charts" : "Open reflection"}</Button>
   </div>);
 
-  return <article className={`rr-away-review${insideBook ? " rr-away-in-book" : " rr-home"}`} aria-label={title} data-wide={!!entry || editor === "charts"}>
-    {!insideBook ? <header className="rr-journal-heading"><p className="rr-home-date">{formatDate(date)}</p><h1>{title}</h1></header> :
-      <header className="rr-away-writing-title"><h2>{entry ? "Reflection" : day.away ? title : "Earlier reflection"}</h2>
-        {entry && <p>From Daily journal · {formatDate(entry.date)}{entry.note.example ? " · Example reflection" : ""}</p>}
-      </header>}
-    {((shownDay?.reason && (!insideBook || layout !== "spread" || entry || editor === "charts")) || (!shownDay?.reason && insideBook && !editor && !entry && day.away)) && <section className="rr-away-reason-area">
+  return <article className="rr-away-review" aria-label={title}>
+    <header className="rr-away-writing-title"><h2>{entry ? "Reflection" : day.away ? title : "Earlier reflection"}</h2>
+      {entry && <p>From Day in Action · {formatDate(entry.date)}{entry.note.example ? " · Example reflection" : ""}</p>}
+    </header>
+    {(shownDay?.reason || (!editor && !entry && day.away)) && <section className="rr-away-reason-area">
       {shownDay?.reason ? <AwayReason reason={shownDay.reason} /> : <>
         <p>Anything you’d like to remember about why you stayed away?</p>
         <div className="rr-home-actions"><Button onClick={() => edit("reason")}>Add a reason</Button></div>
       </>}
     </section>}
-    {editor ? <Surface className="rr-away-card">
+    {editor ? <section className="rr-away-card">
       <form onSubmit={event => { event.preventDefault(); if (!uploading) save(); }}>
         <div className={editor === "charts" ? "rr-away-columns" : undefined}>
           <div className="rr-away-writing">
@@ -285,7 +259,7 @@ export default function DayAwayReview({ owner, date, view, review, openEntry, on
         {error && <p role="alert">{error}</p>}
         <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading} onClick={() => { void Promise.allSettled(images.map(image => removePrivateFile(image.path, owner))); edit(undefined); }}>Cancel</Button></div>
       </form>
-    </Surface> : entry ? <Surface className="rr-away-card">
+    </section> : entry ? <section className="rr-away-card">
       <div className={gallery.length ? "rr-away-columns" : undefined}>
         <div className="rr-away-writing">
           {entry.note.text && <p>{entry.note.text}</p>}
@@ -299,21 +273,18 @@ export default function DayAwayReview({ owner, date, view, review, openEntry, on
         </div>
         {screenshots}
       </div>
-    </Surface> : view === "prep" || view === "done" ? <Panel className="rr-away-card">
-      <p>{view === "prep" ? "You’ve set today aside. If your plans change, you can return to a trading day." : "You’ve set today aside. Anything you saved is in your journal."}</p>
-      <div className="rr-home-actions"><Button onClick={onJournal}>Open Daily journal</Button><Button onClick={onHome}>Back to Home</Button></div>
-    </Panel> : <>
-      {day.away && <Surface className="rr-away-card">
+    </section> : <>
+      {day.away && <section className="rr-away-card">
         <h2 className="rr-away-section-title">A little room to reflect</h2>
         <div className="rr-home-actions"><Button className="ss-primary" onClick={() => edit("reflection")}>Write a reflection</Button><Button onClick={() => edit("charts")}>Review charts</Button><Button onClick={() => setContinuing(!continuing)} aria-expanded={continuing}>Continue a thought</Button></div>
         {continuing && <div className="rr-away-earlier"><h3>Earlier journal reflections</h3>{otherNotes.length ? entryList(otherNotes, true) : <p>When you save a reflection on an earlier date, you can carry it on here.</p>}</div>}
-      </Surface>}
+      </section>}
       {entryList(review.entries.filter(item => item.date === date || item.note.followups.some(followup => followup.date === date)))}
     </>}
     {savedPreparation && <details className="rr-away-links"><summary>View saved preparation</summary><p>{savedPreparation}</p></details>}
     {onActivity && <div className="rr-away-links"><p>Trades were recorded for this date.</p><Button onClick={onActivity}>View trading activity</Button></div>}
     <div className="rr-home-actions">
-      {day.away && (view === "prep" || view === "journal") && <Button disabled={uploading} onClick={onReturn}>Return to trading day</Button>}
+      {day.away && <Button disabled={uploading} onClick={onReturn}>Return to trading day</Button>}
     </div>
     {review.message && <p className="rr-away-links" role="status">{review.message}</p>}
     <dialog className="rr-away-zoom" ref={enlarged} aria-label="Enlarged screenshot"><Button onClick={() => enlarged.current?.close()}>Close screenshot</Button>{selected && <ChartImage key={selected.path} image={selected} owner={owner} />}</dialog>

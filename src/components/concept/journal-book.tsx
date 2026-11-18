@@ -10,7 +10,7 @@ import {
 import type { JournalEntry, Session } from "@/lib/model";
 import { readingRoomReference } from "@/lib/reading-room";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { journalDateValue } from "@/lib/journal-day";
 import { useProcess } from "../process/use-process";
 import type { Props } from "./shared";
 
@@ -41,37 +41,16 @@ const settleSteps = [
  * `n` changes on every request; `prompt` is shown as a read-only starting point. */
 export type BookRequest = { n: number; prompt?: string };
 
-export function AwayJournalBook({ date, facingPage, children }: {
-  date: string; facingPage?: ReactNode; children: ReactNode;
-}) {
-  const [open, setOpen] = useState(true);
-  return <section className="ss-book ss-away-book" aria-label="Journal">
-    <div className="ss-away-book-spread" hidden={!open}>
-      {facingPage && <div className="ss-book-sheet ss-away-book-facing">{facingPage}</div>}
-      <div className="ss-book-sheet ss-book-right">
-        <header className="ss-book-head"><span className="ss-book-date">{date}</span></header>
-        {children}
-        <footer className="ss-book-foot"><button className="ss-book-quiet" onClick={() => setOpen(false)}>Close the book</button></footer>
-      </div>
-    </div>
-    {!open && <div className="ss-book-cover ss-away-book-cover">
-      <div className="ss-book-cover-frame">
-        <span className="ss-book-cover-mark" aria-hidden>still signal</span>
-        <h2>Journal</h2><span className="ss-book-cover-date">{date}</span>
-        <div className="ss-book-actions"><button className="ss-book-cover-button" onClick={() => setOpen(true)}>Open the journal</button></div>
-      </div>
-    </div>}
-  </section>;
-}
-
 export default function JournalBook({
   props,
   session,
   request,
+  saveDatedNotes,
 }: {
   props: Props;
   session: Session;
   request?: BookRequest;
+  saveDatedNotes?: (notes: JournalEntry[]) => void;
 }) {
   const p = props.pulse;
   const store = useProcess(p.owner, props.history);
@@ -153,7 +132,8 @@ export default function JournalBook({
             makeId: () => crypto.randomUUID(),
             liveAt: p.active ? Date.now() : null,
           });
-          for (const note of writes) {
+          if (saveDatedNotes) saveDatedNotes(writes);
+          else for (const note of writes) {
             if (existing.some((n) => n.id === note.id)) await p.saveJournalNote(note);
             else await p.addNote(note);
           }
@@ -235,7 +215,8 @@ export default function JournalBook({
     clearTimeout(turnTimer.current);
     turnTimer.current = setTimeout(() => setTurning(undefined), 900);
     try {
-      if (!(await p.openSession(target))) setTurning(undefined);
+      if (props.dayAwayReview && props.onOpenJournalDay) await props.onOpenJournalDay(journalDateValue(target.startedAt));
+      else if (!(await p.openSession(target))) setTurning(undefined);
     } catch (e) {
       setTurning(undefined);
       setStatus(e instanceof Error ? e.message : "That page could not open.");

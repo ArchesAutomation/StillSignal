@@ -4,7 +4,7 @@ import { demoCandles, isDemoSession } from "@/lib/demo-market";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { isBookEntry, isJournalMarker } from "@/lib/journal-book";
 import { isTradeSection, noteTime, sessionTrades } from "@/lib/journal-routing";
-import { money } from "@/lib/model";
+import { money, type JournalEntry, type Session } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { timelinePhase } from "@/lib/timeline-phase";
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +13,7 @@ import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import { useJournalSamples } from "../use-journal-samples";
 import { useMarketData } from "../use-market-data";
 import Chart from "./chart";
-import JournalBook, { AwayJournalBook, type BookRequest } from "./journal-book";
+import JournalBook, { type BookRequest } from "./journal-book";
 import JournalSelect from "./journal-select";
 import JournalSpace from "./journal-space";
 import ReferenceRhythm from "./reference-rhythm";
@@ -26,26 +26,22 @@ type JournalProps = Props & {
     focusTime?: number;
     mode?: JournalMode;
     bookRequest?: BookRequest;
-    awayPage?: { date: string; content: ReactNode; facingPage?: ReactNode; hasActivity: boolean; onOpenBook: () => void };
+    awayPage?: { content: ReactNode; showInAction: boolean; book?: { session: Session; save: (notes: JournalEntry[]) => void } };
 };
 
 export default function Journal(props: JournalProps) {
   const away = props.awayPage;
-  if (!away || (props.mode !== "book" && away.hasActivity)) return <SessionJournal {...props} />;
-  if (props.mode === "book") return <ModuleScope active><section className={cx("journal-book-view")}>
+  const datedBook = away?.book;
+  if (datedBook && props.mode === "book") return <ModuleScope active><section className={cx("journal-book-view")}>
     <WorkspaceModule id="journal-book" title="Journal" order={0}>
-      <AwayJournalBook key={away.date} date={away.date} facingPage={away.facingPage}>{away.content}</AwayJournalBook>
+      <JournalBook key={datedBook.session.id} props={props} session={datedBook.session}
+        request={props.bookRequest} saveDatedNotes={datedBook.save} />
     </WorkspaceModule>
   </section></ModuleScope>;
-  return <ModuleScope active><section className={cx("journal-story")}>
-    <WorkspaceModule id="timeline" title="Session timeline" order={1}>
-      <div className="rr-away-card">
-        <h2>Day in Action</h2>
-        <p>No trading session was started for this date.</p>
-        <div className="rr-home-actions"><button className="ui-button" onClick={away.onOpenBook}>Open Journal</button></div>
-      </div>
-    </WorkspaceModule>
+  if (away?.showInAction && props.mode !== "book") return <ModuleScope active><section className={cx("journal-story")}>
+    <WorkspaceModule id="timeline" title="Day in Action" order={1}>{away.content}</WorkspaceModule>
   </section></ModuleScope>;
+  return <SessionJournal {...props} />;
 }
 
 function SessionJournal(props: JournalProps) {
