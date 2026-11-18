@@ -13,6 +13,7 @@ export default function ReadingRoomReference({ props, week, onWeek, onOpen, sele
   const { pulse, session, history } = props;
   const store = useProcess(pulse.owner, history);
   const startedAt = selectedDate ?? session.startedAt;
+  const away = awayDates?.includes(journalDateValue(startedAt));
   const timezone = selectedDate === undefined ? session.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
   const reference = readingRoomReference(store.records, selectedDate === undefined ? session : { ...session, startedAt, timezone, blueprint: undefined });
   const blocked = pulse.active || !!props.capture?.pendingCapture;
@@ -30,10 +31,10 @@ export default function ReadingRoomReference({ props, week, onWeek, onOpen, sele
     <details className="rr-date-picker"><summary>Find another date</summary><JournalDayPicker key={startedAt} date={startedAt} disabled={blocked} onOpen={onOpen} /></details>
     <hr />
     {store.error && <p role="alert">{store.error}</p>}
-    {!store.loaded ? <p role="status">Loading your reference…</p> : <>
+    {away ? <p>Day away from charts</p> : !store.loaded ? <p role="status">Loading your reference…</p> : <>
       <h3>Your intention</h3><p>{reference.intention}</p>
       <h3>How you arrived</h3><p>{reference.arrival}</p>
     </>}
-    <small>From this day’s saved preparation. No feeling is inferred.</small>
+    {!away && <small>From this day’s saved preparation. No feeling is inferred.</small>}
   </section>;
 }

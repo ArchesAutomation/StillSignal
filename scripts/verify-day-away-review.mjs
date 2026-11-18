@@ -66,6 +66,10 @@ try {
   assert.equal(await button("Review charts").count(), 0, "The regular book has no away editor.");
   await actionTab.click();
   await page.getByRole("heading", { name: "Space between sessions.", exact: true }).waitFor();
+  const dailyReference = page.getByRole("region", { name: "Daily reference", exact: true });
+  await dailyReference.getByText("Day away from charts", { exact: true }).waitFor();
+  assert.equal(await dailyReference.getByRole("heading", { name: "Your intention" }).count(), 0);
+  assert.equal(await dailyReference.getByRole("heading", { name: "How you arrived" }).count(), 0);
   await button("+ Add reflection").click();
   await page.locator("#rr-away-writing").waitFor();
   await button("Cancel").click();
@@ -154,6 +158,8 @@ try {
   await actionTab.click();
   await page.getByText(/October 2026.+Your reflections/).waitFor();
   await page.getByRole("heading", { name: "Your day, in your words.", exact: true }).first().waitFor();
+  await dailyReference.getByRole("heading", { name: "Your intention" }).waitFor();
+  await dailyReference.getByRole("heading", { name: "How you arrived" }).waitFor();
   assert.equal(await button("Review charts").count(), 0);
   assert.equal(await reasonWidget.count(), 0);
   assert.equal(await reflectionWidget.count(), 0);
