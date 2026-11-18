@@ -3,6 +3,9 @@
 export const ASSISTANT_MODEL = "inclusionai/ling-3.2-flash:free";
 export const PREPARATION_TOOL = "preparation_status";
 export const SUPPORT_HISTORY_TOOL = "support_history";
+// Offered only to accounts listed for journal reads. See docs/assistant-journal-reads.md.
+export const JOURNAL_TOOL = "journal_entries";
+export const DONE_TOOL = "done_for_the_day";
 
 // Both tools take the same period. The model names it; the browser resolves it to dates in
 // the screens' day timezone, so the model never computes dates.

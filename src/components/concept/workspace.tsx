@@ -36,6 +36,7 @@ import ReferenceWeek from "./reference-week";
 import SessionContext from "./session-context";
 import SessionDays from "./session-days";
 import SessionReset from "./session-reset";
+import { JOURNAL_LINK_EVENT, revealJournalNote, type JournalLink } from "@/lib/assistant-links";
 import { cx, type Page, type Props } from "./shared";
 import { reflections } from "./stillness";
 import WeeklyReminder from "./weekly-reminder";
@@ -280,6 +281,25 @@ export default function ConceptWorkspace(props: Props) {
       setOpeningDay(false);
     }
   };
+  // Ask Still Signal's cards open the entry they quote. Opening an entry never creates or edits one.
+  const openAssistantLink = useRef<(link: JournalLink) => void>(() => {});
+  openAssistantLink.current = (link) =>
+    void act(async () => {
+      const target = link.sessionId === s.id ? s : history.find((item) => item.id === link.sessionId);
+      if (!target) throw new Error("That entry isn’t on this device any more.");
+      if (target.id !== s.id && !(await p.openSession(target))) return;
+      setFocusTime(undefined);
+      setJournalMode(link.book ? "book" : "action");
+      setView("story");
+      go("Journal");
+      if (link.book) setBookRequest({ n: Date.now() });
+      else if (link.noteId) revealJournalNote(link.noteId);
+    });
+  useEffect(() => {
+    const open = (event: Event) => openAssistantLink.current((event as CustomEvent<JournalLink>).detail);
+    window.addEventListener(JOURNAL_LINK_EVENT, open);
+    return () => window.removeEventListener(JOURNAL_LINK_EVENT, open);
+  }, []);
   const quiet = () => {
     setWhisper(reflections[Math.floor(Math.random() * reflections.length)]);
     clearTimeout(timer.current);

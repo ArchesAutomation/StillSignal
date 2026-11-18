@@ -113,8 +113,12 @@ export default function Privacy() {
         to it. When you ask a question, the Preparation and support records it
         reads for the dates you asked about are sent through OpenRouter to a
         hosted AI model to write the answer. Requests are limited to endpoints
-        OpenRouter lists as not collecting or retaining them. The conversation
-        is not saved, and the assistant cannot change your records.
+        OpenRouter lists as not collecting or retaining them. If journal reading
+        is turned on for your invited account, the Daily Journal passages and
+        Done for the Day answers it reads for your question are sent the same
+        way. Audio, screenshots, heart rate, original transcripts, trades and
+        P&amp;L are not sent. The conversation is not saved, and the assistant
+        cannot change your records.
       </p>
       <p>
         Export the selected session as JSON from Settings. Deleting it removes

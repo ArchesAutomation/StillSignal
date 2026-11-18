@@ -14,35 +14,40 @@ export async function assistantPilotHeaders(owner: string, client = authClient()
 }
 
 /** Any failure means no access: the pilot stays invisible rather than showing an error. */
-export async function assistantPilotAccess(owner: string, client = authClient()) {
+export async function assistantPilotCapabilities(owner: string, client = authClient()) {
   try {
     const response = await fetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await assistantPilotHeaders(owner, client)) },
       body: JSON.stringify({ action: "access" }),
     });
-    if (!response.ok) return false;
-    return (await response.json()).enabled === true;
+    if (!response.ok) return { enabled: false, journal: false };
+    const access = await response.json();
+    return { enabled: access.enabled === true, journal: access.enabled === true && access.journal === true };
   } catch {
-    return false;
+    return { enabled: false, journal: false };
   }
 }
 
+export async function assistantPilotAccess(owner: string, client = authClient()) {
+  return (await assistantPilotCapabilities(owner, client)).enabled;
+}
+
 export default function AssistantPilot({ owner }: { owner: string }) {
-  const [allowed, setAllowed] = useState(false);
+  const [access, setAccess] = useState({ enabled: false, journal: false });
   useEffect(() => {
     let active = true;
-    void assistantPilotAccess(owner).then((access) => {
-      if (active) setAllowed(access);
+    void assistantPilotCapabilities(owner).then((result) => {
+      if (active) setAccess(result);
     });
     return () => {
       active = false;
     };
   }, [owner]);
-  if (!allowed) return null;
+  if (!access.enabled) return null;
   return (
     <Suspense fallback={null}>
-      <PreparationAssistant owner={owner} pilotHeaders={() => assistantPilotHeaders(owner)} />
+      <PreparationAssistant owner={owner} journal={access.journal} pilotHeaders={() => assistantPilotHeaders(owner)} />
     </Suspense>
   );
 }

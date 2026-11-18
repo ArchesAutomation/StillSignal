@@ -121,6 +121,37 @@
 .ss-assistant-card li dl {
   margin-top: 6px;
 }
+.ss-assistant-entry {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--theme-line);
+}
+.ss-assistant-entry blockquote {
+  margin: 0;
+  justify-self: stretch;
+  white-space: pre-wrap;
+}
+.ss-assistant-entry p {
+  margin: 0;
+}
+.ss-assistant-link {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--theme-link);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+[data-assistant-focus] {
+  outline: 2px solid var(--theme-link);
+  outline-offset: 2px;
+}
 .ss-assistant-message .ss-assistant-error {
   margin: 4px 0 10px;
 }

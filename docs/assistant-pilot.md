@@ -19,6 +19,8 @@ The configured model is `inclusionai/ling-3.2-flash:free`. OpenRouter lists its 
 
 Reads do not sync first. Days saved on another device and not yet downloaded may be missing, and the card says so.
 
+Daily Journal and Done for the Day have their own opt-in. See [assistant-journal-reads.md](assistant-journal-reads.md).
+
 ## Enable (needs Caleb's approval)
 
 1. Confirm with a synthetic prompt that `ASSISTANT_MODEL` still accepts `provider: { data_collection: "deny", zdr: true, allow_fallbacks: false }`.

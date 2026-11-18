@@ -4,6 +4,7 @@ import Dashboard from "./dashboard";
 import { saveSession, appendSamples } from "@/lib/storage";
 import {
   reviewFixtures,
+  reviewJournalSessions,
   reviewOwner,
   reviewPreparationRecords,
   reviewSupportHistoryRecords,
@@ -76,6 +77,8 @@ export default function StagingWorkspace({
         const history = reviewSupportHistoryRecords([...existing, ...seed], today, timezone);
         if (seed.length || history.length)
           await saveProcess(reviewOwner, [...seed, ...history], false);
+        for (const journal of reviewJournalSessions(today, timezone))
+          await saveSession(journal);
       }
       if (active) setReady(true);
     })().catch(() => {
@@ -99,7 +102,7 @@ export default function StagingWorkspace({
           />
           {assistant && (
             <Suspense fallback={null}>
-              <PreparationAssistant owner={reviewOwner} />
+              <PreparationAssistant owner={reviewOwner} journal />
             </Suspense>
           )}
         </>
