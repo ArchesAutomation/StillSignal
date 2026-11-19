@@ -17,8 +17,10 @@ import { keepPrivateFile } from "@/lib/private-files";
 import { sessionTrades } from "@/lib/journal-routing";
 export default function StagingWorkspace({
   assistant = false,
+  dayAwayReview = false,
 }: {
   assistant?: boolean;
+  dayAwayReview?: boolean;
 }) {
   const [data] = useState(reviewFixtures);
   const [ready, setReady] = useState(false),
@@ -98,6 +100,7 @@ export default function StagingWorkspace({
         <>
           <Dashboard
             initialSession={data.session}
+            dayAwayReview={dayAwayReview}
             user={{ id: reviewOwner, email: "review@example.test" }}
           />
           {assistant && (

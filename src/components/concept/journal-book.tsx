@@ -10,6 +10,7 @@ import {
 import type { JournalEntry, Session } from "@/lib/model";
 import { readingRoomReference } from "@/lib/reading-room";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { journalDateValue } from "@/lib/journal-day";
 import { useProcess } from "../process/use-process";
 import type { Props } from "./shared";
 
@@ -44,10 +45,12 @@ export default function JournalBook({
   props,
   session,
   request,
+  saveDatedNotes,
 }: {
   props: Props;
   session: Session;
   request?: BookRequest;
+  saveDatedNotes?: (notes: JournalEntry[]) => Promise<void>;
 }) {
   const p = props.pulse;
   const store = useProcess(p.owner, props.history);
@@ -129,7 +132,8 @@ export default function JournalBook({
             makeId: () => crypto.randomUUID(),
             liveAt: p.active ? Date.now() : null,
           });
-          for (const note of writes) {
+          if (saveDatedNotes) await saveDatedNotes(writes);
+          else for (const note of writes) {
             if (existing.some((n) => n.id === note.id)) await p.saveJournalNote(note);
             else await p.addNote(note);
           }
@@ -211,7 +215,8 @@ export default function JournalBook({
     clearTimeout(turnTimer.current);
     turnTimer.current = setTimeout(() => setTurning(undefined), 900);
     try {
-      if (!(await p.openSession(target))) setTurning(undefined);
+      if (props.dayAwayReview && props.onOpenJournalDay) await props.onOpenJournalDay(journalDateValue(target.startedAt));
+      else if (!(await p.openSession(target))) setTurning(undefined);
     } catch (e) {
       setTurning(undefined);
       setStatus(e instanceof Error ? e.message : "That page could not open.");

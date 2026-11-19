@@ -7,15 +7,57 @@ import {
   tables,
   type ProcessRecord,
 } from "./process/model.ts";
+import { awayActionSchema, isAwayAction } from "./process/away-days.ts";
 import { validateAppend, withRefs } from "./process/engine.ts";
 import type { Session } from "./model.ts";
 export async function POST(request: Request) {
   try {
     const { db, user } = await authenticated(request);
     await rate(db, "process:" + user.id, 240);
-    const parsed = processActionSchema.safeParse(
-      await boundedJson(request, 512000),
-    );
+    const body = await boundedJson(request, 512000);
+    if (isAwayAction(body)) {
+      const away = awayActionSchema.safeParse(body);
+      if (!away.success)
+        return Response.json(
+          { error: "These away-day notes could not be synced. Your local copy is preserved." },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      if (away.data.action === "away-list") {
+        const { data, error } = await db
+          .from("away_day_events")
+          .select("seq,data")
+          .eq("user_id", user.id)
+          .gt("seq", away.data.after)
+          .order("seq")
+          .limit(200);
+        checked(error);
+        return Response.json(
+          {
+            events: data?.map((row) => row.data) ?? [],
+            cursor: data?.length ? String(data.at(-1)!.seq) : away.data.after,
+            more: data?.length === 200,
+          },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      const foreignImage = away.data.events.some(
+        ({ body }) =>
+          body.type === "note" &&
+          body.images.some((image) => !image.path.startsWith(`${user.id}/away-days/`)),
+      );
+      if (foreignImage)
+        return Response.json(
+          { error: "A screenshot does not belong to this account." },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        );
+      const { error } = await db.rpc("pulse_away_append", {
+        p_user: user.id,
+        p_events: away.data.events,
+      });
+      checked(error);
+      return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    }
+    const parsed = processActionSchema.safeParse(body);
     if (!parsed.success)
       return Response.json(
         {

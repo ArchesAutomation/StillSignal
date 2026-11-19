@@ -12,6 +12,31 @@ Use a Vercel **preview** project/environment with no Supabase URL, publishable k
 
 Open /review. A persistent banner labels synthetic market, execution, and HR data. Local storage belongs to a fixed synthetic review account on the preview origin. The root still shows authentication. The review route returns 404 without both server gates or whenever a Supabase URL is configured.
 
+### Day away from charts proposal
+
+Set `STILL_SIGNAL_DAY_AWAY_REVIEW=true` alongside the review flags above. On Windows, run the real app locally with these settings:
+
+```powershell
+$env:APP_ENV='staging'
+$env:TRADERPULSE_UI_REVIEW='true'
+$env:NEXT_PUBLIC_UI_REVIEW='true'
+$env:STILL_SIGNAL_DAY_AWAY_REVIEW='true'
+$env:NEXT_PUBLIC_SUPABASE_URL=''
+$env:NEXT_PUBLIC_SUPABASE_ANON_KEY=''
+$env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=''
+node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3193
+```
+
+Open `http://127.0.0.1:3193/review`. On Home, **Day away from charts** sits below the hero. The normal Home and Preparation screens are available throughout. Choose **Open in Daily journal** to see **Space between sessions.** above **Day in Action** for that date. Use **Edit dashboard** to arrange **Why I stayed away** and **Reflection** independently. The Reflection widget holds optional chart review and earlier thoughts. Switch to **Journal** for the regular book. Its writing is separate and saves in the review’s browser storage on a date without a session.
+
+**Mark another date** opens a compact dialog in Daily journal. To try carry-forward immediately, mark an earlier date, write a reflection, and choose **Show at my next preparation**. Return to Home and use **Begin preparation** on an ordinary trading day. On another away date, **Continue a thought** identifies the date of the original Day in Action reflection.
+
+The week strip in **Daily reference** uses **Away**, **Prep**, **Session**, and **Trade** for recorded activity. **Prep** comes from saved preparation, **Session** from an explicit start with no trade recorded, and **Trade** from an execution. A date with no evidence stays blank. If a trade arrives on a date marked away, the strip shows **Trade** and the selected date shows both facts.
+
+To inspect a **Trade** example through the ordinary Journal, start a second isolated review server with `STILL_SIGNAL_DAY_AWAY_REVIEW=false` and a different port. Open `/review` there to see the seeded trades on 13 October 2026. The regular Journal uses recorded activity directly. For the extra browser check that enters a manual trade, set `REGULAR_JOURNAL_REVIEW_URL` to the second server’s loopback origin before running `node scripts/verify-day-away-review.mjs`.
+
+Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. This review build has no Supabase connection, so the synthetic owner's away days stay on this device. Signed-in storage, sync and the release order are described in `docs/away-days.md`. Away-editor dictation is not included.
+
 ## Connected staging
 
 Use a new empty Supabase project/branch with the baseline migrations/storage policies. Configure staging Auth redirects separately. Turn synthetic review flags off. Register the exact staging /api/brokers/callback URL at each OAuth provider.

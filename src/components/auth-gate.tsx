@@ -64,7 +64,11 @@ export default function AuthGate() {
   if (user && mode !== "new-password")
     return (
       <>
-        <Dashboard key={user.id} user={{ id: user.id, email: user.email }} />
+        <Dashboard
+          key={user.id}
+          user={{ id: user.id, email: user.email }}
+          dayAwayReview={process.env.NEXT_PUBLIC_STILL_SIGNAL_DAY_AWAY === "true"}
+        />
         <AssistantPilot key={`assistant-${user.id}`} owner={user.id} />
       </>
     );

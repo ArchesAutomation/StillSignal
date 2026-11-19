@@ -170,9 +170,11 @@ function Modal({
 export default function Dashboard({
   user,
   initialSession,
+  dayAwayReview,
 }: {
   user: import("@/lib/workspace").WorkspaceUser;
   initialSession?: import("@/lib/model").Session;
+  dayAwayReview?: boolean;
 }) {
   const [legacyOpen, setLegacyOpen] = useState(false);
   const legacyDialog = useRef<HTMLDialogElement>(null);
@@ -201,7 +203,7 @@ export default function Dashboard({
     "Timeline",
   );
   const [mobileNav, setMobileNav] = useState(false);
-  const [tab, setTab] = useState<Tab>(initialSession ? "Journal" : "Home"),
+  const [tab, setTab] = useState<Tab>(initialSession && !dayAwayReview ? "Journal" : "Home"),
     [modal, setModal] = useState<
       "trade" | "note" | "delete" | "csv" | "moment" | null
     >(null),
@@ -567,6 +569,7 @@ export default function Dashboard({
       <ConceptWorkspace
         key={p.owner}
         capture={capture}
+        dayAwayReview={dayAwayReview}
         pulse={p}
         session={s}
         history={history}
