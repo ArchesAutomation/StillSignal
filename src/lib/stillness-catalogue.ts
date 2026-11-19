@@ -194,15 +194,38 @@ export const catalogue: StillnessItem[] = [
   ...personalPractices,
 ];
 
-/** The Stillness library's type, focus and search filters. */
-export function stillnessLibraryResults({ filter = "All", tags = [], search = "" }: { filter?: string; tags?: string[]; search?: string }) {
-  return catalogue.filter(
+export const stillnessMoments = {
+  "Before I begin": ["arrive", "yesterday-today", "waiting", "body", "awareness"],
+  "In the moment": ["after-decision", "waiting", "body", "enough", "awareness", "feeling-explanation", "fix-a-loss", "feels-personal"],
+  "As I step away": ["feels-personal", "same-decision", "release", "enough", "identity", "after-decision", "wider-view", "feeling-explanation", "fix-a-loss"],
+  "Looking ahead": ["wider-view", "same-decision", "yesterday-today"],
+  "A day away": ["body", "awareness", "identity", "wider-view", "feeling-explanation", "feels-personal"],
+};
+
+export type StillnessMoment = keyof typeof stillnessMoments;
+
+/** Moments and focus each match any selected choice. Other filters narrow that collection. */
+export function stillnessLibraryResults({ filter = "All", tags = [], search = "", moments = [] }: {
+  filter?: string;
+  tags?: string[];
+  search?: string;
+  moments?: StillnessMoment[];
+}) {
+  const eligible = new Set(moments.flatMap(moment => stillnessMoments[moment]));
+  const term = search.trim().toLowerCase();
+  const matches = catalogue.filter(
     (item) =>
+      (!moments.length || eligible.has(item.id)) &&
       (filter === "All" || item.kind === filter) &&
       (!tags.length || item.tags.some((tag) => tags.includes(tag))) &&
       [item.name, item.desc, ...item.tags]
         .join(" ")
         .toLowerCase()
-        .includes(search.trim().toLowerCase()),
+        .includes(term),
   );
+  if (moments.length === 1) {
+    const order = stillnessMoments[moments[0]];
+    matches.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }
+  return matches;
 }

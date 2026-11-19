@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { JSDOM } from "jsdom";
 import { act, createElement } from "react";
 import { StillnessLibrary } from "../src/components/stillness-library";
-import { catalogue } from "../src/lib/stillness-catalogue";
+import { catalogue, stillnessLibraryResults, stillnessMoments } from "../src/lib/stillness-catalogue";
 import { defaultStillnessQuote } from "../src/lib/stillness-practices";
 import { readProcess, saveProcess } from "../src/lib/process/storage";
 import type { ProcessStore } from "../src/components/process/use-process";
@@ -104,6 +104,39 @@ test("library shows every card without a sidebar; a card opens the complete over
     assert.equal(ui.player().querySelectorAll(".ss-support-overview-steps li").length, 5);
     await ui.click("Back to library");
     assert.equal(document.querySelectorAll(".ss-support-card").length, catalogue.length);
+    assert.equal(ui.writes(), 0);
+  } finally { await ui.close(); }
+});
+
+test("moment assignments cover the catalogue and combine once before focus, format and search narrow them", () => {
+  assert.deepEqual(new Set(Object.values(stillnessMoments).flat()), new Set(catalogue.map(item => item.id)));
+  assert.deepEqual(stillnessLibraryResults({ moments: ["As I step away"] }).slice(0, 2).map(item => item.id), ["feels-personal", "same-decision"]);
+  const moments = ["Looking ahead", "A day away"] as const;
+  const union = stillnessLibraryResults({ moments: [...moments] });
+  assert.equal(union.length, 8);
+  assert.equal(new Set(union.map(item => item.id)).size, union.length);
+  assert.deepEqual(stillnessLibraryResults({ moments: [...moments], tags: ["Greed", "Fear"], filter: "Practice", search: " Victim " }).map(item => item.id), ["feels-personal"]);
+  assert.equal(stillnessLibraryResults({ moments: ["Looking ahead"], search: "victim" }).length, 0);
+});
+
+test("post-loss practices share the player and deliberate pauses without writing day records", async () => {
+  const ui = await setup();
+  try {
+    await ui.click("As I step away");
+    assert.match(document.querySelector(".ss-support-card")!.textContent!, /When it feels personal/);
+    await ui.choose("same-decision");
+    const steps = ui.player().querySelectorAll(".ss-support-overview-steps li");
+    assert.equal(steps.length, 4);
+    assert.match(steps[1].textContent!, /lost, picture watching it hit your target.*won, picture watching it hit your stop/);
+    await ui.click("Back to library");
+    await ui.choose("feels-personal");
+    await ui.click("Try practice");
+    assert.match(ui.player().textContent!, /STEP 1 OF 4/);
+    assert.match(ui.player().textContent!, /suggested pause/);
+    await ui.language("direct");
+    assert.doesNotMatch(ui.player().textContent!, /you can hear it saying that/);
+    await ui.click("Continue", ui.player());
+    assert.match(ui.player().textContent!, /STEP 2 OF 4/);
     assert.equal(ui.writes(), 0);
   } finally { await ui.close(); }
 });

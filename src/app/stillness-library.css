@@ -42,7 +42,6 @@
   margin-bottom: 16px;
 }
 .ss-support-heading,
-.ss-support-tools,
 .ss-support-row,
 .ss-support-notice {
   display: flex;
@@ -121,16 +120,68 @@ html[data-journal-presentation="reading-room"] .ss-reading-room .ss-support-root
   color: var(--theme-on-accent) !important;
 }
 .ss-support-tools {
-  margin: 0 0 18px;
+  display: grid;
+  gap: 8px;
+}
+.ss-support-facet-label {
+  color: var(--quiet);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ss-support-moments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-bottom: 3px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.ss-support-root .ss-support-moments button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+.ss-support-root .ss-support-moments button:hover,
+.ss-support-root .ss-support-moments button[aria-pressed="true"] {
+  border-bottom-color: var(--accent);
+}
+.ss-support-tools .ss-support-format {
+  margin-inline-start: 8px;
+}
+.ss-support-tools .ss-support-format .ss-select-trigger {
+  min-width: 106px;
+  min-height: 38px;
+  font-size: 13px;
+  box-shadow: none;
 }
 .ss-support-tools input {
-  flex: 1;
-  min-width: 180px;
+  width: min(100%, 510px);
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 11px 14px;
+}
+.ss-support-results {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+}
+.ss-support-results button {
+  background: transparent;
+  min-height: 34px;
+  font-size: 12px;
+}
+.ss-support-empty {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.ss-support-empty button {
+  margin-top: 8px;
 }
 .ss-support-actions {
   display: flex;
