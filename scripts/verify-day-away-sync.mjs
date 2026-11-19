@@ -38,11 +38,16 @@ async function until(check, message) {
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZFwAAAAASUVORK5CYII=", "base64");
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || "chrome", args: ["--disable-gpu"] });
 const errors = [];
-async function device(user) {
+async function device(user, time) {
   // The app's security policy only trusts hosted *.supabase.co origins, not this loopback stack.
   const context = await browser.newContext({ viewport: { width: 1440, height: 950 }, bypassCSP: true });
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
+  // A device can start on a chosen local time. The clock then keeps moving, as on a real day.
+  if (time) {
+    await page.clock.install({ time: new Date(time) });
+    await page.clock.resume();
+  }
   await page.goto(appUrl.href);
   await page.getByPlaceholder("you@example.com").fill(user.email);
   await page.getByPlaceholder("Your password").fill(user.password);
@@ -137,6 +142,88 @@ try {
   await button(second, "Mark as seen").waitFor({ state: "hidden" });
   await until(async () => (await rows("away_day_events", owner.id)).some(row => row.data.body.type === "carry-removed"), "The seen note did not sync.");
   assert.deepEqual(await rows("pulse_sessions", owner.id), [], "Carry-forward created no trading session.");
+
+  // Carrying a Stillness piece and note to the next trading day, across two devices.
+  // Simulated days stay before the real time, so the account's sign-in tokens remain valid.
+  const carrier = await createUser("carry-owner");
+  const piece = "Enough is a choice", carryNote = "Notice the urge to make it back before the open.";
+  const tuesday = "2026-11-17", wednesday = "2026-11-18", thursday = "2026-11-19";
+  const awayRows = async () => (await rows("away_day_events", carrier.id)).map(row => row.data.body);
+  const carryRows = page => page.locator(".ss-support-root .ss-support-row").filter({ hasText: carryNote });
+  const planned = (page, count) => page.getByRole("button", { name: `Planned ahead (${count})`, exact: true });
+  const library = async page => {
+    await nav(page, "Stillness").click();
+    await button(page, "Support library").click();
+  };
+  async function travel(page, time) {
+    await page.clock.setSystemTime(new Date(time));
+    await page.reload();
+    await page.getByRole("navigation", { name: "Main navigation" }).first().waitFor({ timeout: 60000 });
+  }
+  async function showsCarriedPiece(page, label) {
+    await nav(page, "Preparation").click();
+    const shown = carryRows(page);
+    await shown.first().waitFor({ timeout: 45000 });
+    assert.equal(await shown.count(), 1, `${label}: the piece and note show once.`);
+    const text = await shown.textContent();
+    assert.match(text, /Enough is a choice/, `${label}: the exact piece.`);
+    assert.match(text, /A note you left on Tuesday 17 November/, `${label}: the note, beside the piece.`);
+    await page.getByRole("button", { name: /Start session/ }).waitFor();
+    await nav(page, "Done for the day").click();
+    assert.equal(await carryRows(page).count(), 0, `${label}: Preparation support stays out of Done.`);
+    await library(page);
+    await planned(page, 0).waitFor({ timeout: 45000 });
+  }
+
+  // Device A, Tuesday after the close: save the piece and a note for the next trading day.
+  const deviceA = await device(carrier, `${tuesday}T17:30:00`);
+  await library(deviceA);
+  await deviceA.locator(".ss-support-card").filter({ hasText: piece }).click();
+  const addDialog = deviceA.locator("dialog.ss-support-dialog[open]");
+  await button(addDialog, "Add to my day").click();
+  await addDialog.getByLabel("My next trading day").check();
+  assert(await addDialog.getByLabel("Preparation", { exact: true }).isChecked(), "Preparation is the default for a later day.");
+  await addDialog.getByLabel("A note for that day (optional)").fill(carryNote);
+  await button(addDialog, "Save for my next trading day").click();
+  await deviceA.getByText(/Saved for your next trading day’s Preparation\./).waitFor();
+  await until(async () => (await awayRows()).some(body => body.type === "carry" && body.note === carryNote), "Device A's carry did not reach the account.");
+  const [saved] = (await awayRows()).filter(body => body.type === "carry");
+  assert.deepEqual([saved.date, saved.target, saved.stages, saved.choice], [tuesday, "next", ["Preparation"], { itemId: "enough" }]);
+
+  // Device B, Wednesday: a day away leaves it waiting, even with Preparation open.
+  const deviceB = await device(carrier, `${wednesday}T09:00:00`);
+  await library(deviceB);
+  await planned(deviceB, 1).waitFor({ timeout: 45000 });
+  await nav(deviceB, "Home").click();
+  await button(deviceB, "Day away from charts").click();
+  await until(async () => (await awayRows()).some(body => body.type === "day" && body.date === wednesday && body.away), "Wednesday's day away did not sync.");
+  await nav(deviceB, "Preparation").click();
+  await deviceB.getByRole("button", { name: /Start session/ }).waitFor();
+  assert.equal(await carryRows(deviceB).count(), 0, "A day away does not take the piece.");
+  await library(deviceB);
+  await planned(deviceB, 1).waitFor();
+  assert.equal((await awayRows()).filter(body => body.type === "carry-surfaced").length, 0, "Still waiting after the day away.");
+
+  // Device B, Thursday: opening Preparation fixes it to Thursday, before any session.
+  await travel(deviceB, `${thursday}T08:30:00`);
+  await deviceB.locator(".rr-home-hero").getByRole("button", { name: /Begin preparation/ }).click();
+  await carryRows(deviceB).first().waitFor({ timeout: 45000 });
+  await until(async () => (await awayRows()).some(body => body.type === "carry-surfaced"), "Thursday's opening did not sync.");
+  assert.deepEqual(await rows("pulse_sessions", carrier.id), [], "No session was started.");
+
+  // Device A catches up on Thursday. Both devices reload and show the same piece, note and day once.
+  await travel(deviceA, `${thursday}T08:45:00`);
+  await library(deviceA);
+  await planned(deviceA, 0).waitFor({ timeout: 45000 });
+  await showsCarriedPiece(deviceA, "Device A");
+  await travel(deviceB, `${thursday}T09:00:00`);
+  await showsCarriedPiece(deviceB, "Device B");
+  const finalRows = await awayRows();
+  const surfaced = finalRows.filter(body => body.type === "carry-surfaced");
+  assert.deepEqual([...new Set(surfaced.map(body => body.day))], [thursday], "Every device resolved it to Thursday.");
+  assert.equal(new Set(finalRows.filter(body => body.type === "carry").map(body => body.carryId)).size, 1, "One carry, saved once.");
+  assert.deepEqual(await rows("trading_days", carrier.id), [], "Planning ahead and showing support wrote no trading day.");
+  console.log(`Signed-in carry passed: saved on device A (Tuesday), waited through device B's day away (Wednesday), shown with its note on both devices on Thursday; ${surfaced.length} opening change(s), all Thursday.`);
 
   const stranger = await device(other);
   await button(stranger, "Day away from charts").waitFor({ timeout: 45000 });

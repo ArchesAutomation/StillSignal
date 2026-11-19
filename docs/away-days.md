@@ -78,3 +78,5 @@ Check the journey on the isolated review app (`STILL_SIGNAL_DAY_AWAY_REVIEW=true
 
     $env:STILLNESS_CARRY_URL='http://127.0.0.1:3201'
     node scripts/verify-stillness-carry.mjs
+
+`scripts/verify-day-away-sync.mjs` also runs the signed-in carry journey with a fresh account: device A saves *Enough is a choice* and a note for My next trading day on Tuesday; device B marks Wednesday away and the support stays waiting; device B opens Preparation on Thursday and sees the piece and note before any session; after both devices sync and reload, each shows that piece, note and day exactly once, and no trading day or session was written. A disposable stack for it can run beside a development stack with a separate `project_id` and ports (API 55321, database 55322), started with `supabase start -x studio,realtime,logflare,vector,mailpit,imgproxy,postgres-meta,supavisor` to keep memory low, and stopped afterwards with `supabase stop --no-backup`.
