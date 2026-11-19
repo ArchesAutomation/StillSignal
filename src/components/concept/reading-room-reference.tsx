@@ -24,6 +24,7 @@ export default function ReadingRoomReference({ props, week, onWeek, onOpen, sele
   [awayDates, startedDates, pulse.active, session.startedAt, history, store.records]);
   const showIntention = !away && reference.hasIntention;
   const showArrival = !away && reference.hasArrival;
+  const showBoundary = !away && !!reference.boundary;
   const blocked = pulse.active || !!props.capture?.pendingCapture;
   return <section className="rr-daily-reference" aria-label="Daily reference">
     <div className="ss-eyebrow">Your daily reference</div>
@@ -45,8 +46,9 @@ export default function ReadingRoomReference({ props, week, onWeek, onOpen, sele
     {(store.loaded || away) && <p>{dayLabels[date]?.detail ?? "No preparation or trade recorded"}</p>}
     {!away && (!store.loaded ? <p role="status">Loading your reference…</p> : <>
       {showIntention && <><h3>Your intention</h3><p>{reference.intention}</p></>}
+      {showBoundary && <><h3>Your boundary</h3><p>{reference.boundary}</p></>}
       {showArrival && <><h3>How you arrived</h3><p>{reference.arrival}</p></>}
     </>)}
-    {(showIntention || showArrival) && <small>From this day’s saved preparation. No feeling is inferred.</small>}
+    {(showIntention || showBoundary || showArrival) && <small>From this day’s saved preparation. No feeling is inferred.</small>}
   </section>;
 }

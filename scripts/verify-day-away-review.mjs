@@ -156,9 +156,11 @@ try {
   await button("Write a reflection").click();
   await page.locator("#rr-away-writing").fill("Yesterday I noticed a pull to check the market.");
   await button("Save").click();
-  await button("Show at my next preparation").click();
-  await page.locator("#rr-away-writing").fill("Take a breath and notice what I want to prove.");
-  await button("Save for next preparation").click();
+  await button("Carry forward to a later day").click();
+  await page.locator(".ss-carry-form").getByLabel("Today", { exact: true }).check();
+  await page.locator(".ss-carry-form textarea").fill("Take a breath and notice what I want to prove.");
+  await button("Add to today, a day away").click();
+  await button("Stop carrying it forward").waitFor();
   await nav("Home").click();
   await button("Open in Daily journal").click();
   await button("Continue a thought").click();

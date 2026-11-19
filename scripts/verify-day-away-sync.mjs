@@ -91,12 +91,13 @@ try {
   await button(first, "Write a reflection").click();
   await writing(first).fill("An earlier thought worth carrying.");
   await button(first, "Save").click();
-  await button(first, "Show at my next preparation").click();
-  await writing(first).fill("Notice what I want to prove.");
-  await button(first, "Save for next preparation").click();
-  await button(first, "Remove reminder").waitFor();
+  await button(first, "Carry forward to a later day").click();
+  await first.locator(".ss-carry-form").getByLabel("Today", { exact: true }).check();
+  await first.locator(".ss-carry-form textarea").fill("Notice what I want to prove.");
+  await button(first, "Add to today, a day away").click();
+  await button(first, "Stop carrying it forward").waitFor();
 
-  const expected = ["day", "reason", "note", "book", "reminder"];
+  const expected = ["day", "reason", "note", "book", "carry"];
   await until(async () => {
     const saved = (await rows("away_day_events", owner.id)).map(row => row.data.body.type);
     return expected.every(type => saved.includes(type)) && saved.filter(type => type === "note").length === 2;
@@ -134,7 +135,7 @@ try {
   await second.getByText("Notice what I want to prove.", { exact: true }).waitFor();
   await button(second, "Mark as seen").click();
   await button(second, "Mark as seen").waitFor({ state: "hidden" });
-  await until(async () => (await rows("away_day_events", owner.id)).some(row => row.data.body.type === "reminder" && row.data.body.text === null), "The seen reminder did not sync.");
+  await until(async () => (await rows("away_day_events", owner.id)).some(row => row.data.body.type === "carry-removed"), "The seen note did not sync.");
   assert.deepEqual(await rows("pulse_sessions", owner.id), [], "Carry-forward created no trading session.");
 
   const stranger = await device(other);

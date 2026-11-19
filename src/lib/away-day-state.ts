@@ -31,7 +31,9 @@ export function foldAwayEvents(events: AwayEvent[]): AwayDays {
     if (body.type === "note") dayFor(body.date).notes.push({ id: body.noteId, text: body.text, images: body.images, followups: [] });
   }
   for (const { body, createdAt } of ordered) {
-    if (body.type === "note") continue;
+    // Carried support and bookmarks belong to no away day. See stillness-carry.ts.
+    if (body.type === "note" || body.type === "carry" || body.type === "carry-removed" ||
+      body.type === "carry-surfaced" || body.type === "library") continue;
     const day = dayFor(body.date);
     if (body.type === "day") day.away = body.away;
     if (body.type === "started") { day.away = false; day.started = true; }

@@ -9,6 +9,7 @@ import { preparationStatus } from "@/lib/process/preparation-status";
 import { isActualExecution } from "@/lib/trade-context";
 import { mergeNotes } from "@/lib/smart-journal";
 import type { JournalEntry, Session } from "@/lib/model";
+import type { CarryChoice } from "@/lib/process/away-days";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AccountMenu from "../account-menu";
 import ModuleWorkspace, {
@@ -20,7 +21,7 @@ import PostExitInvitation from "../post-exit-invitation";
 import { useProcess } from "../process/use-process";
 import ProcessWorkspace from "../process/workspace";
 import SavedStillness from "../saved-stillness";
-import { StillnessLibrary, type StillnessBrowse } from "../stillness-library";
+import { StillnessLibrary, type CarrySupport, type StillnessBrowse } from "../stillness-library";
 import { ModeSwitch, ThemeController } from "../theme-controls";
 import WorkspaceAppearance from "../workspace-appearance";
 import { Calendar, weekStart } from "./calendar";
@@ -83,6 +84,8 @@ export default function ConceptWorkspace(props: Props) {
   const [previewRequest, setPreviewRequest] = useState<{ itemId: string; n: number }>();
   const [preparationGuidance, setPreparationGuidance] = useState<string>();
   const previewItem = useCallback((itemId: string) => setPreviewRequest((request) => ({ itemId, n: (request?.n ?? 0) + 1 })), []);
+  const [playRequest, setPlayRequest] = useState<{ choice: CarryChoice; n: number }>();
+  const playPiece = useCallback((choice: CarryChoice) => setPlayRequest({ choice, n: Date.now() }), []);
   const [readingRoom, setReadingRoom] = useState(true);
   const [journalEntry, setJournalEntry] = useState(0);
   const reading = page === "Journal" && readingRoom;
@@ -114,6 +117,17 @@ export default function ConceptWorkspace(props: Props) {
   const useAwayAction = awayView && (awayRecord?.away || !awaySession);
   const journalTimestamp = awayView ? new Date(`${awayDate}T12:00:00`).getTime() : s.startedAt;
   const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
+  // Opening Preparation or Done on a trading day fixes "next trading day" support for that stage
+  // to today. A day away, the Journal's dates and a session start leave it waiting.
+  const sessionLanding = useRef(false);
+  useEffect(() => {
+    if (page !== "Preparation") sessionLanding.current = false;
+  }, [page]);
+  useEffect(() => {
+    if (!props.dayAwayReview || !away.ready || awayToday || sessionLanding.current) return;
+    if (preparing) away.claimCarries(preparationDate, "Preparation");
+    if (closing) away.claimCarries(preparationDate, "Done");
+  }, [props.dayAwayReview, away.ready, awayToday, preparing, closing, preparationDate, away.carries]);
   useLayoutEffect(() => {
     if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
     else delete document.documentElement.dataset.journalPresentation;
@@ -223,6 +237,8 @@ export default function ConceptWorkspace(props: Props) {
   async function startPreparedSession() {
     await p.start();
     if (props.dayAwayReview) await away.markStarted(preparationDate);
+    // Starting a session is not choosing to open Preparation, so waiting support stays waiting.
+    sessionLanding.current = true;
     props.onPage("Preparation");
   }
   const go = (next: Page) => {
@@ -381,9 +397,25 @@ export default function ConceptWorkspace(props: Props) {
   async function saveDatedBookNotes(notes: JournalEntry[]) {
     if (!(await away.saveBook(awayDate, notes))) throw new Error("Your journal page could not be saved.");
   }
+  const carrySupport: CarrySupport | undefined = props.dayAwayReview ? {
+    ready: away.ready,
+    events: away.events,
+    carries: away.carries,
+    isAway: (date) => !!away.days[date]?.away,
+    save: away.appendCarry,
+    onOpenAway: (date) => openAwayJournal(date),
+    reflectionText: (carry) => away.entries.find((item) => item.note.id === carry.noteId)?.note.text || undefined,
+    onOpenReflection: (carry) => {
+      const entry = away.entries.find((item) => item.note.id === carry.noteId);
+      if (!entry) return;
+      openAwayJournal(entry.date);
+      setAwayEntry({ date: entry.date, id: entry.note.id });
+    },
+  } : undefined;
   const awayContent = awayView && <DayAwayReview
     key={awayDate}
-    owner={p.owner} date={awayDate}
+    owner={p.owner} date={awayDate} today={preparationDate}
+    onPlay={playPiece} onOpenDay={(date) => openAwayJournal(date)}
     review={away} openEntry={awayEntry}
     reflectionRequested={awayReflectionRequested} onReflectionOpened={() => setAwayReflectionRequested(false)}
     onEntry={entry => setAwayEntry(entry && { date: entry.date, id: entry.note.id })}
@@ -811,6 +843,9 @@ export default function ConceptWorkspace(props: Props) {
             onPage={go}
             onOpenDay={(destination) => go(destination === "Preparation" ? "Preparation" : "Done")}
             onReflect={() => reflectForToday("stillness")}
+            playRequest={playRequest}
+            onPlayed={() => setPlayRequest(undefined)}
+            carry={carrySupport}
           />
           </div>
         </ReadingRoomDone>

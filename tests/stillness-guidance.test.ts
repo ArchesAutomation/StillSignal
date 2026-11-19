@@ -180,8 +180,13 @@ test("all new entries retain existing daily destinations and saved support witho
   try {
     for (const [index, id] of ["feeling-explanation", "fix-a-loss", "same-decision", "yesterday-today"].entries()) {
       await ui.choose(id); await ui.click("Add to my day");
-      if (index % 2) await act(async () => (ui.player().querySelectorAll<HTMLInputElement>('input[type="radio"]')[1]).click());
-      await act(async () => ui.player().querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+      // Stages are checkboxes now: Preparation, Done for the day, then the library bookmark.
+      const boxes = () => [...ui.player().querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+      if (index % 2) {
+        await act(async () => boxes()[1].click());
+        await act(async () => boxes()[0].click());
+      }
+      await act(async () => boxes().at(-1)!.click());
       await act(async () => {
         ui.player().querySelector("form")!.dispatchEvent(new ui.dom.window.Event("submit", { bubbles: true, cancelable: true }));
         const deadline = Date.now() + 2000;

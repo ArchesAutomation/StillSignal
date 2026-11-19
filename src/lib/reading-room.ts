@@ -81,6 +81,8 @@ export function readingRoomReference(records: ProcessRecord[], session: Session,
     .sort((a,b) => b.body.observedAt - a.body.observedAt)[0];
   const arrival = arrivalCheckin(records, day?.rootId)?.body.arrival;
   const intention = day?.body.goal || session.blueprint?.plan?.intention;
+  // Saved only by Preparation on the trading-day record. Older days have none, and none is inferred.
+  const boundary = day?.body.boundary?.trim();
   const arrivalText = arrival?.length ? arrival.join(" · ") : checkin &&
     (checkin.body.answers.filter(a => a.value !== null).map(a => `${a.question}: ${a.value}/10`).join(" · ") || checkin.body.reflection);
   return {
@@ -88,5 +90,6 @@ export function readingRoomReference(records: ProcessRecord[], session: Session,
     arrival: arrivalText || (checkin ? "Check-in saved without ratings" : "No check-in recorded for this day."),
     hasIntention: !!intention?.trim(),
     hasArrival: !!arrivalText?.trim(),
+    boundary: boundary || undefined,
   };
 }
