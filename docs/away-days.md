@@ -61,3 +61,22 @@ The signed-in check needs a disposable local Supabase stack with this migration 
     node scripts/verify-day-away-sync.mjs
 
 The script refuses non-loopback URLs. It bypasses the browser security policy because that policy trusts only hosted `*.supabase.co` origins.
+
+## Carrying support to a later day
+
+The Stillness **Add** dialog and an away reflection's **Carry forward to a later day** use the same form. A trader can carry a Stillness piece, a note, or both to **Today**, **My next trading day** or a chosen date, in Preparation, Done for the day, or both.
+
+- Today on a trading day still writes the piece to today's `trading_days` record. Its note, and everything for a later day or a day away, is a `carry` change in `away_day_events`. Planning ahead therefore never writes a future trading day or changes its Prep label.
+- A `carry` is a full snapshot. The latest snapshot wins, `carry-removed` withdraws it, and Undo writes the previous snapshot back. Saving the same piece for the same day again merges stages and keeps the saved note unless the trader chooses **Edit this note**.
+- **My next trading day** waits until the trader opens a selected stage (Preparation or Done for the day) on a later day that is not a day away. That opening writes `carry-surfaced` with the day. With both stages, whichever opens first fixes the day for both. Starting a session, browsing Journal dates, a day away and the day it was chosen on all leave it waiting. On every device the earliest `carry-surfaced` wins.
+- A chosen date that is a day away shows the piece and note in that day's review, where it can be used without changing the day. A carry dated to a day that is later marked away appears there too.
+- `library` changes are Stillness library bookmarks, independent of any day. Older bookmarks saved on day selections stay listed.
+- Older `reminder` events still show as before.
+- A device keeps synced changes it does not recognise and skips them when displaying, so a newer app version cannot stop an older one from syncing.
+
+Check the journey on the isolated review app (`STILL_SIGNAL_DAY_AWAY_REVIEW=true`, no Supabase URL):
+
+    $env:STILLNESS_CARRY_URL='http://127.0.0.1:3201'
+    node scripts/verify-stillness-carry.mjs
+
+`scripts/verify-day-away-sync.mjs` also runs the signed-in carry journey with a fresh account: device A saves *Enough is a choice* and a note for My next trading day on Tuesday; device B marks Wednesday away and the support stays waiting; device B opens Preparation on Thursday and sees the piece and note before any session; after both devices sync and reload, each shows that piece, note and day exactly once, and no trading day or session was written. A disposable stack for it can run beside a development stack with a separate `project_id` and ports (API 55321, database 55322), started with `supabase start -x studio,realtime,logflare,vector,mailpit,imgproxy,postgres-meta,supavisor` to keep memory low, and stopped afterwards with `supabase stop --no-backup`.

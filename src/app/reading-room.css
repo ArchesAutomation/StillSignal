@@ -244,3 +244,5 @@ html[data-journal-presentation="reading-room"] .ss-reading-room :is(.ss-referenc
 @media(max-width:700px) { .ss-reading-room { padding: 8px 10px 75px; } .ss-reading-room .ss-reference-nav { overflow-x: auto; max-width: 100%; } .ss-reading-room .ss-reference-topbar { padding: 12px; } .ss-reading-room .ss-topbar { gap: 8px; } .ss-reading-room .ss-topactions { flex-wrap: wrap; } .ss-reading-room .rr-journal-heading { padding: 25px 5px 18px; } .ss-reading-room .cc-dashboard-toolbar { flex-wrap: wrap; } }
 /* Native chart controls keep the Reading Room paper surface. */
 .ss-reading-room .ss-ranges { background: var(--theme-recess); border: 1px solid var(--rr-line); }
+.rr-away-carried h3 { margin: 0 0 4px; }
+.rr-away-carried strong { display: block; margin-top: 4px; }

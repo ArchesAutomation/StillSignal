@@ -5,7 +5,12 @@ import { awayEntries, emptyAwayDay, foldAwayEvents, type AwayDay as Day, type Aw
 import { awayScreenshotUrl, createAwayEvent, discardAwayScreenshot, keepAwayScreenshot, readAwayEvents, saveAwayEvents, syncAwayDays } from "@/lib/away-day-storage";
 import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
 import type { JournalEntry } from "@/lib/model";
-import type { AwayEvent, AwayEventBody, AwayImage as Image } from "@/lib/process/away-days";
+import type { AwayEvent, AwayEventBody, AwayImage as Image, CarryChoice, CarryStage } from "@/lib/process/away-days";
+import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/preparation-status";
+import { CarryForm, type CarryFormValue } from "../stillness-carry-form";
+import {
+  carriesFor, claimableCarries, destinationText, findCarry, foldCarries, formatCarryDate, isPending, planCarry, resolvedDate, stageLabel, type Carry,
+} from "@/lib/stillness-carry";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WorkspaceModule } from "../module-workspace";
@@ -64,9 +69,21 @@ export function useDayAwayReview(owner: string, enabled: boolean) {
 
   const days = useMemo(() => foldAwayEvents(events), [events]);
   const entries = useMemo(() => awayEntries(days), [days]);
+  const carries = useMemo(() => foldCarries(events), [events]);
+  const claiming = useRef(new Set<string>());
 
   return {
-    days, entries, ready, message,
+    days, entries, ready, message, events, carries,
+    /** Saves carry and bookmark changes. Returns false when nothing could be kept. */
+    appendCarry: (bodies: AwayEventBody[], success = "") => bodies.length ? append(bodies, success) : Promise.resolve(true),
+    /** Fixes waiting "next trading day" support to the trading day whose stage was just opened. */
+    claimCarries: (date: string, stage: CarryStage) => {
+      const due = claimableCarries(carries, date, stage).filter(carry => !claiming.current.has(carry.id));
+      if (!due.length) return;
+      for (const carry of due) claiming.current.add(carry.id);
+      void append(due.map(carry => ({ type: "carry-surfaced" as const, date: carry.source, carryId: carry.id, day: date })))
+        .finally(() => { for (const carry of due) claiming.current.delete(carry.id); });
+    },
     setAway: (date: string, away: boolean) => append([{ type: "day", date, away }], away ? "Day away saved." : "Trading day restored."),
     markStarted: (date: string) => append([{ type: "started", date }]),
     setReason: (date: string, text: string) => append([{ type: "reason", date, text }], "Reason saved."),
@@ -133,11 +150,16 @@ function ChartImage({ image, owner }: { image: Image; owner: string }) {
   return url ? <img src={url} alt={image.timeframe ? `${image.timeframe} chart screenshot` : image.name} /> : <p>Loading screenshot…</p>;
 }
 
-export default function DayAwayReview({ owner, date, review, openEntry, onEntry, savedPreparation, onActivity, onReturn, reflectionRequested, onReflectionOpened }: {
+export default function DayAwayReview({ owner, date, today, review, openEntry, onEntry, savedPreparation, onActivity, onReturn, reflectionRequested, onReflectionOpened, onPlay, onOpenDay }: {
   owner: string; date: string;
+  /** The calendar day it is now, which carried support counts from. */
+  today: string;
   review: Review; openEntry?: { date: string; id: string }; onEntry: (entry?: Entry) => void;
   savedPreparation?: string; onActivity?: () => void; onReturn: () => void;
   reflectionRequested: boolean; onReflectionOpened: () => void;
+  /** Opens one exact Stillness piece without changing the day. */
+  onPlay?: (choice: CarryChoice) => void;
+  onOpenDay?: (date: string) => void;
 }) {
   const [editor, setEditor] = useState<"reason" | "reflection" | "charts" | "reminder" | "followup">();
   const [continuing, setContinuing] = useState(false);
@@ -206,7 +228,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
 
   async function save() {
     const value = text.trim();
-    if (!value && (editor !== "charts" || !images.length) && editor !== "reminder") {
+    if (!value && (editor !== "charts" || !images.length)) {
       setError(editor === "charts" ? "Add a screenshot or write a reflection." : "Write a few words before saving.");
       return;
     }
@@ -218,7 +240,6 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
       saved = await review.addNote(date, note.id, value, images);
       if (saved) onEntry({ date, note });
     }
-    if (entry && editor === "reminder") saved = await review.setReminder(entry, value, "Saved for your next preparation.");
     if (entry && editor === "followup") saved = await review.addFollowup(entry, date, value);
     setSaving(false);
     if (saved) edit(undefined);
@@ -248,17 +269,65 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
     <Button onClick={() => { setContinuing(false); edit(undefined); onEntry(item); }}>{item.note.images.length ? "Open reflection and charts" : "Open reflection"}</Button>
   </div>);
 
-  const editorForm = editor && <form onSubmit={event => { event.preventDefault(); if (!uploading && !saving) void save(); }}>
+  const isAway = (value: string) => !!review.days[value]?.away;
+  const linked = entry ? Object.values(review.carries).filter(carry => carry.noteId === entry.note.id && !carry.removed) : [];
+  // Still to come, or with today: either can be taken back.
+  const waiting = linked.filter(carry => isPending(carry, today) || resolvedDate(carry) === today);
+  const dayCarries = carriesFor(review.carries, date);
+  const carryWhere = (carry: Carry) => {
+    const resolved = resolvedDate(carry);
+    if (!resolved) return `Waiting for your next trading day’s ${stageLabel(carry.stages)}`;
+    return `${resolved > today ? "Saved for" : "With"} ${formatCarryDate(resolved)}${isAway(resolved) ? ", a day away" : ` · ${stageLabel(carry.stages)}`}`;
+  };
+  const pieceTitle = (carry: Carry) => carry.choice && knownStillnessChoice(carry.choice) ? stillnessChoiceSummary(carry.choice).title : undefined;
+
+  async function saveCarry(value: CarryFormValue) {
+    if (!entry) return;
+    const target = value.when === "next" ? "next" : value.date!;
+    const change = planCarry(review.carries, {
+      source: today, today, target, stages: target !== "next" && isAway(target) ? ["Preparation"] : value.stages,
+      choice: value.choice, note: value.note, noteId: entry.note.id, editNote: value.editNote,
+    });
+    setSaving(true);
+    const saved = await review.appendCarry(change.bodies,
+      change.status === "unchanged" ? "Already saved." : `Saved for ${destinationText(target, value.stages, today, target !== "next" && isAway(target))}.`);
+    setSaving(false);
+    if (saved) edit(undefined);
+    else setError("This could not be saved. Your words are still here. Try again.");
+  }
+
+  const carryForm = entry && <CarryForm today={today} initialWhen="next" choosePiece bookmark={false} allowEmpty
+    initialNote={entry.note.reminder?.text ?? ""} isAway={isAway}
+    existingNote={({ when, date: day }) => findCarry(review.carries, when === "next" ? "next" : day ?? "", today, { noteId: entry.note.id })?.note}
+    busy={saving} error={error} onOpenAway={onOpenDay} onCancel={() => edit(undefined)} onSubmit={value => void saveCarry(value)} />;
+
+  const carriedHere = dayCarries.length > 0 && <div className="rr-away-card rr-away-carried">
+    <h3>Saved for this day</h3>
+    {dayCarries.map(carry => <div className="rr-away-note" key={carry.id}>
+      <small>{carry.source === date ? "Chosen for this day" : `Chosen on ${formatCarryDate(carry.source)}`}</small>
+      {pieceTitle(carry) && <strong>{pieceTitle(carry)}</strong>}
+      {carry.note && <p>{carry.note}</p>}
+      <div className="rr-home-actions">
+        {carry.choice && onPlay && pieceTitle(carry) && <Button className="ss-primary" onClick={() => onPlay(carry.choice!)}>Begin {pieceTitle(carry)}</Button>}
+        {carry.noteId && (() => {
+          const source = review.entries.find(item => item.note.id === carry.noteId);
+          return source && <Button onClick={() => { edit(undefined); onEntry(source); }}>Open the reflection it came from</Button>;
+        })()}
+      </div>
+    </div>)}
+  </div>;
+
+  const editorForm = editor === "reminder" ? carryForm : editor && <form onSubmit={event => { event.preventDefault(); if (!uploading && !saving) void save(); }}>
     <div className={editor === "charts" ? "rr-away-columns" : undefined}>
       <div className="rr-away-writing">
-        <label htmlFor="rr-away-writing">{{reason: "Why I stayed away", reflection: "Reflection", charts: "Reflection (optional)", reminder: "What would you like to bring back to mind?", followup: "Follow-up"}[editor]}</label>
+        <label htmlFor="rr-away-writing">{{reason: "Why I stayed away", reflection: "Reflection", charts: "Reflection (optional)", followup: "Follow-up"}[editor]}</label>
         <textarea id="rr-away-writing" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={8000} autoFocus />
         {editor === "charts" && <SetupPrompt />}
       </div>
       {editor === "charts" && <div className="rr-away-writing">{screenshots}<Input label="Add screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={uploading} onChange={event => { void attach(Array.from(event.target.files ?? [])); event.target.value = ""; }} /></div>}
     </div>
     {error && <p role="alert">{error}</p>}
-    <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading || saving}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading || saving} onClick={() => { void Promise.allSettled(images.map(image => discardAwayScreenshot(owner, image))); edit(undefined); }}>Cancel</Button></div>
+    <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading || saving}>Save</Button><Button disabled={uploading || saving} onClick={() => { void Promise.allSettled(images.map(image => discardAwayScreenshot(owner, image))); edit(undefined); }}>Cancel</Button></div>
   </form>;
 
   return <>
@@ -281,8 +350,16 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
               {entry.note.text && <p>{entry.note.text}</p>}
               {entry.note.followups.map((followup, position) => <div className="rr-away-note" key={position}><small>{formatDate(followup.date)}</small><p>{followup.text}</p></div>)}
               {entry.note.reminder && <div className="rr-away-note"><small>At your next preparation</small><p>{entry.note.reminder.text || entry.note.text || "Saved chart review"}</p></div>}
+              {linked.map(carry => <div className="rr-away-note" key={carry.id}>
+                <small>{carryWhere(carry)}</small>
+                {pieceTitle(carry) && <strong>{pieceTitle(carry)}</strong>}
+                <p>{carry.note || entry.note.text || "Saved chart review"}</p>
+              </div>)}
               <div className="rr-home-actions">
-                {entry.note.reminder ? <Button onClick={() => void review.setReminder(entry, null, "Reminder removed.")}>Remove reminder</Button> : <Button onClick={() => edit("reminder")}>Show at my next preparation</Button>}
+                {entry.note.reminder && <Button onClick={() => void review.setReminder(entry, null, "Reminder removed.")}>Remove reminder</Button>}
+                {waiting.length > 0
+                  ? <Button onClick={() => void review.appendCarry(waiting.map(carry => ({ type: "carry-removed" as const, date: carry.source, carryId: carry.id })), "No longer carried forward.")}>Stop carrying it forward</Button>
+                  : !entry.note.reminder && <Button onClick={() => edit("reminder")}>Carry forward to a later day</Button>}
                 {day.away && entry.date < date && <Button onClick={() => edit("followup")}>Add a follow-up</Button>}
                 <Button onClick={() => { setIndex(0); onEntry(); }}>Back to the day</Button>
               </div>
@@ -294,6 +371,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
             <div className="rr-home-actions"><Button className="ss-primary" onClick={() => edit("reflection")} disabled={!!editor}>Write a reflection</Button><Button onClick={() => edit("charts")} disabled={!!editor}>Review charts</Button><Button onClick={() => setContinuing(!continuing)} aria-expanded={continuing} disabled={!!editor}>Continue a thought</Button></div>
             {continuing && <div className="rr-away-earlier"><h3>Earlier journal reflections</h3>{otherNotes.length ? entryList(otherNotes, true) : <p>When you save a reflection on an earlier date, you can carry it on here.</p>}</div>}
           </div>}
+          {carriedHere}
           {entryList(review.entries.filter(item => item.date === date || item.note.followups.some(followup => followup.date === date)))}
         </>}
         {savedPreparation && <details className="rr-away-links"><summary>View saved preparation</summary><p>{savedPreparation}</p></details>}

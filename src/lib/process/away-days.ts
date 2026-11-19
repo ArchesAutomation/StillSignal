@@ -14,6 +14,12 @@ export const awayImageSchema = z.object({
   caption: z.string().trim().max(500),
 }).strict();
 
+export const carryStageSchema = z.enum(["Preparation", "Done"]);
+export const carryChoiceSchema = z.object({
+  itemId: z.string().min(1).max(80),
+  piece: z.number().int().min(0).max(99).optional(),
+}).strict();
+
 const awayBodySchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("day"), date: dateSchema, away: z.boolean() }).strict(),
   z.object({ type: z.literal("started"), date: dateSchema }).strict(),
@@ -26,6 +32,21 @@ const awayBodySchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("reminder"), date: dateSchema, noteId: id, text: z.string().trim().max(8000).nullable() }).strict(),
   z.object({ type: z.literal("reminder-surfaced"), date: dateSchema, noteId: id, preparation: dateSchema }).strict(),
   z.object({ type: z.literal("book"), date: dateSchema, entry: sessionSchema.shape.journal.element }).strict(),
+  // Support carried to a later day. `date` is the day it was chosen on. Each change is a full
+  // snapshot of one carry, so the latest snapshot wins and Undo writes the previous one back.
+  z.object({
+    type: z.literal("carry"), date: dateSchema, carryId: id,
+    target: z.union([z.literal("next"), dateSchema]),
+    stages: z.array(carryStageSchema).min(1).max(2),
+    choice: carryChoiceSchema.optional(),
+    note: z.string().trim().min(1).max(2000).optional(),
+    noteId: id.optional(),
+  }).strict().refine(carry => carry.choice || carry.note || carry.noteId, "Choose a piece or write a note."),
+  z.object({ type: z.literal("carry-removed"), date: dateSchema, carryId: id }).strict(),
+  // Fixes a "next trading day" carry to the day it was first opened on.
+  z.object({ type: z.literal("carry-surfaced"), date: dateSchema, carryId: id, day: dateSchema }).strict(),
+  // A Stillness library bookmark. It never adds anything to a day.
+  z.object({ type: z.literal("library"), date: dateSchema, choice: carryChoiceSchema, saved: z.boolean() }).strict(),
 ]);
 
 export const awayEventSchema = z.object({ id, createdAt: timestamp, body: awayBodySchema }).strict()
@@ -44,3 +65,10 @@ export const isAwayAction = (payload: unknown) => {
 export type AwayImage = z.infer<typeof awayImageSchema>;
 export type AwayEvent = z.infer<typeof awayEventSchema>;
 export type AwayEventBody = AwayEvent["body"];
+export type CarryStage = z.infer<typeof carryStageSchema>;
+export type CarryChoice = z.infer<typeof carryChoiceSchema>;
+
+/** The envelope every stored change shares. A newer app version may add body types this one cannot read. */
+export const awayEnvelopeSchema = z.object({
+  id, createdAt: timestamp, body: z.object({ type: z.string().min(1).max(40), date: dateSchema }).passthrough(),
+}).passthrough();

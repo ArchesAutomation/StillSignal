@@ -1,7 +1,7 @@
 import { openDB, type DBSchema } from "idb";
 import { authClient, cloudConfigured } from "./cloud";
 import { keepPrivateFile, privateFile, removePrivateFile } from "./private-files";
-import { awayEventSchema, type AwayEvent, type AwayEventBody, type AwayImage } from "./process/away-days";
+import { awayEnvelopeSchema, awayEventSchema, type AwayEvent, type AwayEventBody, type AwayImage } from "./process/away-days";
 import { processApi } from "./process/storage";
 import { screenshotBucket, screenshotExtension, screenshotUrl } from "./screenshots";
 
@@ -23,12 +23,24 @@ const db = () => openDB<AwayDB>("still-signal-away-days-v1", 1, {
 export const createAwayEvent = (body: AwayEventBody, now = Date.now()): AwayEvent =>
   awayEventSchema.parse({ id: crypto.randomUUID(), createdAt: now, body });
 
+/** Changes this version understands. Stored changes it cannot read stay on the device untouched. */
 export async function readAwayEvents(owner: string) {
-  return (await (await db()).getAllFromIndex("events", "owner", owner)).map(row => row.event);
+  return (await (await db()).getAllFromIndex("events", "owner", owner)).flatMap(row => {
+    const parsed = awayEventSchema.safeParse(row.event);
+    return parsed.success ? [parsed.data] : [];
+  });
 }
 
+/**
+ * Local changes must be valid before they are kept. Synced changes from a newer app version are
+ * kept as received when they carry the shared envelope, so they survive until this device updates.
+ */
 export async function saveAwayEvents(owner: string, events: AwayEvent[], pending = true) {
-  const parsed = events.map(event => awayEventSchema.parse(event));
+  const parsed = events.map(event => {
+    if (pending) return awayEventSchema.parse(event);
+    const known = awayEventSchema.safeParse(event);
+    return known.success ? known.data : awayEnvelopeSchema.parse(event) as unknown as AwayEvent;
+  });
   const tx = (await db()).transaction("events", "readwrite");
   for (const event of parsed) {
     const old = await tx.store.get([owner, event.id]);

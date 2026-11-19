@@ -12,10 +12,16 @@ import {
 import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/preparation-status";
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
+import type { AwayEvent, AwayEventBody } from "@/lib/process/away-days";
 import { catalogue, stillnessLibraryResults } from "@/lib/stillness-catalogue";
+import {
+  carriesFor, carryUnchangedSince, choiceKey, destinationText, findCarry, formatCarryDate, libraryChoices,
+  pendingCarries, planCarry, removeCarry, replaceCarry, sameChoice, stageLabel, type Carries, type Carry, type CarryChange,
+} from "@/lib/stillness-carry";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./process/use-process";
+import { CarryForm, type CarryFormValue } from "./stillness-carry-form";
 import { LanguageChoice, StillnessPreferences, Understanding, useStillnessDraft, useStillnessPreferences } from "./stillness-personal";
 
 type Item = (typeof catalogue)[number];
@@ -29,17 +35,32 @@ type Panel =
       step?: number;
       preview?: boolean;
     }
-  | { type: "saved" };
+  | { type: "saved" | "planned" }
+  | { type: "change"; carryId: string };
+/** Everything one save changed, so Undo reverses that save and nothing else. */
 type Undo = {
-  dayId: string;
-  added: StillnessSelection;
-  previous?: StillnessSelection;
+  day?: { dayId: string; added: StillnessSelection[]; replaced: { before: StillnessSelection; after: StillnessSelection }[] };
+  carry?: CarryChange;
+  library?: AwayEventBody[];
 };
 type Notice = {
   text: string;
   date?: string;
   undo?: Undo;
   destination?: Destination;
+  away?: string;
+};
+/** Carried support and bookmarks, kept with the account's away-day changes. Absent while Away Days are off. */
+export type CarrySupport = {
+  ready: boolean;
+  events: AwayEvent[];
+  carries: Carries;
+  isAway: (date: string) => boolean;
+  save: (bodies: AwayEventBody[], success?: string) => Promise<boolean>;
+  onOpenAway: (date: string) => void;
+  onOpenReflection: (carry: Carry) => void;
+  /** The words of a linked away reflection, shown when a carry has no note of its own. */
+  reflectionText?: (carry: Carry) => string | undefined;
 };
 const types = ["All", "Sequence", "Practice", "Reminder"];
 const find = (choice: Choice) =>
@@ -92,6 +113,9 @@ function StillnessLibraryForOwner({
   closing,
   closingBrowse,
   previewRequest,
+  playRequest,
+  onPlayed,
+  carry,
   onPage,
   onOpenDay,
   onReflect,
@@ -106,6 +130,11 @@ function StillnessLibraryForOwner({
   closingBrowse?: boolean;
   // Opens the existing preview for one item. Previewing adds nothing to the day.
   previewRequest?: { itemId: string; n: number };
+  // Opens one exact piece to use, from any page. Used by a day away's review.
+  playRequest?: { choice: Choice; n: number };
+  // Clears the request once used, so a later remount does not open it again.
+  onPlayed?: () => void;
+  carry?: CarrySupport;
   onPage: (page: Page) => void;
   onOpenDay: (destination: Destination) => void;
   onReflect: () => Promise<void>;
@@ -127,7 +156,6 @@ function StillnessLibraryForOwner({
     if (known({ itemId: browse.itemId })) setPanel({ type: "overview", choice: { itemId: browse.itemId } });
   }, [browse]);
   const [destination, setDestination] = useState<Destination>("Preparation");
-  const [keep, setKeep] = useState(false);
   const [paused, setPaused] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -140,17 +168,13 @@ function StillnessLibraryForOwner({
   const today =
     days.find((day) => day.body.date === date && day.body.timezone === timezone)
       ?.body.stillness ?? [];
+  // Older bookmarks were kept on day selections. Newer ones are independent. Both stay listed.
   const saved = useMemo(() => {
-    const choices = new Map<string, StillnessSelection>();
-    for (const day of days) {
-      for (const choice of day.body.stillness ?? []) {
-        if (choice.saved && known(choice)) {
-          choices.set(JSON.stringify([choice.itemId, choice.piece]), choice);
-        }
-      }
-    }
-    return [...choices.values()];
-  }, [days]);
+    const daySaved = days.flatMap((day) => (day.body.stillness ?? []).filter((choice) => choice.saved && known(choice)));
+    return libraryChoices(carry?.events ?? [], daySaved.map(({ itemId, piece }) => ({ itemId, ...(piece === undefined ? {} : { piece }) })))
+      .filter(known);
+  }, [days, carry?.events]);
+  const planned = carry ? pendingCarries(carry.carries, date) : [];
   useEffect(() => {
     const update = () => setDate(todayIn(timezone));
     const timer = window.setInterval(update, 30_000);
@@ -176,9 +200,15 @@ function StillnessLibraryForOwner({
     previewed.current = previewRequest.n;
     if (known({ itemId: previewRequest.itemId })) run({ itemId: previewRequest.itemId }, true);
   }, [previewRequest]);
+  const played = useRef(0);
+  useEffect(() => {
+    if (!playRequest || playRequest.n === played.current || !draft.loaded) return;
+    played.current = playRequest.n;
+    if (known(playRequest.choice)) run(playRequest.choice);
+    onPlayed?.();
+  }, [playRequest, draft.loaded]);
   function add(choice: Choice) {
     setDestination(closingBrowse || page === "Done" ? "Done" : "Preparation");
-    setKeep(false);
     setPanel({ type: "add", choice });
   }
   function run(choice: Choice, preview = false) {
@@ -206,89 +236,144 @@ function StillnessLibraryForOwner({
       setWriting(false);
     }
   }
-  function addToday(choice: Choice) {
+  const choiceOf = (choice: Choice) => ({ itemId: choice.itemId, ...(choice.piece === undefined ? {} : { piece: choice.piece }) });
+  const inLibrary = (choice: Choice) => saved.some((entry) => same(entry, choice));
+  /** The note already saved with this piece for that day, if any. */
+  function existingNote(target: string, choice?: Choice) {
+    if (!carry || !choice) return undefined;
+    return findCarry(carry.carries, target, todayIn(timezone), { choice: choiceOf(choice) })?.note;
+  }
+  async function saveCarry(change: CarryChange, keepChoice?: Choice) {
+    if (!carry) return { ok: true, library: [] as AwayEventBody[] };
+    const library: AwayEventBody[] = keepChoice && !inLibrary(keepChoice)
+      ? [{ type: "library", date: todayIn(timezone), choice: choiceOf(keepChoice), saved: true }] : [];
+    const ok = await carry.save([...change.bodies, ...library]);
+    return { ok, library: library.map((body) => ({ ...body, saved: false }) as AwayEventBody) };
+  }
+  function addToDay(choice: Choice, value: CarryFormValue) {
     void write(async (records) => {
       const currentDate = todayIn(timezone);
       setDate(currentDate);
-      const day = tradingDayFor(records, currentDate, timezone);
-      const choices = day?.body.stillness ?? [];
-      const previous = choices.find(
-        (entry) => entry.destination === destination && same(entry, choice),
-      );
-      const savedNow =
-        keep &&
-        !latest(records, "day").some((entry) =>
-          entry.body.stillness?.some(
-            (value) => value.saved && same(value, choice),
-          ),
-        );
-      let undo: Undo | undefined;
-      if (!previous || savedNow) {
-        const added: StillnessSelection = {
-          id: previous?.id ?? crypto.randomUUID(),
-          itemId: choice.itemId,
-          ...(choice.piece === undefined ? {} : { piece: choice.piece }),
-          destination,
-          ...(savedNow ? { saved: true } : {}),
-        };
-        const record = createRecord(
-          "day",
-          {
+      const target = value.when === "next" ? "next" : value.date ?? currentDate;
+      const away = target !== "next" && !!carry?.isAway(target);
+      const note = value.note.trim();
+      // Today on a trading day goes into today's record, as before. Everything else waits as a carry.
+      if (target === currentDate && !away) {
+        const day = tradingDayFor(records, currentDate, timezone);
+        const choices = day?.body.stillness ?? [];
+        const added: StillnessSelection[] = [];
+        const replaced: { before: StillnessSelection; after: StillnessSelection }[] = [];
+        // Without the carry log, bookmarks stay on the day selection, as they always have.
+        const legacyKeep = !carry && value.keep && !inLibrary(choice);
+        for (const stage of value.stages) {
+          const previous = choices.find((entry) => entry.destination === stage && same(entry, choice));
+          if (!previous) {
+            added.push({ id: crypto.randomUUID(), ...choiceOf(choice), destination: stage, ...(legacyKeep && !added.length ? { saved: true as const } : {}) });
+          }
+        }
+        if (legacyKeep && !added.length) {
+          const before = choices.find((entry) => value.stages.includes(entry.destination) && same(entry, choice))!;
+          replaced.push({ before, after: { ...before, saved: true } });
+        }
+        let dayUndo: Undo["day"];
+        if (added.length || replaced.length) {
+          const record = createRecord("day", {
             ...(day?.body ?? emptyTradingDay(currentDate, timezone)),
-            stillness: previous
-              ? choices.map((entry) =>
-                  entry.id === previous.id ? added : entry,
-                )
-              : [...choices, added],
-          },
-          day,
-        );
-        if (!(await store.save([record]))) return;
-        undo = { dayId: record.rootId, added, previous };
+            stillness: [
+              ...choices.map((entry) => replaced.find((item) => item.before.id === entry.id)?.after ?? entry),
+              ...added,
+            ],
+          }, day);
+          if (!(await store.save([record]))) return;
+          dayUndo = { dayId: record.rootId, added, replaced };
+        }
+        const change = carry && (note || value.editNote)
+          ? planCarry(carry.carries, { source: currentDate, today: currentDate, target, stages: value.stages, choice: choiceOf(choice), note, editNote: value.editNote })
+          : undefined;
+        const kept = await saveCarry(change ?? { status: "unchanged", carryId: "", bodies: [], undo: [] }, value.keep ? choice : undefined);
+        if (!kept.ok) {
+          store.setError("Today’s support is saved, but the note could not be kept. Try saving the note again.");
+          return;
+        }
+        setPanel(null);
+        const stages = value.stages.filter((stage) => added.some((entry) => entry.destination === stage));
+        const already = value.stages.filter((stage) => !stages.includes(stage));
+        setNotice({
+          text: [
+            stages.length ? `Added to today’s ${stageLabel(stages)}.` : "",
+            already.length ? `Already in today’s ${stageLabel(already)}.` : "",
+            change?.status === "added" || change?.status === "updated" ? "Your note is with it." : "",
+            kept.library.length || (legacyKeep) ? "Saved to your Stillness library." : "",
+          ].filter(Boolean).join(" "),
+          date: currentDate,
+          undo: dayUndo || change?.bodies.length || kept.library.length
+            ? { day: dayUndo, carry: change?.bodies.length ? change : undefined, library: kept.library }
+            : undefined,
+          destination: value.stages.length === 1 ? value.stages[0] : undefined,
+        });
+        return;
+      }
+      if (!carry) return;
+      const change = planCarry(carry.carries, {
+        source: currentDate, today: currentDate, target, stages: away ? ["Preparation"] : value.stages,
+        choice: choiceOf(choice), note, editNote: value.editNote,
+      });
+      const kept = await saveCarry(change, value.keep ? choice : undefined);
+      if (!kept.ok) {
+        store.setError("This could not be saved. Try again.");
+        return;
       }
       setPanel(null);
+      const where = destinationText(target, value.stages, currentDate, away);
       setNotice({
-        text: `${previous ? "Already in" : "Added to"} today’s ${destination}${savedNow ? " and kept in Saved support." : "."}`,
-        date: currentDate,
-        undo,
-        destination,
+        text: [
+          change.status === "unchanged" ? `Already saved for ${where}.` : `${change.status === "added" ? "Saved" : "Updated"} for ${where}.`,
+          target === "next" && change.status !== "unchanged" ? "It will be there when you open it on a day you trade." : "",
+          kept.library.length ? "Saved to your Stillness library." : "",
+        ].filter(Boolean).join(" "),
+        undo: change.bodies.length || kept.library.length ? { carry: change.bodies.length ? change : undefined, library: kept.library } : undefined,
+        away: away ? target : undefined,
       });
+    });
+  }
+  function changeCarry(change: CarryChange, text: string) {
+    void write(async () => {
+      if (!carry || !(await carry.save(change.bodies))) {
+        store.setError("This could not be saved. Try again.");
+        return;
+      }
+      setPanel({ type: "planned" });
+      setNotice({ text, undo: { carry: change } });
     });
   }
   function undoAdd(undo: Undo) {
     void write(async (records) => {
-      const day = latest(records, "day").find(
-        (entry) => entry.rootId === undo.dayId,
-      );
-      const selections = day?.body.stillness ?? [];
-      const choice = selections.find((entry) => entry.id === undo.added.id);
-      if (
-        !day ||
-        !choice ||
-        !same(choice, undo.added) ||
-        choice.saved !== undo.added.saved ||
-        choice.destination !== undo.added.destination
-      ) {
-        setNotice({
-          text: "That choice has changed. Review today’s support before trying again.",
-        });
+      const changed = () => setNotice({
+        text: "That choice has changed since. Review your support before trying again.",
+      });
+      if (undo.carry && carry && !carryUnchangedSince(carry.carries, undo.carry)) return changed();
+      if (undo.day) {
+        const { dayId, added, replaced } = undo.day;
+        const day = latest(records, "day").find((entry) => entry.rootId === dayId);
+        const selections = day?.body.stillness ?? [];
+        const unchanged = (expected: StillnessSelection) => {
+          const current = selections.find((entry) => entry.id === expected.id);
+          return !!current && same(current, expected) && current.saved === expected.saved && current.destination === expected.destination;
+        };
+        if (!day || !added.every(unchanged) || !replaced.every((item) => unchanged(item.after))) return changed();
+        // Only this save's placements are removed. Placements that were already there stay.
+        const stillness = selections.flatMap((entry) =>
+          added.some((item) => item.id === entry.id) ? []
+          : [replaced.find((item) => item.after.id === entry.id)?.before ?? entry]);
+        const { stillness: _previousSelections, ...body } = day.body;
+        if (!(await store.save([createRecord("day", stillness.length ? { ...body, stillness } : body, day)]))) return;
+      }
+      const away = [...(undo.carry?.undo ?? []), ...(undo.library ?? [])];
+      if (away.length && carry && !(await carry.save(away))) {
+        store.setError("Undo could not be finished. Try again.");
         return;
       }
-      const stillness = selections.flatMap((entry) =>
-        entry.id !== choice.id ? [entry] : undo.previous ? [undo.previous] : [],
-      );
-      const { stillness: _previousSelections, ...body } = day.body;
-      if (
-        await store.save([
-          createRecord(
-            "day",
-            stillness.length ? { ...body, stillness } : body,
-            day,
-          ),
-        ])
-      ) {
-        setNotice({ text: "Stillness addition undone." });
-      }
+      setNotice({ text: "Undone." });
     });
   }
 
@@ -299,7 +384,20 @@ function StillnessLibraryForOwner({
       : page === "Done"
         ? "Done"
         : null;
-  if (page !== "Stillness" && !daily) return null;
+  // Away from Stillness, Preparation and Done, only an opened piece is shown.
+  const dialogOnly = page !== "Stillness" && !daily;
+  if (dialogOnly && !panel) return null;
+  // Today's placements, then support carried here, matched to the same piece so it shows once.
+  const dueCarries = carry && daily ? carriesFor(carry.carries, date, daily) : [];
+  const rows: { key: string; choice?: Choice; notes: Carry[] }[] = today
+    .filter((choice) => choice.destination === daily && known(choice))
+    .map((choice) => ({ key: choice.id, choice, notes: dueCarries.filter((entry) => sameChoice(entry.choice, choiceOf(choice))) }));
+  for (const entry of dueCarries) {
+    if (entry.choice && !known(entry.choice)) continue;
+    const row = entry.choice && rows.find((item) => item.choice && same(item.choice, entry.choice!));
+    if (row) { if (!row.notes.includes(entry)) row.notes.push(entry); }
+    else rows.push({ key: entry.id, choice: entry.choice, notes: [entry] });
+  }
   const current = panel && "choice" in panel ? panel.choice : null;
   const ordered = current ? steps(current) : [];
   const index = panel && "step" in panel ? (panel.step ?? 0) : 0;
@@ -323,7 +421,8 @@ function StillnessLibraryForOwner({
   };
 
   return (
-    <section className={page === "Stillness" ? "ss-support-root ss-support-page" : "ss-support-root"} aria-label="Stillness support">
+    <section className={dialogOnly ? undefined : page === "Stillness" ? "ss-support-root ss-support-page" : "ss-support-root"} aria-label="Stillness support">
+      {!dialogOnly && <>
       {!panel && draft.loaded && draft.value && <div className="ss-practice-resume">
         <p>Continue {title(draft.value.choice)} when you choose. Progress is kept for this account on this device.</p>
         <div className="ss-support-actions">
@@ -348,12 +447,17 @@ function StillnessLibraryForOwner({
                 freely. Choose only what helps today.
               </p>
             </div>
-            <button
-              disabled={!store.loaded}
-              onClick={() => setPanel({ type: "saved" })}
-            >
-              Saved support ({saved.length})
-            </button>
+            <div className="ss-support-actions">
+              {carry && <button disabled={!carry.ready} onClick={() => setPanel({ type: "planned" })}>
+                Planned ahead ({planned.length})
+              </button>}
+              <button
+                disabled={!store.loaded}
+                onClick={() => setPanel({ type: "saved" })}
+              >
+                Saved support ({saved.length})
+              </button>
+            </div>
           </div>
           <div className="ss-support-tools">
             <input
@@ -450,10 +554,7 @@ function StillnessLibraryForOwner({
                 <p>
                   {!store.loaded
                     ? "Loading support…"
-                    : today.some(
-                          (choice) =>
-                            choice.destination === daily && known(choice),
-                        )
+                    : rows.length
                       ? "Take what helps. This support is optional."
                       : "Nothing added for today."}
                 </p>
@@ -472,27 +573,31 @@ function StillnessLibraryForOwner({
                 )}
               </div>
             )}
-            {today
-              .filter((choice) => choice.destination === daily && known(choice))
-              .map((choice) => (
-                <article className="ss-support-row" key={choice.id}>
-                  {(preparation || closing) && <Art item={find(choice)} />}
+            {rows.map((row) => (
+                <article className="ss-support-row" key={row.key} data-carried={row.notes.length > 0 || undefined}>
+                  {row.choice && (preparation || closing) && <Art item={find(row.choice)} />}
                   <div>
-                    <strong>{title(choice)}</strong>
-                    <FocusBadges item={find(choice)} />
-                    <p>
-                      {steps(choice)
-                        .map(([name]) => name)
-                        .join(" → ")}
-                    </p>
+                    {row.choice ? <>
+                      <strong>{title(row.choice)}</strong>
+                      <FocusBadges item={find(row.choice)} />
+                      <p>
+                        {steps(row.choice)
+                          .map(([name]) => name)
+                          .join(" → ")}
+                      </p>
+                    </> : <strong>Something you left for today</strong>}
+                    {row.notes.map((entry) => <CarriedNote key={entry.id} carry={entry} today={date} words={entry.note ?? carry?.reflectionText?.(entry)} onOpen={carry?.onOpenReflection} />)}
                   </div>
-                  <button
+                  {!row.choice && carry && <button disabled={writing} onClick={() => void write(async () => {
+                    if (!(await carry.save(row.notes.map((entry) => ({ type: "carry-removed" as const, date: entry.source, carryId: entry.id }))))) store.setError("This could not be saved. Try again.");
+                  })}>Mark as seen</button>}
+                  {row.choice && <button
                     className="ss-support-primary"
                     disabled={!draft.loaded}
-                    onClick={() => run(choice)}
+                    onClick={() => run(row.choice!)}
                   >
-                    Begin {title(choice)}
-                  </button>
+                    Begin {title(row.choice)}
+                  </button>}
                 </article>
               ))}
           </>
@@ -516,6 +621,7 @@ function StillnessLibraryForOwner({
                 Open {notice.destination === "Done" ? "Done for the day" : notice.destination}
               </button>
             )}
+            {notice.away && carry && <button onClick={() => carry.onOpenAway(notice.away!)}>Open that day away</button>}
             <button
               aria-label="Dismiss support notice"
               onClick={() => setNotice(null)}
@@ -525,6 +631,7 @@ function StillnessLibraryForOwner({
           </div>
         </div>
       )}
+      </>}
       <dialog
         className={`ss-support-dialog${panel?.type === "overview" ? " ss-support-overview" : ""}`}
         ref={dialog}
@@ -568,69 +675,83 @@ function StillnessLibraryForOwner({
                 <small>AVAILABLE WHEN YOU CHOOSE</small>
                 <h2>Saved support</h2>
                 <p>
-                  Keeping support here never adds it to a day. Choose when you
+                  Your Stillness library. Keeping support here never adds it to a day. Choose when you
                   want to use it again.
                 </p>
                 {!saved.length && <p>No saved support yet.</p>}
                 {saved.map((choice) => (
-                  <div className="ss-support-row" key={choice.id}>
+                  <div className="ss-support-row" key={choiceKey(choice)}>
                     <strong>{title(choice)}</strong>
                     <button onClick={() => add(choice)}>
-                      Use {title(choice)} today
+                      Use {title(choice)}
                     </button>
                   </div>
                 ))}
               </>
-            ) : panel.type === "add" ? (
+            ) : panel.type === "planned" ? (
+              <>
+                <small>WAITING FOR ITS DAY</small>
+                <h2>Planned ahead</h2>
+                <p>Support and notes you have carried to a later day. Nothing here starts a session or changes a day.</p>
+                {!planned.length && <p>Nothing is waiting for a later day.</p>}
+                {planned.map((entry) => (
+                  <div className="ss-support-row ss-carry-planned" key={entry.id}>
+                    <div>
+                      <small>{entry.target === "next" ? "Your next trading day" : formatCarryDate(entry.target)}
+                        {entry.target !== "next" && carry?.isAway(entry.target) ? " · day away" : ` · ${stageLabel(entry.stages)}`}</small>
+                      <strong>{entry.choice && known(entry.choice) ? title(entry.choice) : "A note"}</strong>
+                      {entry.note && <p className="ss-carry-planned-note">{entry.note}</p>}
+                    </div>
+                    <div className="ss-support-actions">
+                      <button onClick={() => setPanel({ type: "change", carryId: entry.id })}>Change</button>
+                      <button disabled={writing} onClick={() => changeCarry(removeCarry(entry), `Removed from ${entry.target === "next" ? "your next trading day" : formatCarryDate(entry.target)}.`)}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : panel.type === "change" ? (() => {
+              const entry = carry?.carries[panel.carryId];
+              if (!entry) return <p>This support is no longer waiting.</p>;
+              return <>
+                <small>CHANGE WHAT IS WAITING</small>
+                <h2>{entry.choice && known(entry.choice) ? title(entry.choice) : "Your note"}</h2>
+                <CarryForm key={entry.id} today={date} allowToday={false} bookmark={false}
+                  initialWhen={entry.target === "next" ? "next" : "date"} initialDate={entry.target === "next" ? undefined : entry.target}
+                  initialStages={entry.stages} initialNote={entry.note ?? ""}
+                  choice={entry.noteId ? undefined : entry.choice} choosePiece={!!entry.noteId} initialChoice={entry.choice} allowEmpty={!!entry.noteId}
+                  isAway={carry?.isAway ?? (() => false)} existingNote={() => undefined}
+                  busy={writing} error={store.error} onOpenAway={carry?.onOpenAway}
+                  onCancel={() => setPanel({ type: "planned" })}
+                  onSubmit={(value) => {
+                    const target = value.when === "next" ? "next" : value.date!;
+                    const note = value.note.trim() || undefined;
+                    if (!value.choice && !note && !entry.noteId) { store.setError("Choose a piece or write a note."); return; }
+                    changeCarry(replaceCarry(entry, { target, stages: value.stages, note, choice: value.choice }),
+                      `Now saved for ${destinationText(target, value.stages, date, target !== "next" && !!carry?.isAway(target))}.`);
+                  }} />
+              </>;
+            })() : panel.type === "add" ? (
               <>
                 <small>MAKE A LITTLE SPACE</small>
                 <h2>Add {title(panel.choice)}</h2>
                 <p>
                   {ordered.length > 1
                     ? "The sequence stays together. You can skip any step when you begin."
-                    : "Add this piece to today’s support."}
+                    : "This exact piece is what you will see."}
                 </p>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    addToday(panel.choice);
-                  }}
-                >
-                  <fieldset>
-                    <legend>Where would you like it?</legend>
-                    {(["Preparation", "Done"] as const).map((target) => (
-                      <label key={target}>
-                        <input
-                          type="radio"
-                          name="destination"
-                          checked={destination === target}
-                          onChange={() => setDestination(target)}
-                        />{" "}
-                        {target === "Done" ? "Done for the day" : target}
-                      </label>
-                    ))}
-                  </fieldset>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={keep}
-                      onChange={(event) => setKeep(event.target.checked)}
-                    />{" "}
-                    Also keep in Saved support
-                  </label>
-                  <p className="ss-support-count">
-                    Saved support is reusable. It never gets added to future
-                    days automatically.
-                  </p>
-                  {store.error && <p role="alert">{store.error}</p>}
-                  <button
-                    className="ss-support-primary"
-                    type="submit"
-                    disabled={writing || store.busy || !store.loaded}
-                  >
-                    {writing ? "Saving…" : "Add for today"}
-                  </button>
-                </form>
+                <CarryForm key={choiceKey(choiceOf(panel.choice))} today={date} todayStage={destination}
+                  allowToday choice={choiceOf(panel.choice)}
+                  initialWhen="today"
+                  isAway={carry?.isAway ?? (() => false)}
+                  existingNote={({ when, date: day }) => existingNote(when === "next" ? "next" : day ?? date, panel.choice)}
+                  busy={writing || store.busy || !store.loaded || (!!carry && !carry.ready)}
+                  error={store.error || undefined}
+                  onOpenAway={carry ? (day) => { setPanel(null); carry.onOpenAway(day); } : undefined}
+                  onSubmit={(value) => addToDay(panel.choice, value)}
+                  todayOnly={!carry} />
+                <p className="ss-support-count">
+                  Your Stillness library is reusable. Nothing in it is added to a day automatically.
+                </p>
               </>
             ) : panel.type === "piece" ? (
               <>
@@ -689,7 +810,7 @@ function StillnessLibraryForOwner({
                 {draft.storageError && <p role="status">Progress is available here but could not be saved on this device. Keep this page open to continue.</p>}
                 {preferences.storageError && <p role="status">This language choice could not be saved on this device.</p>}
               </>
-            ) : (
+            ) : panel.type === "finish" ? (
               <>
                 <small>A LITTLE SPACE, TAKEN</small>
                 <h2>
@@ -711,7 +832,7 @@ function StillnessLibraryForOwner({
                     >
                       Add to my day
                     </button>
-                  ) : (
+                  ) : dialogOnly ? null : (
                     <button
                       className="ss-support-primary"
                       onClick={() => {
@@ -732,11 +853,11 @@ function StillnessLibraryForOwner({
                   <button onClick={() => setPanel(null)}>
                     {panel.preview
                       ? page === "Stillness" ? "Back to library" : "Close preview"
-                      : "Finish without reflection"}
+                      : dialogOnly ? "Finish" : "Finish without reflection"}
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </>
         )}
       </dialog>
@@ -747,4 +868,15 @@ function StillnessLibraryForOwner({
 // Reset all transient UI on account changes before it can show another account's draft.
 export function StillnessLibrary(props: Parameters<typeof StillnessLibraryForOwner>[0]) {
   return <StillnessLibraryForOwner key={props.owner} {...props} />;
+}
+
+/** A note carried to this day, shown beside its piece. */
+function CarriedNote({ carry, today, words, onOpen }: { carry: Carry; today: string; words?: string; onOpen?: (carry: Carry) => void }) {
+  return <figure className="ss-carry-note">
+    {words && <blockquote>{words}</blockquote>}
+    <figcaption>
+      {carry.source === today ? "Your note for today" : `${carry.note ? "A note" : "A reflection"} you left on ${formatCarryDate(carry.source)}`}
+    </figcaption>
+    {carry.noteId && onOpen && <button onClick={() => onOpen(carry)}>Open reflection</button>}
+  </figure>;
 }
