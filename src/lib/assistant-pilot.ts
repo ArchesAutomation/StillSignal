@@ -7,7 +7,7 @@ export function assistantPilotRouteEnabled() {
   return process.env.STILL_SIGNAL_ASSISTANT_PILOT === "true" && !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 }
 
-// Long enough for a slow free model, short enough not to leave a request open indefinitely.
+// Long enough for a slow model reply, short enough not to leave a request open indefinitely.
 const ANSWER_TIMEOUT_MS = 120000;
 
 /** Forwards the signed-in request and streams the function's reply back unchanged. */

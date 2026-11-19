@@ -15,7 +15,9 @@ Records are read in the browser from this device, for the dates asked about. The
 
 Pilot requests set `data_collection: "deny"` and `zdr: true`, so OpenRouter may only use endpoints that meet those rules. If the model has no such endpoint, the assistant reports that and sends no records.
 
-The configured model is `inclusionai/ling-3.2-flash:free`. OpenRouter lists its only endpoint, Ant Digital, as zero data retention. If that listing changes, requests fail and no records are sent.
+The configured model is `z-ai/glm-5.3-flash`, a paid model. OpenRouter lists many of its endpoints as zero data retention, and requests only use those. If none is available, requests fail and no records are sent.
+
+**Cost.** OpenRouter charges per token, from the key's credit. On 19 November 2026 the zero-retention endpoints cost $0.04–$0.23 per million input tokens and $0.08–$0.75 per million output tokens. A typical question is two requests. In a synthetic run on 19 November 2026, 14 questions covering every kind of record cost $0.0029 in total, about $0.0002 each; long follow-up conversations cost more because earlier results are sent again. Set a spending limit on the production key in OpenRouter to cap the total. The previous free model, `inclusionai/ling-3.2-flash:free`, was often unavailable because its provider's shared free capacity was exhausted.
 
 Reads do not sync first. Days saved on another device and not yet downloaded may be missing, and the card says so.
 
