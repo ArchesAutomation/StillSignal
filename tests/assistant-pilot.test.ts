@@ -196,7 +196,7 @@ test("the browser only uses the workspace owner's session and hides the pilot on
 });
 
 test("the pilot uses the model with a zero-retention endpoint", () => {
-  assert.equal(ASSISTANT_MODEL, "inclusionai/ling-3.2-flash:free");
+  assert.equal(ASSISTANT_MODEL, "z-ai/glm-5.3-flash");
 });
 
 const modelReply = (delta: object, finish: string) => () => new Response(

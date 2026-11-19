@@ -1,6 +1,7 @@
 // Shared by the browser panel and the generated pulse-assistant Edge Function.
-// The model is fixed to a free OpenRouter variant. There is no model list or paid fallback.
-export const ASSISTANT_MODEL = "inclusionai/ling-3.2-flash:free";
+// The model is fixed: one paid OpenRouter model with no model list. Pilot requests also require
+// zero-retention endpoints (see handlers/assistant.ts). See docs/assistant-pilot.md for its cost.
+export const ASSISTANT_MODEL = "z-ai/glm-5.3-flash";
 export const PREPARATION_TOOL = "preparation_status";
 export const SUPPORT_HISTORY_TOOL = "support_history";
 // Offered only to accounts listed for journal reads. See docs/assistant-journal-reads.md.

@@ -172,7 +172,7 @@ test("the Edge Function runs only in the local stack and explains a missing key"
   });
 });
 
-test("the Edge Function streams the free model's text and leaves the read-only tool to the browser", async () => {
+test("the Edge Function streams the model's text and leaves the read-only tool to the browser", async () => {
   const logged: string[] = [];
   const log = console.log, error = console.error, warn = console.warn;
   console.log = console.error = console.warn = (...args: unknown[]) => { logged.push(args.map(String).join(" ")); };
@@ -206,8 +206,8 @@ test("the Edge Function streams the free model's text and leaves the read-only t
       { status: 429 },
     ), async (calls) => {
       const text = await (await handler(question())).text();
-      assert.equal(calls.length, 1, "no retry against the free tier");
-      assert.match(text, /"type":"error"[^\n]*rate-limited by OpenRouter/);
+      assert.equal(calls.length, 1, "no retry after a rate limit");
+      assert.match(text, /"type":"error"[^\n]*busy right now/);
     }));
   } finally {
     console.log = log; console.error = error; console.warn = warn;

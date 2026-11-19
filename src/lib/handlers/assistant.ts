@@ -27,7 +27,7 @@ import { authenticated, failure, rate } from "@/lib/server";
 import { boundedJson } from "@/lib/validation";
 
 // Runs in the local prototype or, for allowlisted accounts, the signed-in pilot. The model is
-// fixed to a free OpenRouter variant with no model list, so it cannot route to a paid model.
+// fixed with no model list, so OpenRouter cannot route to a different model.
 
 const headers = { "Cache-Control": "no-store" };
 const reply = (status: number, error: string) =>
@@ -192,7 +192,7 @@ export function providerMessage(error: unknown, pilot = false) {
       ? (error as { lastError: APICallError }).lastError.statusCode
       : undefined;
   if (status === 429)
-    return "The free model is rate-limited by OpenRouter right now. Wait a minute, then ask again.";
+    return "The model is busy right now. Wait a minute, then ask again.";
   if (pilot && (status === 401 || status === 402 || status === 403))
     return "The assistant is not available right now.";
   // Real records are only sent to an endpoint that meets the pilot's privacy requirement.
@@ -201,9 +201,9 @@ export function providerMessage(error: unknown, pilot = false) {
   if (status === 401 || status === 403)
     return "OpenRouter did not accept the key in supabase/functions/.env. Check it, then restart the local functions.";
   if (status === 402)
-    return "OpenRouter declined the request. This prototype only uses the free model, so nothing was charged.";
+    return "OpenRouter declined the request. Check the key's credit and spending limit.";
   if (status === 404)
-    return "OpenRouter has no available free endpoint for this model right now.";
+    return "OpenRouter has no available endpoint for this model right now.";
   // A call that never got an HTTP answer is a connection problem. Anything else broke the answer
   // after it started, for example the local function being stopped mid-stream, so don't blame OpenRouter.
   if (APICallError.isInstance(error) || APICallError.isInstance((error as { lastError?: unknown })?.lastError))
