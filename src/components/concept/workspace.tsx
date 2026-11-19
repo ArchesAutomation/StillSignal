@@ -349,9 +349,12 @@ export default function ConceptWorkspace(props: Props) {
       if ("date" in link) {
         if (target.id !== s.id && !(await p.openSession(target))) return;
         setFocusTime(undefined);
-        setJournalMode("action");
         setView("story");
-        return go("Journal");
+        go("Journal");
+        // As below: show the linked day, not today's Away Day.
+        setAwayJournalDate(undefined);
+        setJournalMode("action");
+        return;
       }
       if (target.id !== s.id && !(await p.openSession(target))) return;
       // Selecting the moment also clears any Journal filters that would hide it.
