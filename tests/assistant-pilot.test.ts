@@ -95,7 +95,7 @@ test("only a verified, invited account reaches the model", async () => {
 test("the access probe confirms an invited account without calling the model or using its limit", async () => {
   await withEnv(pilot, () => withServices({}, async (calls) => {
     const response = await handler(ask("invited-token", { action: "access" }));
-    assert.deepEqual(await response.json(), { enabled: true, journal: false });
+    assert.deepEqual(await response.json(), { enabled: true, journal: false, trades: false, stillness: false });
     assert.equal(modelCalls(calls).length, 0);
     assert.ok(!calls.some((call) => call.url.includes("pulse_rate_limit")));
   }));

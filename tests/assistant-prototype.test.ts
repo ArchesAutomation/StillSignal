@@ -186,7 +186,7 @@ test("the Edge Function streams the free model's text and leaves the read-only t
       assert.equal(sent.models, undefined, "no fallback model list");
       assert.equal(sent.provider.allow_fallbacks, false);
       assert.deepEqual(sent.reasoning, { exclude: true }, "reasoning is left out of the response");
-      assert.deepEqual(sent.tools.map((t: { function: { name: string } }) => t.function.name), [PREPARATION_TOOL, SUPPORT_HISTORY_TOOL, "journal_entries", "done_for_the_day"]);
+      assert.deepEqual(sent.tools.map((t: { function: { name: string } }) => t.function.name), [PREPARATION_TOOL, SUPPORT_HISTORY_TOOL, "journal_entries", "done_for_the_day", "session_history", "stillness_practices"]);
       assert.equal(new Headers(calls[0].init.headers).get("authorization"), "Bearer sk-or-test-secret");
       assert.match(text, /"type":"tool-input-available"[^\n]*"toolName":"preparation_status"/);
       assert.doesNotMatch(text, /tool-output-available/, "the server never answers the tool itself");

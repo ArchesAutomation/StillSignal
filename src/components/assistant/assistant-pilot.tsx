@@ -1,5 +1,6 @@
 "use client";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { NO_READS, type AssistantReads } from "@/lib/assistant-tool";
 import { authClient } from "@/lib/cloud";
 
 // The panel and its chat libraries load only after the server confirms this account is invited.
@@ -13,6 +14,8 @@ export async function assistantPilotHeaders(owner: string, client = authClient()
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
+const closed: { enabled: boolean; reads: AssistantReads } = { enabled: false, reads: NO_READS };
+
 /** Any failure means no access: the pilot stays invisible rather than showing an error. */
 export async function assistantPilotCapabilities(owner: string, client = authClient()) {
   try {
@@ -21,11 +24,15 @@ export async function assistantPilotCapabilities(owner: string, client = authCli
       headers: { "Content-Type": "application/json", ...(await assistantPilotHeaders(owner, client)) },
       body: JSON.stringify({ action: "access" }),
     });
-    if (!response.ok) return { enabled: false, journal: false };
+    if (!response.ok) return closed;
     const access = await response.json();
-    return { enabled: access.enabled === true, journal: access.enabled === true && access.journal === true };
+    if (access.enabled !== true) return closed;
+    return {
+      enabled: true,
+      reads: { journal: access.journal === true, trades: access.trades === true, stillness: access.stillness === true },
+    };
   } catch {
-    return { enabled: false, journal: false };
+    return closed;
   }
 }
 
@@ -34,7 +41,7 @@ export async function assistantPilotAccess(owner: string, client = authClient())
 }
 
 export default function AssistantPilot({ owner }: { owner: string }) {
-  const [access, setAccess] = useState({ enabled: false, journal: false });
+  const [access, setAccess] = useState(closed);
   useEffect(() => {
     let active = true;
     void assistantPilotCapabilities(owner).then((result) => {
@@ -47,7 +54,7 @@ export default function AssistantPilot({ owner }: { owner: string }) {
   if (!access.enabled) return null;
   return (
     <Suspense fallback={null}>
-      <PreparationAssistant owner={owner} journal={access.journal} pilotHeaders={() => assistantPilotHeaders(owner)} />
+      <PreparationAssistant owner={owner} reads={access.reads} pilotHeaders={() => assistantPilotHeaders(owner)} />
     </Suspense>
   );
 }

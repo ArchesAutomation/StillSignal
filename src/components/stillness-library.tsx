@@ -12,7 +12,7 @@ import {
 import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/preparation-status";
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
-import { catalogue } from "@/lib/stillness-catalogue";
+import { catalogue, stillnessLibraryResults } from "@/lib/stillness-catalogue";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Page } from "./concept/shared";
 import type { ProcessStore } from "./process/use-process";
@@ -292,15 +292,7 @@ function StillnessLibraryForOwner({
     });
   }
 
-  const results = catalogue.filter(
-    (item) =>
-      (filter === "All" || item.kind === filter) &&
-      (!tags.length || item.tags.some((tag) => tags.includes(tag))) &&
-      [item.name, item.desc, ...item.tags]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()),
-  );
+  const results = stillnessLibraryResults({ filter, tags, search });
   const daily =
     page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"
