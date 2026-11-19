@@ -195,10 +195,20 @@ async function library(today: string) {
     assert.ok(found, `button: ${label}`);
     return found;
   };
-  // Saves are asynchronous, so give each click time to finish before reading the screen.
-  const click = async (label: string | RegExp, scope?: ParentNode) => {
-    await act(async () => { button(label, scope).click(); await new Promise(resolve => setTimeout(resolve, 60)); });
+  // Saves are asynchronous. Wait for what the screen should show, never a fixed delay, so slow build machines pass too.
+  async function until(check: () => boolean, message: string) {
+    // Each short act lets React apply what finished meanwhile before the screen is checked again.
+    const deadline = performance.now() + 10000;
+    while (!check()) {
+      if (performance.now() > deadline) throw new Error(`Timed out: ${message}`);
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    }
     await render();
+  }
+  const noticeText = () => document.querySelector(".ss-support-notice")?.textContent ?? "";
+  const click = async (label: string | RegExp, scope?: ParentNode, done?: () => boolean) => {
+    await act(async () => button(label, scope).click());
+    await (done ? until(done, `after ${label}`) : render());
   };
   const labelled = (text: string) => [...dialog().querySelectorAll("label")].find(item => item.textContent?.includes(text))!.querySelector("input")!;
   const tick = async (text: string) => { await act(async () => labelled(text).click()); };
@@ -213,9 +223,9 @@ async function library(today: string) {
     await act(async () => {
       const form = dialog().querySelector("form")!;
       for (let i = 0; i < times; i++) form.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-      await new Promise(resolve => setTimeout(resolve, 60));
     });
-    await render();
+    // A successful save closes the dialog.
+    await until(() => !document.querySelector("dialog[open]"), "the save to finish");
   }
   async function openItem(name: string) {
     const card = [...document.querySelectorAll<HTMLButtonElement>(".ss-support-card")].find(item => item.textContent?.includes(name))!;
@@ -224,7 +234,7 @@ async function library(today: string) {
   }
   await render();
   return {
-    render, click, tick, note, submit, openItem, dialog, store, away, owner,
+    render, click, tick, note, submit, openItem, dialog, store, away, owner, noticeText,
     events: () => events, saves: () => saves,
     close: async () => { Date.now = realNow; await act(async () => root.unmount()); dom.window.close(); },
   };
@@ -248,7 +258,7 @@ test("Today with both stages keeps the earlier placement on Undo, and keeps the 
     assert.match(document.querySelector(".ss-carry-note")!.textContent!, /Notice the urge to win it back\.Your note for today/);
     assert.ok(Object.values(foldCarries(ui.events())).some(carry => carry.note === "Notice the urge to win it back." && carry.target === tuesday),
       "The note is kept in the account's synced change log, not only on screen.");
-    await ui.click("Undo");
+    await ui.click("Undo", undefined, () => ui.noticeText().includes("Undone."));
     assert.deepEqual(day().map(choice => choice.destination), ["Preparation"], "Undo keeps the earlier Preparation placement.");
     await ui.render("Done");
     assert.equal(document.querySelector(".ss-carry-note"), null);
@@ -291,7 +301,7 @@ test("next trading day and a chosen date save as carries, never as a future trad
     await ui.click(/^Planned ahead \(2\)$/);
     assert.match(ui.dialog().textContent!, /Your next trading day · Preparation/);
     assert.match(ui.dialog().textContent!, /Thursday 19 November · day away/);
-    await ui.click("Remove", ui.dialog());
+    await ui.click("Remove", ui.dialog(), () => ui.noticeText().includes("Removed from"));
     await ui.render();
     assert.equal(pendingCarries(foldCarries(ui.events()), tuesday).length, 1);
   } finally { await ui.close(); }
