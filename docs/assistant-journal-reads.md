@@ -77,7 +77,7 @@ One answer sends at most 30 entries and 12,000 characters of journal text. The n
 - Deleted notes, demo sessions and heart-rate check-in notes.
 - Audio, screenshots, chart captures, quotes, capture environment details and original transcripts.
 - Heart rate, baselines and any other measured context.
-- Trades, executions, prices, P&L figures and P&L snapshots.
+- Trades, executions, prices and P&L by these two tools. Trades have their own opt-in, described in [assistant-screen-reads.md](assistant-screen-reads.md). P&L snapshots are never sent.
 - Session IDs and note IDs. The card uses them for its links, and the Edge Function removes them before calling the model.
 - "What changed?" on the Done screen, because it is never saved.
 

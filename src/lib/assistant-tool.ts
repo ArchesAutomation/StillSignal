@@ -6,6 +6,11 @@ export const SUPPORT_HISTORY_TOOL = "support_history";
 // Offered only to accounts listed for journal reads. See docs/assistant-journal-reads.md.
 export const JOURNAL_TOOL = "journal_entries";
 export const DONE_TOOL = "done_for_the_day";
+export const SESSIONS_TOOL = "session_history";
+export const STILLNESS_TOOL = "stillness_practices";
+/** Each read has its own server-side list, so each kind of record is approved separately. */
+export type AssistantReads = { journal: boolean; trades: boolean; stillness: boolean };
+export const NO_READS: AssistantReads = { journal: false, trades: false, stillness: false };
 
 // Both tools take the same period. The model names it; the browser resolves it to dates in
 // the screens' day timezone, so the model never computes dates.

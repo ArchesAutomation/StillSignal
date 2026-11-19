@@ -116,9 +116,11 @@ export default function Privacy() {
         OpenRouter lists as not collecting or retaining them. If journal reading
         is turned on for your invited account, the Daily Journal passages and
         Done for the Day answers it reads for your question are sent the same
-        way. Audio, screenshots, heart rate, original transcripts, trades and
-        P&amp;L are not sent. The conversation is not saved, and the assistant
-        cannot change your records.
+        way. If session and trade reading is turned on, the trades, prices,
+        quantities and recorded P&amp;L it reads for your question are sent too.
+        Audio, screenshots, heart rate, original transcripts, account IDs and
+        recording names are not sent. The conversation is not saved, and the
+        assistant cannot change your records.
       </p>
       <p>
         Export the selected session as JSON from Settings. Deleting it removes

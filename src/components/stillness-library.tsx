@@ -13,7 +13,7 @@ import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/prep
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import type { AwayEvent, AwayEventBody } from "@/lib/process/away-days";
-import { catalogue } from "@/lib/stillness-catalogue";
+import { catalogue, stillnessLibraryResults } from "@/lib/stillness-catalogue";
 import {
   carriesFor, carryUnchangedSince, choiceKey, destinationText, findCarry, formatCarryDate, libraryChoices,
   pendingCarries, planCarry, removeCarry, replaceCarry, sameChoice, stageLabel, type Carries, type Carry, type CarryChange,
@@ -377,15 +377,7 @@ function StillnessLibraryForOwner({
     });
   }
 
-  const results = catalogue.filter(
-    (item) =>
-      (filter === "All" || item.kind === filter) &&
-      (!tags.length || item.tags.some((tag) => tags.includes(tag))) &&
-      [item.name, item.desc, ...item.tags]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()),
-  );
+  const results = stillnessLibraryResults({ filter, tags, search });
   const daily =
     page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"

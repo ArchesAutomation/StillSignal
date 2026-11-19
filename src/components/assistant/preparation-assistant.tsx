@@ -24,8 +24,24 @@ import {
   type JournalHistory,
   type JournalReadEntry,
 } from "@/lib/assistant-journal";
-import { JOURNAL_LINK_EVENT, openJournalLink } from "@/lib/assistant-links";
-import { DONE_TOOL, JOURNAL_TOOL, PREPARATION_TOOL, SUPPORT_HISTORY_TOOL } from "@/lib/assistant-tool";
+import { JOURNAL_LINK_EVENT, openAssistantLink, type AssistantLink } from "@/lib/assistant-links";
+import {
+  sessionHistory,
+  stillnessPractices,
+  type SessionHistory,
+  type StillnessPractices,
+  type TradeRow,
+} from "@/lib/assistant-screens";
+import {
+  DONE_TOOL,
+  JOURNAL_TOOL,
+  NO_READS,
+  PREPARATION_TOOL,
+  SESSIONS_TOOL,
+  STILLNESS_TOOL,
+  SUPPORT_HISTORY_TOOL,
+  type AssistantReads,
+} from "@/lib/assistant-tool";
 import { cloudConfigured } from "@/lib/cloud";
 import { dateInZone } from "@/lib/process/model";
 import { PeriodError, resolvePeriod } from "@/lib/process/periods";
@@ -94,6 +110,33 @@ export async function readDone(
   return doneHistory(await listSessions(owner), await readProcess(owner), owner, input, now, timezone, sync());
 }
 
+export async function readSessionHistory(
+  owner: string,
+  input: unknown = {},
+  now = Date.now(),
+  timezone = dayTimezone(),
+) {
+  const { symbol: _symbol, ...period } = (input ?? {}) as Record<string, unknown>;
+  resolvePeriod(period, dateInZone(now, timezone));
+  return sessionHistory(await listSessions(owner), owner, input, now, timezone, sync());
+}
+
+export async function readStillnessPractices(_owner: string, input: unknown = {}) {
+  return stillnessPractices(input);
+}
+
+function OpenLink({ link, children }: { link: AssistantLink; children: string }) {
+  return (
+    <button type="button" className="ss-assistant-link" onClick={() => openAssistantLink(link)}>
+      {children}
+    </button>
+  );
+}
+const Source = ({ children }: { children: string }) => <p className="ss-assistant-source">Source: {children}</p>;
+/** Today has its own screen. A past day opens that day's Journal, which shows what was saved. */
+const dayLink = (date: string, page: "Preparation" | "Done"): AssistantLink =>
+  date === dateInZone(Date.now(), dayTimezone()) ? { page } : { date };
+
 const periodSpan = (history: { from: string; to: string; label: string }) =>
   `${history.label.toUpperCase()} · ${history.from === history.to ? history.from : `${history.from} to ${history.to}`}`;
 
@@ -125,6 +168,7 @@ function PreparationDayRows({ day }: { day: PreparationDay }) {
       {rows.length ? <Rows rows={rows} /> : (
         <p>{day.recorded ? "Day saved · nothing recorded in Preparation." : "Nothing saved."}</p>
       )}
+      {day.recorded && <OpenLink link={dayLink(day.date, "Preparation")}>Open this day</OpenLink>}
     </li>
   );
 }
@@ -142,6 +186,7 @@ export function PreparationHistoryCard({ history }: { history: PreparationHistor
           <PreparationDayRows key={day.date} day={day} />
         ))}
       </ol>
+      <Source>Preparation saved on this device.</Source>
     </section>
   );
 }
@@ -162,6 +207,7 @@ function SupportDayRows({ day }: { day: SupportDay }) {
       {rows.length ? <Rows rows={rows} /> : (
         <p>{day.saved ? "Day saved · no support chosen." : "Nothing saved."}</p>
       )}
+      {day.saved && <OpenLink link={dayLink(day.date, "Preparation")}>Open this day</OpenLink>}
     </li>
   );
 }
@@ -184,6 +230,7 @@ export function SupportHistoryCard({ history }: { history: SupportHistory }) {
           These are additions. Still Signal doesn’t record whether a practice was completed.
         </p>
       )}
+      <Source>Home, Preparation and Done for the Day saved on this device.</Source>
     </section>
   );
 }
@@ -195,9 +242,7 @@ function JournalEntryRow({ entry }: { entry: JournalReadEntry }) {
       <small>{heading}</small>
       {entry.question && <p className="ss-assistant-footnote">{entry.question}</p>}
       <blockquote>{entry.text}</blockquote>
-      <button type="button" className="ss-assistant-link" onClick={() => openJournalLink(entry.link)}>
-        Open in Journal
-      </button>
+      <OpenLink link={entry.link}>Open in Journal</OpenLink>
     </article>
   );
 }
@@ -232,6 +277,7 @@ export function JournalHistoryCard({ history }: { history: JournalHistory }) {
         ))}
       </ol>
       {leftOut(history.omitted)}
+      <Source>Daily Journal entries saved on this device.</Source>
     </section>
   );
 }
@@ -260,6 +306,7 @@ export function DoneHistoryCard({ history }: { history: DoneHistory }) {
             {day.writing.map((entry) => (
               <JournalEntryRow key={`${entry.link.sessionId}:${entry.link.noteId ?? entry.kind}`} entry={entry} />
             ))}
+            <OpenLink link={day.link}>{"page" in day.link ? "Open Done for the Day" : "Open this day"}</OpenLink>
           </li>
         ))}
       </ol>
@@ -267,6 +314,107 @@ export function DoneHistoryCard({ history }: { history: DoneHistory }) {
       {history.result === "found" && (
         <p className="ss-assistant-footnote">“What changed?” stays on the Done screen and isn’t saved.</p>
       )}
+      <Source>Done for the Day and that day’s Journal, saved on this device.</Source>
+    </section>
+  );
+}
+
+const amounts = (rows: { text: string }[]) => rows.map((row) => row.text).join(" · ");
+
+function TradeLine({ trade }: { trade: TradeRow }) {
+  const times = trade.exitTime ? `${trade.entryTime}–${trade.exitTime}` : `${trade.entryTime} · open`;
+  const prices = trade.exitPrice === null ? String(trade.entryPrice) : `${trade.entryPrice} → ${trade.exitPrice}`;
+  return (
+    <li data-trade={trade.symbol}>
+      <strong>
+        {trade.symbol} · {trade.side} {trade.quantity}
+      </strong>
+      <span>
+        {times} · {prices}
+      </span>
+      <span>{trade.pnl?.text ?? "P&L not recorded"}</span>
+      <small>{trade.source}</small>
+    </li>
+  );
+}
+
+export function SessionHistoryCard({ history }: { history: SessionHistory }) {
+  const { totals } = history;
+  const rows: [string, string][] = [
+    ["Recordings", String(totals.recordings)],
+    ["Orders executed", String(totals.orders)],
+    ["Closed trades", String(totals.closedTrades)],
+  ];
+  if (totals.realised.length) rows.push(["Realised P&L", amounts(totals.realised)]);
+  if (totals.winRate !== null)
+    rows.push(["Win rate", `${totals.winRate} of ${totals.completedWithKnownPnl} closed with recorded P&L`]);
+  return (
+    <section className="ss-assistant-card" aria-label="Saved sessions" data-session-history>
+      <small>
+        SESSIONS · {periodSpan(history)}
+        {history.symbol ? ` · ${history.symbol}` : ""}
+      </small>
+      {history.result === "empty" && <p>No sessions were saved for these dates.</p>}
+      {history.result === "no-match" && <p>No trades for {history.symbol} were saved for these dates.</p>}
+      {history.sync === "not-checked" && (
+        <p>Read from this device without syncing. Days saved on another device may be missing.</p>
+      )}
+      {history.result === "found" && <Rows rows={rows} />}
+      <ol>
+        {history.days.map((day) => (
+          <li key={day.date} data-session-day={day.date}>
+            <strong>
+              {day.weekday} · {day.date}
+            </strong>
+            <p>
+              {day.recordings} recording{day.recordings === 1 ? "" : "s"} · {day.orders} order{day.orders === 1 ? "" : "s"} ·{" "}
+              {day.closedTrades} closed{day.realised.length ? ` · ${amounts(day.realised)}` : ""}
+            </p>
+            {!!day.trades.length && (
+              <ul className="ss-assistant-trades">
+                {day.trades.map((trade, index) => (
+                  <TradeLine key={`${trade.symbol}:${trade.entryTime}:${index}`} trade={trade} />
+                ))}
+              </ul>
+            )}
+            {day.sessions.map((session, index) => (
+              <OpenLink key={index} link={session.link}>
+                {`Open ${session.start} recording`}
+              </OpenLink>
+            ))}
+          </li>
+        ))}
+      </ol>
+      {history.omittedTrades > 0 && (
+        <p className="ss-assistant-footnote">
+          {history.omittedTrades} earlier trade{history.omittedTrades === 1 ? " is" : "s are"} not listed but count in the totals.
+        </p>
+      )}
+      <OpenLink link={{ page: "Sessions" }}>Open Saved sessions</OpenLink>
+      <Source>Saved sessions and recorded executions on this device. Realised P&L is as recorded.</Source>
+    </section>
+  );
+}
+
+export function StillnessPracticesCard({ result }: { result: StillnessPractices }) {
+  return (
+    <section className="ss-assistant-card" aria-label="Stillness practices" data-stillness-practices>
+      <small>STILLNESS LIBRARY</small>
+      {result.result === "no-match" && <p>No practices in the library match that.</p>}
+      <ol>
+        {result.practices.map((practice) => (
+          <li key={practice.name} data-practice={practice.name}>
+            <strong>{practice.name}</strong>
+            <p className="ss-assistant-footnote">
+              {practice.kind} · {practice.duration} · {practice.focus.join(" · ")}
+            </p>
+            <p>{practice.description}</p>
+            <OpenLink link={practice.link}>Open in Stillness</OpenLink>
+          </li>
+        ))}
+      </ol>
+      {result.omitted > 0 && <p className="ss-assistant-footnote">{result.omitted} more match. Narrow the question to see them.</p>}
+      <Source>Still Signal’s Stillness library.</Source>
     </section>
   );
 }
@@ -292,6 +440,8 @@ export function PreparationStatusCard({ status }: { status: PreparationStatus })
           </div>
         ))}
       </dl>
+      <OpenLink link={{ page: "Preparation" }}>Open Preparation</OpenLink>
+      <Source>Preparation saved on this device.</Source>
     </section>
   );
 }
@@ -326,6 +476,20 @@ function DoneTool({ result, status, isError }: ToolCallMessagePartProps) {
   return <DoneHistoryCard history={result as DoneHistory} />;
 }
 
+function SessionsTool({ result, status, isError }: ToolCallMessagePartProps) {
+  if (isError) return <p className="ss-assistant-error" role="alert">{String(result)}</p>;
+  if (status.type === "running" || result === undefined)
+    return <p className="ss-assistant-note">Reading saved sessions…</p>;
+  return <SessionHistoryCard history={result as SessionHistory} />;
+}
+
+function StillnessTool({ result, status, isError }: ToolCallMessagePartProps) {
+  if (isError) return <p className="ss-assistant-error" role="alert">{String(result)}</p>;
+  if (status.type === "running" || result === undefined)
+    return <p className="ss-assistant-note">Looking through the Stillness library…</p>;
+  return <StillnessPracticesCard result={result as StillnessPractices} />;
+}
+
 const parts = {
   tools: {
     by_name: {
@@ -333,6 +497,8 @@ const parts = {
       [SUPPORT_HISTORY_TOOL]: SupportHistoryTool,
       [JOURNAL_TOOL]: JournalTool,
       [DONE_TOOL]: DoneTool,
+      [SESSIONS_TOOL]: SessionsTool,
+      [STILLNESS_TOOL]: StillnessTool,
     },
   },
 };
@@ -408,13 +574,26 @@ export async function answerTool(
     support: (owner: string, input: unknown) => Promise<unknown>;
     journal?: (owner: string, input: unknown) => Promise<unknown>;
     done?: (owner: string, input: unknown) => Promise<unknown>;
-  } = { preparation: readPreparation, support: readSupportHistory, journal: readJournal, done: readDone },
-  /** Journal text is read only when the server has said this account may use it. */
-  journalAllowed = false,
+    sessions?: (owner: string, input: unknown) => Promise<unknown>;
+    stillness?: (owner: string, input: unknown) => Promise<unknown>;
+  } = {
+    preparation: readPreparation,
+    support: readSupportHistory,
+    journal: readJournal,
+    done: readDone,
+    sessions: readSessionHistory,
+    stillness: readStillnessPractices,
+  },
+  /** These records are read only when the server has said this account may use them. */
+  allowed: AssistantReads = NO_READS,
 ): Promise<ToolAnswer | undefined> {
   const journalRead = tool === JOURNAL_TOOL || tool === DONE_TOOL;
-  if (journalRead && !journalAllowed)
-    return { state: "output-error", tool, errorText: "Journal reading isn’t turned on for this account." };
+  if (
+    (journalRead && !allowed.journal) ||
+    (tool === SESSIONS_TOOL && !allowed.trades) ||
+    (tool === STILLNESS_TOOL && !allowed.stillness)
+  )
+    return { state: "output-error", tool, errorText: "That reading isn’t turned on for this account." };
   const reader =
     tool === PREPARATION_TOOL
       ? read.preparation
@@ -424,7 +603,11 @@ export async function answerTool(
           ? read.journal
           : tool === DONE_TOOL
             ? read.done
-            : undefined;
+            : tool === SESSIONS_TOOL
+              ? read.sessions
+              : tool === STILLNESS_TOOL
+                ? read.stillness
+                : undefined;
   if (!reader) return;
   try {
     return { tool, output: await reader(owner, input) };
@@ -438,7 +621,9 @@ export async function answerTool(
           ? "Preparation could not be read on this device, so this is not an empty result. Try again."
           : journalRead
             ? "Your journal could not be read on this device, so this is not an empty result. Try again."
-            : "Saved support could not be read on this device, so this is not an empty result. Try again.",
+            : tool === SESSIONS_TOOL
+              ? "Saved sessions could not be read on this device, so this is not an empty result. Try again."
+              : "Saved support could not be read on this device, so this is not an empty result. Try again.",
     };
   }
 }
@@ -456,16 +641,31 @@ export function continueAfterTools(options: Parameters<typeof lastAssistantMessa
   );
 }
 
+/** Says exactly which records this account's assistant reads and what leaves the device. */
+export function pilotDisclosure(reads: AssistantReads) {
+  const records = [
+    "Preparation",
+    "support",
+    ...(reads.journal ? ["Daily Journal", "Done for the Day"] : []),
+    ...(reads.trades ? ["saved sessions and trades"] : []),
+  ];
+  const list = `${records.slice(0, -1).join(", ")} and ${records.at(-1)}`;
+  const sent = [...(reads.journal ? ["your journal words"] : []), ...(reads.trades ? ["recorded prices and P&L"] : [])];
+  const library = reads.stillness ? " It can also suggest practices from the Stillness library." : "";
+  if (!sent.length) return `Reads ${list} saved on this device, and sends what it reads to OpenRouter to write the answer.${library} It can’t change anything.`;
+  return `Reads ${list} on this device. What it reads, including ${sent.join(" and ")}, goes to OpenRouter to write the answer.${library} It can’t change anything.`;
+}
+
 export default function PreparationAssistant({
   owner,
   pilotHeaders,
-  journal = false,
+  reads = NO_READS,
 }: {
   owner: string;
   /** Present only for a signed-in pilot account. Supplies a current session token per request. */
   pilotHeaders?: () => Promise<Record<string, string>>;
-  /** The server has allowed this account to read Daily Journal and Done for the Day. */
-  journal?: boolean;
+  /** The extra records the server has allowed this account to read. */
+  reads?: AssistantReads;
 }) {
   const [open, setOpen] = useState(false);
   // On a narrow screen the panel would cover the entry a card has just opened.
@@ -482,7 +682,7 @@ export default function PreparationAssistant({
     sendAutomaticallyWhen: continueAfterTools,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
-      const answer = await answerTool(owner, toolCall.toolName, toolCall.input, undefined, journal);
+      const answer = await answerTool(owner, toolCall.toolName, toolCall.input, undefined, reads);
       if (answer) void output.current?.({ ...answer, toolCallId: toolCall.toolCallId });
     },
   });
@@ -510,16 +710,12 @@ export default function PreparationAssistant({
               {pilotHeaders ? (
                 <>
                   <small>PRIVATE PILOT</small>
-                  <p>
-                    {journal
-                      ? "Reads Preparation, support, Daily Journal and Done for the Day saved on this device, and sends what it reads, including your journal words, to OpenRouter to write the answer. It can’t change anything."
-                      : "Reads Preparation and support saved on this device, and sends what it reads to OpenRouter to write the answer. It can’t change anything."}
-                  </p>
+                  <p>{pilotDisclosure(reads)}</p>
                 </>
               ) : (
                 <>
                   <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
-                  <p>Reads synthetic Preparation, support, Journal and Done records on this device. It can’t change anything.</p>
+                  <p>Reads synthetic Preparation, support, Journal, Done, session and trade records on this device. It can’t change anything.</p>
                 </>
               )}
             </header>

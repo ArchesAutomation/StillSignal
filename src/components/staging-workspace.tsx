@@ -105,7 +105,7 @@ export default function StagingWorkspace({
           />
           {assistant && (
             <Suspense fallback={null}>
-              <PreparationAssistant owner={reviewOwner} journal />
+              <PreparationAssistant owner={reviewOwner} reads={{ journal: true, trades: true, stillness: true }} />
             </Suspense>
           )}
         </>
