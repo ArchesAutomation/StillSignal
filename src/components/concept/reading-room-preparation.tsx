@@ -24,7 +24,7 @@ export function preparationSupport(records: ProcessRecord[], date: string, timez
 }
 
 export default function ReadingRoomPreparation({
-  active, owner, now, store, sessionActive, capturePending, onSetup, onStart, onJournal, onPreview, onGuidance, children,
+  active, owner, now, store, sessionActive, capturePending, onSetup, onStart, onJournal, onPreview, onGuidance, children, carriedThoughts,
 }: {
   active: boolean;
   owner: string;
@@ -38,6 +38,7 @@ export default function ReadingRoomPreparation({
   onPreview: (itemId: string) => void;
   onGuidance: (key?: string) => void;
   children: ReactNode;
+  carriedThoughts?: ReactNode;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const date = dateInZone(now, timezone);
@@ -117,6 +118,7 @@ export default function ReadingRoomPreparation({
               ? <button className="ss-primary" onClick={onJournal}>Open Daily journal →</button>
               : <button className="ss-primary" disabled={unavailable || capturePending} onClick={() => void submit(true)}>Start session →</button>}
           </section>
+          {carriedThoughts}
           {/* Closed until used, so the invitation and Start stay in view. A saved answer opens its section. */}
           <details className="rr-preparation-card rr-preparation-more" open={opened.arrival ?? arrival.length > 0} onToggle={(event) => { const open = event.currentTarget.open; setOpened((state) => ({ ...state, arrival: open })); }}>
             <summary>Name how you’re arriving</summary>

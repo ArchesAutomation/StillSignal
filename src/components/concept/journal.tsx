@@ -4,10 +4,11 @@ import { demoCandles, isDemoSession } from "@/lib/demo-market";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { isBookEntry, isJournalMarker } from "@/lib/journal-book";
 import { isTradeSection, noteTime, sessionTrades } from "@/lib/journal-routing";
-import { money } from "@/lib/model";
+import { money, type JournalEntry, type Session } from "@/lib/model";
 import { liveNotes } from "@/lib/smart-journal";
 import { timelinePhase } from "@/lib/timeline-phase";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { ModuleScope, WorkspaceModule } from "../module-workspace";
 import { useJournalSamples } from "../use-journal-samples";
 import { useMarketData } from "../use-market-data";
@@ -19,15 +20,31 @@ import ReferenceRhythm from "./reference-rhythm";
 import Review from "./review";
 import { cx, type Moment, type Props } from "./shared";
 export type JournalMode = "action" | "book";
-export default function Journal(
-  props: Props & {
+type JournalProps = Props & {
     view: "story" | "review";
     setView: (v: "story" | "review") => void;
     focusTime?: number;
     mode?: JournalMode;
     bookRequest?: BookRequest;
-  },
-) {
+    awayPage?: { content: ReactNode; showInAction: boolean; book?: { session: Session; save: (notes: JournalEntry[]) => Promise<void> } };
+};
+
+export default function Journal(props: JournalProps) {
+  const away = props.awayPage;
+  const datedBook = away?.book;
+  if (datedBook && props.mode === "book") return <ModuleScope active><section className={cx("journal-book-view")}>
+    <WorkspaceModule id="journal-book" title="Journal" order={0}>
+      <JournalBook key={datedBook.session.id} props={props} session={datedBook.session}
+        request={props.bookRequest} saveDatedNotes={datedBook.save} />
+    </WorkspaceModule>
+  </section></ModuleScope>;
+  if (away?.showInAction && props.mode !== "book") return <ModuleScope active><section className={cx("journal-story")}>
+    {away.content}
+  </section></ModuleScope>;
+  return <SessionJournal {...props} />;
+}
+
+function SessionJournal(props: JournalProps) {
   const { pulse: p, session: s, history, view, setView } = props;
   const mode = props.mode ?? "action";
   const story = view === "story" && mode === "action";

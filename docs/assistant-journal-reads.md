@@ -95,7 +95,7 @@ Each quoted entry has an **Open in Journal** button. A book page opens the Journ
 
 ## Enable (needs Caleb's approval)
 
-1. Merge PR #103 first, confirm the pilot still works, then merge this reviewed PR.
+1. Merge this reviewed PR and confirm the existing Preparation pilot still works in production.
 2. In the Supabase dashboard, add the Edge Function secret `STILL_SIGNAL_ASSISTANT_JOURNAL_USER_IDS=<your Supabase user ID>`.
 3. Signed in, ask "What did I write about rushing last week?" and compare the card with the Journal.
 
