@@ -9,6 +9,7 @@ import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import { catalogue } from "@/lib/stillness-catalogue";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { ProcessStore } from "../process/use-process";
 import { ColoursButton } from "../theme-controls";
 import type { StillnessBrowse } from "../stillness-library";
@@ -21,7 +22,7 @@ const destinations = [
 ] as const;
 
 export default function ReadingRoomHome({
-  owner, now, store, onPage, onBrowse, onWeek,
+  owner, now, store, onPage, onBrowse, onWeek, dayAwayChoice,
 }: {
   owner: string;
   now: number;
@@ -29,6 +30,7 @@ export default function ReadingRoomHome({
   onPage: (page: Page) => void;
   onBrowse: (browse: StillnessBrowse) => void;
   onWeek: () => void;
+  dayAwayChoice?: ReactNode;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const date = dateInZone(now, timezone);
@@ -90,6 +92,7 @@ export default function ReadingRoomHome({
         </div>
         <ColoursButton owner={owner} />
       </section>
+      {dayAwayChoice}
 
       <section className="rr-home-focus" aria-labelledby="rr-home-focus">
         <h2 id="rr-home-focus">What would you like support with during trading?</h2>
@@ -103,7 +106,6 @@ export default function ReadingRoomHome({
         </div>
         {store.error && <p role="alert">{store.error}</p>}
       </section>
-
       <section className="rr-home-day" aria-labelledby="rr-home-day">
         <h2 id="rr-home-day">A rhythm for your day</h2>
         <div className="rr-home-grid">

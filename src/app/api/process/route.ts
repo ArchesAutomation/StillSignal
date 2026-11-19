@@ -1,3 +1,4 @@
+import { awayActionSchema, isAwayAction } from "@/lib/process/away-days";
 import { processActionSchema } from "@/lib/process/model";
 import { boundedJson } from "@/lib/validation";
 import { failure } from "@/lib/server";
@@ -7,9 +8,10 @@ export async function POST(request: Request) {
   try {
     if (!request.headers.get("authorization")?.startsWith("Bearer "))
       throw new Error("UNAUTHORIZED");
-    const parsed = processActionSchema.safeParse(
-      await boundedJson(request, 512000),
-    );
+    const body = await boundedJson(request, 512000);
+    const parsed = isAwayAction(body)
+      ? awayActionSchema.safeParse(body)
+      : processActionSchema.safeParse(body);
     if (!parsed.success)
       return Response.json(
         {

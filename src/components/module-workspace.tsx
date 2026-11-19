@@ -195,7 +195,7 @@ export function WorkspaceModule({
     const restores: (() => void)[] = [];
     if (placement.title && placement.title !== title) {
       const heading = host.querySelector<HTMLElement>(
-        ".ss-module-content h1,.ss-module-content h2,.ss-module-content h3",
+        ".ss-module-content :is(h1,h2,h3):not(.ss-module-custom-title)",
       );
       if (heading) {
         const display = heading.style.display;

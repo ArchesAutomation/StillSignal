@@ -1,10 +1,15 @@
 "use client";
 import { Panel } from "@/components/ui/panel";
+import { Button } from "@/components/ui/button";
 import { pullSessions } from "@/lib/cloud";
 import { dailyJournalSession } from "@/lib/journal-collection";
 import { journalDateValue } from "@/lib/journal-day";
 import { dateInZone } from "@/lib/process/model";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { preparationStatus } from "@/lib/process/preparation-status";
+import { isActualExecution } from "@/lib/trade-context";
+import { mergeNotes } from "@/lib/smart-journal";
+import type { JournalEntry, Session } from "@/lib/model";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AccountMenu from "../account-menu";
 import ModuleWorkspace, {
   ModuleScope,
@@ -20,6 +25,7 @@ import { ModeSwitch, ThemeController } from "../theme-controls";
 import WorkspaceAppearance from "../workspace-appearance";
 import { Calendar, weekStart } from "./calendar";
 import CapturePanel from "./capture-panel";
+import DayAwayReview, { CarriedThoughts, formatAwayDate, useDayAwayReview } from "./day-away-review";
 import Journal, { type JournalMode } from "./journal";
 import type { BookRequest } from "./journal-book";
 import JournalDayPicker from "./journal-day-picker";
@@ -88,6 +94,24 @@ export default function ConceptWorkspace(props: Props) {
   const quietRoom = reading || home || preparing || closing || stillness;
   const preparationTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const preparationDate = dateInZone(p.now, preparationTimezone);
+  const away = useDayAwayReview(p.owner, !!props.dayAwayReview);
+  const [awayJournalDate, setAwayJournalDate] = useState<string>();
+  const [awayEntry, setAwayEntry] = useState<{ date: string; id: string }>();
+  const [awayReflectionRequested, setAwayReflectionRequested] = useState(false);
+  const awayDateDialog = useRef<HTMLDialogElement>(null);
+  const [awayDateError, setAwayDateError] = useState("");
+  const awayToday = !!away.days[preparationDate]?.away;
+  const awayDate = (page === "Journal" ? awayJournalDate : undefined) || preparationDate;
+  const awayView = !!props.dayAwayReview && page === "Journal" && !!awayJournalDate;
+  const awayRecord = away.days[awayDate];
+  const awayPreparation = awayView ? preparationStatus(process.records, awayDate, preparationTimezone) : undefined;
+  const savedPreparation = awayPreparation && [awayPreparation.intention, awayPreparation.boundary,
+    awayPreparation.arrival.join(", "), ...awayPreparation.support.map(item => item.title)].filter(Boolean).join("\n");
+  const activitySession = awayView && [s, ...history].find(session => session.events.some(event =>
+    isActualExecution(event) && journalDateValue(event.t) === awayDate));
+  const awaySession = awayView ? [s, ...history].find(session => session.id !== "workspace" && journalDateValue(session.startedAt) === awayDate) : undefined;
+  const useAwayAction = awayView && (awayRecord?.away || !awaySession);
+  const journalTimestamp = awayView ? new Date(`${awayDate}T12:00:00`).getTime() : s.startedAt;
   const support = preparing ? preparationSupport(process.records, preparationDate, preparationTimezone) : undefined;
   useLayoutEffect(() => {
     if (quietRoom) document.documentElement.dataset.journalPresentation = "reading-room";
@@ -197,9 +221,16 @@ export default function ConceptWorkspace(props: Props) {
   }
   async function startPreparedSession() {
     await p.start();
+    if (props.dayAwayReview) await away.markStarted(preparationDate);
     props.onPage("Preparation");
   }
   const go = (next: Page) => {
+    setAwayEntry(undefined);
+    setAwayReflectionRequested(false);
+    const selectedDate = journalDateValue(s.startedAt);
+    const hasDatedBook = !!away.days[selectedDate]?.bookNotes?.length;
+    setAwayJournalDate(next === "Journal" ? awayToday ? preparationDate : hasDatedBook ? selectedDate : undefined : undefined);
+    if (next === "Journal" && awayToday) setJournalModeState("action");
     setWeekly(false);
     setReturnToPreparation(undefined);
     setReturnToDone(false);
@@ -233,6 +264,11 @@ export default function ConceptWorkspace(props: Props) {
     if (capturePending) throw new Error("Confirm or discard your capture draft before opening a reflection.");
     const now = Date.now();
     const date = journalDateValue(now);
+    if (awayToday) {
+      openAwayJournal(date);
+      setAwayReflectionRequested(true);
+      return;
+    }
     if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
       throw new Error("Today’s Journal could not open. Try again.");
     }
@@ -244,6 +280,11 @@ export default function ConceptWorkspace(props: Props) {
   const openJournalBook = async (prompt?: string) => {
     if (capturePending) throw new Error("Confirm or discard your capture draft before opening your journal.");
     const date = journalDateValue(Date.now());
+    if (awayToday) {
+      openAwayJournal(date, "book");
+      setBookRequest({ n: Date.now(), prompt });
+      return;
+    }
     if (journalDateValue(s.startedAt) !== date && !(await p.openJournalDay(date))) {
       throw new Error("Today’s Journal could not open. Try again.");
     }
@@ -253,6 +294,7 @@ export default function ConceptWorkspace(props: Props) {
     setBookRequest({ n: Date.now(), prompt });
   };
   const goFromHome = (next: Page) => {
+    if (props.dayAwayReview && next === "Preparation" && !awayToday) away.beginPreparation(preparationDate);
     if (next === "Pre-Market") {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       setSupportDay({ date: dateInZone(Date.now(), timezone), page: next });
@@ -269,17 +311,29 @@ export default function ConceptWorkspace(props: Props) {
       p.setError("Confirm or discard your capture draft before changing days.");
       return;
     }
+    if (props.dayAwayReview && (away.days[date]?.away || away.days[date]?.reason || away.days[date]?.notes.length || away.days[date]?.bookNotes?.length || away.entries.some(entry => entry.note.followups.some(followup => followup.date === date)))) {
+      openAwayJournal(date, page === "Journal" ? journalMode : "action");
+      return;
+    }
     setOpeningDay(true);
     try {
       await act(async () => {
         if (!(await p.openJournalDay(date))) return;
         setFocusTime(undefined);
         go("Journal");
+        setAwayJournalDate(undefined);
+        setWeek(0);
       });
     } finally {
       setOpeningDay(false);
     }
   };
+  function openAwayJournal(date: string, mode: JournalMode = "action") {
+    go("Journal");
+    setAwayJournalDate(date);
+    setJournalModeState(mode);
+    setWeek(0);
+  }
   const quiet = () => {
     setWhisper(reflections[Math.floor(Math.random() * reflections.length)]);
     clearTimeout(timer.current);
@@ -287,12 +341,35 @@ export default function ConceptWorkspace(props: Props) {
   };
   const journal =
     page === "Journal" || page === "Live Session";
-  const ws = weekStart(s.startedAt, week),
+  const ws = weekStart(journalTimestamp, week),
     we = new Date(ws);
   we.setDate(we.getDate() + 6);
   const latest = p.samples.at(-1);
   const captureTime = p.active ? p.now : s.endedAt || s.startedAt;
   const viewProps = { ...props, onPage: go, onOpenJournalDay: openDay };
+  const awayDates = useMemo(() => props.dayAwayReview ? Object.keys(away.days).filter(date => away.days[date]?.away) : undefined, [props.dayAwayReview, away.days]);
+  const startedDates = useMemo(() => props.dayAwayReview ? Object.keys(away.days).filter(date => away.days[date]?.started) : undefined, [props.dayAwayReview, away.days]);
+  // Provide date context to the existing book without opening or saving a trading session.
+  const bookContext: Session | undefined = awayView && (!awaySession || awayRecord?.bookNotes?.length) ? {
+    id: `dated-book:${awayDate}`, owner: p.owner, name: "Daily journal", source: "journal",
+    startedAt: journalTimestamp, timezone: preparationTimezone, sampleCount: 0, events: [],
+    journal: mergeNotes(awaySession?.journal ?? [], awayRecord?.bookNotes ?? []),
+  } : undefined;
+  async function saveDatedBookNotes(notes: JournalEntry[]) {
+    if (!(await away.saveBook(awayDate, notes))) throw new Error("Your journal page could not be saved.");
+  }
+  const awayContent = awayView && <DayAwayReview
+    key={awayDate}
+    owner={p.owner} date={awayDate}
+    review={away} openEntry={awayEntry}
+    reflectionRequested={awayReflectionRequested} onReflectionOpened={() => setAwayReflectionRequested(false)}
+    onEntry={entry => setAwayEntry(entry && { date: entry.date, id: entry.note.id })}
+    savedPreparation={savedPreparation || undefined}
+    onActivity={activitySession ? () => void act(async () => {
+      if (await p.openSession(activitySession)) { setAwayJournalDate(undefined); setJournalMode("action"); }
+    }) : undefined}
+    onReturn={() => void away.setAway(awayDate, false)}
+  />;
   const workspaceNotices = (
     <>
       {s.demo && (
@@ -449,6 +526,22 @@ export default function ConceptWorkspace(props: Props) {
         </div>
       </aside>
       <main ref={pageRoot}>
+        {props.dayAwayReview && <dialog ref={awayDateDialog} className="rr-away-date-dialog" aria-labelledby="rr-away-date-title">
+          <form onSubmit={async event => {
+            event.preventDefault();
+            const date = String(new FormData(event.currentTarget).get("date"));
+            if (away.days[date]?.started) { setAwayDateError("A trading session was started on this date. Open its session review instead."); return; }
+            if (!p.active && !capturePending && await away.setAway(date, true)) {
+              awayDateDialog.current?.close();
+              openAwayJournal(date);
+            } else setAwayDateError("This date could not be saved. Try again.");
+          }}>
+            <h2 id="rr-away-date-title">Mark a day away</h2>
+            <label>Journal date <input name="date" type="date" defaultValue={preparationDate} max={preparationDate} required /></label>
+            {awayDateError && <p role="alert">{awayDateError}</p>}
+            <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={!away.ready || p.active || capturePending}>Mark as day away</Button><Button onClick={() => awayDateDialog.current?.close()}>Cancel</Button></div>
+          </form>
+        </dialog>}
         {home ? (
           <ReadingRoomHome
             key={p.owner}
@@ -458,6 +551,14 @@ export default function ConceptWorkspace(props: Props) {
             onPage={goFromHome}
             onBrowse={(browse) => { setStillnessBrowse(browse); setStillnessView("library"); go("Stillness"); }}
             onWeek={() => { go("Journal"); setReviewWeek(undefined); setWeekly(true); }}
+            dayAwayChoice={props.dayAwayReview && !p.active && !capturePending && !awayRecord?.started && <div className="rr-away-choice">
+              {awayToday ? <>
+                <p><strong>Day away from charts</strong> <span>· Saved for today</span></p>
+                <Button onClick={() => openAwayJournal(preparationDate)}>Open in Daily journal</Button>
+                <Button onClick={() => away.setAway(preparationDate, false)}>Return to trading day</Button>
+              </> : <Button disabled={!away.ready} onClick={() => away.setAway(preparationDate, true)}>Day away from charts</Button>}
+              {away.message && <span className="sr-only" role="status">{away.message}</span>}
+            </div>}
           />
         ) : (
         <>
@@ -490,12 +591,20 @@ export default function ConceptWorkspace(props: Props) {
             )}
           </div>
           <div className={cx("topactions")}>
-            {reading && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => {
+            {reading && !useAwayAction && <button className="rr-session-action" disabled={capturePending && !p.active} onClick={() => {
               if (p.active) go("Done");
               else void act(startPreparedSession);
             }}>{p.active ? "Go to Done for the day →" : "Start session"}</button>}
+            {props.dayAwayReview && page === "Journal" && <Button disabled={!away.ready || p.active || capturePending} onClick={() => {
+              setAwayDateError("");
+              if (awayDateDialog.current) {
+                const input = awayDateDialog.current.querySelector<HTMLInputElement>('input[name="date"]');
+                if (input) input.value = journalDateValue(journalTimestamp);
+                awayDateDialog.current.showModal();
+              }
+            }}>Mark another date</Button>}
             {page === "Journal" && !reading && p.active && <button onClick={() => go("Done")}>Go to Done for the day →</button>}
-            <details className={cx("tools")}>
+            {!useAwayAction && <details className={cx("tools")}>
               <summary className={cx("iconbtn")} aria-label="Session tools">
                 ⋯
               </summary>
@@ -526,8 +635,12 @@ export default function ConceptWorkspace(props: Props) {
                   Chart & replay
                 </button>
               </div>
-            </details>
-            {journal ? (
+            </details>}
+            {useAwayAction ? awayRecord?.away && <button className={cx("primary")} onClick={() => {
+              setAwayEntry(undefined);
+              setJournalMode("action");
+              setAwayReflectionRequested(true);
+            }}>+ Add reflection</button> : journal ? (
               <>
                 <button
                   className={cx("iconbtn")}
@@ -599,7 +712,7 @@ export default function ConceptWorkspace(props: Props) {
               </button>
             )}
           </div>
-          {page === "Journal" && (
+          {page === "Journal" && !useAwayAction && (
             <div className="ss-journal-history" role="group" aria-label="Journal history">
               <button
                 disabled={!p.canUndoJournal || p.journalHistoryBusy}
@@ -624,7 +737,7 @@ export default function ConceptWorkspace(props: Props) {
             </div>
           )}
         </header>}
-        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>Your day, in your words.</h1><p>{new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · Your reflections, recordings and available evidence, together.</p></div>}
+        {reading && <div className="rr-journal-heading"><div className="ss-eyebrow">Journal / connected moments</div><h1>{awayView && awayRecord?.away ? "Space between sessions." : "Your day, in your words."}</h1><p>{awayView ? formatAwayDate(awayDate) : new Date(s.startedAt).toLocaleDateString("en-GB", {weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: s.timezone})} · {awayView && awayRecord?.away ? "Day away from charts" : "Your reflections, recordings and available evidence, together."}</p></div>}
         {returnToPreparation === page && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Preparation")}>← Back to Preparation</button></div>}
         {page === "Stillness" && returnToDone && <div className="rr-preparation-back"><button className="ss-ghost" onClick={() => go("Done")}>← Back to Done for the day</button></div>}
         {stillness && workspaceNotices}
@@ -637,7 +750,17 @@ export default function ConceptWorkspace(props: Props) {
           sessionActive={p.active}
           capturePending={capturePending}
           onSetup={openPreparationSetup}
-          onStart={async () => { await p.start(); go("Journal"); }}
+          onStart={async () => {
+            await p.start();
+            if (props.dayAwayReview) await away.markStarted(preparationDate);
+            go("Journal");
+            if (awayToday) setJournalModeState("action");
+          }}
+          carriedThoughts={props.dayAwayReview && preparing && <CarriedThoughts
+            entries={away.entries.filter(entry => entry.note.reminder?.preparation === preparationDate)}
+            onOpen={entry => { openAwayJournal(entry.date); setAwayEntry({ date: entry.date, id: entry.note.id }); }}
+            onSeen={entry => void away.setReminder(entry, null)}
+          />}
           onJournal={() => go("Journal")}
           onPreview={previewItem}
           onGuidance={setPreparationGuidance}
@@ -766,7 +889,8 @@ export default function ConceptWorkspace(props: Props) {
           <ModuleScope active={journal}>
             <div hidden={!journal} className={cx("reference-journal-grid")}>
               <WorkspaceModule id="daily-reference" title="Daily reference" section="side" initiallyHidden>
-                <ReadingRoomReference props={viewProps} week={week} onWeek={setWeek} onOpen={openDay} />
+                <ReadingRoomReference props={viewProps} week={week} onWeek={setWeek} onOpen={openDay}
+                  selectedDate={awayView ? journalTimestamp : undefined} awayDates={awayDates} startedDates={startedDates} />
               </WorkspaceModule>
               <WorkspaceModule
                 id="dates"
@@ -798,7 +922,7 @@ export default function ConceptWorkspace(props: Props) {
                     <div>
                       <div className={cx("eyebrow")}>Daily journal</div>
                       <h1>
-                        {new Date(s.startedAt).toLocaleDateString("en-GB", {
+                        {new Date(journalTimestamp).toLocaleDateString("en-GB", {
                           weekday: "long",
                           day: "numeric",
                           month: "long",
@@ -807,8 +931,8 @@ export default function ConceptWorkspace(props: Props) {
                       </h1>
                     </div>
                     <JournalDayPicker
-                      key={s.id}
-                      date={s.startedAt}
+                      key={awayJournalDate || s.id}
+                      date={journalTimestamp}
                       disabled={p.active || openingDay || capturePending}
                       onOpen={openDay}
                     />
@@ -840,9 +964,11 @@ export default function ConceptWorkspace(props: Props) {
                     weekdaysOnly
                     sessions={history}
                     selected={s}
+                    selectedDate={awayView ? journalTimestamp : undefined}
+                    awayDates={awayDates}
                     offset={week}
                     disabled={p.active || openingDay || capturePending}
-                    onOpen={(target) => void act(() => p.openSession(target))}
+                    onOpen={(target) => props.dayAwayReview ? void openDay(journalDateValue(target.startedAt)) : void act(() => p.openSession(target))}
                     onEmptyDay={(date) => void openDay(date)}
                   />
                 </div>
@@ -872,7 +998,7 @@ export default function ConceptWorkspace(props: Props) {
                   </>
                 ) : (
                   <>
-                    <WorkspaceModule
+                    {!useAwayAction && <WorkspaceModule
                       id="session-controls"
                       title="Session controls"
                       order={4}
@@ -952,9 +1078,14 @@ export default function ConceptWorkspace(props: Props) {
                             : "No trades recorded · journal ready"}
                         </span>
                       </section>
-                    </WorkspaceModule>
+                    </WorkspaceModule>}
                     <Journal
                       {...viewProps}
+                      session={awaySession || activitySession || s}
+                      awayPage={awayView ? {
+                        content: awayContent, showInAction: useAwayAction,
+                        book: bookContext ? { session: bookContext, save: saveDatedBookNotes } : undefined,
+                      } : undefined}
                       focusTime={focusTime}
                       mode={journalMode}
                       bookRequest={bookRequest}
@@ -1173,7 +1304,7 @@ export default function ConceptWorkspace(props: Props) {
       <div className={cx("whisper", "pos1", !!whisper && "show")}>
         {whisper}
       </div>
-      <aside
+      {(!awayToday && !useAwayAction || p.active) && <aside
         className={cx("compact-widget-host")}
         aria-label="Still Signal live widget"
       >
@@ -1191,7 +1322,7 @@ export default function ConceptWorkspace(props: Props) {
           onSave={p.addNote}
           onSaveBlueprint={p.updateBlueprint}
         />
-      </aside>
+      </aside>}
     </div>
   );
 }

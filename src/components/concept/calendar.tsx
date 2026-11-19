@@ -5,6 +5,7 @@ import { pnlByCurrency } from "@/lib/trade-context";
 import { liveNotes } from "@/lib/smart-journal";
 import { cx, dateKey } from "./shared";
 import { journalDateValue } from "@/lib/journal-day";
+import type { ReferenceDayLabel } from "@/lib/reading-room";
 export const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 export function weekStart(t: number, offset = 0) {
   const d = new Date(t);
@@ -20,6 +21,9 @@ export function Calendar({
   weekdaysOnly = false,
   onOpen,
   onEmptyDay,
+  selectedDate,
+  awayDates,
+  dayLabels,
   disabled,
 }: {
   sessions: Session[];
@@ -29,15 +33,19 @@ export function Calendar({
   weekdaysOnly?: boolean;
   onOpen: (s: Session) => void;
   onEmptyDay?: (date: string) => void;
+  selectedDate?: number;
+  awayDates?: string[];
+  dayLabels?: Record<string, ReferenceDayLabel>;
   disabled: boolean;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
-  const anchor = new Date(selected.startedAt);
+  const selectedAt = selectedDate ?? selected.startedAt;
+  const anchor = new Date(selectedAt);
   anchor.setDate(1);
   anchor.setMonth(anchor.getMonth() + monthOffset);
   const start = month
     ? weekStart(anchor.getTime())
-    : weekStart(selected.startedAt, offset);
+    : weekStart(selectedAt, offset);
   const count = month
     ? Math.ceil(
         (((anchor.getDay() + 6) % 7) +
@@ -95,7 +103,10 @@ export function Calendar({
           const rows = sessions.filter(
             (s) => dateKey(s.startedAt) === dateKey(d.getTime()),
           );
-          const active = dateKey(selected.startedAt) === dateKey(d.getTime());
+          const date = journalDateValue(d.getTime());
+          const away = awayDates?.includes(date);
+          const label = dayLabels?.[date];
+          const active = dateKey(selectedAt) === dateKey(d.getTime());
           const target =
             rows.find((s) => s.id === selected.id) ||
             rows.sort((a, b) => b.startedAt - a.startedAt)[0];
@@ -121,16 +132,17 @@ export function Calendar({
               }
               aria-label={
                 d.toLocaleDateString("en-US", { dateStyle: "full" }) +
-                (rows.length
+                (dayLabels ? (label ? ` · ${label.detail}` : "") : away ? " · Day away from charts" : rows.length
                   ? ` · ${rows.length} sessions`
                   : onEmptyDay
                     ? " · Start a journal"
                     : " · No session")
               }
+              aria-current={dayLabels && active ? "date" : undefined}
               onClick={() =>
-                target
+                away && onEmptyDay ? onEmptyDay(date) : target
                   ? onOpen(target)
-                  : onEmptyDay?.(journalDateValue(d.getTime()))
+                  : onEmptyDay?.(date)
               }
             >
               {month ? (
@@ -153,7 +165,7 @@ export function Calendar({
                     <span className={cx("daypnl")}>—</span>
                   )}
                   <small>
-                    {rows.length
+                    {away ? "Away" : rows.length
                       ? `${rows.length} session${rows.length === 1 ? "" : "s"}`
                       : "No session"}
                   </small>
@@ -163,10 +175,12 @@ export function Calendar({
                   {weekdays[i]}
                   <strong>
                     {d.getDate()}{" "}
-                    {rows.some((s) => liveNotes(s.journal).length > 0) && (
+                    {!label && rows.some((s) => liveNotes(s.journal).length > 0) && (
                       <i className={cx("dotevent")} />
                     )}
                   </strong>
+                  {label ? <small className="rr-reference-week-label" data-status={label.short}>{label.short}</small> :
+                    !dayLabels && away && <small className="rr-away-week-marker">Away</small>}
                 </>
               )}
             </button>
