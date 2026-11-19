@@ -78,7 +78,7 @@ The assistant cannot edit records, add practices to a day, import files or contr
 
 ## Enable (needs Caleb's approval)
 
-1. Merge in order: PR #103, then the Journal PR, then this PR. Confirm the Preparation pilot still works after each deployment.
+1. #103 and the Journal PR (#102) are live. Merge this PR and confirm the Preparation pilot still works after it deploys.
 2. In the Supabase dashboard, add your user ID to each secret you approve above.
 3. Ask one question for each and compare the card with the screen it opened.
 
