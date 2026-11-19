@@ -3,6 +3,8 @@ node_modules/
 .vercel/
 .env*
 !.env.example
+# Public build flags only. tests/env-production.test.mjs rejects anything else.
+!.env.production
 *.tsbuildinfo
 coverage/
 supabase/.temp/
