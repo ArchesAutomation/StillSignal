@@ -221,7 +221,7 @@ export default function ConceptWorkspace(props: Props) {
   }
   async function startPreparedSession() {
     await p.start();
-    if (props.dayAwayReview) away.write(preparationDate, day => ({ ...day, away: false, started: true }));
+    if (props.dayAwayReview) await away.markStarted(preparationDate);
     props.onPage("Preparation");
   }
   const go = (next: Page) => {
@@ -355,10 +355,8 @@ export default function ConceptWorkspace(props: Props) {
     startedAt: journalTimestamp, timezone: preparationTimezone, sampleCount: 0, events: [],
     journal: mergeNotes(awaySession?.journal ?? [], awayRecord?.bookNotes ?? []),
   } : undefined;
-  function saveDatedBookNotes(notes: JournalEntry[]) {
-    if (!away.write(awayDate, day => ({ ...day, bookNotes: mergeNotes(day.bookNotes ?? [], notes) }))) {
-      throw new Error("Your journal page could not be saved.");
-    }
+  async function saveDatedBookNotes(notes: JournalEntry[]) {
+    if (!(await away.saveBook(awayDate, notes))) throw new Error("Your journal page could not be saved.");
   }
   const awayContent = awayView && <DayAwayReview
     key={awayDate}
@@ -370,7 +368,7 @@ export default function ConceptWorkspace(props: Props) {
     onActivity={activitySession ? () => void act(async () => {
       if (await p.openSession(activitySession)) { setAwayJournalDate(undefined); setJournalMode("action"); }
     }) : undefined}
-    onReturn={() => away.setAway(awayDate, false)}
+    onReturn={() => void away.setAway(awayDate, false)}
   />;
   const workspaceNotices = (
     <>
@@ -529,11 +527,11 @@ export default function ConceptWorkspace(props: Props) {
       </aside>
       <main ref={pageRoot}>
         {props.dayAwayReview && <dialog ref={awayDateDialog} className="rr-away-date-dialog" aria-labelledby="rr-away-date-title">
-          <form onSubmit={event => {
+          <form onSubmit={async event => {
             event.preventDefault();
             const date = String(new FormData(event.currentTarget).get("date"));
             if (away.days[date]?.started) { setAwayDateError("A trading session was started on this date. Open its session review instead."); return; }
-            if (!p.active && !capturePending && away.setAway(date, true)) {
+            if (!p.active && !capturePending && await away.setAway(date, true)) {
               awayDateDialog.current?.close();
               openAwayJournal(date);
             } else setAwayDateError("This date could not be saved. Try again.");
@@ -754,14 +752,14 @@ export default function ConceptWorkspace(props: Props) {
           onSetup={openPreparationSetup}
           onStart={async () => {
             await p.start();
-            if (props.dayAwayReview) away.write(preparationDate, day => ({ ...day, away: false, started: true }));
+            if (props.dayAwayReview) await away.markStarted(preparationDate);
             go("Journal");
             if (awayToday) setJournalModeState("action");
           }}
           carriedThoughts={props.dayAwayReview && preparing && <CarriedThoughts
             entries={away.entries.filter(entry => entry.note.reminder?.preparation === preparationDate)}
             onOpen={entry => { openAwayJournal(entry.date); setAwayEntry({ date: entry.date, id: entry.note.id }); }}
-            onSeen={entry => away.writeNote(entry, note => ({ ...note, reminder: undefined }))}
+            onSeen={entry => void away.setReminder(entry, null)}
           />}
           onJournal={() => go("Journal")}
           onPreview={previewItem}

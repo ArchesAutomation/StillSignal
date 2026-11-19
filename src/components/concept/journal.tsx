@@ -26,7 +26,7 @@ type JournalProps = Props & {
     focusTime?: number;
     mode?: JournalMode;
     bookRequest?: BookRequest;
-    awayPage?: { content: ReactNode; showInAction: boolean; book?: { session: Session; save: (notes: JournalEntry[]) => void } };
+    awayPage?: { content: ReactNode; showInAction: boolean; book?: { session: Session; save: (notes: JournalEntry[]) => Promise<void> } };
 };
 
 export default function Journal(props: JournalProps) {

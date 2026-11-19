@@ -50,7 +50,7 @@ export default function JournalBook({
   props: Props;
   session: Session;
   request?: BookRequest;
-  saveDatedNotes?: (notes: JournalEntry[]) => void;
+  saveDatedNotes?: (notes: JournalEntry[]) => Promise<void>;
 }) {
   const p = props.pulse;
   const store = useProcess(p.owner, props.history);
@@ -132,7 +132,7 @@ export default function JournalBook({
             makeId: () => crypto.randomUUID(),
             liveAt: p.active ? Date.now() : null,
           });
-          if (saveDatedNotes) saveDatedNotes(writes);
+          if (saveDatedNotes) await saveDatedNotes(writes);
           else for (const note of writes) {
             if (existing.some((n) => n.id === note.id)) await p.saveJournalNote(note);
             else await p.addNote(note);

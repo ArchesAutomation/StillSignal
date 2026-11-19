@@ -1,13 +1,7 @@
 import { authClient } from "./cloud";
 import type { JournalEntry } from "./model";
 export const screenshotBucket = "pulse-screenshots";
-export async function uploadScreenshot(
-  file: File,
-  owner: string,
-  sessionId: string,
-): Promise<NonNullable<JournalEntry["screenshot"]>> {
-  if (file.size > 5 * 1024 * 1024)
-    throw new Error("Choose a screenshot smaller than 5 MB.");
+export async function screenshotExtension(file: Blob) {
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   const png =
     head[0] === 137 &&
@@ -24,6 +18,16 @@ export async function uploadScreenshot(
     String.fromCharCode(...head.slice(8, 12)) === "WEBP";
   const extension = png ? "png" : jpg ? "jpg" : webp ? "webp" : null;
   if (!extension) throw new Error("Choose a PNG, JPEG or WebP screenshot.");
+  return extension;
+}
+export async function uploadScreenshot(
+  file: File,
+  owner: string,
+  sessionId: string,
+): Promise<NonNullable<JournalEntry["screenshot"]>> {
+  if (file.size > 5 * 1024 * 1024)
+    throw new Error("Choose a screenshot smaller than 5 MB.");
+  const extension = await screenshotExtension(file);
   const client = authClient();
   if (!client) throw new Error("Sign in and connect to upload a screenshot.");
   const path = `${owner}/${sessionId}/${crypto.randomUUID()}.${extension}`;

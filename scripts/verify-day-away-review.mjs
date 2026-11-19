@@ -29,6 +29,17 @@ try {
       count.onerror = () => { db.close(); reject(count.error); };
     };
   }));
+  const storedCount = (database, store, match) => page.evaluate(([name, objectStore, kind]) => new Promise((resolve, reject) => {
+    const open = indexedDB.open(name);
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const rows = db.transaction(objectStore).objectStore(objectStore).getAll();
+      rows.onsuccess = () => { db.close(); resolve(rows.result.filter(row => !kind || row.record?.kind === kind).length); };
+      rows.onerror = () => { db.close(); reject(rows.error); };
+    };
+  }), [database, store, match]);
+  const tradingDays = () => storedCount("still-signal-process-v1", "records", "day");
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZFwAAAAASUVORK5CYII=", "base64");
 
   await page.goto(url.href);
@@ -39,6 +50,7 @@ try {
   assert.equal(await page.getByLabel("Review layout").count(), 0);
   assert.equal(await button("Mark another date").count(), 0);
   const baseline = await sessions();
+  const baselineDays = await tradingDays();
   await button("Day away from charts").click();
   await page.getByText("Day away saved.", { exact: true }).waitFor();
   await page.reload();
@@ -109,10 +121,18 @@ try {
   await page.getByText("I wanted a little room today.", { exact: true }).waitFor();
   await button("Open reflection and charts").click();
   await page.getByText("The view I came back to after a walk.", { exact: true }).waitFor();
+  await page.reload();
+  await button("Open in Daily journal").click();
+  await page.getByText("I wanted a little room today.", { exact: true }).waitFor();
+  await button("Open reflection and charts").click();
+  await page.getByText("The view I came back to after a walk.", { exact: true }).waitFor();
+  await page.locator(".rr-away-images img").first().evaluate(image => image.decode());
   await bookTab.click();
   await button("Open where you left off").click();
   assert.equal(await journalPage.inputValue(), "These are my separate journal words.");
   assert.equal(await sessions(), baseline, "Away activity and the separate book must not write a trading session.");
+  assert.equal(await tradingDays(), baselineDays, "Away activity must not open a trading day.");
+  assert(await storedCount("still-signal-away-days-v1", "events") >= 4, "Away changes are stored as account-scoped events.");
   await actionTab.click();
 
   await page.setViewportSize({ width: 390, height: 850 });

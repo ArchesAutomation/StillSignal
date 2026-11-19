@@ -35,7 +35,7 @@ The week strip in **Daily reference** uses **Away**, **Prep**, **Session**, and 
 
 To inspect a **Trade** example through the ordinary Journal, start a second isolated review server with `STILL_SIGNAL_DAY_AWAY_REVIEW=false` and a different port. Open `/review` there to see the seeded trades on 13 October 2026. The regular Journal uses recorded activity directly. For the extra browser check that enters a manual trade, set `REGULAR_JOURNAL_REVIEW_URL` to the second server’s loopback origin before running `node scripts/verify-day-away-review.mjs`.
 
-Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. The proposal uses browser-local drafts and private files for the synthetic owner. Account sync, dictation and production schema changes are outside this review build.
+Run `node scripts/verify-day-away-review.mjs` with Chrome installed to check the main journey against that local server. This review build has no Supabase connection, so the synthetic owner's away days stay on this device. Signed-in storage, sync and the release order are described in `docs/away-days.md`. Away-editor dictation is not included.
 
 ## Connected staging
 

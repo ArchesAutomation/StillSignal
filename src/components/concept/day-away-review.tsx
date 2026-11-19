@@ -1,56 +1,60 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/panel";
+import { awayEntries, emptyAwayDay, foldAwayEvents, type AwayDay as Day, type AwayEntry as Entry } from "@/lib/away-day-state";
+import { awayScreenshotUrl, createAwayEvent, discardAwayScreenshot, keepAwayScreenshot, readAwayEvents, saveAwayEvents, syncAwayDays } from "@/lib/away-day-storage";
 import { validateScreenshotFile } from "@/lib/clipboard-screenshot";
-import { keepPrivateFile, privateFile, removePrivateFile } from "@/lib/private-files";
 import type { JournalEntry } from "@/lib/model";
-import { useEffect, useId, useRef, useState } from "react";
+import type { AwayEvent, AwayEventBody, AwayImage as Image } from "@/lib/process/away-days";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WorkspaceModule } from "../module-workspace";
 
-type Image = { path: string; name: string; timeframe: string; caption: string };
-type Note = {
-  id: string;
-  text: string;
-  images: Image[];
-  followups: { date: string; text: string }[];
-  reminder?: { text: string; preparation?: string };
-  example?: boolean;
-};
-type Day = { away: boolean; reason?: { text: string; recordedAt: number }; notes: Note[]; bookNotes?: JournalEntry[]; started?: boolean };
-type Days = Record<string, Day | undefined>;
-type Entry = { date: string; note: Note };
-
-const emptyDay = (): Day => ({ away: false, notes: [] });
+const emptyDay = emptyAwayDay;
 export const formatAwayDate = (date: string) => new Intl.DateTimeFormat("en-GB", {
   dateStyle: "full", timeZone: "UTC",
 }).format(new Date(`${date}T12:00:00Z`));
 const formatDate = formatAwayDate;
 
-// The synthetic review account keeps its proposal drafts apart from process and session storage.
+// Away days are saved on this device first, then synced to the account. They never open a session.
 export function useDayAwayReview(owner: string, enabled: boolean) {
-  const key = `ss-day-away-review:${owner}`;
-  const [days, setDays] = useState<Days>({});
+  const [events, setEvents] = useState<AwayEvent[]>([]);
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState("");
+  const refresh = useCallback(async () => {
+    // A failed sync keeps its changes pending and retries on the next pass.
+    await syncAwayDays(owner).catch(() => {});
+    setEvents(await readAwayEvents(owner));
+  }, [owner]);
   useEffect(() => {
     if (!enabled) return;
-    try {
-      setDays(JSON.parse(localStorage.getItem(key) || "{}") as Days);
+    let active = true;
+    void readAwayEvents(owner).then(saved => {
+      if (!active) return;
+      setEvents(saved);
       setReady(true);
-    } catch {
-      setMessage("This review’s local storage could not be loaded.");
-    }
-  }, [enabled, key]);
+      void refresh().catch(() => {});
+    }).catch(() => { if (active) setMessage("Your away days could not be loaded."); });
+    const sync = () => { if (document.visibilityState === "visible") void refresh().catch(() => {}); };
+    window.addEventListener("online", sync);
+    document.addEventListener("visibilitychange", sync);
+    const timer = setInterval(sync, 60000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("online", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [enabled, owner, refresh]);
 
-  function update(change: (current: Days) => Days, success = "") {
+  async function append(bodies: AwayEventBody[], success = "") {
     if (!ready) return false;
     try {
-      const current = JSON.parse(localStorage.getItem(key) || "{}") as Days;
-      const next = change(current);
-      localStorage.setItem(key, JSON.stringify(next));
-      setDays(next);
+      const rows = bodies.map(body => createAwayEvent(body));
+      await saveAwayEvents(owner, rows);
+      setEvents(current => [...current, ...rows]);
       setMessage(success);
+      void refresh().catch(() => {});
       return true;
     } catch {
       setMessage("This change could not be saved. Your draft is still here.");
@@ -58,25 +62,21 @@ export function useDayAwayReview(owner: string, enabled: boolean) {
     }
   }
 
-  function write(date: string, change: (day: Day) => Day, success?: string) {
-    return update(current => ({ ...current, [date]: change(current[date] ?? emptyDay()) }), success);
-  }
-
-  const entries = Object.entries(days).flatMap(([date, day]) => day?.notes.map(note => ({ date, note })) ?? []);
-  function writeNote(entry: Entry, change: (note: Note) => Note, success?: string) {
-    return write(entry.date, day => ({ ...day, notes: day.notes.map(note => note.id === entry.note.id ? change(note) : note) }), success);
-  }
+  const days = useMemo(() => foldAwayEvents(events), [events]);
+  const entries = useMemo(() => awayEntries(days), [days]);
 
   return {
-    days, entries, ready, message, write, writeNote,
-    setAway: (date: string, away: boolean) => write(date, day => ({ ...day, away }), away ? "Day away saved." : "Trading day restored."),
+    days, entries, ready, message,
+    setAway: (date: string, away: boolean) => append([{ type: "day", date, away }], away ? "Day away saved." : "Trading day restored."),
+    markStarted: (date: string) => append([{ type: "started", date }]),
+    setReason: (date: string, text: string) => append([{ type: "reason", date, text }], "Reason saved."),
+    addNote: (date: string, noteId: string, text: string, images: Image[]) => append([{ type: "note", date, noteId, text, images }], "Reflection saved."),
+    addFollowup: (entry: Entry, followupDate: string, text: string) => append([{ type: "followup", date: entry.date, noteId: entry.note.id, followupDate, text }], "Follow-up saved."),
+    setReminder: (entry: Entry, text: string | null, success = "") => append([{ type: "reminder", date: entry.date, noteId: entry.note.id, text }], success),
+    saveBook: (date: string, notes: JournalEntry[]) => append(notes.map(entry => ({ type: "book" as const, date, entry }))),
     beginPreparation: (date: string) => {
-      if (!entries.some(entry => entry.date < date && entry.note.reminder && !entry.note.reminder.preparation)) return;
-      update(current => Object.fromEntries(Object.entries(current).map(([origin, day]) => [origin, day && {
-        ...day,
-        notes: day.notes.map(note => origin < date && note.reminder && !note.reminder.preparation
-          ? { ...note, reminder: { ...note.reminder, preparation: date } } : note),
-      }])));
+      const due = entries.filter(entry => entry.date < date && entry.note.reminder && !entry.note.reminder.preparation);
+      if (due.length) void append(due.map(entry => ({ type: "reminder-surfaced" as const, date: entry.date, noteId: entry.note.id, preparation: date })));
     },
   };
 }
@@ -121,15 +121,15 @@ function ChartImage({ image, owner }: { image: Image; owner: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
-    let objectUrl = "";
-    void privateFile(image.path, owner).then(blob => {
-      if (!active) return;
-      objectUrl = URL.createObjectURL(blob);
-      setUrl(objectUrl);
+    let release = () => {};
+    void awayScreenshotUrl(owner, image).then(loaded => {
+      if (!active) { loaded.release(); return; }
+      release = loaded.release;
+      setUrl(loaded.url);
     }).catch(() => { if (active) setFailed(true); });
-    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [image.path, owner]);
-  if (failed) return <p>Screenshot unavailable on this device.</p>;
+    return () => { active = false; release(); };
+  }, [image, owner]);
+  if (failed) return <p>This screenshot has not finished syncing to this device.</p>;
   return url ? <img src={url} alt={image.timeframe ? `${image.timeframe} chart screenshot` : image.name} /> : <p>Loading screenshot…</p>;
 }
 
@@ -146,6 +146,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [quickEditor, setQuickEditor] = useState(false);
   const quickDialog = useRef<HTMLDialogElement>(null);
   const enlarged = useRef<HTMLDialogElement>(null);
@@ -185,14 +186,12 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
     const added: Image[] = [];
     try {
       files.forEach(validateScreenshotFile);
-      for (const file of files) {
-        const { path } = await keepPrivateFile(owner, crypto.randomUUID(), "image", file);
-        added.push({ path, name: file.name, timeframe: "", caption: "" });
-      }
+      if (images.length + files.length > 12) throw new Error("Keep each reflection to 12 screenshots.");
+      for (const file of files) added.push(await keepAwayScreenshot(owner, file));
       setIndex(images.length);
       setImages([...images, ...added]);
     } catch (failure) {
-      await Promise.allSettled(added.map(image => removePrivateFile(image.path, owner)));
+      await Promise.allSettled(added.map(image => discardAwayScreenshot(owner, image)));
       setError(failure instanceof Error ? failure.message : "Could not save the screenshots.");
     } finally { setUploading(false); }
   }
@@ -205,34 +204,37 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
     setIndex(next);
   }
 
-  function save() {
+  async function save() {
     const value = text.trim();
     if (!value && (editor !== "charts" || !images.length) && editor !== "reminder") {
       setError(editor === "charts" ? "Add a screenshot or write a reflection." : "Write a few words before saving.");
       return;
     }
+    setSaving(true);
     let saved = false;
-    if (editor === "reason") saved = review.write(date, current => ({ ...current, reason: { text: value, recordedAt: Date.now() } }), "Reason saved.");
+    if (editor === "reason") saved = await review.setReason(date, value);
     if (editor === "reflection" || editor === "charts") {
-      const note: Note = { id: crypto.randomUUID(), text: value, images, followups: [] };
-      saved = review.write(date, current => ({ ...current, notes: [...current.notes, note] }), "Reflection saved.");
+      const note = { id: crypto.randomUUID(), text: value, images, followups: [] };
+      saved = await review.addNote(date, note.id, value, images);
       if (saved) onEntry({ date, note });
     }
-    if (entry && editor === "reminder") saved = review.writeNote(entry, note => ({ ...note, reminder: { text: value } }), "Saved for your next preparation.");
-    if (entry && editor === "followup") saved = review.writeNote(entry, note => ({ ...note, followups: [...note.followups, { date, text: value }] }), "Follow-up saved.");
+    if (entry && editor === "reminder") saved = await review.setReminder(entry, value, "Saved for your next preparation.");
+    if (entry && editor === "followup") saved = await review.addFollowup(entry, date, value);
+    setSaving(false);
     if (saved) edit(undefined);
+    else setError("This could not be saved. Your words are still here. Try again.");
   }
 
   const screenshots = selected && <div className="rr-away-images">
-    <ChartImage key={selected.path} image={selected} owner={owner} />
+    <ChartImage key={selected.id} image={selected} owner={owner} />
     {selected.caption && editor !== "charts" && <p>{selected.caption}</p>}
     <div className="rr-home-actions">
-      {gallery.map((image, position) => <Button key={image.path} aria-pressed={position === index} onClick={() => setIndex(position)}>{image.timeframe || `Image ${position + 1}`}</Button>)}
+      {gallery.map((image, position) => <Button key={image.id} aria-pressed={position === index} onClick={() => setIndex(position)}>{image.timeframe || `Image ${position + 1}`}</Button>)}
       <Button onClick={() => enlarged.current?.showModal()}>Enlarge screenshot</Button>
     </div>
     {editor === "charts" && <>
-      <Input label="Timeframe (optional)" value={selected.timeframe} onChange={event => setImages(images.map((image, position) => position === index ? { ...image, timeframe: event.target.value } : image))} />
-      <Input label="Caption (optional)" value={selected.caption} onChange={event => setImages(images.map((image, position) => position === index ? { ...image, caption: event.target.value } : image))} />
+      <Input label="Timeframe (optional)" maxLength={80} value={selected.timeframe} onChange={event => setImages(images.map((image, position) => position === index ? { ...image, timeframe: event.target.value } : image))} />
+      <Input label="Caption (optional)" maxLength={500} value={selected.caption} onChange={event => setImages(images.map((image, position) => position === index ? { ...image, caption: event.target.value } : image))} />
       <div className="rr-home-actions">
         <Button disabled={index === 0} onClick={() => moveImage(-1)}>Move earlier</Button>
         <Button disabled={index === images.length - 1} onClick={() => moveImage(1)}>Move later</Button>
@@ -241,22 +243,22 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
   </div>;
 
   const entryList = (entries: Entry[], earlier = false) => entries.map(item => <div key={item.note.id} className="rr-away-note">
-    <small>{earlier || item.date !== date ? `From Day in Action · ${formatDate(item.date)}` : formatDate(item.date)}{item.note.example ? " · Example reflection" : ""}</small>
+    <small>{earlier || item.date !== date ? `From Day in Action · ${formatDate(item.date)}` : formatDate(item.date)}</small>
     <p>{item.note.text || "Saved chart review"}</p>
     <Button onClick={() => { setContinuing(false); edit(undefined); onEntry(item); }}>{item.note.images.length ? "Open reflection and charts" : "Open reflection"}</Button>
   </div>);
 
-  const editorForm = editor && <form onSubmit={event => { event.preventDefault(); if (!uploading) save(); }}>
+  const editorForm = editor && <form onSubmit={event => { event.preventDefault(); if (!uploading && !saving) void save(); }}>
     <div className={editor === "charts" ? "rr-away-columns" : undefined}>
       <div className="rr-away-writing">
         <label htmlFor="rr-away-writing">{{reason: "Why I stayed away", reflection: "Reflection", charts: "Reflection (optional)", reminder: "What would you like to bring back to mind?", followup: "Follow-up"}[editor]}</label>
-        <textarea id="rr-away-writing" value={text} onChange={event => setText(event.target.value)} rows={5} autoFocus />
+        <textarea id="rr-away-writing" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={8000} autoFocus />
         {editor === "charts" && <SetupPrompt />}
       </div>
       {editor === "charts" && <div className="rr-away-writing">{screenshots}<Input label="Add screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={uploading} onChange={event => { void attach(Array.from(event.target.files ?? [])); event.target.value = ""; }} /></div>}
     </div>
     {error && <p role="alert">{error}</p>}
-    <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading} onClick={() => { void Promise.allSettled(images.map(image => removePrivateFile(image.path, owner))); edit(undefined); }}>Cancel</Button></div>
+    <div className="rr-home-actions"><Button className="ss-primary" type="submit" disabled={uploading || saving}>{editor === "reminder" ? "Save for next preparation" : "Save"}</Button><Button disabled={uploading || saving} onClick={() => { void Promise.allSettled(images.map(image => discardAwayScreenshot(owner, image))); edit(undefined); }}>Cancel</Button></div>
   </form>;
 
   return <>
@@ -272,7 +274,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
     <WorkspaceModule id="away-reflection" title="Reflection" order={2}>
       <section className="rr-away-review">
         <h2 className="rr-away-widget-label">Reflection</h2>
-        {entry && <p>From Day in Action · {formatDate(entry.date)}{entry.note.example ? " · Example reflection" : ""}</p>}
+        {entry && <p>From Day in Action · {formatDate(entry.date)}</p>}
         {!quickEditor && editor && editor !== "reason" ? editorForm : entry ? <div className="rr-away-card">
           <div className={gallery.length ? "rr-away-columns" : undefined}>
             <div className="rr-away-writing">
@@ -280,7 +282,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
               {entry.note.followups.map((followup, position) => <div className="rr-away-note" key={position}><small>{formatDate(followup.date)}</small><p>{followup.text}</p></div>)}
               {entry.note.reminder && <div className="rr-away-note"><small>At your next preparation</small><p>{entry.note.reminder.text || entry.note.text || "Saved chart review"}</p></div>}
               <div className="rr-home-actions">
-                {entry.note.reminder ? <Button onClick={() => review.writeNote(entry, note => ({ ...note, reminder: undefined }), "Reminder removed.")}>Remove reminder</Button> : <Button onClick={() => edit("reminder")}>Show at my next preparation</Button>}
+                {entry.note.reminder ? <Button onClick={() => void review.setReminder(entry, null, "Reminder removed.")}>Remove reminder</Button> : <Button onClick={() => edit("reminder")}>Show at my next preparation</Button>}
                 {day.away && entry.date < date && <Button onClick={() => edit("followup")}>Add a follow-up</Button>}
                 <Button onClick={() => { setIndex(0); onEntry(); }}>Back to the day</Button>
               </div>
@@ -298,7 +300,7 @@ export default function DayAwayReview({ owner, date, review, openEntry, onEntry,
         {onActivity && <div className="rr-away-links"><p>Trades were recorded for this date.</p><Button onClick={onActivity}>View trading activity</Button></div>}
         {day.away && <div className="rr-home-actions"><Button disabled={uploading} onClick={onReturn}>Return to trading day</Button></div>}
         <p className="sr-only" role="status">{review.message}</p>
-        <dialog className="rr-away-zoom" ref={enlarged} aria-label="Enlarged screenshot"><Button onClick={() => enlarged.current?.close()}>Close screenshot</Button>{selected && <ChartImage key={selected.path} image={selected} owner={owner} />}</dialog>
+        <dialog className="rr-away-zoom" ref={enlarged} aria-label="Enlarged screenshot"><Button onClick={() => enlarged.current?.close()}>Close screenshot</Button>{selected && <ChartImage key={selected.id} image={selected} owner={owner} />}</dialog>
       </section>
     </WorkspaceModule>
     {quickEditor && createPortal(<dialog className="rr-away-date-dialog" ref={quickDialog} aria-label="Write a reflection" onCancel={() => edit(undefined)}>{editorForm}</dialog>, document.body)}
