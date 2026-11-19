@@ -13,6 +13,7 @@ export type StillnessItem = {
     paragraphs: string[];
     sources: { title: string; url: string }[];
     awayStep?: number;
+    pauseSeconds?: number[];
   };
 };
 
@@ -69,26 +70,25 @@ export const personalPractices: StillnessItem[] = [
   {
     id: "same-decision", name: "Same decision, different outcome", kind: "Practice", duration: "3 min",
     tags: ["Fear", "Greed"], color: "pink",
-    desc: "When you are ready to reflect, examine the decision without letting the outcome set the whole standard.",
+    desc: "Revisit how a trade actually ended, feel the opposite ending, and see what stays true about your decision.",
     steps: [
-      ["Recall the decision", "Recall the information available at the time and the decisions you made. Leave out what you only learned afterwards."],
-      ["Change only the outcome", "If this loss had won, or this win had lost, keep the same information and decisions in mind. Imagine only the result changing."],
-      ["Notice the judgment", "Does your judgment of the decision change with the imagined result? Disappointment and excitement can differ. Your standard for the decision can stay consistent."],
-      ["Recognise what deserves review", "What followed your plan, and what deserves a later factual review? A win does not erase a broken rule. A loss alone does not establish that the decision was wrong."],
+      ["Recall the real decision", "Bring one trade to mind. Return to what you knew then, what you saw in the setup and what you actually chose. Now remember the instant you saw the result.\n\nStay with that first reaction for a few breaths. Where do you feel it? Give it a little time before telling yourself what it means."],
+      ["Change only the outcome", "Keep the setup, information and every decision exactly as they were. If the trade lost, picture watching it hit your target. If it won, picture watching it hit your stop. Let yourself see that moment play out.\n\nSpend a little time in this version. Notice whether relief, tension, disappointment, excitement or something else shows up. You can stay with it for a few breaths."],
+      ["Notice the judgment and come back", "What do you say about yourself or your decision in each version? Give each judgment a moment to be heard.\n\nLet the imagined ending fade. Feel your feet on the floor. Remember how the trade actually ended. Can you let this be how today ended, just for this breath?"],
+      ["Recognise what deserves review", "What can you say about how you traded that would be true in either ending? You may have followed your plan and lost. You may have broken a rule and won. Name whatever you can say about your decision without the result deciding it for you.\n\nIf something needs a factual review, give it its own time later. For now, take one breath with the real ending."],
     ],
-    question: "What can I recognise about my decisions independently of the result?",
+    question: "What can I say about how I traded that would be true in either ending?",
     guidance: {
+      pauseSeconds: [35, 45, 35, 30],
       context: [
-        "Presence invites attention to what was actually known, rather than a story built afterwards.",
-        "You are observing how the mind gives meaning to a result, without needing to identify with that meaning.",
-        "Witnessing allows the feeling and the judgment to be noticed separately. Neither has to disappear.",
-        "Non-identification means a result need not become a verdict on who you are. Honest correction can still follow.",
+        "As you remember the moment, notice that the reaction you are feeling belongs to this breath. The trade is over, and the memory is here now.",
+        "You can watch your mind give the same decision a different meaning as the picture changes. Give yourself a moment to notice that happening.",
+        "There is room to hear the judgment as it comes up. Feel the floor again and notice what is here when you leave the imagined scene.",
+        "You can witness disappointment or satisfaction while still looking plainly at the choice you made. Give both a place for this breath.",
       ],
       paragraphs: [
-        "This is an original reflection about applying the same standards to wins and losses. Use it after the immediate intensity has eased, not as another demand to analyse while heated.",
-        "Witnessing invites a distinction between your awareness and the thoughts passing through it. You can notice the judgment of a decision as it appears, without accepting it as the whole picture.",
-        "A rule-breaking entry may win. Imagine it losing with exactly the same decisions: would you suddenly recognise the broken rule? Conversely, a loss need not erase the parts of a decision that followed your plan.",
-        "The aim is consistent assessment, not identical emotions, proof of a valid model, or a requirement to feel proud.",
+        "The two endings give you time to notice how a result can change the feeling and the story about the same choice. Coming back to the real ending gives you a moment to meet what actually happened.",
+        "In the language of presence, witnessing means hearing the judgment while it is being made. You can feel the loss and still look at the decision clearly later. A factual review has its own time and its own evidence.",
       ], sources: [tolle, singer],
     },
   },
@@ -116,6 +116,31 @@ export const personalPractices: StillnessItem[] = [
         "For example, yesterday’s loss may appear when you see a similar situation today. Notice the memory and tension, then return to what you can actually observe. This practice does not establish whether the situation meets your model.",
         "No action is required. Hesitation is not proof you should enter, and finishing is not a declaration of readiness.",
       ], sources: [tolle, singer],
+    },
+  },
+  {
+    id: "feels-personal", name: "When it feels personal", kind: "Practice", duration: "3 min",
+    tags: ["Fear", "Impulsiveness"], color: "green",
+    desc: "When you feel like a victim of price, blame yourself for what happened, or wish the day had gone differently.",
+    steps: [
+      ["Hear the sentence", "“Why does this always happen to me?” “Price took me out and then went exactly where I thought it would.” “I’ve done this to myself again.”\n\nLet your own sentence come through in the words you would actually use. Which part of it hurts? Take a few breaths and listen."],
+      ["Notice the part that feels wronged", "Try saying quietly, “A part of me feels wronged by what happened,” or “A part of me is angry with me.” Use whichever fits, or put it your own way.\n\nGive that part a moment to speak. Notice how it feels to hear it. The feeling can stay just as strong."],
+      ["Practise acceptance in this moment", "Feel the weight of your body on the chair or your feet on the floor. If you hear “I’ll be okay with this tomorrow,” try giving what is here today room for one breath.\n\nThis is what happened. This is how it feels right now. You can say both and still wish it had gone differently."],
+      ["Return to choice", "Perhaps there is a decision to own. Perhaps you followed your plan and dislike the result. What do you know happened? What can you choose now? What can wait?\n\nGive yourself a little time before answering. You can close the charts with something still unresolved."],
+    ],
+    question: "What do I know happened, what can I choose now, and what can wait?",
+    guidance: {
+      pauseSeconds: [35, 40, 35, 30],
+      context: [
+        "Even as a part of you says “this shouldn’t have happened,” you can hear it saying that. Take a moment to notice the sound of the thought in your own words.",
+        "Let that part finish its sentence. Rest briefly in the experience of hearing it, with whatever feeling is there.",
+        "The feeling, the chair and the thought about tomorrow are all here to be noticed now. Stay with what you can feel for one breath.",
+        "Notice the part of you that still wants a different ending. Give it room while you feel your hand resting on the desk or in your lap. The next choice can be small.",
+      ],
+      paragraphs: [
+        "A part of you may be making a case for why the day should have gone differently. While that is happening, you can also hear the case being made. The practice gives you a few breaths to stay with that experience.",
+        "Acceptance here is the simple recognition that this happened and this is how it feels in this moment. You can acknowledge it with the hurt still present, and choose what to do with the rest of your day.",
+      ], sources: [],
     },
   },
 ];

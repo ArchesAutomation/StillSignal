@@ -13,13 +13,14 @@ import { knownStillnessChoice, stillnessChoiceSummary } from "@/lib/process/prep
 import { readProcess } from "@/lib/process/storage";
 import { emptyTradingDay, tradingDayFor } from "@/lib/process/trading-day";
 import type { AwayEvent, AwayEventBody } from "@/lib/process/away-days";
-import { catalogue, stillnessLibraryResults } from "@/lib/stillness-catalogue";
+import { catalogue, stillnessLibraryResults, stillnessMoments, type StillnessMoment } from "@/lib/stillness-catalogue";
 import {
   carriesFor, carryUnchangedSince, choiceKey, destinationText, findCarry, formatCarryDate, libraryChoices,
   pendingCarries, planCarry, removeCarry, replaceCarry, sameChoice, stageLabel, type Carries, type Carry, type CarryChange,
 } from "@/lib/stillness-carry";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Page } from "./concept/shared";
+import JournalSelect from "./concept/journal-select";
 import type { ProcessStore } from "./process/use-process";
 import { CarryForm, type CarryFormValue } from "./stillness-carry-form";
 import { LanguageChoice, StillnessPreferences, Understanding, useStillnessDraft, useStillnessPreferences } from "./stillness-personal";
@@ -62,7 +63,8 @@ export type CarrySupport = {
   /** The words of a linked away reflection, shown when a carry has no note of its own. */
   reflectionText?: (carry: Carry) => string | undefined;
 };
-const types = ["All", "Sequence", "Practice", "Reminder"];
+const formats = ["Sequence", "Practice", "Reminder"];
+const momentNames = Object.keys(stillnessMoments) as StillnessMoment[];
 const find = (choice: Choice) =>
   catalogue.find((entry) => entry.id === choice.itemId)!;
 const same = (a: Choice, b: Choice) =>
@@ -142,8 +144,10 @@ function StillnessLibraryForOwner({
   const preferences = useStillnessPreferences(owner);
   const draft = useStillnessDraft(owner);
   const [search, setSearch] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState("All");
   const [tags, setTags] = useState<string[]>([]);
+  const [moments, setMoments] = useState<StillnessMoment[]>([]);
   const [panel, setPanel] = useState<Panel | null>(null);
   useEffect(() => {
     setPanel(null);
@@ -153,6 +157,7 @@ function StillnessLibraryForOwner({
     setSearch("");
     setFilter("All");
     setTags(browse.tags);
+    setMoments([]);
     if (known({ itemId: browse.itemId })) setPanel({ type: "overview", choice: { itemId: browse.itemId } });
   }, [browse]);
   const [destination, setDestination] = useState<Destination>("Preparation");
@@ -377,7 +382,14 @@ function StillnessLibraryForOwner({
     });
   }
 
-  const results = stillnessLibraryResults({ filter, tags, search });
+  const results = stillnessLibraryResults({ filter, tags, search, moments });
+  const clearFilters = () => {
+    setMoments([]);
+    setTags([]);
+    setFilter("All");
+    setSearch("");
+    searchInput.current?.focus();
+  };
   const daily =
     page === "Preparation" || page === "Pre-Market" || page === "Prepare"
       ? "Preparation"
@@ -404,6 +416,7 @@ function StillnessLibraryForOwner({
   const currentItem = current ? find(current) : null;
   const absoluteStep = current?.piece ?? index;
   const away = panel?.type === "player" && currentItem?.guidance?.awayStep === absoluteStep;
+  const suggestedPause = currentItem?.guidance?.pauseSeconds?.[absoluteStep];
   const languageChoice = <LanguageChoice value={preferences.value.language} disabled={!preferences.loaded}
     onChange={language => preferences.update(previous => ({ ...previous, language }))} />;
   const next = () => {
@@ -460,60 +473,64 @@ function StillnessLibraryForOwner({
             </div>
           </div>
           <div className="ss-support-tools">
+            <div className="ss-support-facet-label">Browse by moment</div>
+            <div className="ss-support-moments" role="group" aria-label="Browse by moment">
+              <button aria-pressed={!moments.length} onClick={() => setMoments([])}>All</button>
+              {momentNames.map(moment => (
+                <button key={moment} aria-pressed={moments.includes(moment)} onClick={() =>
+                  setMoments(previous => previous.includes(moment) ? previous.filter(value => value !== moment) : [...previous, moment])
+                }>{moment}</button>
+              ))}
+            </div>
+            <div className="ss-support-facet-label">Focus</div>
+            <div className="ss-support-actions">
+              <div className="ss-support-actions" role="group" aria-label="Big 4 filters">
+                {bigFour.map((focus) => {
+                  const { title } = supportFocus[focus];
+                  return (
+                    <button
+                      key={focus}
+                      className="ss-focus-filter"
+                      data-focus={title}
+                      style={focusStyle(title)}
+                      aria-pressed={tags.includes(title)}
+                      onClick={() =>
+                        setTags((previous) =>
+                          previous.includes(title)
+                            ? previous.filter((tag) => tag !== title)
+                            : [...previous, title],
+                        )
+                      }
+                    >
+                      <i aria-hidden="true" />{title}
+                    </button>
+                  );
+                })}
+              </div>
+              <JournalSelect aria-label="Support format" value={filter === "All" ? "" : filter} emptyLabel="Format" openBeside
+                className="ss-support-format" onChange={event => setFilter(event.target.value || "All")}>
+                <option value="">Any format</option>
+                {formats.map(format => <option key={format}>{format}</option>)}
+              </JournalSelect>
+            </div>
             <input
+              ref={searchInput}
+              type="search"
               aria-label="Search support"
               placeholder="Search support…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
-            <div
-              className="ss-support-actions"
-              role="group"
-              aria-label="Big 4 filters"
-            >
-              {bigFour.map((focus) => {
-                const { title } = supportFocus[focus];
-                return (
-                  <button
-                    key={focus}
-                    className="ss-focus-filter"
-                    data-focus={title}
-                    style={focusStyle(title)}
-                    aria-pressed={tags.includes(title)}
-                    onClick={() =>
-                      setTags((previous) =>
-                        previous.includes(title)
-                          ? previous.filter((tag) => tag !== title)
-                          : [...previous, title],
-                      )
-                    }
-                  >
-                    <i aria-hidden="true" />{title}
-                  </button>
-                );
-              })}
-            </div>
           </div>
           <div className="ss-support-layout">
             <div>
-              <div
-                className="ss-support-actions"
-                role="group"
-                aria-label="Support type"
-              >
-                {types.map((type) => (
-                  <button
-                    key={type}
-                    aria-pressed={filter === type}
-                    onClick={() => setFilter(type)}
-                  >
-                    {type}
-                  </button>
-                ))}
+              <div className="ss-support-results">
+                <p className="ss-support-count" role="status">
+                  {results.length} {results.length === 1 ? "way" : "ways"} to make a little space
+                </p>
+                {!!(moments.length || tags.length || filter !== "All" || search.trim()) && results.length > 0 &&
+                  <button onClick={clearFilters}>Clear all filters</button>}
               </div>
-              <p className="ss-support-count">
-                {results.length} {results.length === 1 ? "way" : "ways"} to make a little space
-              </p>
               <div className="ss-support-cards">
                 {results.map((item) => (
                   <button
@@ -536,7 +553,10 @@ function StillnessLibraryForOwner({
                   </button>
                 ))}
               </div>
-              {!results.length && <p>No support matches those filters.</p>}
+              {!results.length && <div className="ss-support-empty">
+                <p>No support matches those filters.</p>
+                <button onClick={clearFilters}>Clear all filters</button>
+              </div>}
             </div>
           </div>
         </>
@@ -790,6 +810,10 @@ function StillnessLibraryForOwner({
                   {away ? "Take the time you need. Continue here when you return."
                     : paused
                     ? "Paused"
+                    : suggestedPause && elapsed < suggestedPause
+                      ? `${suggestedPause - elapsed}s suggested pause · continue at your pace`
+                    : suggestedPause
+                      ? "Continue when you’re ready"
                     : elapsed
                       ? elapsed + "s · continue at your pace"
                       : "Continue whenever you like"}

@@ -16,7 +16,10 @@ function optionsOf(children:ReactNode):{value:string;label:string;disabled:boole
 }
 
 /** A styled, keyboard-accessible control backed by the existing native form contract. */
-export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectElement>) {
+export default function JournalSelect({ openBeside, emptyLabel, ...props }: SelectHTMLAttributes<HTMLSelectElement> & {
+  openBeside?: boolean;
+  emptyLabel?: string;
+}) {
   const {children,value,disabled}=props;
   const id=useId(), native=useRef<HTMLSelectElement>(null), trigger=useRef<HTMLButtonElement>(null), menu=useRef<HTMLDivElement>(null);
   const [open,setOpen]=useState(false), [active,setActive]=useState(0), [position,setPosition]=useState<CSSProperties>({});
@@ -27,6 +30,15 @@ export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectEleme
   function show(index=selected<0?0:selected) {
     if(disabled || !trigger.current)return;
     const rect=trigger.current.getBoundingClientRect(),width=Math.min(Math.max(rect.width,kind==="Trade"?250:215),window.innerWidth-24);
+    const sideLeft = rect.right + 38;
+    if (openBeside && sideLeft + width <= window.innerWidth - 12) {
+      const menuHeight = options.length * 39 + 14;
+      const top = Math.max(12, Math.min(rect.top - 40, window.innerHeight - menuHeight - 12));
+      setPosition({ position: "fixed", left: sideLeft, width, top });
+      setActive(index);
+      setOpen(true);
+      return;
+    }
     const below=window.innerHeight-rect.bottom,above=rect.top,up=below<Math.min(310,options.length*38+40) && above>below;
     const height=Math.min(360,Math.max(48,(up?above:below)-18),window.innerHeight-24);
     setPosition({position:"fixed",left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),width,...(up?{bottom:Math.max(12,window.innerHeight-rect.top+7)}:{top:Math.max(12,Math.min(rect.bottom+7,window.innerHeight-height-12))}),maxHeight:height});
@@ -61,11 +73,11 @@ export default function JournalSelect(props:SelectHTMLAttributes<HTMLSelectEleme
       if(e.key.length===1 && !e.ctrlKey && !e.metaKey){const now=Date.now();typeahead.current={text:(now-typeahead.current.at<700?typeahead.current.text:"")+e.key.toLowerCase(),at:now};const found=options.findIndex(o=>o.label.toLowerCase().startsWith(typeahead.current.text));if(found>=0){e.preventDefault();if(open)setActive(found);else show(found);}}
     }}>
       <span className="ss-select-leading" aria-hidden="true">{kind==="Stage" && phaseColors[String(value)]?<i style={{background:phaseColors[String(value)]}}/>:<svg viewBox="0 0 16 16" fill="none"><path d={kind==="Trade"?"M3 4h10M3 8h7M3 12h4":kind==="Capture"?"M8 3v5l3 2M13 8A5 5 0 1 1 8 3":"M3 4h10M3 8h10M3 12h10"} stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>}</span>
-      <span className="ss-select-value">{options[selected]?.label || "Choose…"}</span>
+      <span className="ss-select-value">{(value === "" && emptyLabel) || options[selected]?.label || "Choose…"}</span>
       <svg className="ss-select-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
     </button>
     {open && createPortal(<div ref={menu} className="ss-journal-select-menu" style={position}>
-      <div className="ss-select-menu-heading">{kind}<span>{options.length} options</span></div>
+      {!openBeside && <div className="ss-select-menu-heading">{kind}<span>{options.length} options</span></div>}
       <div className="ss-select-options" role="listbox" id={`${id}-menu`} aria-label={`${label} options`}>
         {options.map((option,index)=><div key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value===String(value??"")} aria-disabled={option.disabled} className={`ss-select-option ${index===active?"ss-select-option-active":""} ${option.value===String(value??"")?"ss-select-option-selected":""}`} onPointerMove={()=>setActive(index)} onMouseDown={e=>e.preventDefault()} onClick={()=>choose(index)}>
           <span className="ss-option-symbol" aria-hidden="true">{kind==="Stage" && phaseColors[option.value]?<i style={{background:phaseColors[option.value]}}/>:kind==="Trade" && option.value && option.value!=="session"?<span className="ss-option-trade">{index}</span>:<i/>}</span>
