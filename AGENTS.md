@@ -5,6 +5,13 @@
 - Verify the current production deployment against repository source before UI work or a release. Deployment Git metadata can omit files uploaded directly through the deployment API. See `docs/production-source.md`.
 - Process schemas and domain validation are maintained in `src/lib`. Regenerate their cloud counterparts with `node scripts/prepare-edge.mjs` after changes. Keep saved historical records and pinned definition versions compatible.
 
+## Ask Still Signal coverage
+
+- Every feature PR must assess whether it changes information, calculations, navigation or actions that Ask Still Signal reads, reports, links to or describes. The assistant's sources are `src/lib/assistant-*.ts`, `src/lib/handlers/assistant.ts`, `src/components/assistant/*` and `docs/assistant-*.md`.
+- When it does, update the affected assistant tools, tool and model descriptions, card source lines and links, privacy disclosure and docs in the same PR. Reuse the screens' own helpers so answers match the app, regenerate `supabase/functions/pulse-assistant` with `node scripts/prepare-edge.mjs`, and extend the focused `tests/assistant-*.test.ts` and synthetic `/review` verification.
+- When the assistant cannot yet answer about a new feature, say so plainly in the PR description, for example "Ask Still Signal does not support X yet", and do not let the assistant claim otherwise.
+- Keep the assistant read-only, scoped to the signed-in account, and behind its server-side allowlists. A new kind of personal record needs its own opt-in secret, stays off until Caleb approves live data, and is sent only with `data_collection: "deny"`, `zdr: true` and `allow_fallbacks: false`. Never send IDs, heart rate, audio, screenshots or other fields the docs list as never sent, and verify with synthetic records.
+
 ## GitHub review and Cloudflare release
 
 - Make each update on a separate branch. Run the applicable local checks and exercise the changed behavior before pushing. If a required local check fails or cannot run, keep the update local and report the blocker.
