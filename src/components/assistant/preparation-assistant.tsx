@@ -15,8 +15,17 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   type UIMessage,
 } from "ai";
-import { useRef, useState } from "react";
-import { PREPARATION_TOOL, SUPPORT_HISTORY_TOOL } from "@/lib/assistant-tool";
+import { useEffect, useRef, useState } from "react";
+import {
+  doneHistory,
+  journalHistory,
+  journalPeriod,
+  type DoneHistory,
+  type JournalHistory,
+  type JournalReadEntry,
+} from "@/lib/assistant-journal";
+import { JOURNAL_LINK_EVENT, openJournalLink } from "@/lib/assistant-links";
+import { DONE_TOOL, JOURNAL_TOOL, PREPARATION_TOOL, SUPPORT_HISTORY_TOOL } from "@/lib/assistant-tool";
 import { cloudConfigured } from "@/lib/cloud";
 import { dateInZone } from "@/lib/process/model";
 import { PeriodError, resolvePeriod } from "@/lib/process/periods";
@@ -33,6 +42,7 @@ import {
   type SupportHistory,
   type SupportPractice,
 } from "@/lib/process/support-history";
+import { listSessions } from "@/lib/storage";
 import "./preparation-assistant.css";
 
 // The day timezone the app's screens use when they save and look up a day.
@@ -62,6 +72,26 @@ export async function readSupportHistory(
 ) {
   resolvePeriod(input, dateInZone(now, timezone));
   return supportHistory(await readProcess(owner), input, now, timezone, sync());
+}
+
+export async function readJournal(
+  owner: string,
+  input: unknown = {},
+  now = Date.now(),
+  timezone = dayTimezone(),
+) {
+  journalPeriod(input, dateInZone(now, timezone));
+  return journalHistory(await listSessions(owner), owner, input, now, timezone, sync());
+}
+
+export async function readDone(
+  owner: string,
+  input: unknown = {},
+  now = Date.now(),
+  timezone = dayTimezone(),
+) {
+  resolvePeriod(input, dateInZone(now, timezone));
+  return doneHistory(await listSessions(owner), await readProcess(owner), owner, input, now, timezone, sync());
 }
 
 const periodSpan = (history: { from: string; to: string; label: string }) =>
@@ -158,6 +188,89 @@ export function SupportHistoryCard({ history }: { history: SupportHistory }) {
   );
 }
 
+function JournalEntryRow({ entry }: { entry: JournalReadEntry }) {
+  const heading = [entry.kind, entry.time, entry.label].filter(Boolean).join(" · ");
+  return (
+    <article className="ss-assistant-entry" data-journal-entry>
+      <small>{heading}</small>
+      {entry.question && <p className="ss-assistant-footnote">{entry.question}</p>}
+      <blockquote>{entry.text}</blockquote>
+      <button type="button" className="ss-assistant-link" onClick={() => openJournalLink(entry.link)}>
+        Open in Journal
+      </button>
+    </article>
+  );
+}
+
+const leftOut = (omitted: number) =>
+  omitted > 0 && (
+    <p className="ss-assistant-footnote">
+      {omitted === 1 ? "1 earlier entry was" : `${omitted} earlier entries were`} left out. Ask about a shorter period to read {omitted === 1 ? "it" : "them"}.
+    </p>
+  );
+
+export function JournalHistoryCard({ history }: { history: JournalHistory }) {
+  return (
+    <section className="ss-assistant-card" aria-label="Journal entries" data-journal-history>
+      <small>JOURNAL · {periodSpan(history)}</small>
+      {history.topic && <p className="ss-assistant-footnote">Entries using the words “{history.topic}”.</p>}
+      {history.result === "empty" && <p>Nothing was written for these dates.</p>}
+      {history.result === "no-match" && <p>No entries for these dates use those words. Related wording isn’t searched.</p>}
+      {history.sync === "not-checked" && (
+        <p>Read from this device without syncing. Days saved on another device may be missing.</p>
+      )}
+      <ol>
+        {history.days.map((day) => (
+          <li key={day.date} data-journal-day={day.date}>
+            <strong>
+              {day.weekday} · {day.date}
+            </strong>
+            {day.entries.map((entry) => (
+              <JournalEntryRow key={`${entry.link.sessionId}:${entry.link.noteId ?? entry.kind}`} entry={entry} />
+            ))}
+          </li>
+        ))}
+      </ol>
+      {leftOut(history.omitted)}
+    </section>
+  );
+}
+
+export function DoneHistoryCard({ history }: { history: DoneHistory }) {
+  return (
+    <section className="ss-assistant-card" aria-label="Done for the Day" data-done-history>
+      <small>DONE FOR THE DAY · {periodSpan(history)}</small>
+      {history.result === "empty" && <p>Nothing was saved in Done for the Day for these dates.</p>}
+      {history.sync === "not-checked" && (
+        <p>Read from this device without syncing. Days saved on another device may be missing.</p>
+      )}
+      <ol>
+        {history.days.map((day) => (
+          <li key={day.date} data-done-day={day.date}>
+            <strong>
+              {day.weekday} · {day.date}
+            </strong>
+            <Rows
+              rows={[
+                ["How the day turned out", day.outcome ?? empty],
+                ["How you followed your plan", day.process ?? empty],
+                ...(day.practices.length ? [["Added to Done for the Day", practices(day.practices)] as [string, string]] : []),
+              ]}
+            />
+            {day.writing.map((entry) => (
+              <JournalEntryRow key={`${entry.link.sessionId}:${entry.link.noteId ?? entry.kind}`} entry={entry} />
+            ))}
+          </li>
+        ))}
+      </ol>
+      {leftOut(history.omitted)}
+      {history.result === "found" && (
+        <p className="ss-assistant-footnote">“What changed?” stays on the Done screen and isn’t saved.</p>
+      )}
+    </section>
+  );
+}
+
 const empty = "Not recorded";
 export function PreparationStatusCard({ status }: { status: PreparationStatus }) {
   const rows: [string, string][] = [
@@ -199,11 +312,27 @@ function SupportHistoryTool({ result, status, isError }: ToolCallMessagePartProp
   return <SupportHistoryCard history={result as SupportHistory} />;
 }
 
+function JournalTool({ result, status, isError }: ToolCallMessagePartProps) {
+  if (isError) return <p className="ss-assistant-error" role="alert">{String(result)}</p>;
+  if (status.type === "running" || result === undefined)
+    return <p className="ss-assistant-note">Reading your journal…</p>;
+  return <JournalHistoryCard history={result as JournalHistory} />;
+}
+
+function DoneTool({ result, status, isError }: ToolCallMessagePartProps) {
+  if (isError) return <p className="ss-assistant-error" role="alert">{String(result)}</p>;
+  if (status.type === "running" || result === undefined)
+    return <p className="ss-assistant-note">Reading Done for the Day…</p>;
+  return <DoneHistoryCard history={result as DoneHistory} />;
+}
+
 const parts = {
   tools: {
     by_name: {
       [PREPARATION_TOOL]: PreparationTool,
       [SUPPORT_HISTORY_TOOL]: SupportHistoryTool,
+      [JOURNAL_TOOL]: JournalTool,
+      [DONE_TOOL]: DoneTool,
     },
   },
 };
@@ -274,10 +403,28 @@ export async function answerTool(
   owner: string,
   tool: string,
   input: unknown,
-  read = { preparation: readPreparation, support: readSupportHistory },
+  read: {
+    preparation: (owner: string, input: unknown) => Promise<unknown>;
+    support: (owner: string, input: unknown) => Promise<unknown>;
+    journal?: (owner: string, input: unknown) => Promise<unknown>;
+    done?: (owner: string, input: unknown) => Promise<unknown>;
+  } = { preparation: readPreparation, support: readSupportHistory, journal: readJournal, done: readDone },
+  /** Journal text is read only when the server has said this account may use it. */
+  journalAllowed = false,
 ): Promise<ToolAnswer | undefined> {
+  const journalRead = tool === JOURNAL_TOOL || tool === DONE_TOOL;
+  if (journalRead && !journalAllowed)
+    return { state: "output-error", tool, errorText: "Journal reading isn’t turned on for this account." };
   const reader =
-    tool === PREPARATION_TOOL ? read.preparation : tool === SUPPORT_HISTORY_TOOL ? read.support : undefined;
+    tool === PREPARATION_TOOL
+      ? read.preparation
+      : tool === SUPPORT_HISTORY_TOOL
+        ? read.support
+        : tool === JOURNAL_TOOL
+          ? read.journal
+          : tool === DONE_TOOL
+            ? read.done
+            : undefined;
   if (!reader) return;
   try {
     return { tool, output: await reader(owner, input) };
@@ -289,7 +436,9 @@ export async function answerTool(
       errorText:
         tool === PREPARATION_TOOL
           ? "Preparation could not be read on this device, so this is not an empty result. Try again."
-          : "Saved support could not be read on this device, so this is not an empty result. Try again.",
+          : journalRead
+            ? "Your journal could not be read on this device, so this is not an empty result. Try again."
+            : "Saved support could not be read on this device, so this is not an empty result. Try again.",
     };
   }
 }
@@ -310,19 +459,30 @@ export function continueAfterTools(options: Parameters<typeof lastAssistantMessa
 export default function PreparationAssistant({
   owner,
   pilotHeaders,
+  journal = false,
 }: {
   owner: string;
   /** Present only for a signed-in pilot account. Supplies a current session token per request. */
   pilotHeaders?: () => Promise<Record<string, string>>;
+  /** The server has allowed this account to read Daily Journal and Done for the Day. */
+  journal?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // On a narrow screen the panel would cover the entry a card has just opened.
+  useEffect(() => {
+    const close = () => {
+      if (window.matchMedia("(max-width: 760px)").matches) setOpen(false);
+    };
+    window.addEventListener(JOURNAL_LINK_EVENT, close);
+    return () => window.removeEventListener(JOURNAL_LINK_EVENT, close);
+  }, []);
   const output = useRef<ReturnType<typeof useChat>["addToolOutput"]>(undefined);
   const chat = useChat({
     transport: new DefaultChatTransport({ api: "/api/assistant", headers: pilotHeaders }),
     sendAutomaticallyWhen: continueAfterTools,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
-      const answer = await answerTool(owner, toolCall.toolName, toolCall.input);
+      const answer = await answerTool(owner, toolCall.toolName, toolCall.input, undefined, journal);
       if (answer) void output.current?.({ ...answer, toolCallId: toolCall.toolCallId });
     },
   });
@@ -350,12 +510,16 @@ export default function PreparationAssistant({
               {pilotHeaders ? (
                 <>
                   <small>PRIVATE PILOT</small>
-                  <p>Reads Preparation and support saved on this device, and sends what it reads to OpenRouter to write the answer. It can’t change anything.</p>
+                  <p>
+                    {journal
+                      ? "Reads Preparation, support, Daily Journal and Done for the Day saved on this device, and sends what it reads, including your journal words, to OpenRouter to write the answer. It can’t change anything."
+                      : "Reads Preparation and support saved on this device, and sends what it reads to OpenRouter to write the answer. It can’t change anything."}
+                  </p>
                 </>
               ) : (
                 <>
                   <small>LOCAL PROTOTYPE · SYNTHETIC REVIEW</small>
-                  <p>Reads today’s Preparation and recent support on this device. It can’t change anything.</p>
+                  <p>Reads synthetic Preparation, support, Journal and Done records on this device. It can’t change anything.</p>
                 </>
               )}
             </header>
@@ -366,7 +530,7 @@ export default function PreparationAssistant({
               {error && <p className="ss-assistant-error" role="alert">{error}</p>}
               <ComposerPrimitive.Root className="ss-assistant-composer">
                 <ComposerPrimitive.Input
-                  aria-label="Ask about today"
+                  aria-label="Ask Still Signal"
                   placeholder="What’s my preparation status?"
                   rows={1}
                 />
