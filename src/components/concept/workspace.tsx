@@ -338,10 +338,11 @@ export default function ConceptWorkspace(props: Props) {
       if (target.id !== s.id && !(await p.openSession(target))) return;
       // Selecting the moment also clears any Journal filters that would hide it.
       setFocusTime(link.at);
-      setAwayJournalDate(undefined);
-      setJournalMode(link.book ? "book" : "action");
       setView("story");
       go("Journal");
+      // go() reopens today's Away Day; a card link shows the linked entry's own day instead.
+      setAwayJournalDate(undefined);
+      setJournalMode(link.book ? "book" : "action");
       if (link.book) setBookRequest({ n: Date.now() });
       else if (link.noteId) revealJournalNote(link.noteId);
     });
